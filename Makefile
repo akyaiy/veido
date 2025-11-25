@@ -1,20 +1,24 @@
 APP_NAME=app
 SRC=$(wildcard *.go)
+BIN_PATH=bin/
+DB_PATH=data/db/
+MAIN_DIR=cmd/
+
 
 all: build
 
 build:
 	@echo "Building..."
-	GOOS=linux GOARCH=amd64 go build -o $(APP_NAME) $(SRC)
+	GOOS=linux GOARCH=amd64 go build -o $(BIN_PATH)$(APP_NAME) $(SRC)
 
 run:
 	@echo "Running server..."
-	go run *.go
+	go run $(MAIN_DIR)server/*.go
 
 clean:
 	@echo "Cleaning..."
-	rm -f $(APP_NAME)
-	rm -f data.db
+	rm -f $(BIN_PATH)$(APP_NAME)
+	rm -f $(DB_PATH)data.db
 
 fmt:
 	@echo "Formatting..."
@@ -29,7 +33,7 @@ deps:
 
 initdb:
 	@echo "Initializing SQLite DB..."
-	@touch data.db
+	@touch $(DB_PATH)data.db
 	go run *.go & sleep 1 && kill $$!
 
 zip:

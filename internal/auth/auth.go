@@ -1,4 +1,4 @@
-package auch
+package auth
 
 import (
 	"database/sql"

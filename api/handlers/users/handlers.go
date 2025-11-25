@@ -1,4 +1,4 @@
-package main
+package users
 
 import (
 	"database/sql"
@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"MyServer/packages/auch"
+	"MyServer/internal/auth"
 )
 
 // setRefreshCookie sets HttpOnly cookie for refresh token.
@@ -16,7 +16,7 @@ func setRefreshCookie(w http.ResponseWriter, token string, ttl time.Duration) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "refresh_token",
 		Value:    token,
-		Path:     "/api/refresh",
+		Path:     "/api/users/refresh",
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode, // ensures sent with fetch and after reload
 		MaxAge:   int(ttl.Seconds()),
@@ -26,7 +26,7 @@ func setRefreshCookie(w http.ResponseWriter, token string, ttl time.Duration) {
 
 /* ------------------- Protected ------------------- */
 
-func DeleteUserHandler(db *sql.DB, aut *auch.Auth) http.HandlerFunc {
+func DeleteUserHandler(db *sql.DB, aut *auth.Auth) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		_, ok := aut.AuthenticateRequest(r)
 		if !ok {
@@ -56,7 +56,7 @@ func DeleteUserHandler(db *sql.DB, aut *auch.Auth) http.HandlerFunc {
 	}
 }
 
-func UpdateUserPasswordHandler(db *sql.DB, aut *auch.Auth) http.HandlerFunc {
+func UpdateUserPasswordHandler(db *sql.DB, aut *auth.Auth) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		_, ok := aut.AuthenticateRequest(r)
 		if !ok {
@@ -88,7 +88,7 @@ func UpdateUserPasswordHandler(db *sql.DB, aut *auch.Auth) http.HandlerFunc {
 	}
 }
 
-func GetUserDataHandler(db *sql.DB, aut *auch.Auth) http.HandlerFunc {
+func GetUserDataHandler(db *sql.DB, aut *auth.Auth) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		_, ok := aut.AuthenticateRequest(r)
 		if !ok {
@@ -113,7 +113,7 @@ func GetUserDataHandler(db *sql.DB, aut *auch.Auth) http.HandlerFunc {
 	}
 }
 
-func GetUsersHandler(db *sql.DB, aut *auch.Auth) http.HandlerFunc {
+func GetUsersHandler(db *sql.DB, aut *auth.Auth) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		_, ok := aut.AuthenticateRequest(r)
 		if !ok {
@@ -135,24 +135,24 @@ func GetUsersHandler(db *sql.DB, aut *auch.Auth) http.HandlerFunc {
 	}
 }
 
-func LoadProtected(aut *auch.Auth) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		id, ok := aut.AuthenticateRequest(r)
-		if !ok {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
+// func LoadProtected(aut *auth.Auth) http.HandlerFunc {
+// 	return func(w http.ResponseWriter, r *http.Request) {
+// 		id, ok := aut.AuthenticateRequest(r)
+// 		if !ok {
+// 			http.Error(w, "unauthorized", http.StatusUnauthorized)
+// 			return
+// 		}
 
-		json.NewEncoder(w).Encode(map[string]any{
-			"message": "Hello from protected endpoint",
-			"user_id": id,
-		})
-	}
-}
+// 		json.NewEncoder(w).Encode(map[string]any{
+// 			"message": "Hello from protected endpoint",
+// 			"user_id": id,
+// 		})
+// 	}
+// }
 
 /* ------------------- Public: Register ------------------- */
 
-func RegisterHandler(db *sql.DB, aut *auch.Auth) http.HandlerFunc {
+func RegisterHandler(db *sql.DB, aut *auth.Auth) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var in struct{ Username, Password string }
 		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
@@ -180,7 +180,7 @@ func RegisterHandler(db *sql.DB, aut *auch.Auth) http.HandlerFunc {
 
 /* ------------------- Public: Login + Refresh ------------------- */
 
-func LoginHandler(db *sql.DB, aut *auch.Auth) http.HandlerFunc {
+func LoginHandler(db *sql.DB, aut *auth.Auth) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var in struct{ Username, Password string }
 		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
@@ -230,7 +230,7 @@ func LoginHandler(db *sql.DB, aut *auch.Auth) http.HandlerFunc {
 
 /* ------------------- Refresh (public) ------------------- */
 
-func RefreshHandler(db *sql.DB, aut *auch.Auth) http.HandlerFunc {
+func RefreshHandler(db *sql.DB, aut *auth.Auth) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		c, err := r.Cookie("refresh_token")
 		if err != nil {
@@ -244,7 +244,7 @@ func RefreshHandler(db *sql.DB, aut *auch.Auth) http.HandlerFunc {
 			http.SetCookie(w, &http.Cookie{
 				Name:     "refresh_token",
 				Value:    "",
-				Path:     "/api/refresh",
+				Path:     "/api/users/refresh",
 				HttpOnly: true,
 				MaxAge:   -1,
 			})

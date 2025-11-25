@@ -15,7 +15,7 @@ async function apiProtected(path, options = {}) {
 
     if (r.status === 401) {
         // обновляем access
-        const rr = await fetch("/api/refresh", {
+        const rr = await fetch("/api/users/refresh", {
             method: "POST",
             credentials: "include"
         });
@@ -38,7 +38,7 @@ document.getElementById("btn_reg").onclick = async () => {
     const u = reg_user.value,
         p = reg_pass.value;
 
-    const r = await fetch("/api/register", {
+    const r = await fetch("/api/users/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: u, password: p })
@@ -56,7 +56,7 @@ document.getElementById("btn_log").onclick = async () => {
     const u = log_user.value,
         p = log_pass.value;
 
-    const r = await fetch("/api/login", {
+    const r = await fetch("/api/users/login", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -76,7 +76,7 @@ document.getElementById("btn_log").onclick = async () => {
 /* ------------------- Защищённые операции ------------------- */
 
 async function getUsersNames() {
-    const users = await apiProtected("/api/getUserNames");
+    const users = await apiProtected("/api/users/getUserNames");
 
     users_list.innerHTML = "";
     users.forEach((username) => {
@@ -91,7 +91,7 @@ async function getUsersNames() {
 
 async function getUserData(username) {
     const data = await apiProtected(
-        `/api/getUserData?username=${encodeURIComponent(username)}`
+        `/api/users/getUserData?username=${encodeURIComponent(username)}`
     );
 
     ud_id.value = data.ID;
@@ -104,7 +104,7 @@ async function updatePassword() {
 
     if (!password) return alert("Введите пароль");
 
-    await apiProtected("/api/update_password", {
+    await apiProtected("/api/users/update_password", {
         method: "POST",
         body: JSON.stringify({ username, password })
     });
@@ -118,7 +118,7 @@ async function deleteUser() {
 
     if (!confirm(`Удалить пользователя "${username}"?`)) return;
 
-    await apiProtected("/api/delete_user", {
+    await apiProtected("/api/users/delete_user", {
         method: "POST",
         body: JSON.stringify({ username })
     });
@@ -147,7 +147,7 @@ btn_prot.onclick = async () => {
 
 btn_logout.onclick = async () => {
     accessToken = "";
-    await fetch("/api/logout", { method: "POST", credentials: "include" });
+    await fetch("/api/users/refresh/logout", { method: "POST", credentials: "include" });
 };
 
 document.addEventListener("DOMContentLoaded", getUsersNames);
