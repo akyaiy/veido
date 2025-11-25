@@ -3,11 +3,14 @@ package main
 import (
 	//"database/sql"
 
+	"fmt"
 	"log"
 	"net/http"
 	"time"
 
 	"MyServer/packages/auch"
+	//	"MyServer/packages/auch"
+	"MyServer/packages/timeconverter"
 
 	//"encoding/json"
 
@@ -16,6 +19,9 @@ import (
 )
 
 func main() {
+	d, _ := timeconverter.Parse("15d1h3m10s6us")
+	fmt.Println(d.ToDuration()) // 15m0s
+
 	db := InitDB("./data.db")
 	defer db.Close()
 	var MySekret = "$2y$10$zGLpz3p/N2W.3AKLSW6EDekcBNw/..Yg/dwAwNeFCJds7u5g/itS."
