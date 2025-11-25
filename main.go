@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"MyServer/auch"
+	"MyServer/packages/auch"
 
 	//"encoding/json"
 

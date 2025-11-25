@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"MyServer/auch"
+	"MyServer/packages/auch"
 )
 
 // setRefreshCookie sets HttpOnly cookie for refresh token.

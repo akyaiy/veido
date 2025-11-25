@@ -46,6 +46,8 @@ document.getElementById("btn_reg").onclick = async () => {
 
     if (!r.ok) return alert("Ошибка");
     alert("ok");
+    reg_user.value = "",
+    reg_pass.value = "";
 };
 
 /* ------------------- Логин (не защищён) ------------------- */
@@ -66,6 +68,9 @@ document.getElementById("btn_log").onclick = async () => {
     const data = await r.json();
     accessToken = data.access_token;
     alert("logged in");
+    log_user.value = "",
+    log_pass.value = "";
+
 };
 
 /* ------------------- Защищённые операции ------------------- */
