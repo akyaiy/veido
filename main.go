@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"time"
 
+	"MyServer/auch"
+
 	//"encoding/json"
 
 	"github.com/gorilla/mux"
@@ -16,21 +18,21 @@ import (
 func main() {
 	db := InitDB("./data.db")
 	defer db.Close()
-
-	auth := NewAuth(db, []byte("replace-with-secure-secret"))
+	var MySekret = "$2y$10$zGLpz3p/N2W.3AKLSW6EDekcBNw/..Yg/dwAwNeFCJds7u5g/itS."
+	aut := auch.NewAuth(db, []byte(MySekret))
 
 	r := mux.NewRouter()
 
-	r.HandleFunc("/api/register", RegisterHandler(db)).Methods("POST")
-	r.HandleFunc("/api/login", LoginHandler(db, auth)).Methods("POST")
-	r.HandleFunc("/api/refresh", RefreshHandler(db, auth)).Methods("POST")
+	r.HandleFunc("/api/register", RegisterHandler(db, aut)).Methods("POST")
+	r.HandleFunc("/api/login", LoginHandler(db, aut)).Methods("POST")
+	r.HandleFunc("/api/refresh", RefreshHandler(db, aut)).Methods("POST")
 	r.HandleFunc("/api/logout", LogoutHandler(db)).Methods("POST")
-	r.HandleFunc("/api/getUserData", GetUserDataHandler(db)).Methods("GET")
-	r.HandleFunc("/api/getUserNames", GetUsersHandler(db)).Methods("GET")
-	r.HandleFunc("/api/update_password", UpdateUserPasswordHandler(db, auth))
-	r.HandleFunc("/api/protected", LoadProtected(auth)).Methods("GET")
+	r.HandleFunc("/api/getUserData", GetUserDataHandler(db, aut)).Methods("GET")
+	r.HandleFunc("/api/getUserNames", GetUsersHandler(db, aut)).Methods("GET")
+	r.HandleFunc("/api/update_password", UpdateUserPasswordHandler(db, aut))
+	r.HandleFunc("/api/protected", LoadProtected(aut)).Methods("GET")
 	//http.Handle("/api/delete_user", DeleteUserHandler(db))
-	r.HandleFunc("/api/delete_user", DeleteUserHandler(db))
+	r.HandleFunc("/api/delete_user", DeleteUserHandler(db, aut))
 
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./frontend")))
 
