@@ -71,19 +71,34 @@ func ServerStart(db *sql.DB, aut *auth.Auth) {
 	log.Fatal(srv.ListenAndServe())
 }
 
-func LoadTemplatePage(w http.ResponseWriter, r *http.Request) {
-	//fmt.Printf("Клиент запросил файл по адресу:'%s'\n", string(config.Data.StaticDir+r.URL.Path))
+//fmt.Printf("Клиент запросил файл по адресу:'%s'\n", string(config.Data.StaticDir+r.URL.Path))
 
-	// if strings.HasSuffix(r.URL.Path, "/") || strings.HasSuffix(r.URL.Path, ".html") || path.Ext(r.URL.Path) == "" {
-	// 	http.ServeFile(w, r, string(config.Data.StaticDir+"/"+config.Data.TemplateFile))
-	// 	fmt.Printf("Отдаём файл шаблона по адресу:'%s'\n", string(config.Data.StaticDir+"/"+config.Data.TemplateFile))
-	// 	return
-	// }
-	http.ServeFile(w, r, string("./data/HTML/frontend"+r.URL.Path))
-	if strings.HasSuffix(r.URL.Path, "/") || strings.HasSuffix(r.URL.Path, ".html") || path.Ext(r.URL.Path) == "" {
-		http.ServeFile(w, r, string("./data/HTML/frontend"+"/"+"index.html"))
-		fmt.Printf("Отдаём файл шаблона по адресу:'%s'\n", string("./data/HTML/frontend"+"/"+"index.html"))
-		return
+// if strings.HasSuffix(r.URL.Path, "/") || strings.HasSuffix(r.URL.Path, ".html") || path.Ext(r.URL.Path) == "" {
+// 	http.ServeFile(w, r, string(config.Data.StaticDir+"/"+config.Data.TemplateFile))
+// 	fmt.Printf("Отдаём файл шаблона по адресу:'%s'\n", string(config.Data.StaticDir+"/"+config.Data.TemplateFile))
+// 	return
+// }
+//func LoadTemplatePage(w http.ResponseWriter, r *http.Request) {
+// http.ServeFile(w, r, string("./data/HTML/frontend"+r.URL.Path))
+// if strings.HasSuffix(r.URL.Path, "/") || strings.HasSuffix(r.URL.Path, ".html") || path.Ext(r.URL.Path) == "" {
+// 	http.ServeFile(w, r, string("./data/HTML/frontend/index.html"))
+// 	fmt.Printf("Отдаём файл шаблона по адресу:'%s'\n", string("./data/HTML/frontend"+"/"+"index.html"))
+// 	return
+// }
+// http.ServeFile(w, r, string("./data/HTML/frontend"+r.URL.Path))
+//}
+
+func LoadTemplatePage(w http.ResponseWriter, r *http.Request) {
+	filePath := "./data/HTML/frontend" + r.URL.Path
+
+	// Если путь — директория или .html или без расширения, отдаём index.html
+	if strings.HasSuffix(r.URL.Path, "/") ||
+		strings.HasSuffix(r.URL.Path, ".html") ||
+		path.Ext(r.URL.Path) == "" {
+
+		filePath = "./data/HTML/frontend/index.html"
+		fmt.Printf("Отдаём файл шаблона по адресу:'%s'\n", filePath)
 	}
-	http.ServeFile(w, r, string("./data/HTML/frontend"+r.URL.Path))
+
+	http.ServeFile(w, r, filePath)
 }
