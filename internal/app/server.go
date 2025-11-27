@@ -14,53 +14,27 @@ import (
 	"MyServer/api/handlers/HTML"
 	"MyServer/api/handlers/users"
 	"MyServer/internal/auth"
-	//"github.com/gorilla/mux"
-	// "SPAServer/api"
-	// "SPAServer/api/users"
-	// "SPAServer/internal/config"
 )
 
 func ServerStart(db *sql.DB, aut *auth.Auth) {
-	// r := mux.NewRouter()
 
-	// r.HandleFunc("/api/users/register", users.RegisterHandler(db, aut)).Methods("POST")
-	// r.HandleFunc("/api/users/login", users.LoginHandler(db, aut)).Methods("POST")
-	// r.HandleFunc("/api/users/refresh", users.RefreshHandler(db, aut)).Methods("POST")
-	// r.HandleFunc("/api/users/refresh/logout", users.LogoutHandler(db)).Methods("POST")
-	// r.HandleFunc("/api/users/getUserData", users.GetUserDataHandler(db, aut)).Methods("GET")
-	// r.HandleFunc("/api/users/getUserNames", users.GetUsersHandler(db, aut)).Methods("GET")
-	// r.HandleFunc("/api/users/update_password", users.UpdateUserPasswordHandler(db, aut)).Methods("GET")
-	// r.HandleFunc("/api/users/delete_user", users.DeleteUserHandler(db, aut)).Methods("GET")
-
-	// r.HandleFunc("/api/protected", HTML.LoadProtected(aut)).Methods("GET")
-
-	// r.PathPrefix("/").Handler(http.FileServer(http.Dir("./data/HTML/frontend")))
-	/***********************************************************************************************************/
-	//	r := mux.NewRouter()
-	// Загрузка статических файлов
-	//	fs := http.FileServer(http.Dir(config.Data.StaticDir))
 	// Загрузка статических файлов
 	fs := http.FileServer(http.Dir("./data/HTML/frontend"))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
 
 	// Загрузка файла шаблона страницы для всех не-API маршрутов
 	http.HandleFunc("/", LoadTemplatePage)
-	//http.HandleFunc("/", "index.html")
 
 	http.HandleFunc("/api/users/register", users.RegisterHandler(db, aut))                  //.Methods("POST")
 	http.HandleFunc("/api/users/login", users.LoginHandler(db, aut))                        //.Methods("POST")
 	http.HandleFunc("/api/users/refresh", users.RefreshHandler(db, aut))                    //.Methods("POST")
-	http.HandleFunc("/api/users/refresh/logout", users.LogoutHandler(db))                   //.Methods("POST")
+	http.HandleFunc("/api/users/logout", users.LogoutHandler(db, aut))                      //.Methods("POST")
 	http.HandleFunc("/api/users/getUserData", users.GetUserDataHandler(db, aut))            //.Methods("GET")
 	http.HandleFunc("/api/users/getUserNames", users.GetUsersHandler(db, aut))              //.Methods("GET")
 	http.HandleFunc("/api/users/update_password", users.UpdateUserPasswordHandler(db, aut)) //.Methods("GET")
 	http.HandleFunc("/api/users/delete_user", users.DeleteUserHandler(db, aut))             //.Methods("GET")
 
 	http.HandleFunc("/api/protected", HTML.LoadProtected(aut)) //.Methods("GET")
-
-	//r.PathPrefix("/").Handler(http.FileServer(http.Dir("./data/HTML/frontend")))
-
-	//http.HandleFunce("/api/delete_user", DeleteUserHandler(db))
 
 	srv := &http.Server{
 		//Handler:      r,
@@ -80,7 +54,6 @@ func LoadTemplatePage(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Println("Ошибка чтения тела запроса:", err)
 	} else {
-		//fmt.Printf("Тело запроса:\n%s\n", string(body))
 	}
 
 	// ВОССТАНОВЛЯЕМ тело, чтобы ServeFile и другие части кода

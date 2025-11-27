@@ -3,6 +3,7 @@ package users
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -276,20 +277,30 @@ func RefreshHandler(db *sql.DB, aut *auth.Auth) http.HandlerFunc {
 	}
 }
 
-func LogoutHandler(db *sql.DB) http.HandlerFunc {
+func LogoutHandler(db *sql.DB, aut *auth.Auth) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("Logout: удаляем все токены пользователя")
 
-		c, _ := r.Cookie("refresh_token")
-		if c != nil {
-			db.Exec("DELETE FROM refresh_tokens WHERE token = ?", c.Value)
+		// Парсим user_id из JWT (предполагается, что это JWT)
+		userID, ok := aut.AuthenticateRequest(r)
+		if ok {
+			// Удаляем все refresh-токены для пользователя
+			_, err := db.Exec("DELETE FROM refresh_tokens WHERE user_id = ?", userID)
+			if err != nil {
+				http.Error(w, "failed to delete tokens", http.StatusInternalServerError)
+				return
+			}
 		}
+		//}
 
+		// Удаляем cookie у клиента
 		http.SetCookie(w, &http.Cookie{
 			Name:     "refresh_token",
 			Value:    "",
 			MaxAge:   -1,
-			Path:     "/",
+			Path:     "/api/users/refresh", // Path совпадает с тем, что ставили
 			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
 		})
 
 		w.WriteHeader(http.StatusNoContent)
