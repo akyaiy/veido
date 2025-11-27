@@ -147,7 +147,7 @@ btn_prot.onclick = async () => {
 
 btn_logout.onclick = async () => {
     accessToken = "";
-    await fetch("/api/users/refresh/logout", { method: "POST", credentials: "include" });
+    await fetch("/api/users/logout", { method: "POST", credentials: "include" });
 };
 
 document.addEventListener("DOMContentLoaded", getUsersNames);
