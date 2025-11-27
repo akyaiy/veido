@@ -25,8 +25,11 @@ func main() {
 
 	db := sqliteDB.InitDB("./data/db/data.db")
 	defer db.Close()
+
 	var MySekret = "$2y$10$zGLpz3p/N2W.3AKLSW6EDekcBNw/..Yg/dwAwNeFCJds7u5g/itS."
+
 	aut := auth.NewAuth(db, []byte(MySekret))
+
 	app.ServerStart(db, aut)
 
 }

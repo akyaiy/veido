@@ -1,8 +1,10 @@
 package app
 
 import (
+	"bytes"
 	"database/sql"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"path"
@@ -71,24 +73,20 @@ func ServerStart(db *sql.DB, aut *auth.Auth) {
 	log.Fatal(srv.ListenAndServe())
 }
 
-//fmt.Printf("Клиент запросил файл по адресу:'%s'\n", string(config.Data.StaticDir+r.URL.Path))
-
-// if strings.HasSuffix(r.URL.Path, "/") || strings.HasSuffix(r.URL.Path, ".html") || path.Ext(r.URL.Path) == "" {
-// 	http.ServeFile(w, r, string(config.Data.StaticDir+"/"+config.Data.TemplateFile))
-// 	fmt.Printf("Отдаём файл шаблона по адресу:'%s'\n", string(config.Data.StaticDir+"/"+config.Data.TemplateFile))
-// 	return
-// }
-//func LoadTemplatePage(w http.ResponseWriter, r *http.Request) {
-// http.ServeFile(w, r, string("./data/HTML/frontend"+r.URL.Path))
-// if strings.HasSuffix(r.URL.Path, "/") || strings.HasSuffix(r.URL.Path, ".html") || path.Ext(r.URL.Path) == "" {
-// 	http.ServeFile(w, r, string("./data/HTML/frontend/index.html"))
-// 	fmt.Printf("Отдаём файл шаблона по адресу:'%s'\n", string("./data/HTML/frontend"+"/"+"index.html"))
-// 	return
-// }
-// http.ServeFile(w, r, string("./data/HTML/frontend"+r.URL.Path))
-//}
-
 func LoadTemplatePage(w http.ResponseWriter, r *http.Request) {
+
+	// Читаем тело запроса
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		fmt.Println("Ошибка чтения тела запроса:", err)
+	} else {
+		//fmt.Printf("Тело запроса:\n%s\n", string(body))
+	}
+
+	// ВОССТАНОВЛЯЕМ тело, чтобы ServeFile и другие части кода
+	// могли прочитать его снова (если потребуется)
+	r.Body = io.NopCloser(bytes.NewBuffer(body))
+
 	filePath := "./data/HTML/frontend" + r.URL.Path
 
 	// Если путь — директория или .html или без расширения, отдаём index.html
@@ -96,6 +94,7 @@ func LoadTemplatePage(w http.ResponseWriter, r *http.Request) {
 		strings.HasSuffix(r.URL.Path, ".html") ||
 		path.Ext(r.URL.Path) == "" {
 
+		fmt.Printf("Клиент запросил страницу по адресу:'%s'\n", r.URL.Path)
 		filePath = "./data/HTML/frontend/index.html"
 		fmt.Printf("Отдаём файл шаблона по адресу:'%s'\n", filePath)
 	}
