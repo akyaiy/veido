@@ -3,72 +3,18 @@ package users
 import (
 	"MyServer/internal/auth"
 	"database/sql"
-	"fmt"
-	"net/http"
-	"strings"
-	//	"MyServer/internal/auth"
-	//
-	// "io"
-	// "bytes"
+
+	"github.com/go-chi/chi/v5"
 )
 
-func User(db *sql.DB, aut *auth.Auth) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-
-		path := strings.Trim(r.URL.Path, "/")
-		segments := strings.Split(path, "/")
-
-		if len(segments) < 3 {
-			http.Error(w, "bad request", http.StatusBadRequest)
-			return
-		}
-
-		first := segments[2]
-
-		switch first {
-
-		case "register":
-			fmt.Println("Клиент выбрал регистрацию")
-			RegisterHandler(db, aut)(w, r)
-			return
-
-		case "login":
-			fmt.Println("Клиент выбрал войти")
-			LoginHandler(db, aut)(w, r)
-			return
-
-		case "refresh":
-			fmt.Println("Клиент выбрал обновить")
-			RefreshHandler(db, aut)
-			return
-
-		case "logout":
-			fmt.Println("Клиент выбрал выйти")
-			LogoutHandler(db, aut)
-			return
-
-		case "getUserData":
-			fmt.Println("Клиент выбрал получить данные пользователя")
-			GetUserDataHandler(db, aut)(w, r)
-			return
-
-		case "getUserNames":
-			fmt.Println("Клиент выбрал получить список пользователей")
-			GetUsersHandler(db, aut)(w, r)
-			return
-
-		case "update_password":
-			fmt.Println("Клиент выбрал заменить пароль")
-			UpdateUserPasswordHandler(db, aut)(w, r)
-			return
-
-		case "delete_user":
-			fmt.Println("Клиент выбрал удалить пользователя")
-			DeleteUserHandler(db, aut)(w, r)
-			return
-
-		default:
-			http.Error(w, "unknown method", http.StatusNotFound)
-		}
-	}
+// RegisterUserRoutes регистрирует все маршруты /api/users/*
+func RegisterRoutes(r chi.Router, db *sql.DB, aut *auth.Auth) {
+	r.Post("/register", RegisterHandler(db, aut))
+	r.Post("/login", LoginHandler(db, aut))
+	r.Post("/refresh", RefreshHandler(db, aut))
+	r.Post("/logout", LogoutHandler(db, aut))
+	r.Get("/getUserData", GetUserDataHandler(db, aut))
+	r.Get("/getUserNames", GetUsersHandler(db, aut))
+	r.Post("/update_password", UpdateUserPasswordHandler(db, aut))
+	r.Delete("/delete_user", DeleteUserHandler(db, aut))
 }

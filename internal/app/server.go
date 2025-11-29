@@ -13,34 +13,53 @@ import (
 
 	"MyServer/api/handlers/HTML"
 	"MyServer/api/handlers/users"
+
 	"MyServer/internal/auth"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 func ServerStart(db *sql.DB, aut *auth.Auth) {
 
-	// Загрузка статических файлов
-	fs := http.FileServer(http.Dir("./data/HTML/frontend"))
-	http.Handle("/static/", http.StripPrefix("/static/", fs))
+	r := chi.NewRouter()
 
-	// Загрузка файла шаблона страницы для всех не-API маршрутов
-	http.HandleFunc("/", LoadTemplatePage)
+	// --- MIDDLEWARE ---
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+	r.Use(middleware.Timeout(15 * time.Second))
 
-	http.HandleFunc("/api/users/", users.User(db, aut)) //.Methods("POST")
+	// -----------------------------
+	//         STATIC FILES
+	// -----------------------------
+	// /static/* → ./data/HTML/frontend/*
+	fs := http.StripPrefix(
+		"/static/",
+		http.FileServer(http.Dir("./data/HTML/frontend")),
+	)
 
-	// http.HandleFunc("/api/users/register", users.RegisterHandler(db, aut))                  //.Methods("POST")
-	// http.HandleFunc("/api/users/login", users.LoginHandler(db, aut))                        //.Methods("POST")
-	// http.HandleFunc("/api/users/refresh", users.RefreshHandler(db, aut))                    //.Methods("POST")
-	// http.HandleFunc("/api/users/logout", users.LogoutHandler(db, aut))                      //.Methods("POST")
-	// http.HandleFunc("/api/users/getUserData", users.GetUserDataHandler(db, aut))            //.Methods("GET")
-	// http.HandleFunc("/api/users/getUserNames", users.GetUsersHandler(db, aut))              //.Methods("GET")
-	// http.HandleFunc("/api/users/update_password", users.UpdateUserPasswordHandler(db, aut)) //.Methods("GET")
-	// http.HandleFunc("/api/users/delete_user", users.DeleteUserHandler(db, aut))             //.Methods("GET")
+	r.Handle("/static/*", fs)
 
-	http.HandleFunc("/api/protected", HTML.LoadProtected(aut)) //.Methods("GET")
+	// -----------------------------
+	//              API
+	// -----------------------------
+	r.Route("/api", func(api chi.Router) {
+		api.Route("/users", func(u chi.Router) { users.RegisterRoutes(u, db, aut) })
+		api.Get("/protected", HTML.LoadProtected(aut))
+	})
 
+	// -----------------------------
+	//       FRONTEND (SPA)
+	// -----------------------------
+	// Фронтенд работает как SPA: любые не-API запросы → index.html
+	r.Get("/*", LoadTemplatePage)
+
+	// -----------------------------
+	//       START SERVER
+	// -----------------------------
 	srv := &http.Server{
-		//Handler:      r,
 		Addr:         ":8080",
+		Handler:      r,
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
@@ -51,27 +70,22 @@ func ServerStart(db *sql.DB, aut *auth.Auth) {
 
 func LoadTemplatePage(w http.ResponseWriter, r *http.Request) {
 
-	// Читаем тело запроса
+	// читаем тело (если нужно)
 	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		fmt.Println("Ошибка чтения тела запроса:", err)
-	} else {
+	if err == nil {
+		r.Body = io.NopCloser(bytes.NewBuffer(body))
 	}
-
-	// ВОССТАНОВЛЯЕМ тело, чтобы ServeFile и другие части кода
-	// могли прочитать его снова (если потребуется)
-	r.Body = io.NopCloser(bytes.NewBuffer(body))
 
 	filePath := "./data/HTML/frontend" + r.URL.Path
 
-	// Если путь — директория или .html или без расширения, отдаём index.html
+	// SPA: если директория, .html или нет расширения → index.html
 	if strings.HasSuffix(r.URL.Path, "/") ||
 		strings.HasSuffix(r.URL.Path, ".html") ||
 		path.Ext(r.URL.Path) == "" {
 
-		fmt.Printf("Клиент запросил страницу по адресу:'%s'\n", r.URL.Path)
+		fmt.Printf("Клиент запросил страницу: '%s'\n", r.URL.Path)
 		filePath = "./data/HTML/frontend/index.html"
-		fmt.Printf("Отдаём файл шаблона по адресу:'%s'\n", filePath)
+		fmt.Printf("Отдаём: '%s'\n", filePath)
 	}
 
 	http.ServeFile(w, r, filePath)
