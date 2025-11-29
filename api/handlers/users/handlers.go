@@ -116,12 +116,16 @@ func GetUserDataHandler(db *sql.DB, aut *auth.Auth) http.HandlerFunc {
 
 func GetUsersHandler(db *sql.DB, aut *auth.Auth) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("Клиент зашёл на хендлер")
+
 		_, ok := aut.AuthenticateRequest(r)
+		//fmt.Println("Клиент зашёл на хендлер")
 		if !ok {
 			http.Error(w, "unauthorized", 401)
 			return
 		}
 
+		//fmt.Println("Клиент зашёл на хендлер")
 		rows, _ := db.Query("SELECT username FROM users")
 		defer rows.Close()
 

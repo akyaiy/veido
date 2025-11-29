@@ -25,14 +25,16 @@ func ServerStart(db *sql.DB, aut *auth.Auth) {
 	// Загрузка файла шаблона страницы для всех не-API маршрутов
 	http.HandleFunc("/", LoadTemplatePage)
 
-	http.HandleFunc("/api/users/register", users.RegisterHandler(db, aut))                  //.Methods("POST")
-	http.HandleFunc("/api/users/login", users.LoginHandler(db, aut))                        //.Methods("POST")
-	http.HandleFunc("/api/users/refresh", users.RefreshHandler(db, aut))                    //.Methods("POST")
-	http.HandleFunc("/api/users/logout", users.LogoutHandler(db, aut))                      //.Methods("POST")
-	http.HandleFunc("/api/users/getUserData", users.GetUserDataHandler(db, aut))            //.Methods("GET")
-	http.HandleFunc("/api/users/getUserNames", users.GetUsersHandler(db, aut))              //.Methods("GET")
-	http.HandleFunc("/api/users/update_password", users.UpdateUserPasswordHandler(db, aut)) //.Methods("GET")
-	http.HandleFunc("/api/users/delete_user", users.DeleteUserHandler(db, aut))             //.Methods("GET")
+	http.HandleFunc("/api/users/", users.User(db, aut)) //.Methods("POST")
+
+	// http.HandleFunc("/api/users/register", users.RegisterHandler(db, aut))                  //.Methods("POST")
+	// http.HandleFunc("/api/users/login", users.LoginHandler(db, aut))                        //.Methods("POST")
+	// http.HandleFunc("/api/users/refresh", users.RefreshHandler(db, aut))                    //.Methods("POST")
+	// http.HandleFunc("/api/users/logout", users.LogoutHandler(db, aut))                      //.Methods("POST")
+	// http.HandleFunc("/api/users/getUserData", users.GetUserDataHandler(db, aut))            //.Methods("GET")
+	// http.HandleFunc("/api/users/getUserNames", users.GetUsersHandler(db, aut))              //.Methods("GET")
+	// http.HandleFunc("/api/users/update_password", users.UpdateUserPasswordHandler(db, aut)) //.Methods("GET")
+	// http.HandleFunc("/api/users/delete_user", users.DeleteUserHandler(db, aut))             //.Methods("GET")
 
 	http.HandleFunc("/api/protected", HTML.LoadProtected(aut)) //.Methods("GET")
 
