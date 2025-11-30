@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"MyServer/internal/auth"
+	"MyServer/internal/config"
 )
 
 // setRefreshCookie sets HttpOnly cookie for refresh token.
@@ -222,11 +223,6 @@ func LoginHandler(db *sql.DB, aut *auth.Auth) http.HandlerFunc {
 			return
 		}
 
-		if err := aut.StoreRefreshToken(refresh, id, 7*24*time.Hour); err != nil {
-			http.Error(w, "store error", http.StatusInternalServerError)
-			return
-		}
-
 		setRefreshCookie(w, refresh, 7*24*time.Hour)
 
 		json.NewEncoder(w).Encode(map[string]string{"access_token": access})
@@ -288,14 +284,18 @@ func LogoutHandler(db *sql.DB, aut *auth.Auth) http.HandlerFunc {
 		// Парсим user_id из JWT (предполагается, что это JWT)
 		userID, ok := aut.AuthenticateRequest(r)
 		if ok {
-			// Удаляем все refresh-токены для пользователя
-			_, err := db.Exec("DELETE FROM refresh_tokens WHERE user_id = ?", userID)
+			c, err := r.Cookie("refresh_token")
 			if err != nil {
-				http.Error(w, "failed to delete tokens", http.StatusInternalServerError)
+				http.Error(w, "no refresh", http.StatusUnauthorized)
+				return
+			}
+
+			// Записываем refresh-токен для обратившегося пользователя как удалённый
+			if err := aut.StoreRefreshToken(c.Value, userID, config.GetRTokenTime()); err != nil {
+				http.Error(w, "store error", http.StatusInternalServerError)
 				return
 			}
 		}
-		//}
 
 		// Удаляем cookie у клиента
 		http.SetCookie(w, &http.Cookie{
