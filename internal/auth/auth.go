@@ -1,11 +1,11 @@
 package auth
 
 import (
+	"MyServer/internal/config"
 	"database/sql"
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -46,7 +46,8 @@ func (a *Auth) CreateAccessToken(userID int64) (string, error) {
 	claims := Claims{
 		UserID: userID,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
+			//			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(config.GetATokenTime())),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}
@@ -59,7 +60,8 @@ func (a *Auth) GenerateRefreshToken(userID int64) (string, error) {
 	claims := Claims{
 		UserID: userID,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)),
+			//			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(config.GetRTokenTime())),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}
@@ -80,22 +82,41 @@ func (a *Auth) DeleteRefreshToken(token string) error {
 	return err
 }
 
-// VerifyRefreshToken validates token exists and not expired, returns userID.
-func (a *Auth) VerifyRefreshToken(token string) (int64, error) {
-	row := a.db.QueryRow("SELECT user_id, expires_at FROM refresh_tokens WHERE token = ?", token)
-	var userID int64
-	var expiresUnix int64
-	if err := row.Scan(&userID, &expiresUnix); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return 0, errors.New("not found")
+// VerifyRefreshToken verifies the JWT refresh token signature and expiration.
+func (a *Auth) VerifyRefreshToken(tokenString string) (int64, error) {
+	// Разбираем и валидируем токен
+	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(t *jwt.Token) (interface{}, error) {
+		// Проверяем, что используется корректный алгоритм
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 		}
+		return a.secret, nil
+	})
+	if err != nil {
 		return 0, err
 	}
-	// expiresUnix — это Unix timestamp
-	if time.Now().Unix() > expiresUnix {
+
+	// 2. Check if token is in revoked list (deleted tokens)
+	row := a.db.QueryRow("SELECT 1 FROM refresh_tokens WHERE token = ? LIMIT 1", token)
+	var exists int
+	err = row.Scan(&exists)
+	if err == nil {
+		// token found = token revoked
+		return 0, errors.New("token revoked")
+	}
+
+	// Проверяем claims
+	claims, ok := token.Claims.(*Claims)
+	if !ok || !token.Valid {
+		return 0, errors.New("invalid token")
+	}
+
+	// Проверка срока годности токена (опционально, jwt сам проверяет RegisteredClaims.ExpiresAt.Validate)
+	if claims.ExpiresAt != nil && time.Now().After(claims.ExpiresAt.Time) {
 		return 0, errors.New("expired")
 	}
-	return userID, nil
+
+	return claims.UserID, nil
 }
 
 // AuthenticateRequest reads Authorization header and validates access token.
@@ -144,13 +165,4 @@ func (a *Auth) ParseRefreshToken(tokenString string) (int64, error) {
 	}
 
 	return claims.UserID, nil
-}
-
-// Helpers for string-int64 conversions
-func stringFromInt64(i int64) string {
-	return fmt.Sprintf("%d", i)
-}
-
-func int64FromString(s string) (int64, error) {
-	return strconv.ParseInt(s, 10, 64)
 }
