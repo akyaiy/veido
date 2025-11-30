@@ -141,21 +141,6 @@ func GetUsersHandler(db *sql.DB, aut *auth.Auth) http.HandlerFunc {
 	}
 }
 
-// func LoadProtected(aut *auth.Auth) http.HandlerFunc {
-// 	return func(w http.ResponseWriter, r *http.Request) {
-// 		id, ok := aut.AuthenticateRequest(r)
-// 		if !ok {
-// 			http.Error(w, "unauthorized", http.StatusUnauthorized)
-// 			return
-// 		}
-
-// 		json.NewEncoder(w).Encode(map[string]any{
-// 			"message": "Hello from protected endpoint",
-// 			"user_id": id,
-// 		})
-// 	}
-// }
-
 /* ------------------- Public: Register ------------------- */
 
 func RegisterHandler(db *sql.DB, aut *auth.Auth) http.HandlerFunc {
