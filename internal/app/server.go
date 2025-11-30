@@ -9,12 +9,12 @@ import (
 	"net/http"
 	"path"
 	"strings"
-	"time"
 
 	"MyServer/api/handlers/HTML"
 	"MyServer/api/handlers/users"
 
 	"MyServer/internal/auth"
+	"MyServer/internal/config"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -27,7 +27,8 @@ func ServerStart(db *sql.DB, aut *auth.Auth) {
 	// --- MIDDLEWARE ---
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	r.Use(middleware.Timeout(15 * time.Second))
+	//	r.Use(middleware.Timeout(15 * time.Second))
+	r.Use(middleware.Timeout(config.GetSTimeoutTime()))
 
 	// -----------------------------
 	//         STATIC FILES
@@ -35,7 +36,8 @@ func ServerStart(db *sql.DB, aut *auth.Auth) {
 	// /static/* → ./data/HTML/frontend/*
 	fs := http.StripPrefix(
 		"/static/",
-		http.FileServer(http.Dir("./data/HTML/frontend")),
+		//		http.FileServer(http.Dir("./data/HTML/frontend")),
+		http.FileServer(http.Dir(config.Data.StaticDir)),
 	)
 
 	r.Handle("/static/*", fs)
@@ -58,10 +60,12 @@ func ServerStart(db *sql.DB, aut *auth.Auth) {
 	//       START SERVER
 	// -----------------------------
 	srv := &http.Server{
-		Addr:         ":8080",
-		Handler:      r,
-		WriteTimeout: 15 * time.Second,
-		ReadTimeout:  15 * time.Second,
+		Addr:    ":8080",
+		Handler: r, //config.GetSTimeoutTime()
+		// WriteTimeout: 15 * time.Second,
+		// ReadTimeout:  15 * time.Second,
+		WriteTimeout: config.GetSTimeoutTime(),
+		ReadTimeout:  config.GetSTimeoutTime(),
 	}
 
 	log.Println("Server started at http://localhost:8080")
