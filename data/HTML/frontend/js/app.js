@@ -1,170 +1,187 @@
-let accessToken = ""; // access только в памяти
+/***********************************************************************
+ *  ГЛОБАЛЬНОЕ СОСТОЯНИЕ
+ **********************************************************************/
+let accessToken = null;   // access-token хранится только в памяти (без localStorage)
+/***********************************************************************
+ *  sendRequest УНИВЕРСАЛЬНАЯ ФУНКЦИЯ ДЛЯ ОТПРАВКИ HTTP-ЗАПРОСОВ
+ *
+ *  sendRequest(url, options)
+ *  - автоматически добавляет Content-Type и credentials
+ *  - автоматически превращает body в JSON
+ *  - проверяет response.ok
+ *  - пробрасывает текст ошибки
+ *  - возвращает JSON-ответ
+ **********************************************************************/
+async function sendRequest(url, options = {}) {
+    // Базовые параметры
+    const defaultOptions = {
+        headers: { "Content-Type": "application/json" },
+        credentials: "include"
+    };
 
-async function apiProtected(path, options = {}) {
-    const send = async () =>
-        fetch(path, {
-            ...options,
-            headers: {
-                ...(options.headers || {}),
-                Authorization: "Bearer " + accessToken,
-                "Content-Type": "application/json"
-            }
-        });
+    // Объединяем настройки
+    const finalOptions = {
+        ...defaultOptions,
+        ...options,
+        headers: { ...defaultOptions.headers, ...(options.headers || {}) }
+    };
 
-    let r = await send();
-
-    if (r.status === 401) {
-        // обновляем access
-        const rr = await fetch("/api/users/refresh", {
-            method: "POST",
-            credentials: "include"
-        });
-
-        if (!rr.ok) throw "refresh failed";
-
-        const j = await rr.json();
-        accessToken = j.access_token;
-
-        r = await send();
+    // Если тело — объект, превращаем в JSON
+    if (finalOptions.body && typeof finalOptions.body === "object") {
+        finalOptions.body = JSON.stringify(finalOptions.body);
     }
 
-    if (!r.ok) throw await r.text();
-    return r.json();
-}
-
-/* ------------------- Регистрация (не защищена) ------------------- */
-
-document.getElementById("btn_reg").onclick = async () => {
-    const u = reg_user.value,
-        p = reg_pass.value;
-
-    const r = await fetch("/api/users/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: u, password: p })
-    });
-
-    if (!r.ok) return alert("Ошибка");
-    alert("ok");
-    reg_user.value = "",
-    reg_pass.value = "";
-};
-
-/* ------------------- Логин (не защищён) ------------------- */
-
-document.getElementById("btn_log").onclick = async () => {
-    const u = log_user.value,
-        p = log_pass.value;
-
-    const r = await fetch("/api/users/login", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: u, password: p })
-    });
-
-    if (!r.ok) return alert("Ошибка");
-
-    const data = await r.json();
-    accessToken = data.access_token;
-    alert("logged in");
-    log_user.value = "",
-    log_pass.value = "";
-
-};
-
-/* ------------------- Защищённые операции ------------------- */
-
-async function getUsersNames() {
-    const users = await apiProtected("/api/users/getUserNames");
-
-    users_list.innerHTML = "";
-    users.forEach((username) => {
-        const opt = document.createElement("option");
-        opt.value = username;
-        opt.textContent = username;
-        users_list.appendChild(opt);
-    });
-
-    if (users.length > 0) getUserData(users[0]);
-}
-
-async function getUserData(username) {
-    const data = await apiProtected(
-        `/api/users/getUserData?username=${encodeURIComponent(username)}`
-    );
-
-    ud_id.value = data.ID;
-    ud_username.value = data.Username;
-}
-
-async function updatePassword() {
-    const username = ud_username.value;
-    const password = ud_password.value;
-
-    if (!password) return alert("Введите пароль");
-
-    await apiProtected("/api/users/update_password", {
-        method: "POST",
-        body: JSON.stringify({ username, password })
-    });
-
-    alert("Пароль обновлён");
-}
-
-async function deleteUser() {
-    const username = users_list.value;
-    if (!username) return;
-
-    if (!confirm(`Удалить пользователя "${username}"?`)) return;
-
-    await apiProtected("/api/users/delete_user", {
-        method: "POST",
-        body: JSON.stringify({ username })
-    });
-
-    alert("Удалён");
-    getUsersNames();
-}
-
-/* ------------------- Кнопки ------------------- */
-
-btn_delete_user.onclick = deleteUser;
-btn_update_pass.onclick = updatePassword;
-
-btn_load_users.onclick = getUsersNames;
-
-users_list.onchange = (e) => getUserData(e.target.value);
-
-btn_prot.onclick = async () => {
+    let response;
     try {
-        const data = await apiProtected("/api/protected");
-        out.textContent = JSON.stringify(data, null, 2);
+        response = await fetch(url, finalOptions);
+    } catch (err) {
+        // Сетевые ошибки (сервер не доступен, нет интернета, CORS и т.д.)
+        return {
+            ok: false,
+            status: 0,
+            data: err.toString()
+        };
+    }
+
+    // Читаем тело ответа только один раз
+    let text = await response.text();
+    let data;
+    try {
+        data = JSON.parse(text);
     } catch {
-        out.textContent = "err";
+        data = text;
     }
-};
 
-btn_logout.onclick = async () => {
-    accessToken = "";
-    await fetch("/api/users/logout", { method: "POST", credentials: "include" });
-};
+    return {
+        ok: response.ok,
+        status: response.status,
+        data
+    };
+}
 
-document.addEventListener("DOMContentLoaded", getUsersNames);
 
-/* ------------------- Переключение пароля ------------------- */
 
-document.addEventListener("click", (e) => {
-    if (!e.target.classList.contains("toggle-pass")) return;
+/********************************************************************
+ * loadMenu функция загрузки блока меню страницы в формате Markdown *
+ ********************************************************************/
+async function loadMenu() {
+     await loadBlock("menu/top1", "header");
+}
+/********************************************************************
+ * loadPage функция загрузки блока страницы в формате Markdown      *
+ ********************************************************************/
+ async function loadPage(path) {
+     await loadBlock(path, "content");
+ }
 
-    const input = e.target.previousElementSibling;
-    if (!input) return;
+/********************************************************************
+ * loadMdScript функция загрузки Markdown библиотеки                *
+ ********************************************************************/
+ function loadMdScript(src) {
+    return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.defer = true;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+        document.head.appendChild(script);
+    });
+}
 
-    if (input.type === "password") {
-        input.type = "text";
-        e.target.textContent = "🙈";
-    } else {
-        input.type = "password";
-        e.target.textContent = "👁";
+/********************************************************************
+ * loadBlock функция загрузки блока в формате Markdown              *
+ ********************************************************************/
+async function loadBlock(path, block_Name) {
+    const container = document.getElementById(block_Name);
+    path = path.replace(/\/$/, "");
+    //console.log(path);
+    if (!container) {
+        console.error(`loadBlock ERROR: element #${block_Name} not found`);
+        return;
     }
+    const blockName = path === "pages" ? "pages/home" : path;
+    console.log(blockName);
+    try {
+        container.innerHTML = '';
+        document.querySelectorAll('style[data-dynamic], script[data-dynamic]').forEach(el => el.remove());
+        const response = await sendRequest(`/api/HTML/${blockName}`);
+        if (!response.ok) {
+            throw new Error(`Failed to load block: ${response.status}`);
+        }
+
+        // Динамически подгружаем markdown-it, если он ещё не загружен
+        if (!window.markdownit) {
+            await loadMdScript('/js/markdown-it.min.js');
+        }
+
+        const { content: mdContent, css, js } = response.data;
+       // Преобразуем markdown в HTML
+        if (mdContent) {
+            const md = window.markdownit({ html: true, linkify: true, typographer: true });
+            container.innerHTML = md.render(mdContent);
+        }
+        if (css) {
+            const style = document.createElement('style');
+            style.dataset.dynamic = "true";
+            style.textContent = css;
+            document.head.appendChild(style);
+        }
+        if (js) {
+            const script = document.createElement('script');
+            script.dataset.dynamic = "true";
+            script.textContent = `
+                (() => {
+                    try {
+                        ${js}
+                        if (typeof pageInit === "function") pageInit();
+                    } catch (e) {
+                        console.error("Block script error:", e);
+                    }
+                })();
+            `;
+            document.body.appendChild(script);
+        }
+    } catch (err) {
+        console.error(err);
+        container.innerHTML = "<h2>блок не найден</h2>";
+    }
+}
+
+// SPA-навигация
+function navigateTo(url) {
+    const clean = url.replace(/^\//, "");
+    history.pushState({}, "", "/" + clean);
+    loadBlock("pages/" + clean, "content");
+}
+
+// Поддержка кнопки "назад/вперед"
+window.addEventListener("popstate", () => {loadBlock(location.pathname);});
+// Обработка истории браузера
+window.addEventListener("popstate", () => loadBlock(window.location.pathname));
+// Инициализация после загрузки DOM
+window.onload = async function ()  {
+    let url = window.location.href;
+   // Убираем слеш в конце, если он есть
+    if (url.endsWith("/")) {
+        url = url.slice(0, -1);
+        // Меняем URL в адресной строке без перезагрузки страницы
+        window.history.replaceState(null, "", url);
+    }
+    //console.assert("читаем меню")
+    await loadMenu();
+    await loadPage("pages"+window.location.pathname);
+};
+// Перехватчик ссылок
+window.addEventListener("click", (event) => {
+    const a = event.target.closest("a");
+    if (!a) return;
+
+    const href = a.getAttribute("href");
+
+    // игнорируем внешние ссылки и mailto:
+    if (!href || href.startsWith("http") || href.startsWith("mailto:")) return;
+
+    event.preventDefault();
+    navigateTo(href);
 });
+
