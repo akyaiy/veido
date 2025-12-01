@@ -23,9 +23,10 @@ func generateSecret() string {
 }
 
 type Config struct {
-	Port         int    `yaml:"port"`
+	Port         string `yaml:"port"`
 	FunctionDir  string `yaml:"functiondir"`
 	StaticDir    string `yaml:"staticdir"`
+	HTTPBlockDir string `yaml:"httpblockdir"`
 	TemplateFile string `yaml:"templatefile"`
 	LogServFile  string `yaml:"logservfile"`
 	LogUserFile  string `yaml:"loguserfile"`
@@ -41,10 +42,11 @@ var Data *Config
 
 // Дефолтные данные, если файла нет
 var defaultConfig = Config{
-	Port:         8080,
+	Port:         ":8080",
 	FunctionDir:  "./data/functions",
 	StaticDir:    "./data/HTML/frontend",
-	TemplateFile: "index.html",
+	HTTPBlockDir: "./data/HTML/block",
+	TemplateFile: "/index.html",
 	LogServFile:  "./data/log/server.log",
 	LogUserFile:  "./data/log/user.log",
 	LogErrFile:   "./data/log/error.log",
@@ -83,6 +85,7 @@ func LoadData(path string) {
 	if err := yaml.Unmarshal(fdata, Data); err != nil {
 		log.Fatalf("Cannot parse config: %v", err)
 	}
+	//log.Fatalf("Cannot parse config: %v", Data)
 
 	// // Пример использования timeconverter
 	// d, _ := timeconverter.Parse("15d1h3m10s6us")

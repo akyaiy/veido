@@ -1,7 +1,8 @@
-port: 8080
+port: ":8080"
 functiondir: ./data/functions
 staticdir: ./data/HTML/frontend
-templatefile: index.html
+httpblockdir: ./data/HTML/block
+templatefile: /main.html
 logservfile: ./data/log/server.log
 loguserfile: ./data/log/user.log
 logerrfile: ./data/log/error.log
@@ -9,4 +10,4 @@ db: ./data/db/data.db
 atokentime: 15m
 rtokentime: 24h
 stimeouttime: 15s
-mysecret: a2fa552e3653cef87a32b23fdd5dfe6e0ac419ce591d5dba0087d27b2beebf36
+mysecret: 61f73e959b6d8e92ea3cfe6c41ed70ddc98eb0273910e647eab7e88d48701a33

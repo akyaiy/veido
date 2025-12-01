@@ -37,6 +37,7 @@ func ServerStart(db *sql.DB, aut *auth.Auth) {
 	r.Route("/api", func(api chi.Router) {
 		api.Route("/users", func(u chi.Router) { users.RegisterRoutes(u, db, aut) })
 		api.Get("/protected", HTML.LoadProtected(aut))
+		api.Get("/HTML/*", HTML.LoadHTMLBlock(aut))
 	})
 
 	// -----------------------------
@@ -49,7 +50,7 @@ func ServerStart(db *sql.DB, aut *auth.Auth) {
 	//       START SERVER
 	// -----------------------------
 	srv := &http.Server{
-		Addr:         ":8080",
+		Addr:         config.Data.Port,
 		Handler:      r,
 		WriteTimeout: config.GetSTimeoutTime(),
 		ReadTimeout:  config.GetSTimeoutTime(),
