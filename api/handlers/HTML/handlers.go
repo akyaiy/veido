@@ -15,6 +15,7 @@ import (
 	//"time"
 
 	"MyServer/internal/auth"
+	"MyServer/internal/config"
 )
 
 type HTMLblock struct {
@@ -42,36 +43,41 @@ func LoadProtected(aut *auth.Auth) http.HandlerFunc {
 
 }
 
-func LoadHTML(w http.ResponseWriter, r *http.Request) {
-	var path string
-	var myHTML *HTMLblock
-	name := strings.TrimPrefix(r.URL.Path, "/api/HTML/")
-	segments := strings.Split(name, "/")
-	if name == "" {
-		name = "home"
+func LoadHTMLBlock(aut *auth.Auth) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		//fmt.Print("LoadHTMLBlock\n")
+
+		var path string
+		//fmt.Printf("path: %v\n", path)
+		var myHTML *HTMLblock
+		name := strings.TrimPrefix(r.URL.Path, "/api/HTML/")
+		segments := strings.Split(name, "/")
+		if name == "" {
+			name = "home"
+		}
+		///////////////////////////////////////////////////////////////
+		// if config.Data.User != "" {
+		path = filepath.Join(config.Data.HTTPBlockDir, name)
+		// } else {
+		// 	path = filepath.Join("data/pages/login")
+		// }
+		///////////////////////////////////////////////////////////////
+		myHTML = loadFiles(path)
+		if segments[0] == "block" {
+			//fmt.Printf("name: %v\n", segments)
+			myHTML.TIPE = "block"
+			//
+		} else {
+			myHTML.TIPE = "page"
+		}
+		//}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(myHTML)
 	}
-	///////////////////////////////////////////////////////////////
-	// if config.Data.User != "" {
-	path = filepath.Join("data/HTML", name)
-	// } else {
-	// 	path = filepath.Join("data/pages/login")
-	// }
-	///////////////////////////////////////////////////////////////
-	myHTML = loadFiles(path)
-	if segments[0] == "block" {
-		//fmt.Printf("name: %v\n", segments)
-		myHTML.TIPE = "block"
-		//
-	} else {
-		myHTML.TIPE = "page"
-	}
-	//}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(myHTML)
 }
 
 func loadFiles(dirPath string) *HTMLblock {
-	fmt.Printf("Клиент запросил файл по адресу: '%s'\n", dirPath)
+	//fmt.Printf("Клиент запросил файл по адресу: '%s'\n", dirPath)
 
 	var hBlock HTMLblock
 
@@ -119,7 +125,8 @@ func LoadTemplatePage(w http.ResponseWriter, r *http.Request) {
 		path.Ext(r.URL.Path) == "" {
 
 		fmt.Printf("Клиент запросил страницу: '%s'\n", r.URL.Path)
-		filePath = "./data/HTML/frontend/index.html"
+		filePath = config.Data.StaticDir + config.Data.TemplateFile
+		//		filePath = "./data/HTML/frontend/index.html"
 		fmt.Printf("Отдаём: '%s'\n", filePath)
 	}
 
