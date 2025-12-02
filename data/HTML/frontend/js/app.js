@@ -12,6 +12,41 @@ let accessToken = null;   // access-token хранится только в па�
  *  - пробрасывает текст ошибки
  *  - возвращает JSON-ответ
  **********************************************************************/
+//let accessToken = ""; // access только в памяти
+
+async function apiProtected(path, options = {}) {
+    const send = async () =>
+        fetch(path, {
+            ...options,
+            headers: {
+                ...(options.headers || {}),
+                Authorization: "Bearer " + accessToken,
+                "Content-Type": "application/json"
+            }
+        });
+
+    let r = await send();
+
+    if (r.status === 401) {
+        // обновляем access
+        const rr = await fetch("/api/users/refresh", {
+            method: "POST",
+            credentials: "include"
+        });
+
+        if (!rr.ok) throw "refresh failed";
+
+        const j = await rr.json();
+        accessToken = j.access_token;
+
+        r = await send();
+    }
+
+    if (!r.ok) throw await r.text();
+    return r.json();
+}
+
+
 async function sendRequest(url, options = {}) {
     // Базовые параметры
     const defaultOptions = {

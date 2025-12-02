@@ -1,166 +1,141 @@
-let accessToken = null; // Храним в памяти, НЕ в localStorage
+/* ------------------- Регистрация (не защищена) ------------------- */
 
-/***********************************************************************
- * Асинхронная функция для получения SHA-256 хеша в hex
- **********************************************************************/
-async function hashPassword(password) {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(password);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+async function UserReg() {
+    const u = reg_user.value,
+        p = reg_pass.value;
+
+    const r = await fetch("/api/users/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: u, password: p })
+    });
+
+    if (!r.ok) return alert("Ошибка");
+    alert("ok");
+    reg_user.value = "",
+    reg_pass.value = "";
+};
+
+/* ------------------- Логин (не защищён) ------------------- */
+
+async function UserLogin() {
+    const u = log_user.value,
+        p = log_pass.value;
+
+    const r = await fetch("/api/users/login", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: u, password: p })
+    });
+
+    if (!r.ok) return alert("Ошибка");
+
+    const data = await r.json();
+    accessToken = data.access_token;
+    alert("logged in");
+    log_user.value = "",
+    log_pass.value = "";
+
+};
+
+/* ------------------- Логоут (не защищён) ------------------- */
+
+async function UserLogout() {
+    accessToken = "";
+    await fetch("/api/users/logout", { method: "POST", credentials: "include" });
+};
+
+/* ------------------- Защищённые операции ------------------- */
+
+async function getUsersNames() {
+    const users = await apiProtected("/api/users/getUsersNames");
+
+    users_list.innerHTML = "";
+    users.forEach((username) => {
+        const opt = document.createElement("option");
+        opt.value = username;
+        opt.textContent = username;
+        users_list.appendChild(opt);
+    });
+
+    if (users.length > 0) getUserData(users[0]);
 }
 
-/***********************************************************************
- *  РЕГИСТРАЦИЯ
- **********************************************************************/
-btn_reg.onclick = async () => {
-//document.getElementById("btn_reg").onclick = async () => {
-    try {
-        const response = await sendRequest("/api/user/register", {
-            method: "POST",
-            body: {
-                 username: reg_user.value,
-                 password: await hashPassword(reg_pass.value)
-//                username,
-//                password
-            }
-        });
+async function getUserData(username) {
+    const data = await apiProtected(
+        `/api/users/getUserData?username=${encodeURIComponent(username)}`
+    );
 
-        if (response.ok) {
-            // alert("Регистрация успешна!");
-            // Можно перенаправить пользователя или очистить форму
-        } else {
-            //alert("Ошибка регистрации: " + (response.data?.message || response.status));
-        }
-    } catch (err) {
-        //alert("Сетевая ошибка: " + err);
-    }
-};
+    ud_id.value = data.ID;
+    ud_username.value = data.Username;
+}
 
-/***********************************************************************
- *  ЛОГИН
- *
- *  После логина сервер:
- *   - отдаёт access-token в JSON
- *   - ставит refresh-token cookie (HttpOnly)
- **********************************************************************/
-btn_log.onclick = async () => {
-    try {
-        const response = await sendRequest("/api/user/login", {
-            method: "POST",
-            body: {
-                username: log_user.value,
-                password: await hashPassword(log_pass.value)
-            }
-        });
-        accessToken = response.data.access_token;  // сохраняем access-token в память
-//        console.log(accessToken);
-        updateUI();
+async function updatePassword() {
+    const username = ud_username.value;
+    const password = ud_password.value;
+
+    if (!password) return alert("Введите пароль");
+
+    await apiProtected("/api/users/update_password", {
+        method: "POST",
+        body: JSON.stringify({ username, password })
+    });
+
+    alert("Пароль обновлён");
+}
+
+async function deleteUser() {
+    const username = users_list.value;
+    if (!username) return;
+
+    if (!confirm(`Удалить пользователя "${username}"?`)) return;
+
+    await apiProtected("/api/users/delete_user", {
+        method: "POST",
+        body: JSON.stringify({ username })
+    });
+
+    alert("Удалён");
+    getUsersNames();
+}
 
 
-    } catch (err) {
-        alert("Login failed");
-    }
-};
 
+/* ------------------- Кнопки ------------------- */
+btn_reg.onclick = UserReg;
+btn_logout.onclick = UserLogout;
+btn_log.onclick = UserLogin;
+btn_delete_user.onclick = deleteUser;
+btn_update_pass.onclick = updatePassword;
+btn_load_users.onclick = getUsersNames;
 
-/***********************************************************************
- *  ЗАЩИЩЁННЫЙ ЗАПРОС (кнопка "Проверить доступ")
- **********************************************************************/
+users_list.onchange = (e) => getUserData(e.target.value);
 btn_prot.onclick = async () => {
     try {
-        const result = await fetchProtected();
-        out.textContent = JSON.stringify(result, null, 2);
-    } catch (err) {
+        const data = await apiProtected("/api/protected");
+        out.textContent = JSON.stringify(data, null, 2);
+    } catch {
         out.textContent = "err";
     }
 };
 
+document.addEventListener("DOMContentLoaded", getUsersNames);
 
-async function fetchProtected() {
-    //let access = localStorage.access;
 
-    // 1️⃣ Делаем запрос к защищённому эндпоинту
-    let res = await sendRequest("/api/protected", {
-        headers: {
-            Authorization: "Bearer " + accessToken
-        }
-    });
+/* ------------------- Переключение видимости пароля ------------------- */
 
-    // 2️⃣ Если токен протух — пытаемся обновить
-    if (res.status === 401) {
-        const refresh = localStorage.refresh;
+document.addEventListener("click", (e) => {
+    if (!e.target.classList.contains("toggle-pass")) return;
 
-        const refreshRes = await sendRequest("/api/user/refresh", {
-            method: "POST",
-            credentials: "include"
-        });
+    const input = e.target.previousElementSibling;
+    if (!input) return;
 
-        // Если refresh токен тоже протух — отдаём ошибку
-        if (!refreshRes.ok) {
-            return refreshRes;
-        }
-
-        // Сохраняем новые токены
-        accessToken = refreshRes.data.access_token;
-
-        // 3️⃣ Повторяем оригинальный запрос c новым access-токеном
-        res = await sendRequest("/api/protected", {
-            headers: {
-                Authorization: "Bearer " + refreshRes.data.access_token
-            }
-        });
+    if (input.type === "password") {
+        input.type = "text";
+        e.target.textContent = "🙈";
+    } else {
+        input.type = "password";
+        e.target.textContent = "👁";
     }
-
-    return res.data;
-}
-
-
-
-/***********************************************************************
- *  ЛОГАУТ
- *
- *  Сервер должен удалить refresh-cookie.
- **********************************************************************/
-btn_logout.onclick = async () => {
-    try {
-        await sendRequest("/api/user/refresh/logout", { method: "POST" });
-    } catch (err) {
-        // Даже если сервер вернул ошибку — мы всё равно "выходим" локально
-    }
-
-    accessToken = null;   // очищаем access-token из памяти
-    updateUI();
-};
-
-/***********************************************************************
- *  UI-ОБНОВЛЕНИЕ (переключает режимы login/logout)
- **********************************************************************/
-function updateUI() {
-//    console.log("accessToken:"+accessToken)
-protected_section.style.display = accessToken ? "block" : "none";
-    // // Показываем кнопку Logout если залогинен
-    // document.getElementById("btn_logout").style.display =
-    //     accessToken ? "block" : "none";
-
-    // // Прячем поля ввода если залогинен
-    // document.getElementById("log_user").style.display =
-    //     accessToken ? "none" : "block";
-
-    // document.getElementById("log_pass").style.display =
-    //     accessToken ? "none" : "block";
-
-    // document.getElementById("btn_log").style.display =
-    //     accessToken ? "none" : "block";
-
-    // Если поле out ранее содержало текст → обновить данные
-    if (document.getElementById("out").textContent !== "") {
-        document.getElementById("btn_prot").click();
-    }
-}
-
-function pageInit() {
-    console.log("accessToken");
-    updateUI()
-}
+});
