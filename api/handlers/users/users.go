@@ -14,7 +14,7 @@ func RegisterRoutes(r chi.Router, db *sql.DB, aut *auth.Auth) {
 	r.Post("/refresh", RefreshHandler(db, aut))
 	r.Post("/logout", LogoutHandler(db, aut))
 	r.Get("/getUserData", GetUserDataHandler(db, aut))
-	r.Get("/getUserNames", GetUsersHandler(db, aut))
+	r.Get("/getUsersNames", GetUsersHandler(db, aut))
 	r.Post("/update_password", UpdateUserPasswordHandler(db, aut))
 	r.Delete("/delete_user", DeleteUserHandler(db, aut))
 }
