@@ -143,8 +143,10 @@ func compileHandler(w http.ResponseWriter, r *http.Request) {
  * functions/increment                                                          *
  ********************************************************************************/
 func runHandler(w http.ResponseWriter, r *http.Request) {
-	name := strings.TrimPrefix(r.URL.Path, "/functions/")
+	name := strings.TrimPrefix(r.URL.Path, "/api/functions/run/")
 	name = filepath.Clean(name)
+
+	fmt.Printf("run funktion: %v\n", name)
 
 	if strings.HasPrefix(name, "..") {
 		http.Error(w, "invalid path", http.StatusBadRequest)
