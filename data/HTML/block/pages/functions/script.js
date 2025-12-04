@@ -46,14 +46,14 @@ async function loadFunctions() {
     const res = await fetch('/api/functions/list');
     const list = await res.json();
 
-    const sel = document.getElementById('functionList');
-    sel.innerHTML = '<option value="">— select —</option>';
+    //const sel = document.getElementById('functionList');
+    functionList.innerHTML = '<option value="">— select —</option>';
 
     list.forEach(fn => {
         const opt = document.createElement('option');
         opt.value = fn;
         opt.textContent = fn;
-        sel.appendChild(opt);
+        functionList.appendChild(opt);
     });
 }
 
@@ -66,7 +66,7 @@ function newf() {
     } else {
         functionList.classList.add('hidden');
         newfunction.classList.remove('hidden');
-        document.getElementById('code').value = "";
+        code.value = "";
         newfunction.value = "";
         bt_newFunc.innerText = 'Выбрать';
     }
@@ -97,7 +97,7 @@ async function compile() {
 async function run() {
     const name = functionList.value;
 
-    const res = await fetch('/api/functions/functions/' + name, {
+    const res = await fetch('/api/functions/run/' + name, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ input: input.value })
