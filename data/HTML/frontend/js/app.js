@@ -135,7 +135,7 @@ async function loadBlock(path, block_Name) {
         return;
     }
     const blockName = path === "pages" ? "pages/home" : path;
-    console.log(blockName);
+    //console.log(blockName);
     try {
         container.innerHTML = '';
         document.querySelectorAll('style[data-dynamic], script[data-dynamic]').forEach(el => el.remove());

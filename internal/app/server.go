@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"MyServer/api/handlers/HTML"
+	"MyServer/api/handlers/functions"
 	"MyServer/api/handlers/users"
 
 	"MyServer/internal/auth"
@@ -38,6 +39,7 @@ func ServerStart(db *sql.DB, aut *auth.Auth) {
 		api.Route("/users", func(u chi.Router) { users.RegisterRoutes(u, db, aut) })
 		api.Get("/protected", HTML.LoadProtected(aut))
 		api.Get("/HTML/*", HTML.LoadHTMLBlock(aut))
+		api.Route("/functions", func(u chi.Router) { functions.RegisterRoutes(u, db, aut) })
 	})
 
 	// -----------------------------
