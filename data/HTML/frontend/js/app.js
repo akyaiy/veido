@@ -183,10 +183,10 @@ async function loadBlock(path, block_Name) {
 }
 
 // SPA-навигация
-function navigateTo(url) {
+function navigateTo(url, target) {
     const clean = url.replace(/^\//, "");
     history.pushState({}, "", "/" + clean);
-    loadBlock("pages/" + clean, "content");
+    loadBlock("pages/" + clean, target);
 }
 
 // Поддержка кнопки "назад/вперед"
@@ -215,8 +215,34 @@ window.addEventListener("click", (event) => {
 
     // игнорируем внешние ссылки и mailto:
     if (!href || href.startsWith("http") || href.startsWith("mailto:")) return;
-
+    const target = a.dataset.target || "content"; // default = content
     event.preventDefault();
-    navigateTo(href);
+    navigateTo(href, target);
 });
 
+//popup
+  function popup(message, afterClose){
+    // Создаём overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'overlay';
+    // Создаём popup
+    const popup = document.createElement('div');
+    popup.className = 'popup';
+    // Добавляем текст
+    const text = document.createElement('div');
+    text.textContent = message;
+    // Добавляем кнопку закрытия
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Закрыть';
+    closeBtn.addEventListener('click', () => {
+      overlay.remove();
+          if (typeof afterClose === 'function') {
+      afterClose();   // ← ВАША ФУНКЦИЯ ПОСЛЕ ЗАКРЫТИЯ
+    }
+    });
+
+    popup.appendChild(text);
+    popup.appendChild(closeBtn);
+    overlay.appendChild(popup);
+    document.body.appendChild(overlay);
+  };
