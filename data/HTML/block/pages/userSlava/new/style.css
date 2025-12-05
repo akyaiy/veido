@@ -1,0 +1,23 @@
+#content {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    grid-template-rows: auto 1fr;
+    height: 100vh;
+    gap: 10px;
+}
+
+#regPanel {
+    grid-column: 1 / 2;
+    grid-row: 1 / 3;
+    background: #f0f0f0;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+#regDiv {
+    grid-column: 2 / 3;
+    grid-row: 2 / 3;
+    background: #ffffff;
+}
