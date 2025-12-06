@@ -8,14 +8,24 @@ textarea { width: 100%; height: 200px; }
 #code {width: 100%; margin-left: 5px; white-space: pre; overflow: auto; height: 100%; border: none; outline: none;              
     resize: none; box-sizing: border-box; font-family: monospace; font-size: 12px; line-height: 1.2em; padding: 0;}
 #output {display: flex; width: 100%; position: relative; height: 100px; border: 1px solid #aaa; 
-    border-radius: 4px; overflow: hidden;}
+    border-radius: 4px; overflow: hidden; margin-top: 10px;}
 #input { width: 100%; height: 20px; margin-bottom: 10px; margin-top: 10px; padding-top: 8px; padding-left: 0px;
     padding-right: 0px; } 
 #container {display: flex; align-items: center; gap: 10px; height: 40px; margin-top: 10px; margin-bottom: 10px}
 #alternative {position: relative; width: 500px; height: 100%;}
-#functionList, #newfunction, #bt_newFunc, #bt_compile {box-sizing: border-box; font-size: 16px; padding: 5px;height: 100%;}
+#functionList, #newfunction{box-sizing: border-box; font-size: 16px; padding: 5px;height: 100%;}
 #functionList, #newfunction {position: absolute; top: 0; left: 0; width: 100%; }
-#bt_newFunc{width: 90px;}
-#bt_run{height: 40px; width: 90px; margin-top: 10px; margin-bottom: 10px}
+/* #bt_newFunc{width: 90px;}  , #bt_newFunc, #bt_compile 
+#bt_run{height: 40px; width: 90px; margin-top: 10px; margin-bottom: 10px} */
 .hidden {display: none;}
+.all_button{height: 40px; width: 120px; margin-top: 10px; margin-bottom: 10px}
+  /* Полупрозрачный фон */
+.overlay {position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5);
+    display: flex; justify-content: center; align-items: center; z-index: 1000;}
+  /* Центральный div */
+.popup {width: 400px; height: 150px; background: white; border-radius: 10px; display: flex;
+    flex-direction: column; justify-content: center; align-items: center; padding: 20px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.3);}
+.popup button {margin-top: 20px; padding: 5px 10px;}
+
 

@@ -75,6 +75,62 @@ func sourceHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(src)
 }
 
+func writeSourceHandler(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		FunctionName string `json:"functionName"`
+		Code         string `json:"code"`
+	}
+
+	body, _ := io.ReadAll(r.Body)
+	json.Unmarshal(body, &req)
+
+	dir := "data/functions"
+	os.MkdirAll(dir, 0755)
+
+	filePath, err := writeSourceFile(dir, req.FunctionName, req.Code)
+	if err != nil {
+		http.Error(w, "write error: "+err.Error(), 400)
+		return
+	}
+
+	w.Write([]byte(fmt.Sprintf("saved: %s", filePath)))
+}
+
+/*********************************************************************************
+ * writeSourceFiler Обработчик /save                                            *
+ * сохраняет написанный файл                                                   *
+ *********************************************************************************/
+func writeSourceFile(baseDir, functionName, code string) (string, error) {
+	// ---------- Безопасный путь ----------
+	safePath := filepath.Clean(functionName)
+
+	if strings.HasPrefix(safePath, "..") ||
+		strings.Contains(safePath, "../") ||
+		filepath.IsAbs(safePath) {
+		return "", fmt.Errorf("invalid path")
+	}
+
+	// Добавляем .go при необходимости
+	if !strings.HasSuffix(safePath, ".go") {
+		safePath += ".go"
+	}
+
+	// Полный путь к файлу
+	filePath := filepath.Join(baseDir, safePath)
+
+	// Создаём каталог при необходимости
+	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+		return "", err
+	}
+
+	// Записываем Go-файл
+	if err := os.WriteFile(filePath, []byte(code), 0644); err != nil {
+		return "", err
+	}
+
+	return filePath, nil
+}
+
 /*********************************************************************************
  * compileHandler Обработчик /compile                                            *
  * компелирует написанный файл                                                   *
@@ -172,6 +228,42 @@ func runHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(out)
 }
 
+/*
+func compileHandler(w http.ResponseWriter, r *http.Request) {
+	var req CompileRequest
+	body, _ := io.ReadAll(r.Body)
+	json.Unmarshal(body, &req)
+
+	dir := "data/functions"
+	os.MkdirAll(dir, 0755)
+
+	// ---------- Записываем исходник ----------
+	filePath, err := writeSourceFile(dir, req.FunctionName, req.GoCode)
+	if err != nil {
+		http.Error(w, "write error: "+err.Error(), 400)
+		return
+	}
+
+	// ---------- Работа с бинарником ----------
+	binaryPath := strings.TrimSuffix(filePath, ".go")
+
+	if err := os.Remove(binaryPath); err != nil && !os.IsNotExist(err) {
+		http.Error(w, "remove old binary: "+err.Error(), 500)
+		return
+	}
+
+	// ---------- Компиляция ----------
+	cmd := exec.Command("go", "build", "-o", binaryPath, filePath)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		w.WriteHeader(500)
+		w.Write([]byte(fmt.Sprintf("compile error:\n%s", string(out))))
+		return
+	}
+
+	w.Write([]byte("compiled successfully"))
+}
+*/
 /********************************************************************************
  * listHandler Обработчик /function/list                                        *
  * Этот роут возвращает список функций.                                         *
@@ -200,3 +292,42 @@ func listHandler(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(files)
 }
+
+/**************************************************************/
+// func listHandler(w http.ResponseWriter, r *http.Request) {
+// 	root := "data/functions"
+
+// 	type Entry struct {
+// 		Source *time.Time `json:"source,omitempty"`
+// 		Bin    *time.Time `json:"bin,omitempty"`
+// 	}
+
+// 	result := make(map[string]*Entry)
+
+// 	filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+// 		if err != nil || info.IsDir() {
+// 			return nil
+// 		}
+
+// 		rel, _ := filepath.Rel(root, path)
+// 		base := strings.TrimSuffix(rel, filepath.Ext(rel))
+// 		ext := filepath.Ext(rel)
+
+// 		if _, ok := result[base]; !ok {
+// 			result[base] = &Entry{}
+// 		}
+
+// 		mod := info.ModTime()
+
+// 		if ext == ".go" {
+// 			result[base].Source = &mod
+// 		} else {
+// 			result[base].Bin = &mod
+// 		}
+
+// 		return nil
+// 	})
+
+// 	w.Header().Set("Content-Type", "application/json")
+// 	json.NewEncoder(w).Encode(result)
+// }

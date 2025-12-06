@@ -1,5 +1,5 @@
-// ==================== AUTOLINE NUMBERS ====================
-
+let nameStringMod;
+let fCodeMod;
 // универсальный обработчик (вставка, ввод, удаление, drag-drop)
 function triggerUpdate() {
     // вставка иногда происходит позже — даём браузеру завершить операцию
@@ -49,10 +49,11 @@ async function loadFunctions() {
     //const sel = document.getElementById('functionList');
     functionList.innerHTML = '<option value="">— select —</option>';
 
-    list.forEach(fn => {
+//    Object.keys(list).forEach(name => {
+    list.forEach(name => {
         const opt = document.createElement('option');
-        opt.value = fn;
-        opt.textContent = fn;
+        opt.value = name;
+        opt.textContent = name;
         functionList.appendChild(opt);
     });
 }
@@ -89,7 +90,30 @@ async function compile() {
             goCode: code.value
         })
     });
+    output.textContent = await res.text();
+    }
+}
 
+async function savef() {
+    if (newfunction.className == "hidden"){
+//        console.log("open")
+        popup("old")
+    } else {
+//        console.log("new")
+//        await popup("new",() => {return;});
+        await popup("new");
+        return;
+        console.log("test")
+    }
+    if (newfunction.value != ""){
+    const res = await fetch('/api/functions/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            functionName: newfunction.value,
+            goCode: code.value
+        })
+    });
     output.textContent = await res.text();
     }
 }
@@ -115,17 +139,30 @@ function updateLineNumbers() {
     lineNumbers.innerHTML = html;
 }
 
-function btBlock(){
-    if (newfunction.value != "")
-        bt_newFunc.disabled = true
-    else
-        bt_newFunc.disabled = false
+function btLoc(){
+    if (newfunction.value != ""){
+        //bt_newFunc.disabled = true;
+        nameStringMod = true;
+    } else {
+        //bt_newFunc.disabled = false
+        nameStringMod = false;
+    }
 }
+
+function codLoc(){
+        fCodeMod = true;
+        fCodeMod = false;
+}
+
+//bt_save.addEventListener("click", () => {const message = 'Пустое сообщение'; popup(message);});
+
 
 functionList.addEventListener("change", selectFunction);
 bt_newFunc.addEventListener("click", newf);
 bt_compile.addEventListener("click", compile);
 bt_run.addEventListener("click", run);
-newfunction.addEventListener("input", btBlock)
+bt_save.addEventListener("click", savef);
+newfunction.addEventListener("input", btLoc)
+code.addEventListener("input", codLoc)
 
 loadFunctions();
