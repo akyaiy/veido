@@ -1,7 +1,8 @@
 body {background: #d4d4d4; margin: 0; font-family: "Segoe UI", sans-serif;}
 #window {width: 900px; margin: 20px auto; background: #fff; border-radius: 6px; 
     box-shadow: 0 4px 12px rgba(0,0,0,0.2); overflow: hidden;}
-#titlebar {background: #2d2d2e; color: white; padding: 10px; font-size: 18px;}
+#titlebar { background: #2d2d2e; color: white; padding: 10px; font-size: 18px; position: relative; }
+#closeBtn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; font-size: 18px; font-weight: bold; }
 #toolbar {background: #f2f2f2; padding: 8px; display: flex; align-items: center;
     gap: 10px; border-bottom: 1px solid #ccc;}
 #toolbar #actions {margin-left: auto; display: flex; align-items: center; gap: 10px;}
@@ -21,3 +22,5 @@ button:hover, .btn:hover {background: #dcdcdc;}
     border-radius: 6px; background: #fafafa; text-align: center;}
 .view-columns #files tbody tr {display: flex; gap: 20px; border-bottom: 1px solid #eee;}
 .view-columns #files td {flex: 1;}
+.overlay {position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5);
+    display: flex; justify-content: center; align-items: center; z-index: 1000;}

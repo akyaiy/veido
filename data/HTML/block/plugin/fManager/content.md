@@ -1,5 +1,10 @@
+<div class="overlay">
+
 <div id="window">
-  <div id="titlebar">Файловый менеджер</div>
+  <div id="titlebar">
+    Файловый менеджер
+    <span id="closeBtn">&times;</span>
+</div>
   <div id="toolbar">
     <button id="btnUp">⬆</button>
     <span id="cwd"></span>
@@ -23,4 +28,6 @@
       <tbody></tbody>
     </table>
   </div>
+</div>
+
 </div>

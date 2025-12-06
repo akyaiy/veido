@@ -114,3 +114,10 @@ document.getElementById('btnMkdir').addEventListener('click', async () => {
 
 applyViewMode();
 list('/');
+
+
+closeBtn.addEventListener('click', () => {
+    const fm = document.getElementById("fManager");
+    if (fm) fm.remove();
+    document.querySelectorAll('[data-dynamic="fManager"]').forEach(el => el.remove());
+});
