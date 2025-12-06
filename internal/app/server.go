@@ -72,7 +72,7 @@ func ServerStart(db *sql.DB, aut *auth.Auth) {
 		}(),
 
 		ReadTimeout: func() time.Duration {
-			d, err := config.GetTimeField("SReadTimeout")
+			d, err := config.GetTimeField("STimeoutTime")
 			if err != nil {
 				log.Println("Ошибка:", err)
 			}
