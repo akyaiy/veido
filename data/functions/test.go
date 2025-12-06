@@ -17,5 +17,5 @@ func main() {
 		fmt.Println("Invalid input")
 		return
 	}
-	fmt.Println(num * 0)
+	fmt.Println(num + 0)
 }
