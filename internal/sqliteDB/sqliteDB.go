@@ -3,10 +3,17 @@ package sqliteDB
 import (
 	"database/sql"
 	"log"
+	"os"
+	"path/filepath"
 	"time"
 )
 
 func InitDB(path string) *sql.DB {
+	dirpath := filepath.Dir(path)
+	err := os.MkdirAll(dirpath, 0777)
+	if err != nil {
+		panic(err)
+	}
 	db, err := sql.Open("sqlite3", path)
 	if err != nil {
 		log.Fatal(err)
