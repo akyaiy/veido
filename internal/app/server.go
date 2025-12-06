@@ -62,7 +62,8 @@ func ServerStart(db *sql.DB, aut *auth.Auth) {
 	// }
 
 	srv := &http.Server{
-		Addr: ":8080",
+		Addr:    config.Data.Port,
+		Handler: r,
 		WriteTimeout: func() time.Duration {
 			d, err := config.GetTimeField("STimeoutTime")
 			if err != nil {
