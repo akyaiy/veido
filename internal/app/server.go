@@ -51,16 +51,6 @@ func ServerStart(db *sql.DB, aut *auth.Auth) {
 	// Фронтенд работает как SPA: любые не-API запросы → index.html
 	r.Get("/*", HTML.LoadTemplatePage)
 
-	// -----------------------------
-	//       START SERVER
-	// -----------------------------
-	// srv := &http.Server{
-	// 	Addr:         config.Data.Port,
-	// 	Handler:      r,
-	// 	WriteTimeout: config.GetSTimeoutTime(),
-	// 	ReadTimeout:  config.GetSTimeoutTime(),
-	// }
-
 	srv := &http.Server{
 		Addr:    config.Data.Port,
 		Handler: r,
@@ -84,9 +74,3 @@ func ServerStart(db *sql.DB, aut *auth.Auth) {
 	log.Println("Server started at http://localhost:8080")
 	log.Fatal(srv.ListenAndServe())
 }
-
-/*
-d, err := GetTimeFild("STimeoutTime")
-if err != nil {
-    log.Println("Ошибка:", err)
-}*/
