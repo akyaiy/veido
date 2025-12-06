@@ -13,3 +13,5 @@ password:<br>
 <pre id="out"></pre>
 
 <button id="btn_logout">Logout</button>
+
+<div class="blockTest">ТестТестТест</div>

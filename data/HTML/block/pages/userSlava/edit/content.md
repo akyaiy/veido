@@ -14,3 +14,5 @@ password:<br>
 
 <button id="btn_update_pass">Update password</button>
 <button id="btn_delete_user">Delete user</button>
+
+<div class="blockTest">ТестТестТест</div>
