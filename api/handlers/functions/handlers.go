@@ -228,46 +228,8 @@ func runHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(out)
 }
 
-/*
-func compileHandler(w http.ResponseWriter, r *http.Request) {
-	var req CompileRequest
-	body, _ := io.ReadAll(r.Body)
-	json.Unmarshal(body, &req)
-
-	dir := "data/functions"
-	os.MkdirAll(dir, 0755)
-
-	// ---------- Записываем исходник ----------
-	filePath, err := writeSourceFile(dir, req.FunctionName, req.GoCode)
-	if err != nil {
-		http.Error(w, "write error: "+err.Error(), 400)
-		return
-	}
-
-	// ---------- Работа с бинарником ----------
-	binaryPath := strings.TrimSuffix(filePath, ".go")
-
-	if err := os.Remove(binaryPath); err != nil && !os.IsNotExist(err) {
-		http.Error(w, "remove old binary: "+err.Error(), 500)
-		return
-	}
-
-	// ---------- Компиляция ----------
-	cmd := exec.Command("go", "build", "-o", binaryPath, filePath)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		w.WriteHeader(500)
-		w.Write([]byte(fmt.Sprintf("compile error:\n%s", string(out))))
-		return
-	}
-
-	w.Write([]byte("compiled successfully"))
-}
-*/
-/********************************************************************************
- * listHandler Обработчик /function/list                                        *
- * Этот роут возвращает список функций.                                         *
- ********************************************************************************/
+// listHandler Обработчик /function/list
+// Этот роут возвращает список функций.
 func listHandler(w http.ResponseWriter, r *http.Request) {
 	root := "data/functions"
 	var files []string
