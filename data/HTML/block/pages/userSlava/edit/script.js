@@ -47,7 +47,7 @@ async function deleteUser() {
     if (!confirm(`Удалить пользователя "${username}"?`)) return;
 
     await apiProtected("/api/users/delete_user", {
-        method: "POST",
+        method: "Delete",
         body: JSON.stringify({ username })
     });
 
