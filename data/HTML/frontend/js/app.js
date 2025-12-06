@@ -142,7 +142,12 @@ if (!container) {
     //console.log(blockName);
     try {
         container.innerHTML = '';
-        document.querySelectorAll('style[data-dynamic], script[data-dynamic]').forEach(el => el.remove());
+        document.querySelectorAll('style[data-dynamic], script[data-dynamic]').forEach(el => {
+            const name = el.getAttribute('data-dynamic');
+            if (name === block_Name || !document.getElementById(name)) {
+                el.remove();
+            }
+        });
         const response = await sendRequest(`/api/HTML/${blockName}`);
         if (!response.ok) {
             throw new Error(`Failed to load block: ${response.status}`);
@@ -161,13 +166,13 @@ if (!container) {
         }
         if (css) {
             const style = document.createElement('style');
-            style.dataset.dynamic = "true";
+            style.dataset.dynamic = block_Name;
             style.textContent = css;
             document.head.appendChild(style);
         }
         if (js) {
             const script = document.createElement('script');
-            script.dataset.dynamic = "true";
+            script.dataset.dynamic = block_Name;
             script.textContent = `
                 (() => {
                     try {

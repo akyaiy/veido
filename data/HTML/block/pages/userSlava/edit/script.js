@@ -54,19 +54,3 @@ async function deleteUser() {
     alert("Удалён");
     getUsersNames();
 }
-
-
-document.addEventListener("click", (e) => {
-    if (!e.target.classList.contains("toggle-pass")) return;
-
-    const input = e.target.previousElementSibling;
-    if (!input) return;
-
-    if (input.type === "password") {
-        input.type = "text";
-        e.target.textContent = "🙈";
-    } else {
-        input.type = "password";
-        e.target.textContent = "👁";
-    }
-});

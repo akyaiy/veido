@@ -14,19 +14,3 @@ async function UserReg() {
     reg_pass.value = "";
 };
 btn_reg.onclick = UserReg;
-
-
-document.addEventListener("click", (e) => {
-    if (!e.target.classList.contains("toggle-pass")) return;
-
-    const input = e.target.previousElementSibling;
-    if (!input) return;
-
-    if (input.type === "password") {
-        input.type = "text";
-        e.target.textContent = "🙈";
-    } else {
-        input.type = "password";
-        e.target.textContent = "👁";
-    }
-});
