@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"time"
 
 	"MyServer/api/handlers/HTML"
 	"MyServer/api/handlers/files"
@@ -53,13 +54,38 @@ func ServerStart(db *sql.DB, aut *auth.Auth) {
 	// -----------------------------
 	//       START SERVER
 	// -----------------------------
+	// srv := &http.Server{
+	// 	Addr:         config.Data.Port,
+	// 	Handler:      r,
+	// 	WriteTimeout: config.GetSTimeoutTime(),
+	// 	ReadTimeout:  config.GetSTimeoutTime(),
+	// }
+
 	srv := &http.Server{
-		Addr:         config.Data.Port,
-		Handler:      r,
-		WriteTimeout: config.GetSTimeoutTime(),
-		ReadTimeout:  config.GetSTimeoutTime(),
+		Addr: ":8080",
+		WriteTimeout: func() time.Duration {
+			d, err := config.GetTimeField("STimeoutTime")
+			if err != nil {
+				log.Println("Ошибка:", err)
+			}
+			return d
+		}(),
+
+		ReadTimeout: func() time.Duration {
+			d, err := config.GetTimeField("SReadTimeout")
+			if err != nil {
+				log.Println("Ошибка:", err)
+			}
+			return d
+		}(),
 	}
 
 	log.Println("Server started at http://localhost:8080")
 	log.Fatal(srv.ListenAndServe())
 }
+
+/*
+d, err := GetTimeFild("STimeoutTime")
+if err != nil {
+    log.Println("Ошибка:", err)
+}*/

@@ -3,8 +3,10 @@ package config
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"log"
 	"os"
+	"reflect"
 	"time"
 
 	"MyServer/internal/timeconverter"
@@ -90,6 +92,37 @@ func LoadData(path string) {
 	// // Пример использования timeconverter
 	// d, _ := timeconverter.Parse("15d1h3m10s6us")
 	// fmt.Println(d.ToDuration())
+}
+
+// GetTimeFild принемает строку с именем поля из структуры конфига
+// допустимые значения:	ATokenTime,	RTokenTime,	STimeoutTime.
+// Возвращает время в формате Duration
+func GetTimeField(s string) (time.Duration, error) {
+	v := reflect.ValueOf(Data)
+
+	// Если Data — указатель → разыменовываем
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+
+	field := v.FieldByName(s)
+
+	if !field.IsValid() {
+		return 0, fmt.Errorf("несуществующее поле: %s", s)
+	}
+
+	if field.Kind() != reflect.String {
+		return 0, fmt.Errorf("поле %s не является строкой", s)
+	}
+
+	value := field.String()
+
+	d, err := timeconverter.Parse(value)
+	if err != nil {
+		return 0, fmt.Errorf("ошибка парсинга значения поля %s: %w", s, err)
+	}
+
+	return d.ToDuration(), nil
 }
 
 func GetSTimeoutTime() time.Duration {
