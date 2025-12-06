@@ -1,39 +1,80 @@
-async function loadCurrentBlock(path, targetId) {
-    try {
-        await loadBlock(path, targetId);
-    } catch (err) {
-        console.error("Ошибка загрузки блока:", err);
+
+// const panel = document.getElementById("regPanel");
+
+// panel.addEventListener("click", (e) => {
+//     // ищем ближайшую <a>
+//     const link = e.target.closest("a");
+//     // если клик был не по ссылке или ссылка вне дивa — выходим
+//     if (!link || !panel.contains(link)) return;
+
+//     e.preventDefault(); // останавливаем стандартное поведение
+//     e.stopPropagation(); // останавливаем всплытие, чтобы другие слушатели не срабатывали
+//     const urlStruct = urlStrBr(link.href);
+//     if (urlStruct.action == "sPage"){
+//         // Добавляем запись в URL (без перезагрузки)
+//         // Например: /userSlava/?block=login
+//         const newUrl = `/` + urlStruct.url + `/?` + urlStruct.action + `=` + urlStruct.data;
+//         history.pushState(null, "", newUrl);
+//         loadBlock("pages/"+urlStruct.url+"/"+urlStruct.data, "regDiv")
+//     }
+// });
+
+const panel = document.getElementById("regPanel");
+
+panel.addEventListener("click", (e) => {
+    // ищем ближайшую <a> с data-link="true"
+    const link = e.target.closest("a[data-link='true']");
+    if (!link || !panel.contains(link)) return; // если клик не по нужной ссылке — выходим
+
+    e.preventDefault(); // отменяем переход по ссылке
+    e.stopPropagation(); // предотвращаем всплытие события
+
+    const urlStruct = urlStrBr(link.href);
+    const targetId = link.dataset.target || "regDiv";
+
+    if (urlStruct.action === "sPage") {
+        // Меняем URL в браузере без перезагрузки
+        const newUrl = `/${urlStruct.url}/?${urlStruct.action}=${urlStruct.data}`;
+        history.pushState(null, "", newUrl);
+
+        // Загружаем блок
+        loadBlock(`pages/${urlStruct.url}/${urlStruct.data}`, targetId);
+    }
+});
+
+
+function handleCurrentUrl() {
+    const urlStruct = urlStrBr(window.location.href);
+//    console.log("Текущий URL:", urlStruct);
+    if (urlStruct.action === "sPage") {
+        // пример вызова loadBlock для sPage
+        loadBlock("pages/" + urlStruct.url + "/" + urlStruct.data, "regDiv");
     }
 }
 
-const panel = document.getElementById("regPanel");
-const defaultTargetId = "regDiv";
-
-panel.addEventListener("click", async (e) => {
-    const a = e.target.closest("a[data-link='true']");
-    if (!a) return;
-
-    e.preventDefault();
-
-    const urlParams = new URL(a.href).searchParams;
-    const path = urlParams.get("block");
-    const targetId = a.dataset.target || defaultTargetId;
-    if (!path) return;
-
-    history.pushState(null, "", `/userSlava/?block=${path}`);
-
-    await loadCurrentBlock(path, targetId);
-});
-
-window.addEventListener("popstate", async () => {
-    const params = new URLSearchParams(window.location.search);
-    const path = params.get("block");
-    if (!path) return;
-    await loadCurrentBlock(path, defaultTargetId);
-});
-
-const params = new URLSearchParams(window.location.search);
-const path = params.get("block");
-if (path) {
-    loadCurrentBlock(path, defaultTargetId);
+function urlStrBr(url){
+    // Создаём объект URL
+    const parsedUrl = new URL(url);
+    // 1. firstPart — берём путь до "?" и удаляем "/"
+    const firstPart = parsedUrl.pathname.replace(/^\/|\/$/g, "");
+    // 2. secondPart — берём ключ последнего параметра
+    const searchParams = parsedUrl.searchParams;
+    const secondPart = Array.from(searchParams.keys()).pop(); // берём последний ключ
+    // 3. thirdPart — берём значение последнего параметра
+    const thirdPart = searchParams.get(secondPart);
+    // Формируем структуру
+    return {
+        url: firstPart,
+        action: secondPart,
+        data: thirdPart
+    };
 }
+
+//window.addEventListener("DOMContentLoaded", () => {
+//    handleCurrentUrl();
+//});
+// При загрузке страницы
+handleCurrentUrl();
+
+// При переходах по истории (назад/вперед)
+window.addEventListener("popstate", handleCurrentUrl);

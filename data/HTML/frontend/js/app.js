@@ -128,6 +128,10 @@ async function loadMenu() {
  ********************************************************************/
 async function loadBlock(path, block_Name) {
     const container = document.getElementById(block_Name);
+if (!container) {
+    //console.warn(`loadBlock: контейнер #${block_Name} не найден — игнорируем`);
+    return;
+}
     path = path.replace(/\/$/, "");
     //console.log(path);
     if (!container) {
