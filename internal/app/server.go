@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"MyServer/api/handlers/HTML"
+	"MyServer/api/handlers/files"
 	"MyServer/api/handlers/functions"
 	"MyServer/api/handlers/users"
 
@@ -40,6 +41,7 @@ func ServerStart(db *sql.DB, aut *auth.Auth) {
 		api.Get("/protected", HTML.LoadProtected(aut))
 		api.Get("/HTML/*", HTML.LoadHTMLBlock(aut))
 		api.Route("/functions", func(u chi.Router) { functions.RegisterRoutes(u, db, aut) })
+		api.Route("/files", func(u chi.Router) { files.RegisterRoutes(u, db, aut) })
 	})
 
 	// -----------------------------
