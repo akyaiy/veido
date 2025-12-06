@@ -77,7 +77,7 @@ func LoadHTMLBlock(aut *auth.Auth) http.HandlerFunc {
 }
 
 func loadFiles(dirPath string) *HTMLblock {
-	//fmt.Printf("Клиент запросил файл по адресу: '%s'\n", dirPath)
+	fmt.Printf("Клиент запросил файл по адресу: '%s'\n", dirPath)
 
 	var hBlock HTMLblock
 
