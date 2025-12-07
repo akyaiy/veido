@@ -21,9 +21,9 @@ function ensureContainers() {
         cols = document.createElement('div');
         cols.id = 'files_columns';
         cols.style.display = 'none';
-        cols.style.padding = '8px';
+        cols.style.padding = '4px';
         cols.style.columnWidth = '220px';
-        cols.style.columnGap = '16px';
+        cols.style.columnGap = '12px';
         cols.style.columnFill = 'auto';
         cols.style.height = 'calc(100vh - 200px)';
         cols.style.overflowY = 'hidden';
@@ -51,9 +51,9 @@ function applyViewMode() {
         tiles.style.display = 'none';
         cols.style.display = '';
         cols.style.columnWidth = '220px';
-        cols.style.columnGap = '16px';
+        cols.style.columnGap = '12px';
         cols.style.columnFill = 'auto';
-        cols.style.height = 'calc(100% - 16px)';
+        cols.style.height = 'calc(100% - 8px)';
         cols.style.overflowY = 'hidden';
         cols.style.overflowX = 'auto';
         cols.style.width = '100%';
@@ -70,12 +70,6 @@ document.getElementById('viewMode').addEventListener('change', e => {
     applyViewMode();
     list(cwd);
 });
-
-function relPath(p) {
-    if (!p) return '/';
-    if (p.startsWith('/')) return p;
-    return '/' + p;
-}
 
 async function list(path) {
     const res = await fetch(`/api/files/list?path=${encodeURIComponent(path)}`);
@@ -107,8 +101,8 @@ async function list(path) {
         upTile.style.flexDirection = 'column';
         upTile.style.alignItems = 'center';
         upTile.style.justifyContent = 'center';
-        upTile.style.padding = '8px';
-        upTile.innerHTML = `<div class="tile-icon" style="font-size:40px">⬆</div><div class="tile-name" style="margin-top:6px;font-size:12px">Вверх</div>`;
+        upTile.style.padding = '6px';
+        upTile.innerHTML = `<div class="tile-icon" style="font-size:36px">⬆</div><div class="tile-name" style="margin-top:4px;font-size:12px">Вверх</div>`;
         upTile.addEventListener('dblclick', () => {
             const up = cwd.split('/').slice(0, -1).join('/') || '/';
             list(up);
@@ -119,9 +113,9 @@ async function list(path) {
         upCol.className = 'col-item';
         upCol.style.display = 'block';
         upCol.style.breakInside = 'avoid';
-        upCol.style.padding = '8px';
+        upCol.style.padding = '4px';
         upCol.style.width = '100%';
-        upCol.innerHTML = `<div style="display:flex;align-items:center;"><div style="width:40px;display:flex;justify-content:center;font-size:20px">⬆</div><div style="padding-left:8px">Вверх</div></div><hr style="border:none;border-bottom:1px solid rgba(0,0,0,0.08);margin:8px 0 0 0">`;
+        upCol.innerHTML = `<div style="display:flex;align-items:center;"><div style="width:32px;display:flex;justify-content:center;font-size:18px">⬆</div><div style="padding-left:6px">Вверх</div></div>`;
         upCol.addEventListener('dblclick', () => {
             const up = cwd.split('/').slice(0, -1).join('/') || '/';
             list(up);
@@ -145,60 +139,21 @@ async function list(path) {
                 if (f.isDir) list((cwd === '/' ? '' : cwd) + '/' + f.name);
                 else window.location = `/api/files/download?path=${encodeURIComponent((cwd === '/' ? '' : cwd) + '/' + f.name)}`;
             });
-
-            tr.addEventListener('contextmenu', async e => {
-                e.preventDefault();
-                const action = prompt('Введите действие: delete/view');
-                const p = (cwd === '/' ? '' : cwd) + '/' + f.name;
-                if (action === 'delete') {
-                    if (!confirm('Удалить?')) return;
-                    const form = new FormData();
-                    form.append('path', p);
-                    await fetch('/api/files/delete', { method: 'POST', body: form });
-                    list(cwd);
-                } else if (action === 'view' && !f.isDir) {
-                    const r = await fetch(`/api/files/view?path=${encodeURIComponent(p)}`);
-                    const text = await r.text();
-                    const w = window.open('', '_blank');
-                    w.document.write(`<pre>${escapeHtml(text)}</pre>`);
-                }
-            });
         } else if (viewMode === 'columns') {
             const item = document.createElement('div');
             item.className = 'col-item';
             item.style.display = 'block';
             item.style.breakInside = 'avoid';
-            item.style.padding = '8px';
+            item.style.padding = '4px';
             item.style.width = '100%';
-            item.innerHTML = `<div style="display:flex;align-items:center;"><div style="width:40px;display:flex;justify-content:center">${icon}</div><div style="padding-left:8px;flex:1">${nameEsc}</div></div><hr style="border:none;border-bottom:1px solid rgba(0,0,0,0.08);margin:8px 0 0 0">`;
+            item.innerHTML = `<div style="display:flex;align-items:center;"><div style="width:32px;display:flex;justify-content:center">${icon}</div><div style="padding-left:6px;flex:1">${nameEsc}</div></div>`;
             cols.appendChild(item);
 
             item.addEventListener('dblclick', () => {
                 if (f.isDir) list((cwd === '/' ? '' : cwd) + '/' + f.name);
                 else window.location = `/api/files/download?path=${encodeURIComponent((cwd === '/' ? '' : cwd) + '/' + f.name)}`;
             });
-
-            item.addEventListener('contextmenu', async e => {
-                e.preventDefault();
-                const action = prompt('Введите действие: delete/view');
-                const p = (cwd === '/' ? '' : cwd) + '/' + f.name;
-                if (action === 'delete') {
-                    if (!confirm('Удалить?')) return;
-                    const form = new FormData();
-                    form.append('path', p);
-                    await fetch('/api/files/delete', { method: 'POST', body: form });
-                    list(cwd);
-                } else if (action === 'view' && !f.isDir) {
-                    const r = await fetch(`/api/files/view?path=${encodeURIComponent(p)}`);
-                    const text = await r.text();
-                    const w = window.open('', '_blank');
-                    w.document.write(`<pre>${escapeHtml(text)}</pre>`);
-                }
-            });
         } else if (viewMode === 'tiles') {
-            const tilesContainer = document.getElementById('files_tiles');
-            if (!tilesContainer) continue;
-
             const tile = document.createElement('div');
             tile.className = 'tile';
             tile.style.display = 'flex';
@@ -206,31 +161,12 @@ async function list(path) {
             tile.style.alignItems = 'center';
             tile.style.justifyContent = 'center';
             tile.style.padding = '6px';
-            tile.style.boxSizing = 'border-box';
-            tile.innerHTML = `<div class="tile-icon" style="font-size:36px;display:flex;justify-content:center">${icon}</div><div class="tile-name" style="margin-top:6px;font-size:12px;text-align:center">${nameEsc}</div>`;
-            tilesContainer.appendChild(tile);
+            tile.innerHTML = `<div class="tile-icon" style="font-size:36px">${icon}</div><div class="tile-name" style="margin-top:4px;font-size:12px;text-align:center">${nameEsc}</div>`;
+            tiles.appendChild(tile);
 
             tile.addEventListener('dblclick', () => {
                 if (f.isDir) list((cwd === '/' ? '' : cwd) + '/' + f.name);
                 else window.location = `/api/files/download?path=${encodeURIComponent((cwd === '/' ? '' : cwd) + '/' + f.name)}`;
-            });
-
-            tile.addEventListener('contextmenu', async e => {
-                e.preventDefault();
-                const action = prompt('Введите действие: delete/view');
-                const p = (cwd === '/' ? '' : cwd) + '/' + f.name;
-                if (action === 'delete') {
-                    if (!confirm('Удалить?')) return;
-                    const form = new FormData();
-                    form.append('path', p);
-                    await fetch('/api/files/delete', { method: 'POST', body: form });
-                    list(cwd);
-                } else if (action === 'view' && !f.isDir) {
-                    const r = await fetch(`/api/files/view?path=${encodeURIComponent(p)}`);
-                    const text = await r.text();
-                    const w = window.open('', '_blank');
-                    w.document.write(`<pre>${escapeHtml(text)}</pre>`);
-                }
             });
         }
     }
