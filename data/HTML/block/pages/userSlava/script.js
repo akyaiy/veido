@@ -1,24 +1,4 @@
 
-// const panel = document.getElementById("regPanel");
-
-// panel.addEventListener("click", (e) => {
-//     // ищем ближайшую <a>
-//     const link = e.target.closest("a");
-//     // если клик был не по ссылке или ссылка вне дивa — выходим
-//     if (!link || !panel.contains(link)) return;
-
-//     e.preventDefault(); // останавливаем стандартное поведение
-//     e.stopPropagation(); // останавливаем всплытие, чтобы другие слушатели не срабатывали
-//     const urlStruct = urlStrBr(link.href);
-//     if (urlStruct.action == "sPage"){
-//         // Добавляем запись в URL (без перезагрузки)
-//         // Например: /userSlava/?block=login
-//         const newUrl = `/` + urlStruct.url + `/?` + urlStruct.action + `=` + urlStruct.data;
-//         history.pushState(null, "", newUrl);
-//         loadBlock("pages/"+urlStruct.url+"/"+urlStruct.data, "regDiv")
-//     }
-// });
-
 const panel = document.getElementById("regPanel");
 
 panel.addEventListener("click", (e) => {
@@ -70,9 +50,6 @@ function urlStrBr(url){
     };
 }
 
-//window.addEventListener("DOMContentLoaded", () => {
-//    handleCurrentUrl();
-//});
 // При загрузке страницы
 handleCurrentUrl();
 
