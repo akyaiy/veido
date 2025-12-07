@@ -6,10 +6,10 @@ body {background: #d4d4d4; margin: 0; font-family: "Segoe UI", sans-serif;}
 #toolbar {background: #f2f2f2; padding: 8px; display: flex; align-items: center;
     gap: 10px; border-bottom: 1px solid #ccc;}
 #toolbar #actions {margin-left: auto; display: flex; align-items: center; gap: 10px;}
-#main { height: 600px; overflow: auto;}
+#main { height: 600px; overflow-y: auto; overflow-x: hidden;}
 #files {width: 100%; border-collapse: collapse;}
-#files th {background: #e6e6e6; padding: 8px; border-bottom: 1px solid #ccc;
-    position: sticky; top: 0;}
+#files th {background: #e6e6e6; padding: 8px 16px; border-bottom: 1px solid #ccc;
+    position: sticky; top: 0; text-align: left;}
 #files td {padding: 8px; border-bottom: 1px solid #eee;}
 #files tr:hover { background: #f0f8ff; cursor: pointer;}
 button, .btn {background: #e6e6e6; border: 1px solid #aaa; padding: 5px 10px;
