@@ -249,7 +249,7 @@ window.addEventListener("click", (event) => {
       afterClose();   // ← ВАША ФУНКЦИЯ ПОСЛЕ ЗАКРЫТИЯ
     }
     });
-
+  }
 //popupMenu
   function popupMenu(message, afterClose){
     // Создаём popupMenu
