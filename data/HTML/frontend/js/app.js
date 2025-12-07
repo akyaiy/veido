@@ -250,6 +250,24 @@ window.addEventListener("click", (event) => {
     }
     });
 
+//popupMenu
+  function popupMenu(message, afterClose){
+    // Создаём popupMenu
+    const popupMenu = document.createElement('div');
+    popup.className = 'popup_Menu';
+    // Добавляем текст
+    const text = document.createElement('div');
+    text.textContent = message;
+    // Добавляем кнопку закрытия
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Закрыть';
+    closeBtn.addEventListener('click', () => {
+      overlay.remove();
+          if (typeof afterClose === 'function') {
+      afterClose();   // ← ВАША ФУНКЦИЯ ПОСЛЕ ЗАКРЫТИЯ
+    }
+    });
+
     popup.appendChild(text);
     popup.appendChild(closeBtn);
     overlay.appendChild(popup);
