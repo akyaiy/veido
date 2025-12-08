@@ -55,13 +55,7 @@ func LoadHTMLBlock(aut *auth.Auth) http.HandlerFunc {
 		if name == "" {
 			name = "home"
 		}
-		///////////////////////////////////////////////////////////////
-		// if config.Data.User != "" {
 		path = filepath.Join(config.Data.HTTPBlockDir, name)
-		// } else {
-		// 	path = filepath.Join("data/pages/login")
-		// }
-		///////////////////////////////////////////////////////////////
 		myHTML = loadFiles(path)
 		if segments[0] == "block" {
 			//fmt.Printf("name: %v\n", segments)

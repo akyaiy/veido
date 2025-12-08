@@ -7,7 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-// RegisterUserRoutes регистрирует все маршруты /api/users/*
+// RegisterUserRoutes регистрирует все маршруты /api/files/*
 func RegisterRoutes(r chi.Router, db *sql.DB, aut *auth.Auth) {
 	//fmt.Printf("ЗапросЖ %v", r)
 	r.Get("/list", listHandler)
@@ -17,13 +17,3 @@ func RegisterRoutes(r chi.Router, db *sql.DB, aut *auth.Auth) {
 	r.Post("/mkdir", mkdirHandler)
 	r.Post("/delete", deleteHandler)
 }
-
-/***********************************************************
-http.HandleFunc("/api/list", listHandler)
-http.HandleFunc("/api/download", downloadHandler)
-http.HandleFunc("/api/view", viewHandler)
-http.HandleFunc("/api/upload", uploadHandler)
-http.HandleFunc("/api/mkdir", mkdirHandler)
-http.HandleFunc("/api/delete", deleteHandler)
-
-*/
