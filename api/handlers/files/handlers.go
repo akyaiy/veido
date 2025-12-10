@@ -58,6 +58,7 @@ func listHandler(w http.ResponseWriter, r *http.Request) {
 	infos, err := f.Readdir(-1)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		//fmt.Printf("user id: %s")
 		return
 	}
 	out := []FileInfo{}

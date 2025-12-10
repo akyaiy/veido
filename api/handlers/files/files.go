@@ -1,19 +1,19 @@
 package files
 
 import (
+	"MyServer/internal/acl"
 	"MyServer/internal/auth"
 	"database/sql"
 
 	"github.com/go-chi/chi/v5"
 )
 
-// RegisterUserRoutes регистрирует все маршруты /api/files/*
+// RegisterRoutes регистрирует все маршруты /api/files/*
 func RegisterRoutes(r chi.Router, db *sql.DB, aut *auth.Auth) {
-	//fmt.Printf("ЗапросЖ %v", r)
-	r.Get("/list", listHandler)
-	r.Get("/download", downloadHandler)
-	r.Post("/view", viewHandler)
-	r.Post("/upload", uploadHandler)
-	r.Post("/mkdir", mkdirHandler)
-	r.Post("/delete", deleteHandler)
+	r.Get("/list", acl.RequirePermission(db, aut, "files.list", listHandler))
+	r.Get("/download", acl.RequirePermission(db, aut, "files.download", downloadHandler))
+	r.Post("/view", acl.RequirePermission(db, aut, "files.view", viewHandler))
+	r.Post("/upload", acl.RequirePermission(db, aut, "files.upload", uploadHandler))
+	r.Post("/mkdir", acl.RequirePermission(db, aut, "files.mkdir", mkdirHandler))
+	r.Post("/delete", acl.RequirePermission(db, aut, "files.delete", deleteHandler))
 }

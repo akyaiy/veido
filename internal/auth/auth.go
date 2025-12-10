@@ -26,6 +26,28 @@ type Auth struct {
 	secret []byte
 }
 
+type User struct {
+	ID       int64  `json:"id"`
+	Username string `json:"username"`
+}
+
+func (a *Auth) GetUserFromRequest(r *http.Request) (*User, error) {
+	userID, ok := a.AuthenticateRequest(r)
+	if !ok || userID == 0 {
+		return nil, errors.New("unauthenticated")
+	}
+
+	row := a.db.QueryRow("SELECT id, username FROM users WHERE id = ?", userID)
+	var u User
+	if err := row.Scan(&u.ID, &u.Username); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errors.New("user not found")
+		}
+		return nil, err
+	}
+	return &u, nil
+}
+
 func NewAuth(db *sql.DB, secret []byte) *Auth {
 	return &Auth{db: db, secret: secret}
 }
