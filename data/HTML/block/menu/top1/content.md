@@ -14,5 +14,6 @@
         <li><a href="/login" data-link="true" data-target="content">Вход</a></li>
         <li><a href="/userSlava" data-link="true" data-target="content">Слава</a></li>
         <li><a href="/gpt" data-link="true" data-target="content">GPT</a></li>
+        <li><a href="/ACL" data-link="true" data-target="content">ACL</a></li>
     </ul>
 </nav>

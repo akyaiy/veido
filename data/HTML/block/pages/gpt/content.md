@@ -14,18 +14,20 @@
 ```go
 package acl
 
+
 type Role struct {
-    ID   int64  `db:"id"`
-    Name string `db:"name"`
+ID int64 `db:"id"`
+Name string `db:"name"`
 }
 
 type Permission struct {
-    ID   int64  `db:"id"`
-    Code string `db:"code"`
+ID int64 `db:"id"`
+Code string `db:"code"`
 }
 
 // RolePermission binds many-to-many
 // role <-> permission
+
 ```
 
 ---

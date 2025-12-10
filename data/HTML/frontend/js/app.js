@@ -27,7 +27,7 @@ async function apiProtected(path, options = {}) {
 
     let r = await send();
 
-    if (r.status === 401) {
+    if ((r.status === 401)) {
         // обновляем access
         const rr = await fetch("/api/users/refresh", {
             method: "POST",
@@ -273,3 +273,20 @@ window.addEventListener("click", (event) => {
     overlay.appendChild(popup);
     document.body.appendChild(overlay);
   };
+
+  /* ------------------- Переключение видимости пароля ------------------- */
+
+document.addEventListener("click", (e) => {
+    if (!e.target.classList.contains("toggle-pass")) return;
+//console.log("toggle");
+    const input = e.target.previousElementSibling;
+    if (!input) return;
+
+    if (input.type === "password") {
+        input.type = "text";
+        e.target.textContent = "🙈";
+    } else {
+        input.type = "password";
+        e.target.textContent = "👁";
+    }
+});
