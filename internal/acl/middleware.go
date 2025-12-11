@@ -2,24 +2,43 @@ package acl
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"MyServer/internal/auth"
 )
 
 // Wrapper: check ACL before executing handler
-func RequirePermission(db *sql.DB, aut *auth.Auth, perm string, next http.HandlerFunc) http.HandlerFunc {
+func RequirePermission(db *sql.DB, aut *auth.Auth, permOrFunc interface{}, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		var perm string
+
+		// Определяем тип perm: string или функция
+		switch v := permOrFunc.(type) {
+		case string:
+			perm = v
+			// Если строка оканчивается на .*, добавляем динамическую часть пути
+			if strings.HasSuffix(perm, ".*") {
+				base := strings.TrimSuffix(perm, ".*")
+				path := strings.TrimPrefix(r.URL.Path, "/api/HTML/")
+				path = strings.ReplaceAll(path, "/", ".")
+				perm = base + "." + path
+			}
+		case func(*http.Request) string:
+			perm = v(r)
+		default:
+			log.Println("RequirePermission: invalid perm type")
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+
 		user, err := aut.GetUserFromRequest(r)
 		var uid int64
 		if err != nil || user == nil {
 			uid = 0 // guest
-			fmt.Printf("guest id:%v\n", uid)
 		} else {
 			uid = user.ID
-			fmt.Printf("user id:%v\n", uid)
 		}
 
 		ok, err := CanUserAccess(db, uid, perm)

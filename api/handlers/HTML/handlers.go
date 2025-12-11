@@ -43,6 +43,30 @@ func LoadProtected(aut *auth.Auth) http.HandlerFunc {
 
 }
 
+func LoadHTML(w http.ResponseWriter, r *http.Request) {
+	var path string
+	var myHTML *HTMLblock
+	fmt.Println("Запрошен ресурс:", r.URL.Path)
+	name := strings.TrimPrefix(r.URL.Path, "/api/HTML/")
+	segments := strings.Split(name, "/")
+	if name == "" {
+		name = "home"
+	}
+	path = filepath.Join(config.Data.HTTPBlockDir, name)
+	myHTML = loadFiles(path)
+
+	if segments[0] == "block" {
+		//fmt.Printf("name: %v\n", segments)
+		myHTML.TIPE = "block"
+		//
+	} else {
+		myHTML.TIPE = "page"
+	}
+	//}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(myHTML)
+}
+
 func LoadHTMLBlock(aut *auth.Auth) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		//fmt.Print("LoadHTMLBlock\n")
@@ -118,10 +142,10 @@ func LoadTemplatePage(w http.ResponseWriter, r *http.Request) {
 		strings.HasSuffix(r.URL.Path, ".html") ||
 		path.Ext(r.URL.Path) == "" {
 
-		fmt.Printf("Клиент запросил страницу: '%s'\n", r.URL.Path)
+		//fmt.Printf("Клиент запросил страницу: '%s'\n", r.URL.Path)
 		filePath = config.Data.StaticDir + config.Data.TemplateFile
 		//		filePath = "./data/HTML/frontend/index.html"
-		fmt.Printf("Отдаём: '%s'\n", filePath)
+		//fmt.Printf("Отдаём: '%s'\n", filePath)
 	}
 
 	http.ServeFile(w, r, filePath)
