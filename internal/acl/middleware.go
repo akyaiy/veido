@@ -13,7 +13,6 @@ import (
 func RequirePermission(db *sql.DB, aut *auth.Auth, permOrFunc interface{}, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var perm string
-
 		// Определяем тип perm: string или функция
 		switch v := permOrFunc.(type) {
 		case string:
@@ -32,7 +31,6 @@ func RequirePermission(db *sql.DB, aut *auth.Auth, permOrFunc interface{}, next 
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
-
 		user, err := aut.GetUserFromRequest(r)
 		var uid int64
 		if err != nil || user == nil {
@@ -40,7 +38,6 @@ func RequirePermission(db *sql.DB, aut *auth.Auth, permOrFunc interface{}, next 
 		} else {
 			uid = user.ID
 		}
-
 		ok, err := CanUserAccess(db, uid, perm)
 		if err != nil {
 			log.Println("ACL error:", err)
@@ -55,7 +52,6 @@ func RequirePermission(db *sql.DB, aut *auth.Auth, permOrFunc interface{}, next 
 			}
 			return
 		}
-
 		next.ServeHTTP(w, r)
 	}
 }

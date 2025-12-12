@@ -2,10 +2,7 @@ package files
 
 import (
 	"encoding/json"
-	//"flag"
-	//"html/template"
 	"io"
-	//"log"
 	"mime"
 	"net/http"
 	"os"
@@ -17,21 +14,16 @@ import (
 var baseDir string
 
 func safePath(p string) (string, error) {
-	// If p is absolute, make it relative
 	p = strings.TrimPrefix(p, "/")
-
 	clean := filepath.Clean(p)
 	full := filepath.Join(baseDir, clean)
-
 	rel, err := filepath.Rel(baseDir, full)
 	if err != nil {
 		return "", err
 	}
-
 	if strings.HasPrefix(rel, "..") {
 		return "", os.ErrPermission
 	}
-
 	return full, nil
 }
 
@@ -58,7 +50,6 @@ func listHandler(w http.ResponseWriter, r *http.Request) {
 	infos, err := f.Readdir(-1)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		//fmt.Printf("user id: %s")
 		return
 	}
 	out := []FileInfo{}

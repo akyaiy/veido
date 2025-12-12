@@ -61,37 +61,26 @@ var defaultConfig = Config{
 
 func LoadData(path string) {
 	_, err := os.Stat(path)
-
 	// Если файла нет — создаём его
 	if os.IsNotExist(err) {
 		log.Printf("Config file not found. Creating default: %s", path)
-
 		bytes, err := yaml.Marshal(defaultConfig)
 		if err != nil {
 			log.Fatalf("Cannot marshal default config: %v", err)
 		}
-
 		if err := os.WriteFile(path, bytes, 0644); err != nil {
 			log.Fatalf("Cannot write default config: %v", err)
 		}
 	}
-
 	// Читаем файл (уже существующий или созданный)
 	fdata, err := os.ReadFile(path)
 	if err != nil {
 		log.Fatalf("Cannot read config: %v", err)
 	}
-
 	Data = &Config{} // инициализация структуры
-
 	if err := yaml.Unmarshal(fdata, Data); err != nil {
 		log.Fatalf("Cannot parse config: %v", err)
 	}
-	//log.Fatalf("Cannot parse config: %v", Data)
-
-	// // Пример использования timeconverter
-	// d, _ := timeconverter.Parse("15d1h3m10s6us")
-	// fmt.Println(d.ToDuration())
 }
 
 // GetTimeFild принемает строку с именем поля из структуры конфига
@@ -99,29 +88,22 @@ func LoadData(path string) {
 // Возвращает время в формате Duration
 func GetTimeField(s string) (time.Duration, error) {
 	v := reflect.ValueOf(Data)
-
 	// Если Data — указатель → разыменовываем
 	if v.Kind() == reflect.Ptr {
 		v = v.Elem()
 	}
-
 	field := v.FieldByName(s)
-
 	if !field.IsValid() {
 		return 0, fmt.Errorf("несуществующее поле: %s", s)
 	}
-
 	if field.Kind() != reflect.String {
 		return 0, fmt.Errorf("поле %s не является строкой", s)
 	}
-
 	value := field.String()
-
 	d, err := timeconverter.Parse(value)
 	if err != nil {
 		return 0, fmt.Errorf("ошибка парсинга значения поля %s: %w", s, err)
 	}
-
 	return d.ToDuration(), nil
 }
 

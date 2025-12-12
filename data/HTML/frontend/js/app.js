@@ -133,13 +133,11 @@ if (!container) {
     return;
 }
     path = path.replace(/\/$/, "");
-    //console.log(path);
     if (!container) {
         console.error(`loadBlock ERROR: element #${block_Name} not found`);
         return;
     }
     const blockName = path === "pages" ? "pages/home" : path;
-    //console.log(blockName);
     try {
         container.innerHTML = '';
         document.querySelectorAll('style[data-dynamic], script[data-dynamic]').forEach(el => {
@@ -152,12 +150,10 @@ if (!container) {
         if (!response.ok) {
             throw new Error(`Failed to load block: ${response.status}`);
         }
-
         // Динамически подгружаем markdown-it, если он ещё не загружен
         if (!window.markdownit) {
             await loadMdScript('/js/markdown-it.min.js');
         }
-
         const { content: mdContent, css, js } = response.data;
        // Преобразуем markdown в HTML
         if (mdContent) {
@@ -200,8 +196,10 @@ function navigateTo(url, target) {
 
 // Поддержка кнопки "назад/вперед"
 window.addEventListener("popstate", () => {loadBlock(location.pathname);});
+
 // Обработка истории браузера
 window.addEventListener("popstate", () => loadBlock(window.location.pathname));
+
 // Инициализация после загрузки DOM
 window.onload = async function ()  {
     let url = window.location.href;
@@ -215,13 +213,12 @@ window.onload = async function ()  {
     await loadMenu();
     await loadPage("pages"+window.location.pathname);
 };
+
 // Перехватчик ссылок
 window.addEventListener("click", (event) => {
     const a = event.target.closest("a");
     if (!a) return;
-
     const href = a.getAttribute("href");
-
     // игнорируем внешние ссылки и mailto:
     if (!href || href.startsWith("http") || href.startsWith("mailto:")) return;
     const target = a.dataset.target || "content"; // default = content

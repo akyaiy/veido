@@ -43,7 +43,5 @@ func InitDB(path string) *sql.DB {
 }
 
 func CleanRefresh(db *sql.DB) {
-	// Example cleanup call (one-time): remove expired tokens
 	_, _ = db.Exec("DELETE FROM refresh_tokens WHERE expires_at <= ?", time.Now().Unix())
-
 }

@@ -1,7 +1,6 @@
 package HTML
 
 import (
-	//"database/sql"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -11,8 +10,6 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-
-	//"time"
 
 	"MyServer/internal/auth"
 	"MyServer/internal/config"
@@ -32,13 +29,10 @@ func LoadProtected(aut *auth.Auth) http.HandlerFunc {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
-
 		json.NewEncoder(w).Encode(map[string]any{
 			"message": "Hello from protected endpoint",
 			"user_id": id,
 		})
-
-		fmt.Println("Подключился пользователь с ID:", id)
 	}
 
 }
@@ -46,7 +40,6 @@ func LoadProtected(aut *auth.Auth) http.HandlerFunc {
 func LoadHTML(w http.ResponseWriter, r *http.Request) {
 	var path string
 	var myHTML *HTMLblock
-	fmt.Println("Запрошен ресурс:", r.URL.Path)
 	name := strings.TrimPrefix(r.URL.Path, "/api/HTML/")
 	segments := strings.Split(name, "/")
 	if name == "" {
@@ -56,23 +49,17 @@ func LoadHTML(w http.ResponseWriter, r *http.Request) {
 	myHTML = loadFiles(path)
 
 	if segments[0] == "block" {
-		//fmt.Printf("name: %v\n", segments)
 		myHTML.TIPE = "block"
-		//
 	} else {
 		myHTML.TIPE = "page"
 	}
-	//}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(myHTML)
 }
 
 func LoadHTMLBlock(aut *auth.Auth) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		//fmt.Print("LoadHTMLBlock\n")
-
 		var path string
-		//fmt.Printf("path: %v\n", path)
 		var myHTML *HTMLblock
 		name := strings.TrimPrefix(r.URL.Path, "/api/HTML/")
 		segments := strings.Split(name, "/")
@@ -82,32 +69,24 @@ func LoadHTMLBlock(aut *auth.Auth) http.HandlerFunc {
 		path = filepath.Join(config.Data.HTTPBlockDir, name)
 		myHTML = loadFiles(path)
 		if segments[0] == "block" {
-			//fmt.Printf("name: %v\n", segments)
 			myHTML.TIPE = "block"
-			//
 		} else {
 			myHTML.TIPE = "page"
 		}
-		//}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(myHTML)
 	}
 }
 
 func loadFiles(dirPath string) *HTMLblock {
-	fmt.Printf("Клиент запросил файл по адресу: '%s'\n", dirPath)
-
 	var hBlock HTMLblock
-
 	// Загружаем Content в переменную hBlock
 	if pContent, err := os.ReadFile(dirPath + "/content.md"); err != nil {
 		fmt.Printf("Файл content.md не найден: %v\n", err)
 		hBlock.Content = "<h2>Запрашиваемая страница не найдена</h2>"
 	} else {
-		//		hBlock.Content = string(markdown.ToHTML(pContent, nil, nil))
 		hBlock.Content = string(pContent)
 	}
-
 	// Загружаем JS в переменную hBlock
 	if pJS, err := os.ReadFile(dirPath + "/script.js"); err != nil {
 		fmt.Printf("Файл script.js не найден: %v\n", err)
@@ -115,7 +94,6 @@ func loadFiles(dirPath string) *HTMLblock {
 	} else {
 		hBlock.JS = string(pJS)
 	}
-
 	// Загружаем CSS в переменную hBlock
 	if pCSS, err := os.ReadFile(dirPath + "/style.css"); err != nil {
 		fmt.Printf("Файл style.css не найден: %v\n", err)
@@ -123,30 +101,21 @@ func loadFiles(dirPath string) *HTMLblock {
 	} else {
 		hBlock.CSS = string(pCSS)
 	}
-
 	return &hBlock
 }
 
 func LoadTemplatePage(w http.ResponseWriter, r *http.Request) {
-
 	// читаем тело (если нужно)
 	body, err := io.ReadAll(r.Body)
 	if err == nil {
 		r.Body = io.NopCloser(bytes.NewBuffer(body))
 	}
-
 	filePath := "./data/HTML/frontend" + r.URL.Path
-
 	// SPA: если директория, .html или нет расширения → index.html
 	if strings.HasSuffix(r.URL.Path, "/") ||
 		strings.HasSuffix(r.URL.Path, ".html") ||
 		path.Ext(r.URL.Path) == "" {
-
-		//fmt.Printf("Клиент запросил страницу: '%s'\n", r.URL.Path)
 		filePath = config.Data.StaticDir + config.Data.TemplateFile
-		//		filePath = "./data/HTML/frontend/index.html"
-		//fmt.Printf("Отдаём: '%s'\n", filePath)
 	}
-
 	http.ServeFile(w, r, filePath)
 }
