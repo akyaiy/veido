@@ -98,18 +98,40 @@ func GetUserDataHandler(db *sql.DB, aut *auth.Auth) http.HandlerFunc {
 			return
 		}
 
-		username := r.URL.Query().Get("username")
-
 		var out struct {
 			ID       int64
 			Username string
 		}
 
-		row := db.QueryRow("SELECT id, username FROM users WHERE username=?", username)
-		if err := row.Scan(&out.ID, &out.Username); err != nil {
-			http.Error(w, "not found", 404)
+		by := r.URL.Query().Get("by")
+
+		switch by {
+		case "name":
+			username := r.URL.Query().Get("username")
+			row := db.QueryRow("SELECT id, username FROM users WHERE username=?", username)
+			if err := row.Scan(&out.ID, &out.Username); err != nil {
+				http.Error(w, "not found", 404)
+				return
+			}
+			//out = "bla bla bla"
+		case "id":
+			id := r.URL.Query().Get("userid")
+			row := db.QueryRow("SELECT id, username FROM users WHERE id = ?", id)
+			if err := row.Scan(&out.ID, &out.Username); err != nil {
+				http.Error(w, "not found", 404)
+				return
+			}
+			//out = "bla bla bla"
+		default:
+			http.Error(
+				w,
+				"ошибка, неправильный аргумент by",
+				http.StatusBadRequest,
+			)
 			return
 		}
+		//userid := r.URL.Query().Get("userid")
+
 		//		fmt.Printf("out: %v", out)
 		json.NewEncoder(w).Encode(out)
 	}

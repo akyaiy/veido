@@ -1,71 +1,35 @@
-let accessToken = "";
-
-// привязка к форме
-const loginForm = document.querySelector("form[action='/login']");
-loginForm.addEventListener("submit", async (e) => {
-    e.preventDefault(); // предотвращаем обычную отправку формы
-    await UserLogin();
-});
-
-async function UserLogin() {
-    const u = document.getElementById("username").value;
-    const p = document.getElementById("password").value;
-
+async function initUser() {
     try {
-        const r = await fetch("/api/users/login", {
-            method: "POST",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username: u, password: p })
-        });
-
-        if (!r.ok) throw new Error("Ошибка входа");
-
-        const data = await r.json();
-        accessToken = data.access_token;
-        alert("logged in");
-
-        document.getElementById("username").value = "";
-        document.getElementById("password").value = "";
-    } catch (err) {
-        console.error(err);
-        alert(err.message);
+        // Если нет токена, делаем refresh
+        if (!accessToken) {
+            await refreshAccess ();
+        }
+        // Проверяем, получили ли токен
+        if (!accessToken) throw new Error("no token");
+        // выводим имя пользователя
+        user_info.textContent = `Вы зашли как: ${user.name}`;
+        // Показываем блок пользователя
+        showUser()
+    } catch (e) {
+        // Показываем блок логина
+        showLogin()
+        console.error(e);
     }
 }
 
-async function UserLogout() {
-    try {
-        await fetch("/api/users/logout", { method: "POST", credentials: "include" });
-        accessToken = "";
-        alert("logged out");
-    } catch (err) {
-        console.error(err);
-        alert("Ошибка выхода");
-    }
+
+function showLogin() {
+    login_block.classList.remove("hiden_block");
+    user_block.classList.add("hiden_block");
 }
 
-// пример Protected запроса
-async function getProtected() {
-    try {
-        const data = await apiProtected("/api/protected");
-        console.log(data);
-    } catch {
-        console.log("err");
-    }
+function showUser() {
+    login_block.classList.add("hiden_block");
+    user_block.classList.remove("hiden_block");
 }
+initUser();
 
-// toggle password
-document.addEventListener("click", (e) => {
-    if (!e.target.classList.contains("toggle-pass")) return;
-
-    const input = e.target.previousElementSibling;
-    if (!input) return;
-
-    if (input.type === "password") {
-        input.type = "text";
-        e.target.textContent = "🙈";
-    } else {
-        input.type = "password";
-        e.target.textContent = "👁";
-    }
-});
+logout_btn.onclick = async function () {
+  const user = await getUserDataByID(3);
+  alert(user.name);
+};

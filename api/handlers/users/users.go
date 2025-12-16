@@ -12,7 +12,7 @@ import (
 func RegisterRoutes(r chi.Router, db *sql.DB, aut *auth.Auth) {
 	// Публичные маршруты
 	r.Post("/register", RegisterHandler(db, aut))
-	r.Post("/login", LoginHandler(db, aut))
+	r.Post("/login", acl.RequirePermission(db, aut, "users.login", LoginHandler(db, aut)))
 	r.Post("/refresh", RefreshHandler(db, aut))
 
 	// Требует авторизации
