@@ -1,0 +1,1 @@
+loadBlock("plugin/editorBlock", 'content');
