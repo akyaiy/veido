@@ -1,0 +1,38 @@
+#container1 {
+    padding: 12px;
+    border-radius: 6px;
+    background: #f9f9f9;
+}
+
+#container1 .inner-layer {
+    padding: 8px;
+    background: #e0e0e0;
+    border-left: 3px solid #ccc;
+}
+
+h3 {
+    font-weight: 500;
+    color: teal;
+    margin: 6px 0;
+}
+
+#box1 {
+    width: 100px;
+    height: 100px;
+    background: coral;
+    margin-top: 10px;
+    transition: all 0.3s ease;
+}
+
+#container1 p:first-child {
+    font-style: italic;
+}
+
+#container1 .inner-layer p::before {
+    content: "→ ";
+    color: #555;
+}
+
+#btn1:hover {
+    background: #eee;
+}
