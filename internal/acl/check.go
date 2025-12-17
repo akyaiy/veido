@@ -58,7 +58,6 @@ func CanUserAccess(db *sql.DB, userID int64, permissionKey string) (bool, error)
 	defer rows.Close()
 	allow := make([]string, 0)
 	deny := make([]string, 0)
-
 	for rows.Next() {
 		var key string
 		if err := rows.Scan(&key); err != nil {
@@ -80,6 +79,7 @@ func CanUserAccess(db *sql.DB, userID int64, permissionKey string) (bool, error)
 	// 1️⃣ Проверяем запреты — приоритет №1
 	for _, d := range deny {
 		rule := strings.TrimPrefix(d, "!")
+
 		if matches(rule, permissionKey) {
 			return false, nil // запрещено
 		}

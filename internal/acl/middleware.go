@@ -2,7 +2,6 @@ package acl
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -32,7 +31,7 @@ func RequirePermission(db *sql.DB, aut *auth.Auth, permOrFunc interface{}, next 
 			// Если строка оканчивается на .*, добавляем динамическую часть пути
 			if strings.HasSuffix(perm, ".*") {
 				base := strings.TrimSuffix(perm, ".*")
-				path := strings.TrimPrefix(r.URL.Path, "/api/")
+				path := strings.TrimPrefix(r.URL.Path, "/api/HTML/")
 				path = strings.ReplaceAll(path, "/", ".")
 				perm = base + "." + path
 			}
@@ -47,7 +46,6 @@ func RequirePermission(db *sql.DB, aut *auth.Auth, permOrFunc interface{}, next 
 		// Добавляем пермишен в базу, если его нет
 		_, err := db.Exec(`INSERT OR IGNORE INTO permissions(key) VALUES(?)`, perm)
 		if err != nil {
-			fmt.Printf("permision:%v\n", perm)
 			log.Println("RequirePermission: cannot insert permission:", err)
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return

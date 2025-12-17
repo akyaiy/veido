@@ -8,13 +8,34 @@
 ## Создать разрешение
 
 <input id="permKey" placeholder="ключ разрешения" />
-<button onclick="createPerm()">Создавать</button>
+<button  id="btn_createPerm">Создавать</button>
 
 ## Назначить разрешение роли
 
-<input id="roleIdPerm" placeholder="идентификатор роли" />
-<input id="permIdRole" placeholder="идентификатор разрешения" />
-<button onclick="assignPermission()">Назначать</button>
+<div class="acl-assign">
+  <div class="col">
+    <label for="roleSelect">Роль</label>
+    <select id="roleSelect"></select>
+  </div>
+
+  <div class="permissions-table">
+    <table id="permTable">
+      <thead>
+        <tr><th>Разрешения роли</th></tr>
+      </thead>
+      <tbody>
+        <!-- строки будут добавляться динамически -->
+      </tbody>
+    </table>
+  </div>
+
+  <div class="actions">
+    <button id="btn_remPerm" disabled>Удалить</button>
+  </div>
+    <h3>Добавить разрешение</h3>
+    <select id="availablePerms"></select>
+    <button id="addPermBtn">Добавить</button>
+</div>
 
 ## Назначить роль пользователю
 

@@ -1,2 +1,44 @@
-#app { background: white; padding: 20px; border-radius: 8px; max-width: 700px; }
-input, select, button { padding: 8px; margin: 4px 0; }
+/*#app { background: white; padding: 20px; border-radius: 8px; max-width: 700px; }
+ input, select, button { padding: 8px; margin: 4px 0; } */
+.acl-assign {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.acl-assign .col {
+  display: flex;
+  flex-direction: column;
+  max-width: 300px;
+}
+
+.permissions-table {
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  width: 300px;
+  height: 300px;
+  overflow-y: auto; 
+}
+
+.permissions-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.permissions-table th, .permissions-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #ddd;
+  cursor: pointer;
+  height: 32px; /* фиксированная высота строки */
+}
+
+.permissions-table tr.selected {
+  background-color: #b3d4fc;
+}
+
+.acl-assign .actions button {
+  padding: 6px 12px;
+  margin-top: 8px;
+}
+
+

@@ -1,7 +1,7 @@
 users_list.onchange = (e) => getUserData(e.target.value);
 async function getUserData(username) {
     const data = await apiProtected(
-        `/api/users/getUserData?username=${encodeURIComponent(username)}`
+        `/api/users/getUserData?username=${encodeURIComponent(username)}&by=name`
     );
 
     ud_id.value = data.ID;

@@ -28,13 +28,13 @@ func setRefreshCookie(w http.ResponseWriter, token string, ttl time.Duration) {
 
 /* ------------------- Protected ------------------- */
 
-func DeleteUserHandler(db *sql.DB, aut *auth.Auth) http.HandlerFunc {
+func DeleteUserHandler(db *sql.DB) http.HandlerFunc { //, aut *auth.Auth
 	return func(w http.ResponseWriter, r *http.Request) {
-		_, ok := aut.AuthenticateRequest(r)
-		if !ok {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
+		// _, ok := aut.AuthenticateRequest(r)
+		// if !ok {
+		// 	http.Error(w, "unauthorized", http.StatusUnauthorized)
+		// 	return
+		// }
 
 		var in struct{ Username string }
 		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
@@ -58,13 +58,13 @@ func DeleteUserHandler(db *sql.DB, aut *auth.Auth) http.HandlerFunc {
 	}
 }
 
-func UpdateUserPasswordHandler(db *sql.DB, aut *auth.Auth) http.HandlerFunc {
+func UpdateUserPasswordHandler(db *sql.DB, aut *auth.Auth) http.HandlerFunc { //
 	return func(w http.ResponseWriter, r *http.Request) {
-		_, ok := aut.AuthenticateRequest(r)
-		if !ok {
-			http.Error(w, "unauthorized", 401)
-			return
-		}
+		// _, ok := aut.AuthenticateRequest(r)
+		// if !ok {
+		// 	http.Error(w, "unauthorized", 401)
+		// 	return
+		// }
 
 		var in struct {
 			Username string `json:"username"`
@@ -90,13 +90,13 @@ func UpdateUserPasswordHandler(db *sql.DB, aut *auth.Auth) http.HandlerFunc {
 	}
 }
 
-func GetUserDataHandler(db *sql.DB, aut *auth.Auth) http.HandlerFunc {
+func GetUserDataHandler(db *sql.DB) http.HandlerFunc { //, aut *auth.Auth
 	return func(w http.ResponseWriter, r *http.Request) {
-		_, ok := aut.AuthenticateRequest(r)
-		if !ok {
-			http.Error(w, "unauthorized", 401)
-			return
-		}
+		// _, ok := aut.AuthenticateRequest(r)
+		// if !ok {
+		// 	http.Error(w, "unauthorized", 401)
+		// 	return
+		// }
 
 		var out struct {
 			ID       int64
@@ -137,16 +137,16 @@ func GetUserDataHandler(db *sql.DB, aut *auth.Auth) http.HandlerFunc {
 	}
 }
 
-func GetUsersHandler(db *sql.DB, aut *auth.Auth) http.HandlerFunc {
+func GetUsersHandler(db *sql.DB) http.HandlerFunc { //, aut *auth.Auth
 	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("Клиент зашёл на хендлер")
+		fmt.Printf("Клиент с ID: зашёл на хендлер")
 
-		_, ok := aut.AuthenticateRequest(r)
-		//fmt.Println("Клиент зашёл на хендлер")
-		if !ok {
-			http.Error(w, "unauthorized", 401)
-			return
-		}
+		// _, ok := aut.AuthenticateRequest(r)
+		// //fmt.Println("Клиент зашёл на хендлер")
+		// if !ok {
+		// 	http.Error(w, "unauthorized", 401)
+		// 	return
+		// }
 
 		//fmt.Println("Клиент зашёл на хендлер")
 		rows, _ := db.Query("SELECT username FROM users")
@@ -284,7 +284,7 @@ func RefreshHandler(db *sql.DB, aut *auth.Auth) http.HandlerFunc {
 	}
 }
 
-func LogoutHandler(db *sql.DB, aut *auth.Auth) http.HandlerFunc {
+func LogoutHandler(db *sql.DB, aut *auth.Auth) http.HandlerFunc { //
 	return func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("Logout: удаляем все токены пользователя")
 
