@@ -29,7 +29,39 @@ function showUser() {
 }
 initUser();
 
-logout_btn.onclick = async function () {
-  const user = await getUserDataByID(3);
-  alert(user.name);
+/* --------------------------- Логин ------------------------------- */
+
+async function onLoginClick() {
+    try {
+        const { accessToken: token } = await userLogin(
+            username.value.trim(),
+            password.value
+        );
+
+        accessToken = token;
+        // UIComponents.showAlert("Вы успешно вошли как "+user.name+".</br> Ваш ID:"+user.id);
+
+        username.value = "";
+        password.value = "";
+
+    } catch (e) {
+        switch (e.message) {
+            case "INVALID_CREDENTIALS":
+                UIComponents.showAlert("Неверный логин или пароль");
+                break;
+            case "BAD_REQUEST":
+                UIComponents.showAlert("Некорректный запрос");
+                break;
+            default:
+                UIComponents.showAlert("Ошибка при логине");
+        }
+    }
+    initUser();
+}
+
+/* ------------------- Кнопки ------------------- */
+logout_btn.onclick = async () => {
+    await userLogout();   // вызываем существующую функцию
+    initUser();           // делаем своё
 };
+login_btn.onclick = onLoginClick;

@@ -7,8 +7,9 @@
     padding: 10px;
     border-radius: 16px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-    max-width: 250px;
-    width: 100%;
+    /*max-width: 250px;
+    width: 100%;*/
+    width: 250px;
   }
 
   .form1 h1 {
@@ -56,19 +57,20 @@
   }
 
   .form1 button {
-    padding: 12px;
+    width: 100%;
+    padding: 10px 12px;
     font-size: 16px;
-    background: #7f57ff;
-    color: white;
-    border: none;
-    border-radius: 10px;
+    background:#e4e4e4;
+    /* color: white; */
+    border: 1px solid #ccc;
+    border-radius: 8px;
     cursor: pointer;
     margin-top: 10px;
     transition: background 0.25s, transform 0.1s;
   }
 
   .form1 button:hover {
-    background: #6841e6;
+    background: #aa92f8;
   }
 
   .form1 button:active {

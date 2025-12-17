@@ -455,7 +455,7 @@ class UIComponents {
         overlay.className = 'ui-overlay';
 
         const alertBox = document.createElement('div');
-        alertBox.className = 'ui-alert';
+        alertBox.className = 'window-popup';//ui-alert
 
         alertBox.innerHTML = 
             //<h3>${title}</h3>

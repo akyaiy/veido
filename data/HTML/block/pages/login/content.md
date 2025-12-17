@@ -5,13 +5,11 @@
 Пожалуйста, введите ваши данные для входа.
 
   <div class="grid-block">
-      <form action="/login" method="post">
         <label for="username">Имя пользователя</label>
         <input type="text" id="username" name="username" required>
         <label for="password">Пароль</label>
         <input type="password" id="password" name="password" required>
-        <button type="submit">Войти</button>
-      </form>
+        <button type="submit" id="login_btn">Войти</button>
   </div>
 </div>
 
