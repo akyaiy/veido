@@ -64,6 +64,6 @@ func ServerStart(db *sql.DB, aut *auth.Auth) {
 			return d
 		}(),
 	}
-	log.Println("Server started at http://localhost:8080")
+	log.Printf("Server started at http://localhost:%s", config.Data.Port)
 	log.Fatal(srv.ListenAndServe())
 }

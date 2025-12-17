@@ -5,7 +5,7 @@
 user:<br>
 <input id="reg_user" placeholder="Username"><br>
 password:<br>
-<input id="reg_pass" placeholder="password"  type="password"><button class="toggle-pass" type="button">*</button><br><br>
+<input id="reg_pass" placeholder="password"  type="password"><button class="toggle-pass" type="button">A</button><br><br>
 <button id="btn_reg">Register</button>
 
 <h3>Users</h3>
@@ -18,7 +18,7 @@ ID:<br>
 user:<br>
 <input id="ud_username" placeholder="Username"><br>
 password:<br>
-<input id="ud_password" placeholder="New password" type="password"><button class="toggle-pass" type="button">*</button><br>
+<input id="ud_password" placeholder="New password" type="password"><button class="toggle-pass" type="button">A</button><br>
 <br>
 <button id="btn_update_pass">Update password</button>
 <button id="btn_delete_user">Delete user</button>
@@ -28,7 +28,7 @@ user:<br>
 <input id="log_user"  placeholder="Username">
 <br>
 password:<br>
-<input id="log_pass" placeholder="password"  type="password"><button class="toggle-pass" type="button">*</button>
+<input id="log_pass" placeholder="password"  type="password"><button class="toggle-pass" type="button">A</button>
 <br><br>
 <button id="btn_log">Login</button>
 </div><br>
