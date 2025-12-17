@@ -256,62 +256,13 @@ window.addEventListener("click", (event) => {
     navigateTo(href, target);
 });
 
-/*****************************************************************************
- * popup
- *****************************************************************************/
-/*  function popup(message, afterClose){
-    // Создаём overlay
-    const overlay = document.createElement('div');
-    overlay.className = 'overlay';
-    // Создаём popup
-    const popup = document.createElement('div');
-    popup.className = 'popup';
-    // Добавляем текст
-    const text = document.createElement('div');
-    text.textContent = message;
-    // Добавляем кнопку закрытия
-    const closeBtn = document.createElement('button');
-    closeBtn.textContent = 'Закрыть';
-    closeBtn.addEventListener('click', () => {
-      overlay.remove();
-          if (typeof afterClose === 'function') {
-      afterClose();   // ← ВАША ФУНКЦИЯ ПОСЛЕ ЗАКРЫТИЯ
-    }
-    });
-  }
-*/
-/*****************************************************************************
- * popup menu
- *****************************************************************************/
- /* function popupMenu(message, afterClose){
-    // Создаём popupMenu
-    const popupMenu = document.createElement('div');
-    popup.className = 'popup_Menu';
-    // Добавляем текст
-    const text = document.createElement('div');
-    text.textContent = message;
-    // Добавляем кнопку закрытия
-    const closeBtn = document.createElement('button');
-    closeBtn.textContent = 'Закрыть';
-    closeBtn.addEventListener('click', () => {
-      overlay.remove();
-          if (typeof afterClose === 'function') {
-      afterClose();   // ← ВАША ФУНКЦИЯ ПОСЛЕ ЗАКРЫТИЯ
-    }
-    });
 
-    popup.appendChild(text);
-    popup.appendChild(closeBtn);
-    overlay.appendChild(popup);
-    document.body.appendChild(overlay);
-  };
-*/
 /*****************************************************************************
  * Переключение видимости пароля
  *****************************************************************************/
 document.addEventListener("click", (e) => {
     if (!e.target.classList.contains("toggle-pass")) return;
-//console.log("toggle");
+console.log("toggle");
     const input = e.target.previousElementSibling;
     if (!input) return;
 

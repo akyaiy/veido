@@ -57,17 +57,17 @@ handleCurrentUrl();
 window.addEventListener("popstate", handleCurrentUrl);
 
 
-document.addEventListener("click", (e) => {
-    if (!e.target.classList.contains("toggle-pass")) return;
+// document.addEventListener("click", (e) => {
+//     if (!e.target.classList.contains("toggle-pass")) return;
 
-    const input = e.target.previousElementSibling;
-    if (!input) return;
+//     const input = e.target.previousElementSibling;
+//     if (!input) return;
 
-    if (input.type === "password") {
-        input.type = "text";
-        e.target.textContent = "🙈";
-    } else {
-        input.type = "password";
-        e.target.textContent = "👁";
-    }
-});
+//     if (input.type === "password") {
+//         input.type = "text";
+//         e.target.textContent = "🙈";
+//     } else {
+//         input.type = "password";
+//         e.target.textContent = "👁";
+//     }
+// });
