@@ -7,7 +7,7 @@ async function initUser() {
         // Проверяем, получили ли токен
         if (!accessToken) throw new Error("no token");
         // выводим имя пользователя
-        user_info.textContent = `Вы зашли как: ${user.name}`;
+        user_info.innerHTML = `Вы зашли как: ${user.name}. </br> Ваш ID:${user.id}`;
         // Показываем блок пользователя
         showUser()
     } catch (e) {
