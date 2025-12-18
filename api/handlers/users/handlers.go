@@ -137,25 +137,63 @@ func GetUserDataHandler(db *sql.DB) http.HandlerFunc { //, aut *auth.Auth
 	}
 }
 
-func GetUsersHandler(db *sql.DB) http.HandlerFunc { //, aut *auth.Auth
+// func GetUsersHandler(db *sql.DB) http.HandlerFunc { //, aut *auth.Auth
+// 	return func(w http.ResponseWriter, r *http.Request) {
+// 		//fmt.Printf("Клиент с ID: зашёл на хендлер")
+// 		var out struct {
+// 			ID       int64
+// 			Username string
+// 		}
+
+// 		// _, ok := aut.AuthenticateRequest(r)
+// 		// //fmt.Println("Клиент зашёл на хендлер")
+// 		// if !ok {
+// 		// 	http.Error(w, "unauthorized", 401)
+// 		// 	return
+// 		// }
+
+// 		//fmt.Println("Клиент зашёл на хендлер")
+// 		rows, _ := db.Query("SELECT username FROM users")
+// 		defer rows.Close()
+
+// 		var arr []string
+// 		for rows.Next() {
+// 			var u out
+// 			rows.Scan(&u.ID, &out.Username)
+// 			arr = append(arr, u)
+// 		}
+// 		// var perms []Perm
+// 		// for rows.Next() {
+// 		// 	var p Perm
+// 		// 	rows.Scan(&p.ID, &p.Key)
+// 		// 	perms = append(perms, p)
+// 		// }
+
+// 		json.NewEncoder(w).Encode(arr)
+// 	}
+// }
+
+func GetUsersHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Printf("Клиент с ID: зашёл на хендлер")
-
-		// _, ok := aut.AuthenticateRequest(r)
-		// //fmt.Println("Клиент зашёл на хендлер")
-		// if !ok {
-		// 	http.Error(w, "unauthorized", 401)
-		// 	return
-		// }
-
-		//fmt.Println("Клиент зашёл на хендлер")
-		rows, _ := db.Query("SELECT username FROM users")
+		rows, err := db.Query("SELECT id, username FROM users")
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		defer rows.Close()
 
-		var arr []string
+		type User struct {
+			ID       int64  `json:"id"`
+			Username string `json:"username"`
+		}
+
+		var arr []User
 		for rows.Next() {
-			var u string
-			rows.Scan(&u)
+			var u User
+			if err := rows.Scan(&u.ID, &u.Username); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 			arr = append(arr, u)
 		}
 

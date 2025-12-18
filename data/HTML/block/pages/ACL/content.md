@@ -7,7 +7,7 @@
 
 ## Создать разрешение
 
-<input id="permKey" placeholder="ключ разрешения" />
+<input id="permKey" placeholder="разрешение" />
 <button  id="btn_createPerm">Создавать</button>
 
 ## Назначить разрешение роли
@@ -19,11 +19,11 @@
   </div>
 
   <div class="permissions-table">
-    <table id="permTable">
+    <table>
       <thead>
         <tr><th>Разрешения роли</th></tr>
       </thead>
-      <tbody>
+      <tbody id="permTable">
         <!-- строки будут добавляться динамически -->
       </tbody>
     </table>
@@ -33,12 +33,31 @@
     <button id="btn_remPerm" disabled>Удалить</button>
   </div>
     <h3>Добавить разрешение</h3>
-    <select id="availablePerms"></select>
-    <button id="addPermBtn">Добавить</button>
+    <select id="availablePerms" placeholder="доступные разрешения"></select>
 </div>
 
 ## Назначить роль пользователю
 
-<input id="roleIdUser" placeholder="идентификатор роли" />
-<input id="userIdRole" placeholder="идентификатор пользователя" />
-<button onclick="assignRole()">Назначать</button>
+<div class="acl-assign">
+  <div class="col">
+    <label for="userSelect">Пользователь</label>
+    <select id="userSelect"></select>
+  </div>
+
+  <div class="permissions-table">
+    <table>
+      <thead>
+        <tr><th>Роли пользователя</th></tr>
+      </thead>
+      <tbody id="roleTable">
+        <!-- строки будут добавляться динамически -->
+      </tbody>
+    </table>
+  </div>
+
+  <div class="actions">
+    <button id="btn_remRole" disabled>Удалить</button>
+  </div>
+    <h3>Добавить роль</h3>
+    <select id="availableRoles" placeholder="доступные разрешения"></select>
+</div>

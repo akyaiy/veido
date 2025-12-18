@@ -20,13 +20,15 @@ type AdminRoutes struct {
 func RegisterRoutes(r chi.Router, db *sql.DB, aut *auth.Auth) {
 	h := &AdminRoutes{DB: db, Aut: aut}
 
+	r.Get("/roles", h.GetRoles)
 	r.Post("/create-role", h.CreateRole)
+	r.Post("/assign-role", h.AssignRoleToUser)
+	r.Get("/user-roles", h.GetUserRoles)
+	r.Post("/remove-role", h.RemoveRoleFromUser)
+
+	r.Get("/permissions", h.GetPermissions)
 	r.Post("/create-permission", h.CreatePermission)
 	r.Post("/assign-permission", h.AssignPermissionToRole)
-	r.Post("/assign-role", h.AssignRoleToUser)
-
-	r.Get("/roles", h.GetRoles)
-	r.Get("/permissions", h.GetPermissions)
 	r.Get("/role-permissions", h.GetRolePermissions)
 	r.Post("/remove-permission", h.RemovePermissionFromRole)
 }
@@ -107,6 +109,26 @@ func (h *AdminRoutes) RemovePermissionFromRole(w http.ResponseWriter, r *http.Re
 	w.Write([]byte("Удалено"))
 }
 
+func (h *AdminRoutes) RemoveRoleFromUser(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		UserID int `json:"user_id"`
+		RoleID int `json:"role_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+
+	// Удаляем связь role-permission
+	_, err := h.DB.Exec(`DELETE FROM user_roles WHERE user_id=? AND role_id=?`, req.UserID, req.RoleID)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	w.Write([]byte("Удалено"))
+}
+
 func (h *AdminRoutes) GetRolePermissions(w http.ResponseWriter, r *http.Request) {
 	roleIDStr := r.URL.Query().Get("role_id")
 	roleID, err := strconv.Atoi(roleIDStr)
@@ -141,6 +163,42 @@ func (h *AdminRoutes) GetRolePermissions(w http.ResponseWriter, r *http.Request)
 	}
 
 	json.NewEncoder(w).Encode(perms)
+}
+
+func (h *AdminRoutes) GetUserRoles(w http.ResponseWriter, r *http.Request) {
+	userIDStr := r.URL.Query().Get("user_id")
+	userID, err := strconv.Atoi(userIDStr)
+	if err != nil {
+		http.Error(w, "Неверный role_id", 400)
+		return
+	}
+
+	// Получаем все разрешения для роли
+	rows, err := h.DB.Query(`
+		SELECT r.id, r.name
+		FROM user_roles ur
+		JOIN roles r ON ur.role_id = r.id
+		WHERE ur.user_id = ?`, userID)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	defer rows.Close()
+
+	var role []map[string]interface{}
+	for rows.Next() {
+		var id int
+		var key string
+		if err := rows.Scan(&id, &key); err != nil {
+			continue
+		}
+		role = append(role, map[string]interface{}{
+			"id":   id,
+			"name": key, // фронтенду удобно вернуть как "name"
+		})
+	}
+
+	json.NewEncoder(w).Encode(role)
 }
 
 func (h *AdminRoutes) CreateRole(w http.ResponseWriter, r *http.Request) {
