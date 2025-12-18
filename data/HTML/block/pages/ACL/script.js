@@ -1,8 +1,8 @@
-const api = (url, data, m) => fetch(url, {
-method: m,
-headers: { "Content-Type": "application/json" },
-body: JSON.stringify(data)
-}).then(r => r.text());
+// const api = (url, data, m) => fetch(url, {
+// method: m,
+// headers: { "Content-Type": "application/json" },
+// body: JSON.stringify(data)
+// }).then(r => r.text());
 
 
 //await apiProtected('/api/acl-admin/roles', { method: 'GET' });
@@ -23,84 +23,6 @@ async function createPermission() {
   }
 }
 
-// function assignPermission() {
-// api('/api/acl-admin/assign-permission', {
-// role_id: Number(roleIdPerm.value),
-// perm_id: Number(permIdRole.value)
-// }, "POST").then(alert);
-// }
-// function assignRole() {
-// api('/api/acl-admin/assign-role', {
-// role_id: Number(roleIdUser.value),
-// user_id: Number(userIdRole.value)
-// }, "POST").then(alert);
-// }
-
-// /* Загрузка ролей */
-// async function loadRoles() {
-//   try {
-//     const data = await apiProtected('/api/acl-admin/roles', {
-//       method: 'GET'
-//     });
-
-//     roleSelect.innerHTML = '';
-//     data.forEach(r => {
-//       const opt = document.createElement('option');
-//       opt.value = r.id;
-//       opt.textContent = `${r.name}`;
-//       roleSelect.appendChild(opt);
-//     });
-
-//   } catch (e) {
-//     alert('Ошибка загрузки ролей: ' + JSON.stringify(e.data || e));
-//   }
-// }
-
-// /* Загрузка разрешений */
-// async function loadPermissions() {
-//   try {
-//     const data = await apiProtected('/api/acl-admin/permissions', {
-//       method: 'GET'
-//     });
-
-//     permSelect.innerHTML = '';
-//     data.forEach(p => {
-//       const opt = document.createElement('option');
-//       opt.value = p.id;
-//       opt.textContent = `${p.key}`;
-//       permSelect.appendChild(opt);
-//     });
-
-//   } catch (e) {
-//     alert('Ошибка загрузки разрешений: ' + JSON.stringify(e.data || e));
-//   }
-// }
-
-// /* Назначение разрешения роли */
-// async function assignPermission() {
-//   try {
-//     const result = await apiProtected('/api/acl-admin/assign-permission', {
-//       method: 'POST',
-//       body: {
-//         role_id: Number(roleSelect.value),
-//         perm_id: Number(permSelect.value)
-//       }
-//     });
-
-//     alert(result);
-
-//   } catch (e) {
-//     alert('Ошибка назначения разрешения: ' + JSON.stringify(e.data || e));
-//   }
-// }
-
-/* Автозагрузка при открытии страницы */
-//document.addEventListener('DOMContentLoaded', async () => {
-//   //await 
-//   loadRoles();
-//   //await 
-//   loadPermissions();
-// //});
 let selectedPermId = null;
 
 // Загрузка ролей
@@ -124,9 +46,8 @@ async function loadRoles() {
 // Загрузка пользователей
 async function loadUsers() {
     const users = await apiProtected("/api/users/getUsersNames");
-//  const users = await apiProtected('/api/users/getUsersNames', { method: 'GET' });//
-  userSelect.innerHTML = '';
-  users.forEach(r => {
+    userSelect.innerHTML = '';
+    users.forEach(r => {
     const opt = document.createElement('option');
     opt.value = r.id;
     opt.textContent = r.username;
@@ -139,20 +60,6 @@ async function loadUsers() {
     loadUserRoles();
   }
 }
-
-// async function getUsersNames() {
-//     const users = await apiProtected("/api/users/getUsersNames");
-
-//     users_list.innerHTML = "";
-//     users.forEach((username) => {
-//         const opt = document.createElement("option");
-//         opt.value = username;
-//         opt.textContent = username;
-//         users_list.appendChild(opt);
-//     });
-
-//     if (users.length > 0) getUserData(users[0]);
-// }
 
 // Назначение разрешения роли при выборе из availablePerms UIComponents.confirm()
 availablePerms.addEventListener('change', async () => {
@@ -243,7 +150,7 @@ async function loadRolePermissions() {
     const tr = document.createElement('tr');
     tr.dataset.permId = p.id;
     tr.textContent = p.name;
-    tr.addEventListener('click', () => selectRow(tr, p.id));
+    tr.addEventListener('click', () => selectPermRow(tr, p.id));
     tbody.appendChild(tr);
   });
 }
@@ -265,7 +172,7 @@ async function loadUserRoles() {
     const tr = document.createElement('tr');
     tr.dataset.userId = p.role_id;
     tr.textContent = p.name;
-    tr.addEventListener('click', () => selectRow(tr, p.id));
+    tr.addEventListener('click', () => selectRoleRow(tr, p.id));
     tbody.appendChild(tr);
   });
   }
@@ -273,7 +180,7 @@ async function loadUserRoles() {
 }
 
 // Выбор строки разрешений
-function selectRow(tr, permId) {
+function selectPermRow(tr, permId) {
   document.querySelectorAll('#permTable tr').forEach(r => r.classList.remove('selected'));
   tr.classList.add('selected');
   selectedPermId = permId;
@@ -281,7 +188,7 @@ function selectRow(tr, permId) {
 }
 
 // Выбор строки роли
-function selectRow(tr, roleId) {
+function selectRoleRow(tr, roleId) {
   document.querySelectorAll('#roleTable tr').forEach(r => r.classList.remove('selected'));
   tr.classList.add('selected');
   selectedRoleId = roleId;
@@ -318,7 +225,7 @@ async function removePermission() {
 
 }
 
-// Удаление рроли
+// Удаление роли
 async function removeRole() {
   if (!selectedRoleId) return;
 
@@ -423,7 +330,5 @@ btn_createPerm.onclick = createPermission;
 roleSelect.addEventListener('change', loadRolePermissions);
 userSelect.addEventListener('change', loadUserRoles);
 // Автозагрузка
-//document.addEventListener('DOMContentLoaded', loadRoles);
 loadRoles();
 loadUsers();
-//renderAvailablePermissions();
