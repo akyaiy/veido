@@ -1,7 +1,6 @@
 package main
 
 import (
-	"MyServer/internal/acl"
 	"MyServer/internal/app"
 	"MyServer/internal/auth"
 	"MyServer/internal/config"
