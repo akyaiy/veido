@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"MyServer/api/handlers/HTML"
-	"MyServer/api/handlers/aclHandler"
+	"MyServer/api/handlers/aclH"
 	"MyServer/api/handlers/files"
 	"MyServer/api/handlers/functions"
 	"MyServer/api/handlers/users"
@@ -39,7 +39,7 @@ func ServerStart(db *sql.DB, aut *auth.Auth) {
 		api.Route("/HTML", func(u chi.Router) { HTML.RegisterRoutes(u, db, aut) })
 		api.Route("/functions", func(u chi.Router) { functions.RegisterRoutes(u, db, aut) })
 		api.Route("/files", func(u chi.Router) { files.RegisterRoutes(u, db, aut) })
-		api.Route("/acl-admin", func(a chi.Router) { aclHandler.RegisterRoutes(a, db, aut) })
+		api.Route("/acl-admin", func(a chi.Router) { aclH.RegisterRoutes(a, db, aut) })
 	})
 	// -----------------------------
 	//       FRONTEND (SPA)

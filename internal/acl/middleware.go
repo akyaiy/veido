@@ -9,17 +9,17 @@ import (
 	"MyServer/internal/auth"
 )
 
-/**********************************************************************************************
- * RequirePermission — это middleware для проверки прав доступа:
- *
- * 1. Определяет нужное разрешение (perm) на основе строки или функции.
- * 2. Получает пользователя из запроса.
- * 3. Проверяет права пользователя через CanUserAccess.
- * 4. Возвращает:
- *		- 401 для гостей,
- * 		- 403 для пользователей без прав,
- * 		- или пропускает дальше к next.ServeHTTP.
- **********************************************************************************************/
+/*
+	 RequirePermission — это middleware для проверки прав доступа:
+
+	 1. Определяет нужное разрешение (perm) на основе строки или функции.
+	 2. Получает пользователя из запроса.
+	 3. Проверяет права пользователя через CanUserAccess.
+	 4. Возвращает:
+		- 401 для гостей,
+	 	- 403 для пользователей без прав,
+	 	- или пропускает дальше к next.ServeHTTP.
+*/
 func RequirePermission(db *sql.DB, aut *auth.Auth, permOrFunc interface{}, next http.HandlerFunc) http.HandlerFunc {
 	// Это типичный Go-HTTP middleware: принимает ResponseWriter и Request.
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -28,11 +28,15 @@ func RequirePermission(db *sql.DB, aut *auth.Auth, permOrFunc interface{}, next 
 		switch v := permOrFunc.(type) {
 		case string:
 			perm = v
-			// Если строка оканчивается на .*, добавляем динамическую часть пути
+			// Если строка оканчивается на .*,
 			if strings.HasSuffix(perm, ".*") {
+				// удаление суффикса ".*" из строки permission, если он в конце присутствует.
 				base := strings.TrimSuffix(perm, ".*")
+				// удаляет префикс "/api/HTML/" из URL строки, если он присутствует.
 				path := strings.TrimPrefix(r.URL.Path, "/api/HTML/")
+				// заменяем "/" на "."
 				path = strings.ReplaceAll(path, "/", ".")
+				// добавляем динамическую часть пути
 				perm = base + "." + path
 			}
 		case func(*http.Request) string:

@@ -3,7 +3,7 @@
 ## Создать роль
 
 <input id="roleName" placeholder="имя роли" />
-<button onclick="createRole()">Создавать</button>
+<button  id="btn_createRole">Создавать</button>
 
 ## Создать разрешение
 

@@ -1,4 +1,4 @@
-package aclHandler
+package aclH
 
 import (
 	"database/sql"
@@ -8,29 +8,11 @@ import (
 
 	"MyServer/internal/acl"
 	"MyServer/internal/auth"
-
-	"github.com/go-chi/chi/v5"
 )
 
 type AdminRoutes struct {
 	DB  *sql.DB
 	Aut *auth.Auth
-}
-
-func RegisterRoutes(r chi.Router, db *sql.DB, aut *auth.Auth) {
-	h := &AdminRoutes{DB: db, Aut: aut}
-
-	r.Get("/roles", h.GetRoles)
-	r.Post("/create-role", h.CreateRole)
-	r.Post("/assign-role", h.AssignRoleToUser)
-	r.Get("/user-roles", h.GetUserRoles)
-	r.Post("/remove-role", h.RemoveRoleFromUser)
-
-	r.Get("/permissions", h.GetPermissions)
-	r.Post("/create-permission", h.CreatePermission)
-	r.Post("/assign-permission", h.AssignPermissionToRole)
-	r.Get("/role-permissions", h.GetRolePermissions)
-	r.Post("/remove-permission", h.RemovePermissionFromRole)
 }
 
 type item struct {

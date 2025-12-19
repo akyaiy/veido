@@ -7,15 +7,27 @@
 
 //await apiProtected('/api/acl-admin/roles', { method: 'GET' });
 
-async function createRole() {
-await apiProtected('/api/acl-admin/create-role', { name: roleName.value },{ method: 'GET' });
-}
+// async function createRole() {
+// await apiProtected('/api/acl-admin/create-role', { name: roleName.value },{ method: 'GET' });
+// }
 
 async function createPermission() {
   try {
     const result = await apiProtected('/api/acl-admin/create-permission', {
       method: 'POST',
       body: { name: permKey.value }
+    });
+    alert(result);
+  } catch (err) {
+    console.error("Ошибка создания разрешения:", err);
+  }
+}
+
+async function createRole() {
+  try {
+    const result = await apiProtected('/api/acl-admin/create-role', {
+      method: 'POST',
+      body: { name: roleName.value }
     });
     alert(result);
   } catch (err) {
@@ -326,6 +338,7 @@ async function renderAvailableRoles() {
 // Обработчики
 btn_remRole.onclick = removeRole;
 btn_remPerm.onclick = removePermission;
+btn_createRole.onclick = createRole;
 btn_createPerm.onclick = createPermission;
 roleSelect.addEventListener('change', loadRolePermissions);
 userSelect.addEventListener('change', loadUserRoles);
