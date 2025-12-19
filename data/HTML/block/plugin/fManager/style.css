@@ -3,10 +3,13 @@ body {background: #d4d4d4; margin: 0; font-family: "Segoe UI", sans-serif;}
     box-shadow: 0 4px 12px rgba(0,0,0,0.2); overflow: hidden;}
 #titlebar { background: #2d2d2e; color: white; padding: 10px; font-size: 18px; position: relative; }
 #closeBtn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; font-size: 18px; font-weight: bold; }
-#toolbar {background: #f2f2f2; padding: 8px; display: flex; align-items: center;
+#toolbar, #toolbarBottom {background: #f2f2f2; padding: 8px; display: flex; align-items: center;
     gap: 10px; border-bottom: 1px solid #ccc;}
+#toolbarBottom {position: sticky; bottom: 0; border-top: 1px solid #ccc; margin-top: auto;}
+#bottomInput {width: 100%;}
 #toolbar #actions {margin-left: auto; display: flex; align-items: center; gap: 10px;}
-#main { height: 600px; overflow-y: auto; overflow-x: hidden;}
+#main { height: 600px; overflow-y: auto; overflow-x: hidden; display: flex;
+    flex-direction: column;}
 #files {width: 100%; border-collapse: collapse;}
 #files th {background: #e6e6e6; padding: 8px 16px; border-bottom: 1px solid #ccc;
     position: sticky; top: 0; text-align: left;}

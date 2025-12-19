@@ -27,6 +27,10 @@
       </thead>
       <tbody></tbody>
     </table>
+<div id="toolbarBottom">
+    <input type="text" id="bottomInput" placeholder="Название"/>
+    <button id="bottomBtn">Открыть</button>
+</div>
   </div>
 </div>
 
