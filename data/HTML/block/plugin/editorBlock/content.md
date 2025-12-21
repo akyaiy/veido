@@ -20,8 +20,10 @@
             </div>
         </div>
         <div id="center-panel">
-            <div id="loadedBlock" aria-label="loadedBlock"></div>
-            <div class="small-handle"></div>
+            <div id="loadedBlock" aria-label="loadedBlock">
+                <div id="loadedBlockMain"></div>
+                <div class="small-handle"></div>
+            </div>
             <div id="center-tabs">
                 <div class="center-tab active" data-tab="view">Внешний вид</div>
                 <div class="center-tab" data-tab="html">HTML код</div>
@@ -57,7 +59,6 @@
                 <table id="editor-js-panel">
                     <tr><td contenteditable="true" data-placeholder="trigger"></td><td contenteditable="true" data-placeholder="name"></td>
                 </table>
-                <div class="btn" id="open-js">Open JS</div>
             </div>
         </div>
     </div>
