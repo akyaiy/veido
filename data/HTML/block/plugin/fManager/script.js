@@ -340,18 +340,7 @@ async function list(path) {
         console.error('Ошибка списка', err);
         return;
     }
-    // try {
-    //     const res = await fetch(`/api/files/list?path=${encodeURIComponent(path)}`);
-    //     if (!res.ok) {
-    //         alert('Ошибка списка');
-    //         return;
-    //     }
-    //     data = await res.json(); // ← ВАЖНО
-    // } catch (err) {
-    //     console.error('Ошибка списка', err);
-    //     return;
-    // }
-
+ 
     cwd = path;
     cwdEl.textContent = cwd;
 
@@ -423,8 +412,8 @@ async function list(path) {
         }
     }
 
-    const toolbarBottom = document.getElementById('toolbarBottom');
-    toolbarBottom.style.display = 'none';
+     const toolbarBottom = document.getElementById('toolbarBottom');
+     toolbarBottom.style.display = 'none';
 
     if (window.listTfootAct) {
         listTfoot(window.listTfootAct);
