@@ -447,6 +447,28 @@ btnUp.addEventListener('click', () => {
     list(parent === '' ? '/' : parent);
 });
 
+function listTfoot(act) {
+    const toolbarBottom = document.getElementById('toolbarBottom');
+    toolbarBottom.style.display = '';
+
+    const closeBtn = document.getElementById('closeBtn');
+    closeBtn.onclick = () => {
+        window.listTfootAct = "";
+    };
+
+    if (act === 'loadBlock') {
+        const bottomBtn = document.getElementById('bottomBtn');
+        bottomBtn.onclick = () => loadBlockBottomBtn();
+    }
+}
+
+function loadBlockBottomBtn() {
+    const input = document.getElementById('bottomInput');
+    let path = cwd + '/' + input.value;
+    path = path.replace(/^\/data\/HTML\/block\//, ''); 
+    window.newLoadedBlock(path);
+}
+
 
 cwdEl.contentEditable = "true";
 cwdEl.spellcheck = false;
