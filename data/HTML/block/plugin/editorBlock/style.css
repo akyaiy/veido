@@ -66,6 +66,7 @@ main {
     display: flex;
     flex-direction: column;
     gap: 2px;
+    user-select: none;
 }
 
 .add-el {
@@ -122,10 +123,11 @@ main {
     width: fit-content;
 }
 
-#center-tab-pre {
+#center-panel pre {
     margin: 1em;
     padding: 5px;
-    height: 591px;
+    height: 551px;
+    overflow: auto;
 }
 
 .small-handle {
