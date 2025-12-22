@@ -176,6 +176,7 @@ async function loadBlock(path, block_Name) {
         if (mdContent) {
             const md = window.markdownit({ html: true, linkify: true, typographer: true });
             container.innerHTML = md.render(mdContent);
+            container?.id?.match(/^loadedBlock_\d+_view$/) && (document.getElementById(container.id.replace('_view', '_html')).innerHTML = mdContent);
         }
         // Добавление CSS блока
         if (css) {
