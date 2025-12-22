@@ -106,10 +106,15 @@ function newLoadedBlock(path) {
     viewDiv.className = 'loadedBlock_view';
     viewDiv.contentEditable = 'true';
 
+    const htmlDiv = document.createElement('div');
+    htmlDiv.id = blockId + '_html';
+    htmlDiv.style.display = 'none';
+
     const scriptsDiv = document.createElement('div');
     scriptsDiv.id = blockId + '_scripts';
 
     block.appendChild(viewDiv);
+    block.appendChild(htmlDiv);
     block.appendChild(scriptsDiv);
     container.appendChild(block);
 
@@ -125,195 +130,335 @@ function newLoadedBlock(path) {
     closeBtn.textContent = '×';
     closeBtn.style.marginLeft = '6px';
     closeBtn.style.cursor = 'pointer';
-    closeBtn.onclick = e => {
-        e.stopPropagation();
-        const container = document.getElementById('loadedBlockMain');
-        if (container && block) container.removeChild(block);
-        if (tabEl.parentNode) tabEl.parentNode.removeChild(tabEl);
-    };
+closeBtn.onclick = e => {
+    e.stopPropagation();
+    const container = document.getElementById('loadedBlockMain');
+    if (container && block) container.removeChild(block);
+    if (tabEl.parentNode) tabEl.parentNode.removeChild(tabEl);
+
+    centerPreHtml.textContent = '';
+    centerPreJs.textContent = '';
+    centerContent.style.display = 'none';
+    document.getElementById('loadedBlock').style.display = '';
+};
+
     tabEl.appendChild(closeBtn);
 
     switchTo(blockId, tabEl);
 
     loadBlock(path, viewDiv.id);
-
-    const moveBodyScripts = () => {
-        const scripts = document.querySelectorAll(
-            'script[data-dynamic="' + viewDiv.id + '"]'
-        );
-        if (!scripts.length) return false;
-
-        scripts.forEach(s => {
-            scriptsDiv.appendChild(s);
-        });
-
-        return true;
-    };
-
-    const observer = new MutationObserver(() => {
-        if (moveBodyScripts()) observer.disconnect();
-    });
-
-    observer.observe(document.body, { childList: true, subtree: true });
 }
 
 
 const centerTabs = document.querySelectorAll('#center-tabs .center-tab');
-
-let centerContent = document.getElementById('center-tab-content');
-if (!centerContent) {
-    centerContent = document.createElement('div');
-    centerContent.id = 'center-tab-content';
-
-    const pre = document.createElement('pre');
-    pre.id = 'center-tab-pre';
-    pre.contentEditable = 'true';
-    centerContent.appendChild(pre);
-
-    document.getElementById('center-panel').appendChild(centerContent);
-}
-const centerPre = document.getElementById('center-tab-pre');
+const centerContent = document.getElementById('center-tab-content');
+const centerPreHtml = document.getElementById('center-tab-pre-html');
+const centerPreJs = document.getElementById('center-tab-pre-js');
+const btnLoadFromView = document.getElementById('btn-load-from-view');
+const btnApplyToView = document.getElementById('btn-apply-to-view');
+const btnApplyJs = document.getElementById('btn-apply-js');
 
 function getActiveBlockId() {
     const tab = document.querySelector('#blocks-tabs .tab.active');
     if (tab && tab.dataset.blockId) return tab.dataset.blockId;
-
     const container = document.getElementById('loadedBlockMain');
     if (!container) return null;
-
     for (const ch of container.children) {
         if (getComputedStyle(ch).display !== 'none') return ch.id;
     }
     return null;
 }
 
-let lastCenterMode = 'view';
-
 function applyJs(blockId) {
-    const content = centerPre ? centerPre.textContent || '' : '';
+    const content = centerPreJs.textContent || '';
     if (!content) return;
+    const funcName = 'blockJs_' + blockId + '_view';
+    const wrapped = [];
+    wrapped.push('function ' + funcName + '() {');
+    wrapped.push('try {');
+    wrapped.push(content);
+    wrapped.push('} catch (e) { console.error(e); }');
+    wrapped.push('}');
+    wrapped.push(funcName + '();');
 
-    const wrapped = `
-        function blockJs_${blockId}() {
-            try {
-${content.split('\n').map(line => '                ' + line).join('\n')}
-            } catch (e) {
-                console.error("Error in block ${blockId}:", e);
-            }
-        }
-        blockJs_${blockId}();
-    `;
+    let scriptEl = document.querySelector('script[data-dynamic="' + blockId + '_view"]');
+    if (!scriptEl) {
+        const wrap = document.getElementById(blockId + '_scripts') || document.getElementById('loadedBlockMain');
+        scriptEl = document.createElement('script');
+        scriptEl.setAttribute('data-dynamic', blockId + '_view');
+        wrap.appendChild(scriptEl);
+    }
+    scriptEl.textContent = wrapped.join('\n');
+    try { eval(scriptEl.textContent); } catch (e) { console.error(e); }
+}
 
-    eval(wrapped);
+function updateCenterControls(mode) {
+    btnLoadFromView.style.display = mode === 'html' ? '' : 'none';
+    btnApplyToView.style.display = mode === 'html' ? '' : 'none';
+    btnApplyJs.style.display = mode === 'js' ? '' : 'none';
 }
 
 function showView(blockId) {
-    if (centerContent.style.display !== 'none') {
-        if (lastCenterMode === 'html') {
-            const view = document.getElementById(blockId + '_view');
-            if (view) view.innerHTML = centerPre.textContent;
-        } else if (lastCenterMode === 'js') {
-            const scriptEl = document.querySelector('script[data-dynamic="' + blockId + '_view"]');
-            if (scriptEl) scriptEl.textContent = centerPre.textContent;
-            applyJs(blockId);
-        }
-    }
-
     centerContent.style.display = 'none';
-
+    updateCenterControls('view');
     const container = document.getElementById('loadedBlockMain');
     if (!container) return;
-
     Array.from(container.children).forEach(ch => {
-        if (ch !== handle) ch.style.display = ch.id === blockId ? '' : 'none';
+        if (ch !== document.querySelector('.small-handle')) ch.style.display = ch.id === blockId ? '' : 'none';
     });
-    const loadedBlock = document.getElementById('loadedBlock');
-    if (loadedBlock) loadedBlock.style.display = '';
-
-    lastCenterMode = 'view';
+    document.getElementById('loadedBlock').style.display = '';
 }
 
 function showHtml(blockId) {
-    if (centerContent.style.display !== 'none' && lastCenterMode === 'js') {
-        const scriptEl = document.querySelector('script[data-dynamic="' + blockId + '_view"]');
-        if (scriptEl) scriptEl.textContent = centerPre.textContent;
-        applyJs(blockId);
-    }
-
-    const view = document.getElementById(blockId + '_view');
-
     centerContent.style.display = '';
-    centerPre.textContent = view ? view.innerHTML : '';
+    centerPreHtml.style.display = '';
+    centerPreJs.style.display = 'none';
+    updateCenterControls('html');
 
     const container = document.getElementById('loadedBlockMain');
-    if (container) {
-        Array.from(container.children).forEach(ch => {
-            if (ch !== handle) ch.style.display = 'none';
-        });
-    }
-    const loadedBlock = document.getElementById('loadedBlock');
-    if (loadedBlock) loadedBlock.style.display = 'none';
+    if (container) Array.from(container.children).forEach(ch => {
+        if (ch !== document.querySelector('.small-handle')) ch.style.display = ch.id === blockId ? '' : 'none';
+    });
+    document.getElementById('loadedBlock').style.display = 'none';
 
-    lastCenterMode = 'html';
+    const htmlContainer = document.getElementById(blockId + '_html');
+    if (htmlContainer && !centerPreHtml.dataset.userEdited) {
+        centerPreHtml.textContent = htmlContainer.innerHTML;
+    }
 }
+centerPreHtml.addEventListener('input', () => {
+    centerPreHtml.dataset.userEdited = '1';
+});
 
 function showJs(blockId) {
-    if (centerContent.style.display !== 'none' && lastCenterMode === 'html') {
-        const view = document.getElementById(blockId + '_view');
-        if (view) view.innerHTML = centerPre.textContent;
-    }
-
-    const scriptsWrap = document.getElementById(blockId + '_scripts');
-
     centerContent.style.display = '';
-    if (!scriptsWrap) {
-        centerPre.textContent = '';
-    } else {
-        const scripts = Array.from(scriptsWrap.querySelectorAll('script'));
-        centerPre.textContent = scripts
-            .map(s => s.textContent || s.innerText || '')
-            .join('\n\n');
-    }
+    centerPreHtml.style.display = 'none';
+    centerPreJs.style.display = '';
+    updateCenterControls('js');
+
+    const scriptEl = document.querySelector('script[data-dynamic="' + blockId + '_view"]');
+    centerPreJs.textContent = scriptEl ? scriptEl.textContent : '';
 
     const container = document.getElementById('loadedBlockMain');
-    if (container) {
-        Array.from(container.children).forEach(ch => {
-            if (ch !== handle) ch.style.display = 'none';
-        });
-    }
-    const loadedBlock = document.getElementById('loadedBlock');
-    if (loadedBlock) loadedBlock.style.display = 'none';
-
-    applyJs(blockId);
-
-    lastCenterMode = 'js';
+    if (container) Array.from(container.children).forEach(ch => {
+        if (ch !== document.querySelector('.small-handle')) ch.style.display = 'none';
+    });
+    document.getElementById('loadedBlock').style.display = 'none';
 }
 
 centerTabs.forEach(tab => {
     tab.onclick = () => {
         centerTabs.forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
-
         const blockId = getActiveBlockId();
         if (!blockId) return;
-
         if (tab.dataset.tab === 'view') showView(blockId);
         if (tab.dataset.tab === 'html') showHtml(blockId);
         if (tab.dataset.tab === 'js') showJs(blockId);
     };
 });
 
-document.addEventListener('click', e => {
-    const tab = e.target.closest('#blocks-tabs .tab');
-    if (!tab) return;
-
-    const blockId = tab.dataset.blockId;
+btnLoadFromView.onclick = () => {
+    const blockId = getActiveBlockId();
     if (!blockId) return;
+    const view = document.getElementById(blockId + '_view');
+    const htmlDiv = document.getElementById(blockId + '_html');
+    if (!view || !htmlDiv) return;
+    htmlDiv.innerHTML = view.innerHTML;
+    centerPreHtml.textContent = htmlDiv.innerHTML;
+};
 
-    const activeCenterTab = document.querySelector('#center-tabs .center-tab.active');
-    if (!activeCenterTab) return;
+btnApplyToView.onclick = () => {
+    const blockId = getActiveBlockId();
+    if (!blockId) return;
+    const view = document.getElementById(blockId + '_view');
+    const htmlDiv = document.getElementById(blockId + '_html');
+    if (!view || !htmlDiv) return;
 
-    if (activeCenterTab.dataset.tab === 'view') showView(blockId);
-    if (activeCenterTab.dataset.tab === 'html') showHtml(blockId);
-    if (activeCenterTab.dataset.tab === 'js') showJs(blockId);
+    const md = window.markdownit({ html: true, linkify: true, typographer: true });
+    const rendered = md.render(centerPreHtml.textContent);
+
+    htmlDiv.innerHTML = rendered;
+    view.innerHTML = rendered;
+};
+
+btnApplyJs.onclick = () => {
+    const blockId = getActiveBlockId();
+    if (!blockId) return;
+    applyJs(blockId);
+};
+
+
+document.getElementById('elements-ul').addEventListener('click', e => {
+    const el = e.target.closest('.add-el');
+    if (!el) return;
+
+    const tag = el.dataset.el;
+    if (!tag) return;
+
+    handleLoadedBlockView(tag);
+    handlePreHtml(tag, el.textContent.includes('</>'));
 });
+
+function handleLoadedBlockView(tag) {
+    const view = document.getElementById('loadedBlock_1_view');
+    if (!view) return;
+
+    const sel = document.getSelection();
+    if (!sel.rangeCount) return;
+
+    const range = sel.getRangeAt(0);
+    let node = range.commonAncestorContainer;
+    while (node && node.nodeType !== 1) node = node.parentNode;
+    if (!node || !view.contains(node)) return;
+
+    const voidTags = ['img','input','br','hr','meta','link','source'];
+    const newEl = document.createElement(tag);
+    if (!voidTags.includes(tag)) newEl.textContent = tag;
+
+    range.insertNode(newEl);
+    range.setStartAfter(newEl);
+    range.collapse(true);
+
+    sel.removeAllRanges();
+    sel.addRange(range);
+}
+
+function handlePreHtml(tag, wantsClosing) {
+    const pre = document.getElementById('center-tab-pre-html');
+    if (!pre || pre.contentEditable !== "true") return;
+
+    const snippet = wantsClosing ? `<${tag}></${tag}>` : `<${tag}>`;
+    const sel = document.getSelection();
+    if (!sel.rangeCount) return;
+
+    const range = sel.getRangeAt(0);
+    let node = range.commonAncestorContainer;
+    while (node && node.nodeType !== 1) node = node.parentNode;
+    if (!node || !pre.contains(node)) return;
+
+    const textNode = document.createTextNode(snippet);
+    range.insertNode(textNode);
+    range.setStartAfter(textNode);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+}
+
+
+let currentSelectedEl = null;
+
+document.addEventListener('click', e => {
+    const view = document.getElementById('loadedBlock_1_view');
+    if (!view) return;
+    const clicked = e.target;
+    if (!view.contains(clicked)) return;
+    const el = clicked.closest('#loadedBlock_1_view, #loadedBlock_1_view *') || view;
+    updateCssPanel(el);
+});
+
+function updateCssPanel(el) {
+    currentSelectedEl = el;
+    const idInput = document.getElementById('attr-id');
+    const classInput = document.getElementById('attr-class');
+    const attrsTable = document.getElementById('attributes-table');
+    if (idInput) idInput.value = el.id || '';
+    if (classInput) classInput.value = el.className || '';
+    if (!attrsTable) return;
+    attrsTable.innerHTML = '';
+    const names = el.getAttributeNames().filter(n => n !== 'id' && n !== 'class');
+    names.forEach(name => createAttrRow(name, el.getAttribute(name) || ''));
+    ensureEmptyRow();
+}
+
+function createAttrRow(name, value) {
+    const attrsTable = document.getElementById('attributes-table');
+    const tr = document.createElement('tr');
+    const td1 = document.createElement('td');
+    const td2 = document.createElement('td');
+    const td3 = document.createElement('td');
+    td1.setAttribute('contenteditable', 'true');
+    td1.setAttribute('data-placeholder', 'name');
+    td2.setAttribute('contenteditable', 'true');
+    td2.setAttribute('data-placeholder', 'value');
+    td1.textContent = name || '';
+    td2.textContent = value || '';
+    td1.dataset.prev = name || '';
+    td3.innerHTML = '×';
+    td3.style.cursor = 'pointer';
+    td3.addEventListener('click', () => {
+        const prev = td1.dataset.prev || '';
+        if (prev && currentSelectedEl) currentSelectedEl.removeAttribute(prev);
+        tr.remove();
+        ensureEmptyRow();
+    });
+    tr.appendChild(td1);
+    tr.appendChild(td2);
+    tr.appendChild(td3);
+    attrsTable.appendChild(tr);
+}
+
+function ensureEmptyRow() {
+    const attrsTable = document.getElementById('attributes-table');
+    if (!attrsTable) return;
+    const last = attrsTable.lastElementChild;
+    if (!last) {
+        createAttrRow('', '');
+        return;
+    }
+    const nameTd = last.children[0];
+    const valueTd = last.children[1];
+    if (!nameTd || nameTd.textContent.trim() !== '' || (valueTd && valueTd.textContent.trim() !== '')) {
+        createAttrRow('', '');
+    }
+}
+
+document.getElementById('attr-id')?.addEventListener('input', e => {
+    if (!currentSelectedEl) return;
+    const v = e.target.value.trim();
+    if (v) currentSelectedEl.id = v; else currentSelectedEl.removeAttribute('id');
+});
+
+document.getElementById('attr-class')?.addEventListener('input', e => {
+    if (!currentSelectedEl) return;
+    const v = e.target.value;
+    currentSelectedEl.className = v;
+});
+
+document.getElementById('attributes-table')?.addEventListener('input', e => {
+    const td = e.target.closest('td');
+    if (!td) return;
+    const tr = td.parentNode;
+    const nameTd = tr.children[0];
+    const valueTd = tr.children[1];
+    const prev = nameTd.dataset.prev || '';
+    const nameNow = nameTd.textContent.trim();
+    const valueNow = valueTd.textContent;
+    if (td === nameTd) {
+        if (prev && prev !== nameNow && currentSelectedEl) currentSelectedEl.removeAttribute(prev);
+        if (nameNow && currentSelectedEl) currentSelectedEl.setAttribute(nameNow, valueNow);
+        nameTd.dataset.prev = nameNow;
+        if (isLastRow(tr) && nameNow) ensureEmptyRow();
+    } else {
+        if (nameNow && currentSelectedEl) currentSelectedEl.setAttribute(nameNow, valueNow);
+    }
+});
+
+document.getElementById('attributes-table')?.addEventListener('blur', e => {
+    const td = e.target.closest('td');
+    if (!td) return;
+    const tr = td.parentNode;
+    const nameTd = tr.children[0];
+    const prev = nameTd.dataset.prev || '';
+    const nameNow = nameTd.textContent.trim();
+    if (!nameNow && prev && currentSelectedEl) currentSelectedEl.removeAttribute(prev);
+    if (!nameNow && !isLastRow(tr)) {
+        tr.remove();
+        ensureEmptyRow();
+    }
+}, true);
+
+function isLastRow(tr) {
+    const attrsTable = document.getElementById('attributes-table');
+    return attrsTable && attrsTable.lastElementChild === tr;
+}
