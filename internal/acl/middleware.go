@@ -20,23 +20,91 @@ import (
 	 	- 403 для пользователей без прав,
 	 	- или пропускает дальше к next.ServeHTTP.
 */
-func RequirePermission(db *sql.DB, aut *auth.Auth, permOrFunc interface{}, next http.HandlerFunc) http.HandlerFunc {
-	// Это типичный Go-HTTP middleware: принимает ResponseWriter и Request.
+//func RequirePermission(db *sql.DB, aut *auth.Auth, permOrFunc interface{}, next http.HandlerFunc) http.HandlerFunc {
+// func RequirePermission(db *sql.DB, aut *auth.Auth, permOrFunc interface{}, next http.Handler) http.HandlerFunc {
+// 	// Это типичный Go-HTTP middleware: принимает ResponseWriter и Request.
+// 	return func(w http.ResponseWriter, r *http.Request) {
+// 		var perm string
+// 		// Определяем тип perm: string или функция
+// 		switch v := permOrFunc.(type) {
+// 		case string:
+// 			perm = v
+// 			// Если строка оканчивается на .*,
+// 			if strings.HasSuffix(perm, ".*") {
+// 				// удаление суффикса ".*" из строки permission, если он в конце присутствует.
+// 				base := strings.TrimSuffix(perm, ".*")
+// 				// удаляет префикс "/api/HTML/" из URL строки, если он присутствует.
+// 				path := strings.TrimPrefix(r.URL.Path, "/api/HTML/")
+// 				// заменяем "/" на "."
+// 				path = strings.ReplaceAll(path, "/", ".")
+// 				// добавляем динамическую часть пути
+// 				perm = base + "." + path
+// 			}
+// 		case func(*http.Request) string:
+// 			perm = v(r)
+// 		default:
+// 			log.Println("RequirePermission: invalid perm type")
+// 			http.Error(w, "Internal error", http.StatusInternalServerError)
+// 			return
+// 		}
+
+// 		// Добавляем пермишен в базу, если его нет
+// 		_, err := db.Exec(`INSERT OR IGNORE INTO permissions(key) VALUES(?)`, perm)
+// 		if err != nil {
+// 			log.Println("RequirePermission: cannot insert permission:", err)
+// 			http.Error(w, "Internal error", http.StatusInternalServerError)
+// 			return
+// 		}
+
+//			// Получаем пользователя
+//			user, err := aut.GetUserFromRequest(r)
+//			var uid int64
+//			if err != nil || user == nil {
+//				uid = 0 // guest
+//			} else {
+//				uid = user.ID
+//			}
+//			// Проверка прав
+//			ok, err := CanUserAccess(db, uid, perm)
+//			if err != nil {
+//				log.Println("ACL error:", err)
+//				http.Error(w, "Internal error", http.StatusInternalServerError)
+//				return
+//			}
+//			// Обработка отсутствия доступа
+//			if !ok {
+//				if uid == 0 {
+//					http.Error(w, "Unauthorized", http.StatusUnauthorized)
+//				} else {
+//					http.Error(w, "Forbidden", http.StatusForbidden)
+//				}
+//				return
+//			}
+//			next.ServeHTTP(w, r)
+//		}
+//	}
+func RequirePermission(db *sql.DB, aut *auth.Auth, permOrFunc interface{}, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("[LOG] RequirePermission: Method=%s, Path=%s\n", r.Method, r.URL.Path)
+
+		// Разрешаем все стандартные и WebDAV методы
+		switch r.Method {
+		case "OPTIONS", "GET", "HEAD", "POST", "PUT", "DELETE",
+			"PROPFIND", "MKCOL", "COPY", "MOVE", "LOCK", "UNLOCK":
+			// разрешаем продолжить
+		default:
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
 		var perm string
-		// Определяем тип perm: string или функция
 		switch v := permOrFunc.(type) {
 		case string:
 			perm = v
-			// Если строка оканчивается на .*,
 			if strings.HasSuffix(perm, ".*") {
-				// удаление суффикса ".*" из строки permission, если он в конце присутствует.
 				base := strings.TrimSuffix(perm, ".*")
-				// удаляет префикс "/api/HTML/" из URL строки, если он присутствует.
 				path := strings.TrimPrefix(r.URL.Path, "/api/HTML/")
-				// заменяем "/" на "."
 				path = strings.ReplaceAll(path, "/", ".")
-				// добавляем динамическую часть пути
 				perm = base + "." + path
 			}
 		case func(*http.Request) string:
@@ -47,7 +115,6 @@ func RequirePermission(db *sql.DB, aut *auth.Auth, permOrFunc interface{}, next 
 			return
 		}
 
-		// Добавляем пермишен в базу, если его нет
 		_, err := db.Exec(`INSERT OR IGNORE INTO permissions(key) VALUES(?)`, perm)
 		if err != nil {
 			log.Println("RequirePermission: cannot insert permission:", err)
@@ -55,22 +122,21 @@ func RequirePermission(db *sql.DB, aut *auth.Auth, permOrFunc interface{}, next 
 			return
 		}
 
-		// Получаем пользователя
 		user, err := aut.GetUserFromRequest(r)
 		var uid int64
 		if err != nil || user == nil {
-			uid = 0 // guest
+			uid = 0
 		} else {
 			uid = user.ID
 		}
-		// Проверка прав
+
 		ok, err := CanUserAccess(db, uid, perm)
 		if err != nil {
 			log.Println("ACL error:", err)
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
-		// Обработка отсутствия доступа
+
 		if !ok {
 			if uid == 0 {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -79,6 +145,7 @@ func RequirePermission(db *sql.DB, aut *auth.Auth, permOrFunc interface{}, next 
 			}
 			return
 		}
+
 		next.ServeHTTP(w, r)
 	}
 }
