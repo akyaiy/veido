@@ -38,12 +38,12 @@
                 <div class="center-tab" data-tab="js">JS код</div>
             </div>
             <div id="center-tab-controls" style="display:flex;gap:8px;padding:6px 8px">
-                <button id="btn-load-from-view">Загрузить из внешнего вида</button>
-                <button id="btn-apply-to-view">Применить в внешний вид</button>
-                <button id="btn-apply-js">Применить JS</button>
+                <button id="btn-load-from-view" style="display:none">Загрузить из внешнего вида</button>
+                <button id="btn-apply-to-view" style="display:none">Применить в внешний вид</button>
+                <button id="btn-apply-js" style="display:none">Применить JS</button>
             </div>
             <div id="center-tab-content">
-                <pre id="center-tab-pre-html" contenteditable="true"></pre>
+                <pre id="center-tab-pre-html" contenteditable="true" style="display:none"></pre>
                 <pre id="center-tab-pre-js" contenteditable="true" style="display:none"></pre>
             </div>
         </div>
@@ -73,8 +73,8 @@
                 </div>
             </div>
             <div id="js-panel" style="display: none;">
+                <div class="table-title">События и функции</div>
                 <table id="editor-js-panel">
-                    <tr><td contenteditable="true" data-placeholder="trigger"></td><td contenteditable="true" data-placeholder="name"></td>
                 </table>
             </div>
         </div>

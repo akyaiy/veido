@@ -1,3 +1,4 @@
+// Переключает вкладки CSS и JS
 const tabs = document.querySelectorAll('#css-js-tabs .tab');
 const cssPanel = document.getElementById('css-panel');
 const jsPanel = document.getElementById('js-panel');
@@ -18,6 +19,7 @@ tabs.forEach(tab => {
 });
 
 
+// Изменение размера блока перетаскиванием мыши
 const handle = document.querySelector('.small-handle');
 const loadedBlock = document.getElementById('loadedBlock');
 
@@ -53,7 +55,7 @@ function move(e) {
 }
 
 
-
+// Загрузка и управление вкладками блоков
 const tabOpen = document.getElementById('tab-open');
 const content = document.getElementById('content');
 
@@ -130,17 +132,17 @@ function newLoadedBlock(path) {
     closeBtn.textContent = '×';
     closeBtn.style.marginLeft = '6px';
     closeBtn.style.cursor = 'pointer';
-closeBtn.onclick = e => {
-    e.stopPropagation();
-    const container = document.getElementById('loadedBlockMain');
-    if (container && block) container.removeChild(block);
-    if (tabEl.parentNode) tabEl.parentNode.removeChild(tabEl);
+    closeBtn.onclick = e => {
+        e.stopPropagation();
+        const container = document.getElementById('loadedBlockMain');
+        if (container && block) container.removeChild(block);
+        if (tabEl.parentNode) tabEl.parentNode.removeChild(tabEl);
 
-    centerPreHtml.textContent = '';
-    centerPreJs.textContent = '';
-    centerContent.style.display = 'none';
-    document.getElementById('loadedBlock').style.display = '';
-};
+        centerPreHtml.textContent = '';
+        centerPreJs.textContent = '';
+        centerContent.style.display = 'none';
+        document.getElementById('loadedBlock').style.display = '';
+    };
 
     tabEl.appendChild(closeBtn);
 
@@ -150,6 +152,7 @@ closeBtn.onclick = e => {
 }
 
 
+// Вкладки view / html / js блока
 const centerTabs = document.querySelectorAll('#center-tabs .center-tab');
 const centerContent = document.getElementById('center-tab-content');
 const centerPreHtml = document.getElementById('center-tab-pre-html');
@@ -289,6 +292,7 @@ btnApplyJs.onclick = () => {
 };
 
 
+// Добавление HTML-элементов в view и HTML-редактор
 document.getElementById('elements-ul').addEventListener('click', e => {
     const el = e.target.closest('.add-el');
     if (!el) return;
@@ -346,6 +350,7 @@ function handlePreHtml(tag, wantsClosing) {
 }
 
 
+// Выбор элемента 
 let currentSelectedEl = null;
 
 document.addEventListener('click', e => {
@@ -355,8 +360,20 @@ document.addEventListener('click', e => {
     if (!view.contains(clicked)) return;
     const el = clicked.closest('#loadedBlock_1_view, #loadedBlock_1_view *') || view;
     updateCssPanel(el);
+    updatePropertiesPanel(el);
+    updateTagLabel(el);
+    updateJsPanel(el);
 });
 
+function updateTagLabel(el) {
+    const label = document.getElementById('tag-label');
+    if (!label) return;
+    let name = el.tagName.toLowerCase();
+    label.textContent = name;
+}
+
+
+// Редактирование id и class элемента
 function updateCssPanel(el) {
     currentSelectedEl = el;
     const idInput = document.getElementById('attr-id');
@@ -368,79 +385,72 @@ function updateCssPanel(el) {
     attrsTable.innerHTML = '';
     const names = el.getAttributeNames().filter(n => n !== 'id' && n !== 'class');
     names.forEach(name => createAttrRow(name, el.getAttribute(name) || ''));
-    ensureEmptyRow();
+    ensureEmptyAttrRow();
 }
 
+document.getElementById('attr-id')?.addEventListener('input', e => {
+    if (!currentSelectedEl) return;
+    const v = e.target.value.trim();
+    v ? currentSelectedEl.id = v : currentSelectedEl.removeAttribute('id');
+});
+
+document.getElementById('attr-class')?.addEventListener('input', e => {
+    if (!currentSelectedEl) return;
+    currentSelectedEl.className = e.target.value;
+});
+
+
+// Редактирование атрибутов элемента
 function createAttrRow(name, value) {
     const attrsTable = document.getElementById('attributes-table');
     const tr = document.createElement('tr');
     const td1 = document.createElement('td');
     const td2 = document.createElement('td');
     const td3 = document.createElement('td');
-    td1.setAttribute('contenteditable', 'true');
-    td1.setAttribute('data-placeholder', 'name');
-    td2.setAttribute('contenteditable', 'true');
-    td2.setAttribute('data-placeholder', 'value');
+    td1.contentEditable = 'true';
+    td1.dataset.placeholder = 'name';
+    td2.contentEditable = 'true';
+    td2.dataset.placeholder = 'value';
     td1.textContent = name || '';
     td2.textContent = value || '';
     td1.dataset.prev = name || '';
-    td3.innerHTML = '×';
+    td3.textContent = '×';
     td3.style.cursor = 'pointer';
-    td3.addEventListener('click', () => {
+    td3.onclick = () => {
         const prev = td1.dataset.prev || '';
         if (prev && currentSelectedEl) currentSelectedEl.removeAttribute(prev);
         tr.remove();
-        ensureEmptyRow();
-    });
-    tr.appendChild(td1);
-    tr.appendChild(td2);
-    tr.appendChild(td3);
+        ensureEmptyAttrRow();
+    };
+    tr.append(td1, td2, td3);
     attrsTable.appendChild(tr);
 }
 
-function ensureEmptyRow() {
-    const attrsTable = document.getElementById('attributes-table');
-    if (!attrsTable) return;
-    const last = attrsTable.lastElementChild;
-    if (!last) {
-        createAttrRow('', '');
-        return;
-    }
-    const nameTd = last.children[0];
-    const valueTd = last.children[1];
-    if (!nameTd || nameTd.textContent.trim() !== '' || (valueTd && valueTd.textContent.trim() !== '')) {
+function ensureEmptyAttrRow() {
+    const t = document.getElementById('attributes-table');
+    if (!t) return;
+    const last = t.lastElementChild;
+    if (!last || last.children[0].textContent.trim() || last.children[1].textContent.trim()) {
         createAttrRow('', '');
     }
 }
-
-document.getElementById('attr-id')?.addEventListener('input', e => {
-    if (!currentSelectedEl) return;
-    const v = e.target.value.trim();
-    if (v) currentSelectedEl.id = v; else currentSelectedEl.removeAttribute('id');
-});
-
-document.getElementById('attr-class')?.addEventListener('input', e => {
-    if (!currentSelectedEl) return;
-    const v = e.target.value;
-    currentSelectedEl.className = v;
-});
 
 document.getElementById('attributes-table')?.addEventListener('input', e => {
     const td = e.target.closest('td');
     if (!td) return;
     const tr = td.parentNode;
     const nameTd = tr.children[0];
-    const valueTd = tr.children[1];
+    const valTd = tr.children[1];
     const prev = nameTd.dataset.prev || '';
     const nameNow = nameTd.textContent.trim();
-    const valueNow = valueTd.textContent;
+    const valNow = valTd.textContent;
     if (td === nameTd) {
         if (prev && prev !== nameNow && currentSelectedEl) currentSelectedEl.removeAttribute(prev);
-        if (nameNow && currentSelectedEl) currentSelectedEl.setAttribute(nameNow, valueNow);
+        if (nameNow && currentSelectedEl) currentSelectedEl.setAttribute(nameNow, valNow);
         nameTd.dataset.prev = nameNow;
-        if (isLastRow(tr) && nameNow) ensureEmptyRow();
+        if (tr === tr.parentNode.lastElementChild && nameNow) ensureEmptyAttrRow();
     } else {
-        if (nameNow && currentSelectedEl) currentSelectedEl.setAttribute(nameNow, valueNow);
+        if (nameNow && currentSelectedEl) currentSelectedEl.setAttribute(nameNow, valNow);
     }
 });
 
@@ -452,13 +462,566 @@ document.getElementById('attributes-table')?.addEventListener('blur', e => {
     const prev = nameTd.dataset.prev || '';
     const nameNow = nameTd.textContent.trim();
     if (!nameNow && prev && currentSelectedEl) currentSelectedEl.removeAttribute(prev);
-    if (!nameNow && !isLastRow(tr)) {
+    if (!nameNow && tr !== tr.parentNode.lastElementChild) {
         tr.remove();
-        ensureEmptyRow();
+        ensureEmptyAttrRow();
     }
 }, true);
 
-function isLastRow(tr) {
-    const attrsTable = document.getElementById('attributes-table');
-    return attrsTable && attrsTable.lastElementChild === tr;
+
+// Редактирование свойства элемента
+function getBlockIdFromEl(el) {
+    let node = el;
+    while (node) {
+        if (node.id && node.id.endsWith('_view')) return node.id.replace(/_view$/, '');
+        node = node.parentElement;
+    }
+    return null;
+}
+
+function updatePropertiesPanel(el) {
+    const table = document.getElementById('properties-table');
+    if (!table) return;
+    table.innerHTML = '';
+    const blockId = getBlockIdFromEl(el) || getActiveBlockId() || 'loadedBlock_1';
+    let styleEl = document.querySelector('style[data-dynamic="' + blockId + '_view"]');
+    const css = styleEl ? styleEl.textContent : '';
+    const rules = parseCssToRules(css);
+    const existingMap = new Map();
+    const existingOrder = [];
+    rules.forEach(r => {
+        if (!existingMap.has(r.selector)) {
+            existingMap.set(r.selector, r.decls);
+            existingOrder.push(r.selector);
+        }
+    });
+    const matchedSet = new Set();
+    rules.forEach(r => {
+        try {
+            if (el.matches(r.selector)) matchedSet.add(r.selector);
+        } catch (e) {
+            const selStripped = r.selector.replace(/::[a-zA-Z0-9\-\(\)]+/g, '').trim();
+            try { if (selStripped && el.matches(selStripped)) matchedSet.add(r.selector); } catch (e2) {}
+        }
+    });
+    const candidates = [];
+    const id = el.id ? '#' + el.id : null;
+    const classes = Array.from(el.classList || []);
+    const tag = el.tagName.toLowerCase();
+    if (id) candidates.push(id);
+    classes.forEach(c => candidates.push('.' + c));
+    candidates.push(tag);
+    const order = [];
+    existingOrder.forEach(s => { if (matchedSet.has(s) && !order.includes(s)) order.push(s); });
+    candidates.forEach(s => { if (!order.includes(s)) order.push(s); });
+    if (order.length === 0) order.push(buildSelector(el));
+    order.forEach(sel => {
+        const trSel = document.createElement('tr');
+        const tdSel = document.createElement('td');
+        tdSel.colSpan = 3;
+        tdSel.textContent = sel;
+        trSel.appendChild(tdSel);
+        table.appendChild(trSel);
+        const decls = existingMap.get(sel) || '';
+        decls.split(';').map(v => v.trim()).filter(Boolean).forEach(line => {
+            const i = line.indexOf(':');
+            const p = i !== -1 ? line.slice(0, i).trim() : '';
+            const v = i !== -1 ? line.slice(i + 1).trim() : '';
+            createPropRow(p, v, true);
+        });
+        createAddPropRow();
+    });
+}
+
+function parseCssToRules(css) {
+    const out = [];
+    const re = /([^{]+)\{([^}]*)\}/g;
+    let m;
+    while ((m = re.exec(css)) !== null) {
+        const selectorText = m[1].trim();
+        const decls = m[2].trim();
+        const selectors = selectorText.split(',').map(s => s.trim()).filter(Boolean);
+        selectors.forEach(sel => out.push({ selector: sel, decls }));
+    }
+    return out;
+}
+
+function buildSelector(el) {
+    if (el.id) return '#' + el.id;
+    if (el.className) return '.' + el.className.split(' ').filter(Boolean).join('.');
+    return el.tagName.toLowerCase();
+}
+
+function createPropRow(prop, val, deletable) {
+    const table = document.getElementById('properties-table');
+    const tr = document.createElement('tr');
+    const td1 = document.createElement('td');
+    const td2 = document.createElement('td');
+    td1.contentEditable = 'true';
+    td1.dataset.placeholder = td1.dataset.placeholder || 'property';
+    td2.contentEditable = 'true';
+    td2.dataset.placeholder = td2.dataset.placeholder || 'value';
+    td1.textContent = prop || '';
+    td2.textContent = val || '';
+    tr.append(td1, td2);
+    if (deletable) {
+        const td3 = document.createElement('td');
+        td3.textContent = '×';
+        td3.style.cursor = 'pointer';
+        td3.onclick = () => {
+            tr.remove();
+            rebuildStyleForActive();
+        };
+        tr.appendChild(td3);
+    }
+    table.appendChild(tr);
+}
+
+function createAddPropRow() {
+    const table = document.getElementById('properties-table');
+    const last = table.lastElementChild;
+    if (last && last.children.length === 2 && !last.children[0].textContent.trim() && !last.children[1].textContent.trim()) return;
+    const tr = document.createElement('tr');
+    const td1 = document.createElement('td');
+    const td2 = document.createElement('td');
+    td1.contentEditable = 'true';
+    td1.dataset.placeholder = 'property';
+    td2.contentEditable = 'true';
+    td2.dataset.placeholder = 'value';
+    td1.textContent = '';
+    td2.textContent = '';
+    tr.append(td1, td2);
+    table.appendChild(tr);
+}
+
+document.getElementById('properties-table')?.addEventListener('input', e => {
+    const td = e.target.closest('td');
+    if (!td) return;
+    const tr = td.parentNode;
+    if (!tr) return;
+    if (tr.children.length === 2) {
+        const prop = tr.children[0].textContent.trim();
+        const val = tr.children[1].textContent.trim();
+        if (prop && val) {
+            if (!tr.children[2]) {
+                const td3 = document.createElement('td');
+                td3.textContent = '×';
+                td3.style.cursor = 'pointer';
+                td3.onclick = () => {
+                    tr.remove();
+                    rebuildStyleForActive();
+                };
+                tr.appendChild(td3);
+            }
+            ensureAddRowExists();
+        }
+    }
+    rebuildStyleForActive();
+});
+
+document.getElementById('properties-table')?.addEventListener('blur', e => {
+    const td = e.target.closest('td');
+    if (!td) return;
+    const tr = td.parentNode;
+    if (!tr) return;
+    if (tr.children.length === 3) {
+        const prop = tr.children[0].textContent.trim();
+        const val = tr.children[1].textContent.trim();
+        if (!prop && !val) {
+            tr.remove();
+            rebuildStyleForActive();
+        }
+    } else if (tr.children.length === 2) {
+        const prop = tr.children[0].textContent.trim();
+        const val = tr.children[1].textContent.trim();
+        if (!prop && !val && tr !== tr.parentNode.lastElementChild) {
+            tr.remove();
+        } else {
+            tr.children[0].dataset.placeholder = tr.children[0].dataset.placeholder || 'property';
+            tr.children[1].dataset.placeholder = tr.children[1].dataset.placeholder || 'value';
+        }
+    }
+}, true);
+
+function ensureAddRowExists() {
+    const table = document.getElementById('properties-table');
+    const last = table.lastElementChild;
+    if (!last || last.children.length !== 2) createAddPropRow();
+    else {
+        last.children[0].dataset.placeholder = last.children[0].dataset.placeholder || 'property';
+        last.children[1].dataset.placeholder = last.children[1].dataset.placeholder || 'value';
+    }
+}
+
+function rebuildStyleForActive() {
+    const table = document.getElementById('properties-table');
+    if (!table) return;
+    const rows = Array.from(table.children);
+    const newMap = new Map();
+    let currentSelector = null;
+    rows.forEach(r => {
+        if (r.children.length === 1 || (r.children.length === 1 && r.children[0].colSpan === 3)) {
+            currentSelector = r.children[0].textContent.trim();
+            if (currentSelector && !newMap.has(currentSelector)) newMap.set(currentSelector, []);
+        } else if (r.children.length >= 2 && currentSelector) {
+            const p = r.children[0].textContent.trim();
+            const v = r.children[1].textContent.trim();
+            if (p && v) newMap.get(currentSelector).push(p + ': ' + v + ';');
+        }
+    });
+    const activeEl = currentSelectedEl;
+    const blockId = getBlockIdFromEl(activeEl) || getActiveBlockId() || 'loadedBlock_1';
+    let styleEl = document.querySelector('style[data-dynamic="' + blockId + '_view"]');
+    let existingCss = '';
+    if (styleEl) existingCss = styleEl.textContent;
+    const existingRules = parseCssToRules(existingCss);
+    const existingOrder = existingRules.map(r => r.selector);
+    const existingMap = new Map();
+    existingRules.forEach(r => {
+        if (!existingMap.has(r.selector)) existingMap.set(r.selector, r.decls);
+    });
+    const processed = new Set();
+    const out = [];
+    existingOrder.forEach(sel => {
+        if (newMap.has(sel)) {
+            const decls = newMap.get(sel).join(' ');
+            out.push(sel + ' { ' + decls + ' }');
+            processed.add(sel);
+        } else {
+            const decls = existingMap.get(sel);
+            if (decls && decls.trim()) out.push(sel + ' { ' + decls + ' }');
+        }
+    });
+    Array.from(newMap.keys()).forEach(sel => {
+        if (!processed.has(sel) && sel) {
+            const decls = newMap.get(sel).join(' ');
+            if (decls) out.push(sel + ' { ' + decls + ' }');
+        }
+    });
+    const cssText = out.join('\n');
+    if (!styleEl) {
+        styleEl = document.createElement('style');
+        styleEl.setAttribute('data-dynamic', blockId + '_view');
+        const wrap = document.getElementById(blockId + '_scripts') || document.getElementById('loadedBlockMain') || document.head;
+        wrap.appendChild(styleEl);
+    }
+    styleEl.textContent = cssText;
+}
+
+
+// Редактирование js элемента
+
+const jsTable = document.getElementById('editor-js-panel');
+
+jsTable.innerHTML = '';
+
+const events = [
+    [
+        'onclick',
+        'ondblclick',
+        'oncontextmenu'
+    ],
+    [
+        'oninput',
+        'onchange',
+        'onfocus',
+        'onblur',
+        'onkeydown',
+        'onkeyup',
+        'onkeypress'
+    ],
+    [
+        'onmouseover',
+        'onmouseout',
+        'onmouseenter',
+        'onmouseleave',
+        'ontouchstart',
+        'ontouchmove',
+        'ontouchend',
+        'onpointerdown',
+        'onpointerup',
+        'onpointermove'
+    ]
+];
+
+events.forEach((group, gi) => {
+    group.forEach(ev => {
+        const tr = document.createElement('tr');
+        const tdEvent = document.createElement('td');
+        const tdName = document.createElement('td');
+
+        tdEvent.textContent = ev;
+        tdEvent.contentEditable = 'false';
+
+        tdName.contentEditable = 'true';
+        tdName.dataset.placeholder = 'name';
+
+        tr.appendChild(tdEvent);
+        tr.appendChild(tdName);
+        jsTable.appendChild(tr);
+    });
+
+    if (gi < events.length - 1) {
+        const trHr = document.createElement('tr');
+        const tdHr = document.createElement('td');
+        tdHr.colSpan = 2;
+        tdHr.innerHTML = '<hr>';
+        trHr.appendChild(tdHr);
+        jsTable.appendChild(trHr);
+    }
+});
+
+function updateJsPanel(el) {
+    const table = document.getElementById('editor-js-panel');
+    const rows = Array.from(table.querySelectorAll('tr'));
+
+    rows.forEach(tr => {
+        const tdName = tr.children[1];
+        if (tdName) tdName.textContent = '';
+        tr.onclick = null;
+        const tdEvent = tr.children[0];
+        if (tdEvent) tdEvent.onclick = null;
+    });
+
+    const blockId = getBlockIdFromEl(el) || getActiveBlockId() || 'loadedBlock_1';
+    const script = document.querySelector('script[data-dynamic="' + blockId + '_view"]');
+    if (!script) return;
+
+    const txt = script.textContent;
+    const entries = [];
+
+    const addListenerRe = /([^\n;]+?)\.addEventListener\(\s*['"]([^'"]+)['"]\s*,\s*([A-Za-z0-9_$]+|function\b)/g;
+    let m;
+
+    while ((m = addListenerRe.exec(txt)) !== null) {
+        const selector = resolveSelectorFromExpr(m[1].trim(), txt);
+        entries.push({
+            selector,
+            event: 'on' + m[2].toLowerCase(),
+            handler: m[3].startsWith('function') ? null : m[3],
+            raw: m[0]
+        });
+    }
+
+    const onAssignRe = /([^\n;]+?)\.on([a-zA-Z]+)\s*=\s*([A-Za-z0-9_$]+|function\b)/g;
+    while ((m = onAssignRe.exec(txt)) !== null) {
+        const selector = resolveSelectorFromExpr(m[1].trim(), txt);
+        entries.push({
+            selector,
+            event: 'on' + m[2].toLowerCase(),
+            handler: m[3].startsWith('function') ? null : m[3],
+            raw: m[0]
+        });
+    }
+
+    const matched = entries.filter(en => {
+        if (!en.selector) return false;
+        try {
+            return el.matches(en.selector);
+        } catch {
+            const s = en.selector.replace(/::[a-zA-Z0-9\-\(\)]+/g, '').trim();
+            try { return s && el.matches(s); } catch { return false; }
+        }
+    });
+
+    if (!matched.length) {
+        table.removeEventListener('blur', onJsTableBlur, true);
+        table.removeEventListener('input', onJsTableInput);
+        return;
+    }
+
+    const eventToSelector = new Map();
+    matched.forEach(en => eventToSelector.set(en.event, en.selector));
+
+    rows.forEach(tr => {
+        const tdEvent = tr.children[0];
+        const tdName = tr.children[1];
+        if (!tdEvent || !tdName) return;
+
+        const evName = tdEvent.textContent.trim();
+        const found = matched.find(m => m.event === evName);
+        if (!found) return;
+
+        tdName.textContent = found.handler || '';
+
+        tdEvent.onclick = () => {
+            const jsTab = document.querySelector('#center-tabs .center-tab[data-tab="js"]');
+            if (jsTab) jsTab.click();
+            if (found.handler) {
+                highlightInJsEditor('function ' + found.handler + '(', txt);
+            } else {
+                highlightInJsEditor(found.raw, txt);
+            }
+        };
+    });
+
+    table.removeEventListener('blur', onJsTableBlur, true);
+    table.addEventListener('blur', onJsTableBlur, true);
+    table.removeEventListener('input', onJsTableInput);
+    table.addEventListener('input', onJsTableInput);
+
+    function onJsTableInput(e) {
+        const td = e.target.closest('td');
+        if (!td) return;
+        const tr = td.parentNode;
+        if (!tr) return;
+        const tdEvent = tr.children[0];
+        const tdName = tr.children[1];
+        if (!tdEvent || !tdName) return;
+        if (td !== tdName) return;
+        const ev = tdEvent.textContent.trim();
+        const handler = tdName.textContent.trim();
+        const selector = eventToSelector.get(ev);
+        if (!selector) return;
+        updateScriptAssignment(blockId, selector, ev, handler);
+    }
+
+    function onJsTableBlur(e) {
+        const td = e.target.closest('td');
+        if (!td) return;
+        const tr = td.parentNode;
+        if (!tr) return;
+        const tdEvent = tr.children[0];
+        const tdName = tr.children[1];
+        if (!tdEvent || !tdName) return;
+        if (td !== tdName) return;
+        const ev = tdEvent.textContent.trim();
+        const handler = tdName.textContent.trim();
+        const selector = eventToSelector.get(ev);
+        if (!selector) return;
+        updateScriptAssignment(blockId, selector, ev, handler);
+    }
+
+    function updateScriptAssignment(blockId, selector, eventFull, handlerName) {
+        const scriptEl = document.querySelector('script[data-dynamic="' + blockId + '_view"]');
+        if (!scriptEl) return;
+        let s = scriptEl.textContent;
+        const ev = eventFull.replace(/^on/, '');
+
+        const lhsCandidates = buildLhsCandidates(selector, s);
+
+        const assignRegexFor = lhs => {
+            return new RegExp('(^|\\n)\\s*' + escapeRegExp(lhs) + '\\.on' + ev + '\\s*=\\s*[^;\\n]*;?', 'g');
+        };
+
+        lhsCandidates.forEach(lhs => {
+            s = s.replace(assignRegexFor(lhs), '');
+        });
+
+        if (handlerName) {
+            const preferredLhs = lhsCandidates[0] || (selector.startsWith('#') ? "document.getElementById('" + selector.slice(1) + "')" : "document.querySelector('" + selector.replace(/'/g, "\\'") + "')");
+            const line = preferredLhs + '.on' + ev + ' = ' + handlerName + ';';
+            const insertBeforeIdx = findInsertIndexBeforeClosingIIFE(s);
+            if (insertBeforeIdx !== -1) {
+                s = s.slice(0, insertBeforeIdx) + '\n' + line + '\n' + s.slice(insertBeforeIdx);
+            } else {
+                s = s.trimEnd() + '\n' + line + '\n';
+            }
+        }
+
+        scriptEl.textContent = s;
+        // обновляем centerPreJs если открыт
+        const blockPre = document.getElementById('center-tab-pre-js');
+        const activeBlock = getActiveBlockId();
+        if (blockPre && (getBlockIdFromEl(el) || activeBlock) === blockId) blockPre.textContent = scriptEl.textContent;
+    }
+
+    function buildLhsCandidates(selector, scriptText) {
+        const out = [];
+        const id = selector.startsWith('#') ? selector.slice(1) : null;
+        const escapedSel = escapeRegExp(id || selector);
+        const varAssignRe = new RegExp('\\b(var|let|const)\\s+([A-Za-z_$][A-Za-z0-9_$]*)\\s*=\\s*document\\.(getElementById|querySelector(All)?)\\(\\s*[\'"]' + escapedSel + '[\'"]\\s*\\)', 'g');
+        let mm;
+        while ((mm = varAssignRe.exec(scriptText)) !== null) {
+            out.push(mm[2]);
+        }
+        if (id) out.push("document.getElementById('" + id + "')");
+        out.push("document.querySelector('" + selector.replace(/'/g, "\\'") + "')");
+        return out;
+    }
+
+    function findInsertIndexBeforeClosingIIFE(text) {
+        const iife = '})();';
+        const idx = text.lastIndexOf(iife);
+        if (idx !== -1) return idx;
+        const lastClose = text.lastIndexOf('}');
+        if (lastClose !== -1) return lastClose + 1;
+        return -1;
+    }
+
+    function escapeRegExp(str) {
+        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+}
+
+function highlightInJsEditor(search, fullText) {
+    const pre = document.getElementById('center-tab-pre-js');
+    if (!pre) return;
+
+    const idx = fullText.indexOf(search);
+    if (idx === -1) return;
+
+    let pos = 0;
+    let node;
+    const walker = document.createTreeWalker(pre, NodeFilter.SHOW_TEXT);
+
+    while ((node = walker.nextNode())) {
+        const next = pos + node.length;
+        if (idx >= pos && idx < next) {
+            const range = document.createRange();
+            range.setStart(node, idx - pos);
+            range.setEnd(node, Math.min(node.length, idx - pos + search.length));
+
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+
+            const span = document.createElement('span');
+            range.surroundContents(span);
+
+            span.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            setTimeout(() => {
+                const parent = span.parentNode;
+                while (span.firstChild) parent.insertBefore(span.firstChild, span);
+                parent.removeChild(span);
+            }, 800);
+
+            pre.focus();
+            return;
+        }
+        pos = next;
+    }
+}
+
+function resolveSelectorFromExpr(expr, scriptText) {
+    expr = expr.trim();
+
+    const idRe = /^document\.getElementById\(\s*['"]([^'"]+)['"]\s*\)$/;
+    const qsRe = /^document\.querySelector(All)?\(\s*['"]([^'"]+)['"]\s*\)$/;
+
+    let m = idRe.exec(expr);
+    if (m) return '#' + m[1];
+
+    m = qsRe.exec(expr);
+    if (m) return m[2];
+
+    const varNameMatch = expr.match(/^[A-Za-z_$][A-Za-z0-9_$]*$/);
+    if (!varNameMatch) return null;
+
+    const varName = varNameMatch[0];
+
+    const varAssignRe = new RegExp(
+        '\\b(var|let|const)\\s+' + varName +
+        '\\s*=\\s*document\\.(getElementById|querySelector(All)?)\\(\\s*[\'"]([^\'"]+)[\'"]\\s*\\)',
+        'g'
+    );
+
+    let mm;
+    while ((mm = varAssignRe.exec(scriptText)) !== null) {
+        if (mm[2] === 'getElementById') return '#' + mm[4];
+        return mm[4];
+    }
+
+    return null;
 }
