@@ -15,6 +15,7 @@ import (
 	"MyServer/internal/acl"
 	"MyServer/internal/auth"
 	"MyServer/internal/config"
+	"MyServer/internal/dav"
 	"MyServer/internal/files"
 
 	"github.com/go-chi/chi/v5"
@@ -50,7 +51,7 @@ func ServerStart(db *sql.DB, aut *auth.Auth) {
 	// В данном примере используем текущую директорию "." как хранилище
 	davHandler := &webdav.Handler{
 		Prefix:     "/dav",
-		FileSystem: webdav.Dir(files.BaseDir),
+		FileSystem: dav.FS{},
 		LockSystem: webdav.NewMemLS(),
 		Logger: func(r *http.Request, err error) {
 			if err != nil {
@@ -58,17 +59,6 @@ func ServerStart(db *sql.DB, aut *auth.Auth) {
 			}
 		},
 	}
-	/**
-	  r.Route("/dav", func(r chi.Router) {
-	  	r.Handle("/*", acl.RequirePermission(
-	  		db,
-	  		aut,
-	  		acl.FilesPermissionFromRequest,
-	  		davHandler,
-	  	))
-	  })
-
-	*/
 
 	// 3. Маршрут /dav
 	r.Route("/dav", func(r chi.Router) {

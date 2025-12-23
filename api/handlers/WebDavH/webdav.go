@@ -1,21 +1,12 @@
 package webdavh
 
-import (
-	"MyServer/internal/acl"
-	"MyServer/internal/auth"
-	"database/sql"
-	"net/http"
+// func RegisterRoutes(r chi.Router, db *sql.DB, aut *auth.Auth) {
+// 	// Всё, что начинается с /api/dav/ отдаём в стандартный http.Handler
+// 	r.Mount("/api/dav", http.StripPrefix("/api/dav", acl.RequirePermission(db, aut, "dav.*", WebDAVHandler(db))))
 
-	"github.com/go-chi/chi/v5"
-)
+// 	// handler := acl.RequirePermission(db, aut, "dav.*", WebDAVHandler(db))
 
-func RegisterRoutes(r chi.Router, db *sql.DB, aut *auth.Auth) {
-	// Всё, что начинается с /api/dav/ отдаём в стандартный http.Handler
-	r.Mount("/api/dav", http.StripPrefix("/api/dav", acl.RequirePermission(db, aut, "dav.*", WebDAVHandler(db))))
-
-	// handler := acl.RequirePermission(db, aut, "dav.*", WebDAVHandler(db))
-
-	// // Ловим сам корень и все подкаталоги
-	// r.Handle("/api/dav", handler)   // /api/dav
-	// r.Handle("/api/dav/*", handler) // /api/dav/anything
-}
+// 	// // Ловим сам корень и все подкаталоги
+// 	// r.Handle("/api/dav", handler)   // /api/dav
+// 	// r.Handle("/api/dav/*", handler) // /api/dav/anything
+// }
