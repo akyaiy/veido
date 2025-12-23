@@ -31,13 +31,87 @@ type User struct {
 	Username string `json:"username"`
 }
 
+// func (a *Auth) GetUserFromRequest(r *http.Request) (*User, error) {
+// 	userID, ok := a.AuthenticateRequest(r)
+// 	if !ok || userID == 0 {
+// 		return nil, errors.New("unauthenticated")
+// 	}
+
+// 	row := a.db.QueryRow("SELECT id, username FROM users WHERE id = ?", userID)
+// 	var u User
+// 	if err := row.Scan(&u.ID, &u.Username); err != nil {
+// 		if err == sql.ErrNoRows {
+// 			return nil, errors.New("user not found")
+// 		}
+// 		return nil, err
+// 	}
+// 	return &u, nil
+// }
+
 func (a *Auth) GetUserFromRequest(r *http.Request) (*User, error) {
+	// 1️⃣ JWT — как и раньше (UI, API)
 	userID, ok := a.AuthenticateRequest(r)
-	if !ok || userID == 0 {
-		return nil, errors.New("unauthenticated")
+	if ok && userID != 0 {
+		return a.loadUserByID(userID)
+	}
+	//	fmt.Println("userID:%v", userID)
+
+	// 2️⃣ Basic Auth — ТОЛЬКО для WebDAV
+	if strings.HasPrefix(r.URL.Path, "/dav") {
+		login, pass, ok := r.BasicAuth()
+		if ok {
+			u, err := a.AuthenticateUser(login, pass)
+			//fmt.Println("AuthenticateUser error:", err)
+			if err == nil {
+				//fmt.Println("Authenticated DAV user:", u.Username)
+				return u, nil
+			}
+		} else {
+			//fmt.Println("No BasicAuth header sent by client")
+		}
 	}
 
-	row := a.db.QueryRow("SELECT id, username FROM users WHERE id = ?", userID)
+	return nil, errors.New("unauthenticated")
+}
+
+func (a *Auth) AuthenticateUser(login, password string) (*User, error) {
+	row := a.db.QueryRow(
+		"SELECT id, username, password_hash FROM users WHERE username = ?",
+		login,
+	)
+
+	var (
+		id       int64
+		username string
+		hash     string
+	)
+
+	if err := row.Scan(&id, &username, &hash); err != nil {
+		return nil, errors.New("invalid credentials")
+	}
+
+	// Здесь проверяем ошибку
+	//fmt.Println("Trying login:", login)
+	//fmt.Println("Password hash:", hash)
+
+	err := a.CheckPassword(hash, password)
+	//fmt.Println("Password check error:", err)
+	if err != nil {
+		return nil, errors.New("invalid credentials")
+	}
+
+	return &User{
+		ID:       id,
+		Username: username,
+	}, nil
+}
+
+func (a *Auth) loadUserByID(userID int64) (*User, error) {
+	row := a.db.QueryRow(
+		"SELECT id, username FROM users WHERE id = ?",
+		userID,
+	)
+
 	var u User
 	if err := row.Scan(&u.ID, &u.Username); err != nil {
 		if err == sql.ErrNoRows {

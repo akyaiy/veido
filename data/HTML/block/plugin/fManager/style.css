@@ -1,7 +1,6 @@
-body {background: #d4d4d4; margin: 0; font-family: "Segoe UI", sans-serif;}
+
 #window {width: 900px; margin: 20px auto; background: #fff; border-radius: 6px; 
     box-shadow: 0 4px 12px rgba(0,0,0,0.2); overflow: hidden;}
-#titlebar { background: #2d2d2e; color: white; padding: 0px; font-size: 18px; position: relative; }
 #closeBtn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; font-size: 18px; font-weight: bold; }
 #toolbar, #toolbarBottom {background: #f2f2f2; padding: 8px; display: flex; align-items: center;
     gap: 10px; border-bottom: 1px solid #ccc;}
@@ -29,15 +28,27 @@ button:hover, .btn:hover {background: #dcdcdc;}
     display: flex; justify-content: center; align-items: center; z-index: 1000;}
 
 #titlebar { background: #2d2d2e; color: white; padding: 0px; font-size: 18px; position: relative;
-    display: flex; align-items: center; gap: 10px;}
-#f_burger { position: relative; cursor: pointer; font-size: 20px; padding: 4px 8px; user-select: none;}
-#f_burgerMenu {position: absolute; top: 100%; left: 0; background: #222; border: 1px solid #444; 
+    display: flex; align-items: center; gap: 10px; height: 30px;}
+#fburger { position: relative; cursor: pointer; font-size: 20px; padding: 4px 8px; user-select: none;}
+#fburgerMenu {position: absolute; top: 100%; left: 0; background: #222; border: 1px solid #444; 
     border-radius: 6px; display: none; min-width: 140px; z-index: 1000;}
-#f_burgerMenu div {padding: 8px 12px; cursor: pointer; white-space: nowrap;}
-#f_burgerMenu div:hover {background: #444;}
-#f_burger.open #f_burgerMenu {display: block;}
-/* .title {flex: 1; text-align: center; font-weight: bold;} */
+#fburgerMenu div {padding: 8px 12px; cursor: pointer; white-space: nowrap;}
+#fburgerMenu div:hover {background: #444;}
+#fburger.open #fburgerMenu {display: block;}
+.title {flex: 1; text-align: center; font-weight: bold;}
 
 #cwd {padding: 2px 6px; border-radius: 4px; cursor: text;}
 #cwd.editing {background: #fff; color: #000; outline: 1px solid #4a90e2;}
 
+/* TABLE VIEW */
+.file-table td {padding: 10px 16px; text-align: left;}
+.file-table .file-name {display: flex; align-items: center;}
+.file-table .icon {width: 32px; text-align: center; margin-right: 6px;}
+/* COLUMNS VIEW */
+.col-item {padding: 4px; display: flex; align-items: center;}
+.col-item .icon {width: 32px; text-align: center; margin-right: 6px;}
+.col-item .name {flex: 1;}
+/* TILES VIEW */
+.tile {display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6px;}
+.tile-icon {font-size: 36px;}
+.tile-name {margin-top: 4px; font-size: 12px; text-align: center;}

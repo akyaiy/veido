@@ -1,235 +1,3 @@
-// const DAV_ROOT = '/api/dav';
-// let cwd = '/';
-
-// async function fetchDAV(path, options = {}) {
-//     const url = DAV_ROOT + path;
-
-//     const finalOptions = {
-//         ...options,
-//         headers: {
-//             ...(options.headers || {}),
-//             'Content-Type': 'application/json', // можно убрать, если тело не JSON
-//         },
-//     };
-
-//     return apiProtected(url, finalOptions);
-// }
-
-// const cwdEl = document.getElementById('cwd');
-// const mainEl = document.getElementById('main');
-// const filesTable = document.getElementById('files');
-// const tbody = document.querySelector('#files tbody');
-// //let cwd = '/';
-// let viewMode = 'table';
-
-// function fetchWithAuth(url, options = {}) {
-//     const token = localStorage.getItem("access_token");
-//     const headers = options.headers || {};
-
-//     if (token) {
-//         headers["Authorization"] = "Bearer " + token;
-//     }
-
-//     return fetch(url, {
-//         ...options,
-//         headers
-//     });
-// }
-
-
-// function ensureContainers() {
-//     let tiles = document.getElementById('files_tiles');
-//     let cols = document.getElementById('files_columns');
-//     if (!tiles) {
-//         tiles = document.createElement('div');
-//         tiles.id = 'files_tiles';
-//         tiles.style.display = 'none';
-//         tiles.style.gridTemplateColumns = 'repeat(auto-fill,minmax(120px,1fr))';
-//         tiles.style.gap = '12px';
-//         tiles.style.padding = '8px';
-//         mainEl.appendChild(tiles);
-//     }
-//     if (!cols) {
-//         cols = document.createElement('div');
-//         cols.id = 'files_columns';
-//         cols.style.display = 'none';
-//         cols.style.padding = '4px';
-//         cols.style.columnWidth = '220px';
-//         cols.style.columnGap = '12px';
-//         cols.style.columnFill = 'auto';
-//         cols.style.height = 'calc(100vh - 200px)';
-//         cols.style.overflowY = 'hidden';
-//         cols.style.overflowX = 'auto';
-//         cols.style.width = '100%';
-//         mainEl.appendChild(cols);
-//     }
-// }
-
-// function applyViewMode() {
-//     ensureContainers();
-//     const tiles = document.getElementById('files_tiles');
-//     const cols = document.getElementById('files_columns');
-//     document.body.classList.remove('view-tiles', 'view-columns', 'view-table');
-//     if (viewMode === 'tiles') {
-//         document.body.classList.add('view-tiles');
-//         filesTable.style.display = 'none';
-//         cols.style.display = 'none';
-//         tiles.style.display = 'grid';
-//         tiles.style.gridTemplateColumns = 'repeat(auto-fill,minmax(100px,1fr))';
-//         tiles.style.gap = '10px';
-//     } else if (viewMode === 'columns') {
-//         document.body.classList.add('view-columns');
-//         filesTable.style.display = 'none';
-//         tiles.style.display = 'none';
-//         cols.style.display = '';
-//         cols.style.columnWidth = '220px';
-//         cols.style.columnGap = '12px';
-//         cols.style.columnFill = 'auto';
-//         cols.style.height = 'calc(100% - 8px)';
-//         cols.style.overflowY = 'hidden';
-//         cols.style.overflowX = 'auto';
-//         cols.style.width = '100%';
-//     } else {
-//         document.body.classList.add('view-table');
-//         filesTable.style.display = '';
-//         tiles.style.display = 'none';
-//         cols.style.display = 'none';
-//     }
-// }
-
-// document.getElementById('viewMode').addEventListener('change', e => {
-//     viewMode = e.target.value;
-//     applyViewMode();
-//     list(cwd);
-// });
-
-
-// async function list(path) {
-//     let data;
-//     try {
-//         data = await apiProtected(`/api/files/list?path=${encodeURIComponent(path)}`);
-//     } catch (err) {
-//         console.error('Ошибка списка', err);
-//         return;
-//     }
-
-//     cwd = path;
-//     cwdEl.textContent = cwd;
-
-//     ensureContainers();
-
-//     const tiles = document.getElementById('files_tiles');
-//     const cols = document.getElementById('files_columns');
-
-//     tbody.innerHTML = '';
-//     tiles.innerHTML = '';
-//     cols.innerHTML = '';
-
-//     // ---- Добавить кнопку "Вверх"
-//     if (path !== '/') {
-//         const upPath = cwd.split('/').slice(0, -1).join('/') || '/';
-
-//         // Таблица
-//         const tr = document.createElement('tr');
-//         tr.innerHTML = `<td colspan="3"><button id="btnUpRow">⬆ Вверх</button></td>`;
-//         tr.querySelector('button').onclick = () => list(upPath);
-//         tbody.appendChild(tr);
-
-//         // Плитка
-//         const upTile = document.createElement('div');
-//         upTile.className = 'tile up-tile';
-//         upTile.style.display = 'flex';
-//         upTile.style.flexDirection = 'column';
-//         upTile.style.alignItems = 'center';
-//         upTile.style.justifyContent = 'center';
-//         upTile.style.padding = '6px';
-//         upTile.innerHTML = `
-//             <div class="tile-icon" style="font-size:36px">⬆</div>
-//             <div class="tile-name" style="margin-top:4px;font-size:12px">Вверх</div>`;
-//         upTile.ondblclick = () => list(upPath);
-//         tiles.appendChild(upTile);
-
-//         // Колонки
-//         const upCol = document.createElement('div');
-//         upCol.className = 'col-item';
-//         upCol.style.padding = '4px';
-//         upCol.innerHTML = `
-//             <div style="display:flex;align-items:center;">
-//                 <div style="width:32px;text-align:center;font-size:18px">⬆</div>
-//                 <div style="padding-left:6px">Вверх</div>
-//             </div>`;
-//         upCol.ondblclick = () => list(upPath);
-//         cols.appendChild(upCol);
-//     }
-
-//     // ---- Сортировка
-//     data.sort((a, b) =>
-//         a.isDir === b.isDir ? a.name.localeCompare(b.name) : (a.isDir ? -1 : 1)
-//     );
-
-//     // ---- Заполнение списка
-//     for (const f of data) {
-//         const icon = f.isDir ? '📁' : '📄';
-//         const nameEsc = escapeHtml(f.name);
-//         const fullPath = (cwd === '/' ? '' : cwd) + '/' + f.name;
-
-//         const openItem = () => {
-//             if (f.isDir) list(fullPath);
-//             else downloadFile(fullPath); // авторизованный download
-//         };
-
-//         // ----- TABLE
-//         if (viewMode === 'table') {
-//             const tr = document.createElement('tr');
-//             tr.innerHTML = `
-//                 <td style="text-align:left;padding:10px 16px;">${icon} ${nameEsc}</td>
-//                 <td style="padding:10px 16px">${f.isDir ? '—' : f.size}</td>
-//                 <td style="padding:10px 16px">${f.modTime || ''}</td>
-//             `;
-//             tr.ondblclick = openItem;
-//             tbody.appendChild(tr);
-//         }
-
-//         // ----- COLUMNS
-//         else if (viewMode === 'columns') {
-//             const item = document.createElement('div');
-//             item.className = 'col-item';
-//             item.style.padding = '4px';
-//             item.innerHTML = `
-//                 <div style="display:flex;align-items:center;">
-//                     <div style="width:32px;text-align:center">${icon}</div>
-//                     <div style="padding-left:6px;flex:1">${nameEsc}</div>
-//                 </div>`;
-//             item.ondblclick = openItem;
-//             cols.appendChild(item);
-//         }
-
-//         // ----- TILES
-//         else if (viewMode === 'tiles') {
-//             const tile = document.createElement('div');
-//             tile.className = 'tile';
-//             tile.style.display = 'flex';
-//             tile.style.flexDirection = 'column';
-//             tile.style.alignItems = 'center';
-//             tile.style.justifyContent = 'center';
-//             tile.style.padding = '6px';
-//             tile.innerHTML = `
-//                 <div class="tile-icon" style="font-size:36px">${icon}</div>
-//                 <div class="tile-name" style="margin-top:4px;font-size:12px;text-align:center">${nameEsc}</div>`;
-//             tile.ondblclick = openItem;
-//             tiles.appendChild(tile);
-//         }
-//     }
-
-//     const toolbarBottom = document.getElementById('toolbarBottom');
-//     toolbarBottom.style.display = 'none';
-
-//     if (window.listTfootAct) {
-//         listTfoot(window.listTfootAct);
-//     }
-// }
-
-// 
 
 const cwdEl = document.getElementById('cwd');
 const mainEl = document.getElementById('main');
@@ -304,21 +72,21 @@ function applyViewMode() {
     }
 }
 
-const f_burger = document.getElementById('f_burger');
-const f_burgerMenu = document.getElementById('f_burgerMenu');
+const fburger = document.getElementById('fburger');
+const fburgerMenu = document.getElementById('fburgerMenu');
 
 // открыть / закрыть меню
-f_burger.addEventListener('click', e => {
+fburger.addEventListener('click', e => {
     e.stopPropagation();
-    f_burger.classList.toggle('open');
+    fburger.classList.toggle('open');
 });
 
 // клик вне меню — закрыть
 document.addEventListener('click', () => {
-    f_burger.classList.remove('open');
+    fburger.classList.remove('open');
 });
 
-f_burgerMenu.querySelectorAll('[data-view]').forEach(item => {
+fburgerMenu.querySelectorAll('[data-view]').forEach(item => {
     item.addEventListener('click', e => {
         e.stopPropagation(); // ⬅ ВАЖНО
 
@@ -326,21 +94,27 @@ f_burgerMenu.querySelectorAll('[data-view]').forEach(item => {
         applyViewMode();
         list(cwd);
 
-        f_burger.classList.remove('open');
+        fburger.classList.remove('open');
     });
 });
 
 
+
 async function list(path) {
     let data;
-
     try {
-        data = await apiProtected(`/api/files/list?path=${encodeURIComponent(path)}`);
+        const urlPath = path === '/' ? '' : path;
+        const res = await fetch(`/api/files${urlPath}`);
+        if (!res.ok) {
+            alert('Ошибка списка файлов');
+            return;
+        }
+        data = await res.json();
     } catch (err) {
-        console.error('Ошибка списка', err);
+        console.error('Ошибка списка файлов', err);
         return;
     }
- 
+
     cwd = path;
     cwdEl.textContent = cwd;
 
@@ -353,12 +127,10 @@ async function list(path) {
     tiles.innerHTML = '';
     cols.innerHTML = '';
 
-    // дальше код без изменений
     data.sort((a, b) =>
         a.isDir === b.isDir ? a.name.localeCompare(b.name) : (a.isDir ? -1 : 1)
     );
 
-    // ---- Заполнение списка
     for (const f of data) {
         const icon = f.isDir ? '📁' : '📄';
         const nameEsc = escapeHtml(f.name);
@@ -366,60 +138,197 @@ async function list(path) {
 
         const openItem = () => {
             if (f.isDir) list(fullPath);
-            else downloadFile(fullPath); // авторизованный download
+            else downloadFile(fullPath);
         };
 
-        // ----- TABLE
+        // ----- TABLE VIEW -----
         if (viewMode === 'table') {
             const tr = document.createElement('tr');
+            tr.className = 'file-row';
             tr.innerHTML = `
-                <td style="text-align:left;padding:10px 16px;">${icon} ${nameEsc}</td>
-                <td style="padding:10px 16px">${f.isDir ? '—' : f.size}</td>
-                <td style="padding:10px 16px">${f.modTime || ''}</td>
+                <td class="file-name"><span class="icon">${icon}</span> ${nameEsc}</td>
+                <td>${f.isDir ? '—' : f.size}</td>
+                <td>${f.modTime || ''}</td>
             `;
             tr.ondblclick = openItem;
             tbody.appendChild(tr);
         }
 
-        // ----- COLUMNS
+        // ----- COLUMNS VIEW -----
         else if (viewMode === 'columns') {
             const item = document.createElement('div');
             item.className = 'col-item';
-            item.style.padding = '4px';
             item.innerHTML = `
-                <div style="display:flex;align-items:center;">
-                    <div style="width:32px;text-align:center">${icon}</div>
-                    <div style="padding-left:6px;flex:1">${nameEsc}</div>
-                </div>`;
+                <div class="icon">${icon}</div>
+                <div class="name">${nameEsc}</div>
+            `;
             item.ondblclick = openItem;
             cols.appendChild(item);
         }
 
-        // ----- TILES
+        // ----- TILES VIEW -----
         else if (viewMode === 'tiles') {
             const tile = document.createElement('div');
             tile.className = 'tile';
-            tile.style.display = 'flex';
-            tile.style.flexDirection = 'column';
-            tile.style.alignItems = 'center';
-            tile.style.justifyContent = 'center';
-            tile.style.padding = '6px';
             tile.innerHTML = `
-                <div class="tile-icon" style="font-size:36px">${icon}</div>
-                <div class="tile-name" style="margin-top:4px;font-size:12px;text-align:center">${nameEsc}</div>`;
+                <div class="tile-icon">${icon}</div>
+                <div class="tile-name">${nameEsc}</div>
+            `;
             tile.ondblclick = openItem;
             tiles.appendChild(tile);
         }
     }
 
-     const toolbarBottom = document.getElementById('toolbarBottom');
-     toolbarBottom.style.display = 'none';
+    const toolbarBottom = document.getElementById('toolbarBottom');
+    toolbarBottom.style.display = 'none';
 
     if (window.listTfootAct) {
         listTfoot(window.listTfootAct);
     }
 }
 
+
+class FilesApiClient {
+  constructor(baseUrl = '/api/files') {
+    this.baseUrl = baseUrl;
+  }
+
+  // --- Список файлов/папок ---
+  async list(path = '') {
+    const url = `${this.baseUrl}/${path}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Error listing files: ${res.statusText}`);
+    return res.json(); // возвращает массив {name, isDir, size, modTime}
+  }
+
+  // --- Получение содержимого файла ---
+  async getFile(path) {
+    const url = `${this.baseUrl}/${path}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Error getting file: ${res.statusText}`);
+    return res.text(); // для бинарных файлов можно использовать res.arrayBuffer()
+  }
+
+  // --- HEAD: метаинформация ---
+  async head(path) {
+    const url = `${this.baseUrl}/${path}`;
+    const res = await fetch(url, { method: 'HEAD' });
+    if (!res.ok) throw new Error(`Error fetching metadata: ${res.statusText}`);
+    return {
+      size: res.headers.get('Content-Length'),
+      lastModified: res.headers.get('Last-Modified'),
+      contentType: res.headers.get('Content-Type')
+    };
+  }
+
+  // --- Загрузка файла ---
+  async upload(path, file) {
+    const url = `${this.baseUrl}/${path}`;
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch(url, { method: 'POST', body: formData });
+    if (!res.ok) throw new Error(`Error uploading file: ${res.statusText}`);
+    return true;
+  }
+
+  // --- Создание папки ---
+  async mkdir(path) {
+    const url = `${this.baseUrl}/${path}`;
+    const res = await fetch(url, { method: 'POST' });
+    if (!res.ok) throw new Error(`Error creating folder: ${res.statusText}`);
+    return true;
+  }
+
+  // --- Полная замена файла ---
+  async put(path, content) {
+    const url = `${this.baseUrl}/${path}`;
+    const res = await fetch(url, { method: 'PUT', body: content });
+    if (!res.ok) throw new Error(`Error updating file: ${res.statusText}`);
+    return true;
+  }
+
+  // --- Частичное обновление файла ---
+  async patch(path, content) {
+    const url = `${this.baseUrl}/${path}`;
+    const res = await fetch(url, { method: 'PATCH', body: content });
+    if (!res.ok) throw new Error(`Error patching file: ${res.statusText}`);
+    return true;
+  }
+
+  // --- Удаление файла или папки ---
+  async delete(path) {
+    const url = `${this.baseUrl}/${path}`;
+    const res = await fetch(url, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`Error deleting: ${res.statusText}`);
+    return true;
+  }
+
+  // --- Копирование файла ---
+  async copy(path, target) {
+    const url = `${this.baseUrl}/${path}/copy`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target })
+    });
+    if (!res.ok) throw new Error(`Error copying file: ${res.statusText}`);
+    return true;
+  }
+
+  // --- Перемещение файла ---
+  async move(path, target) {
+    const url = `${this.baseUrl}/${path}/move`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target })
+    });
+    if (!res.ok) throw new Error(`Error moving file: ${res.statusText}`);
+    return true;
+  }
+
+  // --- Загрузка части файла (Range) ---
+  async getRange(path, start = 0, end = null) {
+    const url = `${this.baseUrl}/${path}`;
+    const headers = {};
+    if (end !== null) headers['Range'] = `bytes=${start}-${end}`;
+    const res = await fetch(url, { headers });
+    if (!res.ok && res.status !== 206) throw new Error(`Error fetching range: ${res.statusText}`);
+    return res.arrayBuffer();
+  }
+
+  // --- Поиск файлов с фильтром ---
+  async search(path = '', query = {}) {
+    const params = new URLSearchParams(query);
+    const url = `${this.baseUrl}/${path}?${params.toString()}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Error searching files: ${res.statusText}`);
+    return res.json();
+  }
+}
+
+// // --- Пример использования ---
+// (async () => {
+//   const client = new FilesApiClient();
+
+//   // Получение списка файлов
+//   const files = await client.list('docs');
+//   console.log(files);
+
+//   // Просмотр содержимого файла
+//   const content = await client.getFile('docs/file.txt');
+//   console.log(content);
+
+//   // Загрузка нового файла
+//   // await client.upload('docs', myFileInput.files[0]);
+
+//   // Создание папки
+//   // await client.mkdir('docs/new-folder');
+
+// })();
+
+
+/******************************************************************************************************************************************************* */
 function escapeHtml(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
@@ -435,28 +344,6 @@ btnUp.addEventListener('click', () => {
     const parent = '/' + parts.join('/');
     list(parent === '' ? '/' : parent);
 });
-
-function listTfoot(act) {
-    const toolbarBottom = document.getElementById('toolbarBottom');
-    toolbarBottom.style.display = '';
-
-    const closeBtn = document.getElementById('closeBtn');
-    closeBtn.onclick = () => {
-        window.listTfootAct = "";
-    };
-
-    if (act === 'loadBlock') {
-        const bottomBtn = document.getElementById('bottomBtn');
-        bottomBtn.onclick = () => loadBlockBottomBtn();
-    }
-}
-
-function loadBlockBottomBtn() {
-    const input = document.getElementById('bottomInput');
-    let path = cwd + '/' + input.value;
-    path = path.replace(/^\/data\/HTML\/block\//, ''); 
-    window.newLoadedBlock(path);
-}
 
 
 cwdEl.contentEditable = "true";
