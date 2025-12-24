@@ -196,10 +196,52 @@ func GetUsersHandler(db *sql.DB) http.HandlerFunc {
 			}
 			arr = append(arr, u)
 		}
-
+		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(arr)
 	}
 }
+
+// func GetUsersHandler(db *sql.DB) http.HandlerFunc {
+// 	return func(w http.ResponseWriter, r *http.Request) {
+// 		rows, err := db.Query("SELECT id, username FROM users")
+// 		if err != nil {
+// 			http.Error(w, err.Error(), http.StatusInternalServerError)
+// 			return
+// 		}
+// 		defer rows.Close()
+
+// 		type User struct {
+// 			ID       int64  `json:"id"`
+// 			Username string `json:"username"`
+// 		}
+
+// 		var arr []User
+
+// 		for rows.Next() {
+// 			var u User
+// 			if err := rows.Scan(&u.ID, &u.Username); err != nil {
+// 				http.Error(w, err.Error(), http.StatusInternalServerError)
+// 				return
+// 			}
+
+// 			// --- создание каталога пользователя ---
+// 			userDir := filepath.Join(
+// 				".", "data", "files", "users", u.Username,
+// 			)
+
+// 			if err := os.MkdirAll(userDir, 0755); err != nil {
+// 				http.Error(w, "cannot create user directory: "+err.Error(), http.StatusInternalServerError)
+// 				return
+// 			}
+// 			// --------------------------------------
+
+// 			arr = append(arr, u)
+// 		}
+
+// 		w.Header().Set("Content-Type", "application/json")
+// 		json.NewEncoder(w).Encode(arr)
+// 	}
+// }
 
 /* ------------------- Public: Register ------------------- */
 
