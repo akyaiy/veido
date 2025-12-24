@@ -29,10 +29,10 @@ button:hover, .btn:hover {background: #dcdcdc;}
 
 #titlebar { background: #2d2d2e; color: white; padding: 0px; font-size: 18px; position: relative;
     display: flex; align-items: center; gap: 10px; height: 30px;}
-#fburger { position: relative; cursor: pointer; font-size: 20px; padding: 4px 8px; user-select: none;}
+#fburger { position: relative; cursor: pointer; padding: 4px 8px; user-select: none;}
 #fburgerMenu {position: absolute; top: 100%; left: 0; background: #222; border: 1px solid #444; 
     border-radius: 6px; display: none; min-width: 140px; z-index: 1000;}
-#fburgerMenu div {padding: 8px 12px; cursor: pointer; white-space: nowrap;}
+#fburgerMenu div {padding-left: 8px; cursor: pointer; white-space: nowrap; font-size: 15px;}
 #fburgerMenu div:hover {background: #444;}
 #fburger.open #fburgerMenu {display: block;}
 .title {flex: 1; text-align: center; font-weight: bold;}
@@ -40,15 +40,38 @@ button:hover, .btn:hover {background: #dcdcdc;}
 #cwd {padding: 2px 6px; border-radius: 4px; cursor: text;}
 #cwd.editing {background: #fff; color: #000; outline: 1px solid #4a90e2;}
 
-/* TABLE VIEW */
+/* TABLE VIEW
 .file-table td {padding: 10px 16px; text-align: left;}
 .file-table .file-name {display: flex; align-items: center;}
 .file-table .icon {width: 32px; text-align: center; margin-right: 6px;}
-/* COLUMNS VIEW */
+/* COLUMNS VIEW * /
 .col-item {padding: 4px; display: flex; align-items: center;}
 .col-item .icon {width: 32px; text-align: center; margin-right: 6px;}
 .col-item .name {flex: 1;}
-/* TILES VIEW */
+/* TILES VIEW * /
 .tile {display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6px;}
 .tile-icon {font-size: 36px;}
-.tile-name {margin-top: 4px; font-size: 12px; text-align: center;}
+.tile-name {margin-top: 4px; font-size: 12px; text-align: center;} */
+
+/* Логика показа/скрытия контейнеров */
+#files, #files_tiles, #files_columns { display: none; }
+
+.view-table #files { display: table; width: 100%; }
+.view-tiles #files_tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
+.view-columns #files_columns { display: block; column-width: 220px; column-gap: 12px; overflow-x: auto; width: 100%; }
+
+/* ВАШИ СТИЛИ (оформление контента внутри) */
+/* TABLE VIEW */
+.file-table td { padding: 10px 16px; text-align: left; }
+.file-table .file-name { display: flex; align-items: center; }
+.file-table .icon { width: 32px; text-align: center; margin-right: 6px; }
+
+/* COLUMNS VIEW */
+.col-item { padding: 4px; display: flex; align-items: center; }
+.col-item .icon { width: 32px; text-align: center; margin-right: 6px; }
+.col-item .name { flex: 1; }
+
+/* TILES VIEW */
+.tile { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6px; }
+.tile-icon { font-size: 36px; }
+.tile-name { margin-top: 4px; font-size: 12px; text-align: center; }

@@ -14,62 +14,30 @@ let viewMode = 'table';
 
 function ensureContainers() {
     let tiles = document.getElementById('files_tiles');
-    let cols = document.getElementById('files_columns');
+    let cols  = document.getElementById('files_columns');
+
     if (!tiles) {
         tiles = document.createElement('div');
         tiles.id = 'files_tiles';
-        tiles.style.display = 'none';
-        tiles.style.gridTemplateColumns = 'repeat(auto-fill,minmax(120px,1fr))';
-        tiles.style.gap = '12px';
-        tiles.style.padding = '8px';
+        tiles.className = 'files-tiles';
         mainEl.appendChild(tiles);
     }
+
     if (!cols) {
         cols = document.createElement('div');
         cols.id = 'files_columns';
-        cols.style.display = 'none';
-        cols.style.padding = '4px';
-        cols.style.columnWidth = '220px';
-        cols.style.columnGap = '12px';
-        cols.style.columnFill = 'auto';
-        cols.style.height = 'calc(100vh - 200px)';
-        cols.style.overflowY = 'hidden';
-        cols.style.overflowX = 'auto';
-        cols.style.width = '100%';
+        cols.className = 'files-columns';
         mainEl.appendChild(cols);
     }
 }
 
 function applyViewMode() {
+    const y = mainEl.scrollTop;
     ensureContainers();
-    const tiles = document.getElementById('files_tiles');
-    const cols = document.getElementById('files_columns');
-    document.body.classList.remove('view-tiles', 'view-columns', 'view-table');
-    if (viewMode === 'tiles') {
-        document.body.classList.add('view-tiles');
-        filesTable.style.display = 'none';
-        cols.style.display = 'none';
-        tiles.style.display = 'grid';
-        tiles.style.gridTemplateColumns = 'repeat(auto-fill,minmax(100px,1fr))';
-        tiles.style.gap = '10px';
-    } else if (viewMode === 'columns') {
-        document.body.classList.add('view-columns');
-        filesTable.style.display = 'none';
-        tiles.style.display = 'none';
-        cols.style.display = '';
-        cols.style.columnWidth = '220px';
-        cols.style.columnGap = '12px';
-        cols.style.columnFill = 'auto';
-        cols.style.height = 'calc(100% - 8px)';
-        cols.style.overflowY = 'hidden';
-        cols.style.overflowX = 'auto';
-        cols.style.width = '100%';
-    } else {
-        document.body.classList.add('view-table');
-        filesTable.style.display = '';
-        tiles.style.display = 'none';
-        cols.style.display = 'none';
-    }
+    document.body.className =
+        document.body.className.replace(/\bview-\w+/g, '');
+    document.body.classList.add('view-' + viewMode);
+    mainEl.scrollTop = y;
 }
 
 const fburger = document.getElementById('fburger');
@@ -141,42 +109,77 @@ async function list(path) {
             else downloadFile(fullPath);
         };
 
-        // ----- TABLE VIEW -----
-        if (viewMode === 'table') {
-            const tr = document.createElement('tr');
-            tr.className = 'file-row';
-            tr.innerHTML = `
-                <td class="file-name"><span class="icon">${icon}</span> ${nameEsc}</td>
-                <td>${f.isDir ? '—' : f.size}</td>
-                <td>${f.modTime || ''}</td>
-            `;
-            tr.ondblclick = openItem;
-            tbody.appendChild(tr);
-        }
+        // // ----- TABLE VIEW -----
+        // if (viewMode === 'table') {
+        //     const tr = document.createElement('tr');
+        //     tr.className = 'file-row';
+        //     tr.innerHTML = `
+        //         <td class="file-name"><span class="icon">${icon}</span> ${nameEsc}</td>
+        //         <td>${f.isDir ? '—' : f.size}</td>
+        //         <td>${f.modTime || ''}</td>
+        //     `;
+        //     tr.ondblclick = openItem;
+        //     tbody.appendChild(tr);
+        // }
 
-        // ----- COLUMNS VIEW -----
-        else if (viewMode === 'columns') {
-            const item = document.createElement('div');
-            item.className = 'col-item';
-            item.innerHTML = `
-                <div class="icon">${icon}</div>
-                <div class="name">${nameEsc}</div>
-            `;
-            item.ondblclick = openItem;
-            cols.appendChild(item);
-        }
+        // // ----- COLUMNS VIEW -----
+        // else if (viewMode === 'columns') {
+        //     const item = document.createElement('div');
+        //     item.className = 'col-item';
+        //     item.innerHTML = `
+        //         <div class="icon">${icon}</div>
+        //         <div class="name">${nameEsc}</div>
+        //     `;
+        //     item.ondblclick = openItem;
+        //     cols.appendChild(item);
+        // }
 
-        // ----- TILES VIEW -----
-        else if (viewMode === 'tiles') {
-            const tile = document.createElement('div');
-            tile.className = 'tile';
-            tile.innerHTML = `
-                <div class="tile-icon">${icon}</div>
-                <div class="tile-name">${nameEsc}</div>
-            `;
-            tile.ondblclick = openItem;
-            tiles.appendChild(tile);
-        }
+        // // ----- TILES VIEW -----
+        // else if (viewMode === 'tiles') {
+        //     const tile = document.createElement('div');
+        //     tile.className = 'tile';
+        //     tile.innerHTML = `
+        //         <div class="tile-icon">${icon}</div>
+        //         <div class="tile-name">${nameEsc}</div>
+        //     `;
+        //     tile.ondblclick = openItem;
+        //     tiles.appendChild(tile);
+        // }
+
+/******************************************************************************/
+ 
+// ----- TABLE (ВСЕГДА) -----
+const tr = document.createElement('tr');
+tr.className = 'file-row';
+tr.innerHTML = `
+    <td class="file-name"><span class="icon">${icon}</span> ${nameEsc}</td>
+    <td>${f.isDir ? '—' : f.size}</td>
+    <td>${f.modTime || ''}</td>
+`;
+tr.ondblclick = openItem;
+tbody.appendChild(tr);
+
+// ----- COLUMNS (ВСЕГДА) -----
+const item = document.createElement('div');
+item.className = 'col-item';
+item.innerHTML = `
+    <div class="icon">${icon}</div>
+    <div class="name">${nameEsc}</div>
+`;
+item.ondblclick = openItem;
+cols.appendChild(item);
+
+// ----- TILES (ВСЕГДА) -----
+const tile = document.createElement('div');
+tile.className = 'tile';
+tile.innerHTML = `
+    <div class="tile-icon">${icon}</div>
+    <div class="tile-name">${nameEsc}</div>
+`;
+tile.ondblclick = openItem;
+tiles.appendChild(tile);
+
+/******************************************************************************/        
     }
 
     const toolbarBottom = document.getElementById('toolbarBottom');
