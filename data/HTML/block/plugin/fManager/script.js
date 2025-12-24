@@ -1,4 +1,3 @@
-
 const cwdEl = document.getElementById('cwd');
 const mainEl = document.getElementById('main');
 const filesTable = document.getElementById('files');
@@ -12,33 +11,14 @@ closeBtn.addEventListener('click', () => {
 let cwd = '/';
 let viewMode = 'table';
 
-function ensureContainers() {
-    let tiles = document.getElementById('files_tiles');
-    let cols  = document.getElementById('files_columns');
-
-    if (!tiles) {
-        tiles = document.createElement('div');
-        tiles.id = 'files_tiles';
-        tiles.className = 'files-tiles';
-        mainEl.appendChild(tiles);
-    }
-
-    if (!cols) {
-        cols = document.createElement('div');
-        cols.id = 'files_columns';
-        cols.className = 'files-columns';
-        mainEl.appendChild(cols);
-    }
-}
-
 function applyViewMode() {
-    const y = mainEl.scrollTop;
-    ensureContainers();
     document.body.className =
         document.body.className.replace(/\bview-\w+/g, '');
+
     document.body.classList.add('view-' + viewMode);
-    mainEl.scrollTop = y;
+    renderFiles();
 }
+
 
 const fburger = document.getElementById('fburger');
 const fburgerMenu = document.getElementById('fburgerMenu');
@@ -66,128 +46,121 @@ fburgerMenu.querySelectorAll('[data-view]').forEach(item => {
     });
 });
 
-
+let currentFiles = [];
 
 async function list(path) {
-    let data;
-    try {
-        const urlPath = path === '/' ? '' : path;
-        const res = await fetch(`/api/files${urlPath}`);
-        if (!res.ok) {
-            alert('Ошибка списка файлов');
-            return;
-        }
-        data = await res.json();
-    } catch (err) {
-        console.error('Ошибка списка файлов', err);
-        return;
-    }
+    const urlPath = path === '/' ? '' : path;
+    const res = await fetch(`/api/files${urlPath}`);
+    if (!res.ok) return alert('Ошибка списка файлов');
+
+    currentFiles = await res.json();
 
     cwd = path;
     cwdEl.textContent = cwd;
+    //console.log(currentFiles)
+    currentFiles.sort((a, b) => {
+        // сначала папки
+        if (a.isDir !== b.isDir) {
+            return b.isDir - a.isDir;
+        }
 
-    ensureContainers();
+        // затем по имени
+        return a.name.localeCompare(b.name, 'ru', { sensitivity: 'base' });
+        });   
+    renderFiles();
+}
 
-    const tiles = document.getElementById('files_tiles');
-    const cols = document.getElementById('files_columns');
+function renderFiles() {
+    const container = files_view;
+    container.innerHTML = '';
 
-    tbody.innerHTML = '';
-    tiles.innerHTML = '';
-    cols.innerHTML = '';
+    if (viewMode === 'table') {
+        renderTable(container);
+    } else if (viewMode === 'columns') {
+        renderColumns(container);
+    } else if (viewMode === 'tiles') {
+        renderTiles(container);
+    }
+}
 
-    data.sort((a, b) =>
-        a.isDir === b.isDir ? a.name.localeCompare(b.name) : (a.isDir ? -1 : 1)
-    );
+function renderTable(container) {
+    const table = document.createElement('table');
+     table.innerHTML = `
+         <tbody></tbody>
+     `;
+    const tbody = table.querySelector('tbody');
 
-    for (const f of data) {
+    currentFiles.forEach(f => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${f.isDir ? '📁' : '📄'} ${escapeHtml(f.name)}</td>
+            <td>${f.isDir ? '—' : f.size}</td>
+            <td>${f.modTime || ''}</td>
+        `;
+        tr.ondblclick = () => f.isDir ? list(cwd + '/' + f.name) : downloadFile(cwd + '/' + f.name);
+        tbody.appendChild(tr);
+    });
+
+    container.appendChild(table);
+}
+
+function renderColumns(container) {
+    const cols = document.createElement('div');
+    cols.className = 'files-columns';
+
+    currentFiles.forEach(f => {
         const icon = f.isDir ? '📁' : '📄';
         const nameEsc = escapeHtml(f.name);
         const fullPath = (cwd === '/' ? '' : cwd) + '/' + f.name;
 
-        const openItem = () => {
+        const item = document.createElement('div');
+        item.className = 'col-item';
+        item.innerHTML = `
+            <div class="icon">${icon}</div>
+            <div class="name">${nameEsc}</div>
+        `;
+
+        item.ondblclick = () => {
             if (f.isDir) list(fullPath);
             else downloadFile(fullPath);
         };
 
-        // // ----- TABLE VIEW -----
-        // if (viewMode === 'table') {
-        //     const tr = document.createElement('tr');
-        //     tr.className = 'file-row';
-        //     tr.innerHTML = `
-        //         <td class="file-name"><span class="icon">${icon}</span> ${nameEsc}</td>
-        //         <td>${f.isDir ? '—' : f.size}</td>
-        //         <td>${f.modTime || ''}</td>
-        //     `;
-        //     tr.ondblclick = openItem;
-        //     tbody.appendChild(tr);
-        // }
+        cols.appendChild(item);
+    });
 
-        // // ----- COLUMNS VIEW -----
-        // else if (viewMode === 'columns') {
-        //     const item = document.createElement('div');
-        //     item.className = 'col-item';
-        //     item.innerHTML = `
-        //         <div class="icon">${icon}</div>
-        //         <div class="name">${nameEsc}</div>
-        //     `;
-        //     item.ondblclick = openItem;
-        //     cols.appendChild(item);
-        // }
+    container.appendChild(cols);
+}
 
-        // // ----- TILES VIEW -----
-        // else if (viewMode === 'tiles') {
-        //     const tile = document.createElement('div');
-        //     tile.className = 'tile';
-        //     tile.innerHTML = `
-        //         <div class="tile-icon">${icon}</div>
-        //         <div class="tile-name">${nameEsc}</div>
-        //     `;
-        //     tile.ondblclick = openItem;
-        //     tiles.appendChild(tile);
-        // }
+function renderTiles(container) {
+    // Очищаем контейнер перед добавлением
+    container.innerHTML = '';
 
-/******************************************************************************/
- 
-// ----- TABLE (ВСЕГДА) -----
-const tr = document.createElement('tr');
-tr.className = 'file-row';
-tr.innerHTML = `
-    <td class="file-name"><span class="icon">${icon}</span> ${nameEsc}</td>
-    <td>${f.isDir ? '—' : f.size}</td>
-    <td>${f.modTime || ''}</td>
-`;
-tr.ondblclick = openItem;
-tbody.appendChild(tr);
+    const tiles = document.createElement('div');
+    tiles.className = 'files-tiles';
 
-// ----- COLUMNS (ВСЕГДА) -----
-const item = document.createElement('div');
-item.className = 'col-item';
-item.innerHTML = `
-    <div class="icon">${icon}</div>
-    <div class="name">${nameEsc}</div>
-`;
-item.ondblclick = openItem;
-cols.appendChild(item);
+    currentFiles.forEach(f => {
+        const icon = f.isDir ? '📁' : '📄';
+        const nameEsc = escapeHtml(f.name);
+        const fullPath = (cwd === '/' ? '' : cwd) + '/' + f.name;
 
-// ----- TILES (ВСЕГДА) -----
-const tile = document.createElement('div');
-tile.className = 'tile';
-tile.innerHTML = `
-    <div class="tile-icon">${icon}</div>
-    <div class="tile-name">${nameEsc}</div>
-`;
-tile.ondblclick = openItem;
-tiles.appendChild(tile);
+        const tile = document.createElement('div');
+        tile.className = 'tile';
+        tile.dataset.path = fullPath;
 
-/******************************************************************************/        
-    }
+        tile.innerHTML = `
+            <div class="tile-icon">${icon}</div>
+            <div class="tile-name">${nameEsc}</div>
+        `;
 
-    const toolbarBottom = document.getElementById('toolbarBottom');
-    toolbarBottom.style.display = 'none';
+        tile.ondblclick = () => {
+            if (f.isDir) list(fullPath);
+            else downloadFile(fullPath);
+        };
 
-    if (window.listTfootAct) {
-        listTfoot(window.listTfootAct);
-    }
+        tiles.appendChild(tile);
+    });
+
+    container.appendChild(tiles);
 }
 
 
@@ -310,28 +283,6 @@ class FilesApiClient {
   }
 }
 
-// // --- Пример использования ---
-// (async () => {
-//   const client = new FilesApiClient();
-
-//   // Получение списка файлов
-//   const files = await client.list('docs');
-//   console.log(files);
-
-//   // Просмотр содержимого файла
-//   const content = await client.getFile('docs/file.txt');
-//   console.log(content);
-
-//   // Загрузка нового файла
-//   // await client.upload('docs', myFileInput.files[0]);
-
-//   // Создание папки
-//   // await client.mkdir('docs/new-folder');
-
-// })();
-
-
-/******************************************************************************************************************************************************* */
 function escapeHtml(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
