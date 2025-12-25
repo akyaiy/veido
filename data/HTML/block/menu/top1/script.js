@@ -5,6 +5,13 @@ function pageInit() {
  const burger = document.getElementById("burger");
  // Добавляем обработчик клика
  burger.addEventListener("click", toggleMenu);
+ // Закрытие меню при выборе пункта
+  const navLinks = nav.querySelectorAll("a[data-link]");
+  navLinks.forEach(link => {
+    link.addEventListener("click", () => {
+      closeMenu();
+    });
+  });
 }
 /*************************************************
  * toggleMenu функция открытия/закрытия меню
