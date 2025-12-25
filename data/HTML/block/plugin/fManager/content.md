@@ -19,7 +19,7 @@
           <label><input type="radio" name="sort" value="size"> По размеру</label>
           <label><input type="radio" name="sort" value="date"> По дате создания</label>
         </div>
-      <div class="submenu_sep"></div>
+      <div class="submenu_sep"><hr></div>
         <div class="submenu_group">
           <label><input type="checkbox" id="sortFoldersFirst"> С начала папки</label>
           <label><input type="checkbox" id="showHidden"> Показывать скрытые объекты</label>

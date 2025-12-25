@@ -243,10 +243,9 @@ th, td {width: 33%; padding: 8px; text-align: left; overflow: hidden; white-spac
 }
 
 /* Разделитель */
-.submen_sep {
-  height: 1px;
-  background: #444;
+.submenu_sep {
   margin: 4px 0;
+  padding-right: 12px;
 }
 
 
