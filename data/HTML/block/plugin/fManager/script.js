@@ -10,7 +10,7 @@ closeBtn.addEventListener('click', () => {
 });
 let cwd = '/';
 let viewMode = 'table';
-
+/** *
 function applyViewMode() {
     document.body.className =
         document.body.className.replace(/\bview-\w+/g, '');
@@ -18,7 +18,7 @@ function applyViewMode() {
     document.body.classList.add('view-' + viewMode);
     renderFiles();
 }
-
+/** */
 
 const fburger = document.getElementById('fburger');
 const fburgerMenu = document.getElementById('fburgerMenu');
@@ -34,6 +34,8 @@ document.addEventListener('click', () => {
     fburger.classList.remove('open');
 });
 
+
+/** /
 fburgerMenu.querySelectorAll('[data-view]').forEach(item => {
     item.addEventListener('click', e => {
         e.stopPropagation(); // ⬅ ВАЖНО
@@ -45,6 +47,37 @@ fburgerMenu.querySelectorAll('[data-view]').forEach(item => {
         fburger.classList.remove('open');
     });
 });
+/**/
+
+const filesView = document.getElementById('files_view');
+
+const VIEW_CLASSES = {
+    table: 'view_table',
+    columns: 'view_list',
+    tiles: 'view_tiles'
+};
+
+function applyViewMode(view) {
+    // убрать все режимы
+    filesView.classList.remove(...Object.values(VIEW_CLASSES));
+
+    // добавить нужный
+    if (VIEW_CLASSES[view]) {
+        filesView.classList.add(VIEW_CLASSES[view]);
+    }
+}
+
+fburgerMenu.querySelectorAll('[data-view]').forEach(item => {
+    item.addEventListener('click', e => {
+        e.stopPropagation();
+
+        const view = item.dataset.view;
+        applyViewMode(view);
+
+        fburger.classList.remove('open');
+    });
+});
+
 
 let currentFiles = [];
 
@@ -71,34 +104,87 @@ async function list(path) {
 }
 
 // function renderFiles() {
-//     const container = files_view;
-//     container.innerHTML = '';
+//   const container = document.getElementById('files_view');
+//   container.innerHTML = '';
 
-//     if (viewMode === 'table') {
-//         renderTable(container);
-//     } else if (viewMode === 'columns') {
-//         renderColumns(container);
-//     } else if (viewMode === 'tiles') {
-//         renderTiles(container);
-//     }
+//   currentFiles.forEach(f => {
+//     const item = document.createElement('div');
+//     item.className = 'file_item';
+//     item.dataset.path = (cwd === '/' ? '' : cwd) + '/' + f.name;
+
+//     const icon = f.isDir ? '📁' : '📄';
+//     const nameEsc = escapeHtml(f.name);
+
+//     item.innerHTML = `
+//         <div class="file_main">  <!--ОДНА колонка -->
+//         <div class="file_icon">${icon}</div>
+//         <div class="file_name">${nameEsc}</div>
+//         </div><!---->
+//         ${viewMode === 'table' ? `<div>${f.size || '—'}</div><div>${f.modTime || ''}</div>` : ''}
+//     `;
+
+    
+//     item.ondblclick = () => {
+//       const path = (cwd === '/' ? '' : cwd) + '/' + f.name;
+//       f.isDir ? list(path) : downloadFile(path);
+//     };
+
+//     container.appendChild(item);
+//   });
 // }
+
+//const filesView = document.getElementById('files_view');
+
+filesView.addEventListener('click', (e) => {
+    const item = e.target.closest('.file_item');
+    if (!item) return;
+
+    // если клик по уже выбранному — снять выделение
+    if (item.classList.contains('selected')) {
+        item.classList.remove('selected');
+        return;
+    }
+
+    // снять выделение со всех остальных
+    filesView.querySelectorAll('.file_item.selected')
+        .forEach(el => el.classList.remove('selected'));
+
+    // выделить текущий
+    item.classList.add('selected');
+});
 
 function renderFiles() {
   const container = document.getElementById('files_view');
   container.innerHTML = '';
 
+  // Если режим "table", добавляем заголовок первой строкой
+  if (viewMode === 'table') {
+    const header = document.createElement('div');
+    header.id = 'files_header';
+    //header.classList.add("file_item");
+    header.innerHTML = `
+      <div>Имя</div>
+      <div>Размер</div>
+      <div>Дата</div>
+    `;
+    container.appendChild(header);
+  }
+
+  // Рендерим файлы
   currentFiles.forEach(f => {
     const item = document.createElement('div');
-    item.className = 'file-item';
+    item.className = 'file_item';
     item.dataset.path = (cwd === '/' ? '' : cwd) + '/' + f.name;
 
     const icon = f.isDir ? '📁' : '📄';
     const nameEsc = escapeHtml(f.name);
 
     item.innerHTML = `
-        <div class="file-icon">${icon}</div>
-        <div class="file-name">${nameEsc}</div>
-        ${viewMode === 'table' ? `<div>${f.size || '—'}</div><div>${f.modTime || ''}</div>` : ''}
+      <div class="file_main">  <!--ОДНА колонка -->
+        <div class="file_icon">${icon}</div>
+        <div class="file_name">${nameEsc}</div>
+      </div>
+      ${viewMode === 'table' ? `<div>${f.size || '—'}</div><div>${f.modTime || ''}</div>` : ''}
     `;
 
     item.ondblclick = () => {
@@ -111,85 +197,86 @@ function renderFiles() {
 }
 
 
-function renderTable(container) {
-    const table = document.createElement('table');
-     table.innerHTML = `
-         <tbody></tbody>
-     `;
-    const tbody = table.querySelector('tbody');
 
-    currentFiles.forEach(f => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${f.isDir ? '📁' : '📄'} ${escapeHtml(f.name)}</td>
-            <td>${f.isDir ? '—' : f.size}</td>
-            <td>${f.modTime || ''}</td>
-        `;
-        tr.ondblclick = () => f.isDir ? list(cwd + '/' + f.name) : downloadFile(cwd + '/' + f.name);
-        tbody.appendChild(tr);
-    });
+// function renderTable(container) {
+//     const table = document.createElement('table');
+//      table.innerHTML = `
+//          <tbody></tbody>
+//      `;
+//     const tbody = table.querySelector('tbody');
 
-    container.appendChild(table);
-}
+//     currentFiles.forEach(f => {
+//         const tr = document.createElement('tr');
+//         tr.innerHTML = `
+//             <td>${f.isDir ? '📁' : '📄'} ${escapeHtml(f.name)}</td>
+//             <td>${f.isDir ? '—' : f.size}</td>
+//             <td>${f.modTime || ''}</td>
+//         `;
+//         tr.ondblclick = () => f.isDir ? list(cwd + '/' + f.name) : downloadFile(cwd + '/' + f.name);
+//         tbody.appendChild(tr);
+//     });
 
-function renderColumns(container) {
-    const cols = document.createElement('div');
-    cols.className = 'files-columns';
+//     container.appendChild(table);
+// }
 
-    currentFiles.forEach(f => {
-        const icon = f.isDir ? '📁' : '📄';
-        const nameEsc = escapeHtml(f.name);
-        const fullPath = (cwd === '/' ? '' : cwd) + '/' + f.name;
+// function renderColumns(container) {
+//     const cols = document.createElement('div');
+//     cols.className = 'files-columns';
 
-        const item = document.createElement('div');
-        item.className = 'col-item';
-        item.innerHTML = `
-            <div class="icon">${icon}</div>
-            <div class="name">${nameEsc}</div>
-        `;
+//     currentFiles.forEach(f => {
+//         const icon = f.isDir ? '📁' : '📄';
+//         const nameEsc = escapeHtml(f.name);
+//         const fullPath = (cwd === '/' ? '' : cwd) + '/' + f.name;
 
-        item.ondblclick = () => {
-            if (f.isDir) list(fullPath);
-            else downloadFile(fullPath);
-        };
+//         const item = document.createElement('div');
+//         item.className = 'col-item';
+//         item.innerHTML = `
+//             <div class="icon">${icon}</div>
+//             <div class="name">${nameEsc}</div>
+//         `;
 
-        cols.appendChild(item);
-    });
+//         item.ondblclick = () => {
+//             if (f.isDir) list(fullPath);
+//             else downloadFile(fullPath);
+//         };
 
-    container.appendChild(cols);
-}
+//         cols.appendChild(item);
+//     });
 
-function renderTiles(container) {
-    // Очищаем контейнер перед добавлением
-    container.innerHTML = '';
+//     container.appendChild(cols);
+// }
 
-    const tiles = document.createElement('div');
-    tiles.className = 'files-tiles';
+// function renderTiles(container) {
+//     // Очищаем контейнер перед добавлением
+//     container.innerHTML = '';
 
-    currentFiles.forEach(f => {
-        const icon = f.isDir ? '📁' : '📄';
-        const nameEsc = escapeHtml(f.name);
-        const fullPath = (cwd === '/' ? '' : cwd) + '/' + f.name;
+//     const tiles = document.createElement('div');
+//     tiles.className = 'files-tiles';
 
-        const tile = document.createElement('div');
-        tile.className = 'tile';
-        tile.dataset.path = fullPath;
+//     currentFiles.forEach(f => {
+//         const icon = f.isDir ? '📁' : '📄';
+//         const nameEsc = escapeHtml(f.name);
+//         const fullPath = (cwd === '/' ? '' : cwd) + '/' + f.name;
 
-        tile.innerHTML = `
-            <div class="tile-icon">${icon}</div>
-            <div class="tile-name">${nameEsc}</div>
-        `;
+//         const tile = document.createElement('div');
+//         tile.className = 'tile';
+//         tile.dataset.path = fullPath;
 
-        tile.ondblclick = () => {
-            if (f.isDir) list(fullPath);
-            else downloadFile(fullPath);
-        };
+//         tile.innerHTML = `
+//             <div class="tile-icon">${icon}</div>
+//             <div class="tile-name">${nameEsc}</div>
+//         `;
 
-        tiles.appendChild(tile);
-    });
+//         tile.ondblclick = () => {
+//             if (f.isDir) list(fullPath);
+//             else downloadFile(fullPath);
+//         };
 
-    container.appendChild(tiles);
-}
+//         tiles.appendChild(tile);
+//     });
+
+//     container.appendChild(tiles);
+// }
 
 
 class FilesApiClient {
@@ -367,7 +454,8 @@ cwdEl.addEventListener('blur', () => {
 });
 
 
-applyViewMode();
+applyViewMode("table");
+//applyViewMode();
 list('/');
 
 

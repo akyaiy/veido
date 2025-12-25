@@ -26,13 +26,13 @@
     </div>
   </div>
   <div id="main">
-    <table id="files">
-      <thead>
-        <tr><th>Имя</th><th>Размер</th><th>Дата</th></tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-    <div id="files_view"></div>
+    <div id="files_view">
+   <div id="files_header">
+      <div class="col_name">Имя</div>
+      <div class="col_size">Размер</div>
+      <div class="col_date">Дата</div>
+    </div>
+    </div>
   </div>
     <div id="toolbarBottom">
       <input type="text" id="bottomInput" placeholder="Название"/>

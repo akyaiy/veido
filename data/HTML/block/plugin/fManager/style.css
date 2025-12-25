@@ -42,47 +42,143 @@ th, td {width: 33%; padding: 8px; text-align: left; overflow: hidden; white-spac
 
 #files_view {display: grid; overflow-y: auto; height: 600px;}
 
-/* .file-item {display: grid; grid-template-columns: 40px 200px 60px 460px; align-items: center;line-height: 20px;
-    padding: 0px 4px; cursor: pointer; white-space: nowrap;height: 20px;}
-.file-item .file-icon {text-align: center; overflow: hidden;font-size: 14px; display: flex; justify-content: center; align-items: center;}
-.file-item .file-name {overflow: hidden; text-overflow: ellipsis;}
-.file-item div:nth-child(3),
-.file-item div:nth-child(4) {overflow: hidden; text-overflow: ellipsis; text-align: right;} */
 
 
-#files_view {
-    display: block; /* Замена grid на block убирает лишние зазоры между строками */
-    overflow-y: auto;
-    height: 600px;
-}
 
-.file-item {
-    display: grid;
-    /* Регулируйте ширину колонок тут */
-    grid-template-columns: 40px 270px 60px 800px; 
-    
-    align-items: center;    /* Центрирует текст внутри строки */
-    height: 28px;           /* Жесткая высота всей строки */
-    margin: 0;              /* Убираем внешние отступы */
-    padding: 0 4px;         /* Только боковые отступы */
-    
-    /*border-bottom: 1px solid #eee;  Тонкая разделительная линия */
+.file_item {
+    box-sizing: border-box;
+    user-select: none;
     cursor: pointer;
-    white-space: nowrap;
-    font-family: sans-serif;
 }
 
-.file-item div {
-    /*font-size: 12px;         Уменьшенный шрифт */
-    line-height: 18px;      /* Высота строки текста равна высоте контейнера */
+.file_icon {
+    font-size: 1em;
+}
+
+.file_name {
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-.file-item .file-icon {
-    /*font-size: 14px;         Иконка чуть больше текста */
-    line-height: 1;
+#files_view.view_table{
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+
+}
+
+.file_item.selected {
+    background: #2a7cff;   /* синий */
+    color: #fff;           /* белый текст */
+}
+
+/* чтобы вложенные div тоже стали белыми */
+.file_item.selected .file_name,
+.file_item.selected div {
+    color: #fff;
+}
+
+/* когда #files_view имеет класс view_list или view_tiles, скрываем предыдущий заголовок */
+#files_view.view_list #files_header,
+#files_view.view_tiles #files_header {
+    display: none;
+}
+
+#files_header, #files_view.view_table .file_item {
+    display: grid;
+    grid-template-columns:
+        320px   /* file-main (icon + name) */
+        260px   /* size */
+        220px;  /* date */
+    column-gap: 32px;
+    padding: 2px 6px;
+    align-items: start;     /* прижимает содержимое к верху */
+
+
+}
+
+#files_view.view_table .file_item {
+    height: 25px;           /* или любая нужная высота */
+}
+
+#files_view.view_list .file_item {
+    height: 25px;           /* или любая нужная высота */
+}
+
+
+
+/* внутренняя компоновка первой колонки */
+#files_view.view_table .file_main {
     display: flex;
     align-items: center;
-    justify-content: center;
+    gap: 6px; /* icon ↔ name */
+}
+
+#files_view.view_table .file_icon {
+    width: 24px;
+    text-align: center;
+}
+
+#files_view.view_list {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: wrap;
+    align-content: flex-start;
+
+    column-gap: 150px;
+}
+
+#files_view.view_list .file_item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-left:10px;
+    /* padding: 4px 6px; */
+    width: max-content;
+}
+
+/* показываем только имя */
+#files_view.view_list .file_item > div:not(.file_main) {
+    display: none;
+}
+
+#files_view.view_list .file_main {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#files_view.view_tiles {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+}
+
+#files_view.view_tiles .file_item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+
+    width: 120px;
+    padding: 10px;
+    text-align: center;
+}
+
+/* крупная иконка */
+#files_view.view_tiles .file_icon {
+    font-size: 2em;
+}
+
+/* только icon + name */
+#files_view.view_tiles .file_item > div:not(.file_main) {
+    display: none;
+}
+
+#files_view.view_tiles .file_main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
 }
