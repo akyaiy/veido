@@ -3,6 +3,8 @@ const mainEl = document.getElementById('main');
 const filesTable = document.getElementById('files');
 const tbody = document.querySelector('#files tbody');
 const closeBtn = document.getElementById('closeBtn');
+const fburger = document.getElementById('fburger');
+const fburgerMenu = document.getElementById('fburgerMenu');
 closeBtn.addEventListener('click', () => {
     window.listTfootAct = "";
     const fm = document.getElementById("fManager");
@@ -11,9 +13,11 @@ closeBtn.addEventListener('click', () => {
 });
 let cwd = '/';
 let viewMode = 'table';
+let currentSort = 'name'; // name | size | date
+let sortFoldersFirst = false;
+let showHidden = false;
+let currentFiles = [];
 
-const fburger = document.getElementById('fburger');
-const fburgerMenu = document.getElementById('fburgerMenu');
 
 // открыть / закрыть меню
 fburger.addEventListener('click', e => {
@@ -56,7 +60,46 @@ fburgerMenu.querySelectorAll('[data-view]').forEach(item => {
 });
 
 
-let currentFiles = [];
+// function sortFiles() {
+//     currentFiles.sort((a, b) => {
+//         // папки всегда сверху
+//         if (a.isDir !== b.isDir) {
+//             return b.isDir - a.isDir;
+//         }
+
+//         switch (currentSort) {
+//             case 'size':
+//                 return (a.size || 0) - (b.size || 0);
+
+//             case 'date':
+//                 return new Date(a.modTime || 0) - new Date(b.modTime || 0);
+
+//             case 'name':
+//             default:
+//                 return a.name.localeCompare(b.name, 'ru', { sensitivity: 'base' });
+//         }
+//     });
+// }
+
+function sortFiles() {
+    currentFiles.sort((a, b) => {
+
+        // папки вверх ТОЛЬКО если включено
+        if (sortFoldersFirst && a.isDir !== b.isDir) {
+            return b.isDir - a.isDir;
+        }
+
+        if (currentSort === 'size') {
+            return (a.size || 0) - (b.size || 0);
+        }
+
+        if (currentSort === 'date') {
+            return new Date(a.modTime || 0) - new Date(b.modTime || 0);
+        }
+
+        return a.name.localeCompare(b.name, 'ru', { sensitivity: 'base' });
+    });
+}
 
 async function list(path) {
     const urlPath = path === '/' ? '' : path;
@@ -68,16 +111,17 @@ async function list(path) {
     cwd = path;
     //cwdEl.textContent = cwd;
     updateCwdDisplay();
-    //console.log(currentFiles)
-    currentFiles.sort((a, b) => {
-        // сначала папки
-        if (a.isDir !== b.isDir) {
-            return b.isDir - a.isDir;
-        }
+    // //console.log(currentFiles)
+    // currentFiles.sort((a, b) => {
+    //     // сначала папки
+    //     if (a.isDir !== b.isDir) {
+    //         return b.isDir - a.isDir;
+    //     }
 
-        // затем по имени
-        return a.name.localeCompare(b.name, 'ru', { sensitivity: 'base' });
-        });   
+    //     // затем по имени
+    //     return a.name.localeCompare(b.name, 'ru', { sensitivity: 'base' });
+    //     });   
+    sortFiles();
     renderFiles();
 }
 
@@ -156,7 +200,10 @@ function renderFiles() {
   }
 
   // Рендерим файлы
-  currentFiles.forEach(f => {
+//   currentFiles.forEach(f => {
+    currentFiles
+    .filter(f => showHidden || !f.name.startsWith('.'))
+    .forEach(f => {
     const item = document.createElement('div');
     item.className = 'file_item';
     item.dataset.path = (cwd === '/' ? '' : cwd) + '/' + f.name;
@@ -382,7 +429,7 @@ cwdEl.addEventListener('blur', () => {
 
 
 applyViewMode("table");
-list('/');
+//list('/');
 
 function updateCwdDisplay(selectedName = null) {
     cwdEl.innerHTML = '';
@@ -468,4 +515,27 @@ menuItems.forEach(item => {
   });
 });
 //applyViewMode();
+
+document.querySelectorAll('input[name="sort"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+        currentSort = radio.value;
+        sortFiles();
+        renderFiles();
+    });
+});
+
+const chkFoldersFirst = document.getElementById('sortFoldersFirst');
+const chkShowHidden = document.getElementById('showHidden');
+
+chkFoldersFirst.addEventListener('change', () => {
+    sortFoldersFirst = chkFoldersFirst.checked;
+    sortFiles();
+    renderFiles();
+});
+
+chkShowHidden.addEventListener('change', () => {
+    showHidden = chkShowHidden.checked;
+    renderFiles();
+});
+
 list('/');
