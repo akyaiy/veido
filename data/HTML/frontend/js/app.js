@@ -143,7 +143,7 @@ async function loadMenu() {
  * - Вызывает pageInit() блока, если есть.
  * - Обрабатывает ошибки.
  **********************************************************************************/
-async function loadBlock(path, block_Name) {
+async function loadBlock(path, block_Name, jsText = null) {
     // Получаем контейнер блока
     const container = document.getElementById(block_Name);
     if (!container) {
@@ -188,6 +188,7 @@ async function loadBlock(path, block_Name) {
         // Добавление JS блока
         if (js) {
             const script = document.createElement('script');
+            if (jsText) script.type = 'text/plain';
             script.dataset.dynamic = block_Name;
             script.textContent = `
                 (() => {
