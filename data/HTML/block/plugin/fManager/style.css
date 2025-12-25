@@ -186,9 +186,9 @@ th, td {width: 33%; padding: 8px; text-align: left; overflow: hidden; white-spac
 #fburgerMenu div {padding-left: 8px; cursor: pointer; white-space: nowrap; font-size: 15px; padding: 4px 8px;}
 .title {flex: 1; font-weight: bold;}
 
-#fburger:hover > #fburgerMenu {
+/* #fburger:hover > #fburgerMenu {
   display: block;
-}
+} */
 
 .menu_item {
   padding: 6px 10px;

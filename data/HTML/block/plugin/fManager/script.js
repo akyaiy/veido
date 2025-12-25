@@ -633,10 +633,10 @@ function saveSettings() {
     setCookie('fm_settings', JSON.stringify(settings));
 }
 
-// fburger.addEventListener('click', e => {
-//     e.stopPropagation();
-//     fburgerMenu.style.display = fburgerMenu.style.display === 'block' ? 'none' : 'block';
-// });
+fburger.addEventListener('click', e => {
+    e.stopPropagation();
+    fburgerMenu.style.display = fburgerMenu.style.display === 'block' ? 'none' : 'block';
+});
 
 // клик вне меню закрывает
 document.addEventListener('click', () => {
