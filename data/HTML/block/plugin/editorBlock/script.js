@@ -69,7 +69,7 @@ tabOpen.onclick = () => {
 };
 
 window.newLoadedBlock = newLoadedBlock;
-function newLoadedBlock(path) {
+async function newLoadedBlock(path) {
     let tabs = document.getElementById('blocks-tabs');
     let container = document.getElementById('loadedBlockMain');
     if (!container) {
@@ -132,23 +132,54 @@ function newLoadedBlock(path) {
     closeBtn.textContent = '×';
     closeBtn.style.marginLeft = '6px';
     closeBtn.style.cursor = 'pointer';
-    closeBtn.onclick = e => {
-        e.stopPropagation();
-        const container = document.getElementById('loadedBlockMain');
-        if (container && block) container.removeChild(block);
-        if (tabEl.parentNode) tabEl.parentNode.removeChild(tabEl);
-
-        centerPreHtml.textContent = '';
-        centerPreJs.textContent = '';
-        centerContent.style.display = 'none';
-        document.getElementById('loadedBlock').style.display = '';
-    };
+    closeBtn.onclick = e => closeBlock(e, block, tabEl);
 
     tabEl.appendChild(closeBtn);
 
     switchTo(blockId, tabEl);
 
-    loadBlock(path, viewDiv.id);
+    await loadBlock(path, viewDiv.id, "jsText");
+}
+
+function closeBlock(e, block, tabEl) {
+    e.stopPropagation();
+
+    const container = document.getElementById('loadedBlockMain');
+    if (container && block) container.removeChild(block);
+    if (tabEl.parentNode) tabEl.parentNode.removeChild(tabEl);
+
+    centerPreHtml.textContent = '';
+    centerPreJs.textContent = '';
+    centerContent.style.display = 'none';
+    document.getElementById('loadedBlock').style.display = '';
+
+    const tagLabel = document.getElementById('tag-label');
+    if (tagLabel) tagLabel.textContent = 'TAG';
+
+    const attrId = document.getElementById('attr-id');
+    const attrClass = document.getElementById('attr-class');
+    if (attrId) attrId.value = '';
+    if (attrClass) attrClass.value = '';
+
+    const attrTable = document.getElementById('attributes-table');
+    if (attrTable) {
+        attrTable.innerHTML = '<tr><td contenteditable="true" data-placeholder="name"></td><td contenteditable="true" data-placeholder="value"></td></tr>';
+    }
+
+    const propTable = document.getElementById('properties-table');
+    if (propTable) {
+        propTable.innerHTML = '<tr><td contenteditable="true" data-placeholder="property"></td><td contenteditable="true" data-placeholder="value"></td></tr>';
+    }
+
+    const jsTable = document.getElementById('editor-js-panel');
+    if (jsTable) {
+        jsTable.querySelectorAll('td[contenteditable="true"]').forEach(td => td.textContent = '');
+    }
+
+    const cssPanel = document.getElementById('css-panel');
+    const jsPanel = document.getElementById('js-panel');
+    if (cssPanel) cssPanel.style.display = '';
+    if (jsPanel) jsPanel.style.display = 'none';
 }
 
 
@@ -174,15 +205,6 @@ function getActiveBlockId() {
 
 function applyJs(blockId) {
     const content = centerPreJs.textContent || '';
-    if (!content) return;
-    const funcName = 'blockJs_' + blockId + '_view';
-    const wrapped = [];
-    wrapped.push('function ' + funcName + '() {');
-    wrapped.push('try {');
-    wrapped.push(content);
-    wrapped.push('} catch (e) { console.error(e); }');
-    wrapped.push('}');
-    wrapped.push(funcName + '();');
 
     let scriptEl = document.querySelector('script[data-dynamic="' + blockId + '_view"]');
     if (!scriptEl) {
@@ -191,8 +213,31 @@ function applyJs(blockId) {
         scriptEl.setAttribute('data-dynamic', blockId + '_view');
         wrap.appendChild(scriptEl);
     }
-    scriptEl.textContent = wrapped.join('\n');
-    try { eval(scriptEl.textContent); } catch (e) { console.error(e); }
+
+    scriptEl.type = '';
+
+    if (!content.trim()) {
+        scriptEl.textContent = '';
+        return;
+    }
+
+    const wrapped = `
+(() => {
+    try {
+${content}
+        if (typeof pageInit === "function") pageInit();
+    } catch (e) {
+        console.error("Block script error:", e);
+    }
+})();
+`;
+    scriptEl.textContent = wrapped;
+
+    try {
+        eval(scriptEl.textContent);
+    } catch (e) {
+        console.error(e);
+    }
 }
 
 function updateCenterControls(mode) {
@@ -240,7 +285,14 @@ function showJs(blockId) {
     updateCenterControls('js');
 
     const scriptEl = document.querySelector('script[data-dynamic="' + blockId + '_view"]');
-    centerPreJs.textContent = scriptEl ? scriptEl.textContent : '';
+    let code = scriptEl ? scriptEl.textContent : '';
+
+    code = code
+        .replace(/^\s*\(\(\)\s*=>\s*{\s*try\s*{\s*/s, '')
+        .replace(/\s*if\s*\(\s*typeof pageInit[\s\S]*?\)\s*pageInit\(\);\s*/s, '')
+        .replace(/\s*}\s*catch[\s\S]*?}\s*\}\)\s*\(\s*\)\s*;?\s*$/s, '');
+
+    centerPreJs.textContent = code;
 
     const container = document.getElementById('loadedBlockMain');
     if (container) Array.from(container.children).forEach(ch => {
@@ -406,31 +458,48 @@ function createAttrRow(name, value) {
     const tr = document.createElement('tr');
     const td1 = document.createElement('td');
     const td2 = document.createElement('td');
-    const td3 = document.createElement('td');
+
     td1.contentEditable = 'true';
     td1.dataset.placeholder = 'name';
     td2.contentEditable = 'true';
     td2.dataset.placeholder = 'value';
+
     td1.textContent = name || '';
     td2.textContent = value || '';
     td1.dataset.prev = name || '';
-    td3.textContent = '×';
-    td3.style.cursor = 'pointer';
-    td3.onclick = () => {
-        const prev = td1.dataset.prev || '';
-        if (prev && currentSelectedEl) currentSelectedEl.removeAttribute(prev);
-        tr.remove();
-        ensureEmptyAttrRow();
-    };
-    tr.append(td1, td2, td3);
+
+    tr.append(td1, td2);
+
+    if (name || value) {
+        const td3 = document.createElement('td');
+        td3.textContent = '×';
+        td3.style.cursor = 'pointer';
+        td3.onclick = () => removeAttrRow(tr, td1);
+        tr.appendChild(td3);
+    }
+
     attrsTable.appendChild(tr);
+}
+
+function removeAttrRow(tr, td1) {
+    const prev = td1.dataset.prev || '';
+    if (prev && currentSelectedEl) {
+        currentSelectedEl.removeAttribute(prev);
+    }
+    tr.remove();
+    ensureEmptyAttrRow();
 }
 
 function ensureEmptyAttrRow() {
     const t = document.getElementById('attributes-table');
     if (!t) return;
+
     const last = t.lastElementChild;
-    if (!last || last.children[0].textContent.trim() || last.children[1].textContent.trim()) {
+    if (
+        !last ||
+        last.children[0].textContent.trim() ||
+        last.children[1].textContent.trim()
+    ) {
         createAttrRow('', '');
     }
 }
@@ -438,19 +507,39 @@ function ensureEmptyAttrRow() {
 document.getElementById('attributes-table')?.addEventListener('input', e => {
     const td = e.target.closest('td');
     if (!td) return;
+
     const tr = td.parentNode;
     const nameTd = tr.children[0];
     const valTd = tr.children[1];
+
     const prev = nameTd.dataset.prev || '';
     const nameNow = nameTd.textContent.trim();
     const valNow = valTd.textContent;
+
     if (td === nameTd) {
-        if (prev && prev !== nameNow && currentSelectedEl) currentSelectedEl.removeAttribute(prev);
-        if (nameNow && currentSelectedEl) currentSelectedEl.setAttribute(nameNow, valNow);
+        if (prev && prev !== nameNow && currentSelectedEl) {
+            currentSelectedEl.removeAttribute(prev);
+        }
+        if (nameNow && currentSelectedEl) {
+            currentSelectedEl.setAttribute(nameNow, valNow);
+        }
         nameTd.dataset.prev = nameNow;
-        if (tr === tr.parentNode.lastElementChild && nameNow) ensureEmptyAttrRow();
     } else {
-        if (nameNow && currentSelectedEl) currentSelectedEl.setAttribute(nameNow, valNow);
+        if (nameNow && currentSelectedEl) {
+            currentSelectedEl.setAttribute(nameNow, valNow);
+        }
+    }
+
+    if ((nameNow || valNow) && tr.children.length === 2) {
+        const td3 = document.createElement('td');
+        td3.textContent = '×';
+        td3.style.cursor = 'pointer';
+        td3.onclick = () => removeAttrRow(tr, nameTd);
+        tr.appendChild(td3);
+    }
+
+    if (tr === tr.parentNode.lastElementChild && nameNow) {
+        ensureEmptyAttrRow();
     }
 });
 
