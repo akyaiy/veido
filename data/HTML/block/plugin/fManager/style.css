@@ -182,17 +182,12 @@ th, td {width: 33%; padding: 8px; text-align: left; overflow: hidden; white-spac
 
 #fburger { position: relative; cursor: pointer; padding: 4px 8px; user-select: none;}
 #fburgerMenu {position: absolute; top: 100%; left: 1px; background: #222; border: 1px solid #444; 
-    border-radius: 6px; display: none; min-width: 140px; z-index: 1000;}
-#fburgerMenu div {padding-left: 8px; cursor: pointer; white-space: nowrap; font-size: 15px;}
-/* #fburgerMenu div:hover {background: #444;} */
-#fburger.open #fburgerMenu {display: block;}
-.title {flex: 1; font-weight: bold;}t/* ext-align: center;  */
+    border-radius: 6px; display: none; min-width: 180px; z-index: 1000; color: #fff;}
+#fburgerMenu div {padding-left: 8px; cursor: pointer; white-space: nowrap; font-size: 15px; padding: 4px 8px;}
+.title {flex: 1; font-weight: bold;}
 
-#fburgerMenu {
-  position: absolute;
-  background: #2b2b2b;
-  color: #fff;
-  min-width: 180px;
+#fburger:hover > #fburgerMenu {
+  display: block;
 }
 
 .menu_item {
@@ -201,19 +196,8 @@ th, td {width: 33%; padding: 8px; text-align: left; overflow: hidden; white-spac
   white-space: nowrap;
 }
 
-/* Только для пунктов главного меню
-#fburgerMenu > .menu-item:hover {
-  background: #444;
-} */
-
-/* Подменю отдельные элементы
-.submenu div:hover {
-  background: #3a3a3a; /* можно свой цвет для подменю * /
-} */
-
-
  .menu_item:hover {
-  background: #3a3a3a;
+  background: #444;
 } 
 
 /* Подменю */
@@ -223,24 +207,32 @@ th, td {width: 33%; padding: 8px; text-align: left; overflow: hidden; white-spac
   left: 100%;
   display: none;           /* скрыто по умолчанию */
   padding: 0px;         
-  padding-left: 0px !important;
+  padding-left: 0px !important;/*;*/
   min-width: 0;             /* минимальная ширина по содержимому */
   width: max-content;       /* подстраивается под содержимое */
-  background: #2b2b2b;
+  background: #2b2b2b;/*#000;*/
   border-radius: 6px;
   border: 1px solid #444;
   z-index: 1000;
 }
 
+.submenu .menu_item{
+width: calc(100% - 7px);
+}
 /* Группы внутри подменю */
 .submenu_group {
-  padding: 2px 8px;        /* меньше внутренних отступов */
+  /*padding: 2px 8px;         меньше внутренних отступов */
   display: flex;
   flex-direction: column;
   gap: 2px;
   padding: 0px;         
   padding-left: 0px !important;
 }
+
+/* .submenu_group label {
+height: 20px;
+width: 100%;
+} */
 
 /* Разделитель */
 .submenu_sep {
@@ -257,6 +249,7 @@ th, td {width: 33%; padding: 8px; text-align: left; overflow: hidden; white-spac
 
 /* Минимальный размер для радио и чекбоксов */
 .submenu_group label {
+  width: calc(100% + 5px);
   display: flex;           /* для выравнивания input + текст */
   align-items: center;     /* вертикальное центрирование */
   gap: 4px;                /* расстояние между кружком и текстом */

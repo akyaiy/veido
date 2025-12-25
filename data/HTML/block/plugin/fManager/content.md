@@ -4,11 +4,6 @@
   <div id="titlebar">
   <div id="fburger">
     ☰
-    <!-- <div id="fburgerMenu">
-      <div data-view="table">Таблица</div>
-      <div data-view="columns">Столбцы</div>
-      <div data-view="tiles">Плитка</div>
-    </div> -->
     <div id="fburgerMenu">
       <div class="menu_item" data-submenu="sort">Сортировка ▸</div>
       <div class="menu_item" data-submenu="view">Режим просмотра ▸</div>

@@ -5,6 +5,14 @@ const tbody = document.querySelector('#files tbody');
 const closeBtn = document.getElementById('closeBtn');
 const fburger = document.getElementById('fburger');
 const fburgerMenu = document.getElementById('fburgerMenu');
+const fburgerMenuEl = document.getElementById('fburgerMenu');
+const menuItems = fburgerMenuEl.querySelectorAll('#fburgerMenu > .menu_item');
+const submenus = fburgerMenuEl.querySelectorAll('.submenu');
+
+// --- чекбоксы ---
+const chkFoldersFirst = document.getElementById('sortFoldersFirst');
+const chkShowHidden = document.getElementById('showHidden');
+
 closeBtn.addEventListener('click', () => {
     window.listTfootAct = "";
     const fm = document.getElementById("fManager");
@@ -17,6 +25,36 @@ let currentSort = 'name'; // name | size | date
 let sortFoldersFirst = false;
 let showHidden = false;
 let currentFiles = [];
+
+const settings = {
+    sort: 'name',
+    foldersFirst: false,
+    showHidden: false,
+    view: 'table'
+};
+
+
+const saved = getCookie('fm_settings');
+if (saved) {
+    try {
+        Object.assign(settings, JSON.parse(decodeURIComponent(saved)));
+    } catch {}
+}
+
+chkFoldersFirst.checked = settings.foldersFirst;
+chkShowHidden.checked = settings.showHidden;
+
+// --- сортировка ---
+currentSort = settings.sort;
+document.querySelector(`input[name="sort"][value="${settings.sort}"]`)?.click();
+
+
+
+sortFoldersFirst = settings.foldersFirst;
+showHidden = settings.showHidden;
+
+
+viewMode = settings.view || 'table';
 
 
 // открыть / закрыть меню
@@ -48,14 +86,29 @@ function applyViewMode(view) {
     }
 }
 
+// fburgerMenu.querySelectorAll('[data-view]').forEach(item => {
+//     item.addEventListener('click', e => {
+//         e.stopPropagation();
+
+//         const view = item.dataset.view;
+//         applyViewMode(view);
+//         saveSettings();
+
+//         fburger.classList.remove('open');
+//     });
+// });
+
 fburgerMenu.querySelectorAll('[data-view]').forEach(item => {
     item.addEventListener('click', e => {
         e.stopPropagation();
 
-        const view = item.dataset.view;
-        applyViewMode(view);
+        viewMode = item.dataset.view;
+        settings.view = viewMode;   // сохраняем в settings
+        applyViewMode(viewMode);
+        renderFiles();
+        saveSettings();
 
-        fburger.classList.remove('open');
+        fburgerMenu.style.display = 'none';
     });
 });
 
@@ -427,8 +480,7 @@ cwdEl.addEventListener('blur', () => {
     cwdEl.textContent = cwd;
 });
 
-
-applyViewMode("table");
+//applyViewMode("table");
 //list('/');
 
 function updateCwdDisplay(selectedName = null) {
@@ -476,9 +528,6 @@ function updateCwdDisplay(selectedName = null) {
 //   .addEventListener('mouseleave', hideSubmenus);
 
 //const fburger = document.getElementById('fburger');
-const fburgerMenuEl = document.getElementById('fburgerMenu');
-const menuItems = fburgerMenuEl.querySelectorAll('#fburgerMenu > .menu_item');
-const submenus = fburgerMenuEl.querySelectorAll('.submenu');
 
 // Скрыть все подменю и снять активные состояния
 function hideSubmenus() {
@@ -524,8 +573,7 @@ document.querySelectorAll('input[name="sort"]').forEach(radio => {
     });
 });
 
-const chkFoldersFirst = document.getElementById('sortFoldersFirst');
-const chkShowHidden = document.getElementById('showHidden');
+
 
 chkFoldersFirst.addEventListener('change', () => {
     sortFoldersFirst = chkFoldersFirst.checked;
@@ -537,5 +585,81 @@ chkShowHidden.addEventListener('change', () => {
     showHidden = chkShowHidden.checked;
     renderFiles();
 });
+
+
+
+
+// --- режим просмотра ---
+//viewMode = settings.view;
+//applyViewMode(viewMode);
+
+document.querySelectorAll('input[name="sort"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+        currentSort = radio.value;
+        settings.sort = radio.value;
+
+        sortFiles();
+        renderFiles();
+
+        saveSettings();
+    });
+});
+
+
+
+
+sortFoldersFirst = settings.foldersFirst;
+showHidden = settings.showHidden;
+
+
+chkFoldersFirst.addEventListener('change', () => {
+    sortFoldersFirst = chkFoldersFirst.checked;
+    settings.foldersFirst = sortFoldersFirst;
+
+    sortFiles();
+    renderFiles();
+    saveSettings();
+});
+
+chkShowHidden.addEventListener('change', () => {
+    showHidden = chkShowHidden.checked;
+    settings.showHidden = showHidden;
+
+    renderFiles();
+    saveSettings();
+});
+
+function saveSettings() {
+    setCookie('fm_settings', JSON.stringify(settings));
+}
+
+// fburger.addEventListener('click', e => {
+//     e.stopPropagation();
+//     fburgerMenu.style.display = fburgerMenu.style.display === 'block' ? 'none' : 'block';
+// });
+
+// клик вне меню закрывает
+document.addEventListener('click', () => {
+    fburgerMenu.style.display = 'none';
+});
+
+menuItems.forEach(item => {
+  item.addEventListener('mouseenter', () => {
+    submenus.forEach(sm => sm.style.display = 'none');
+    menuItems.forEach(mi => mi.classList.remove('active'));
+
+    const id = item.dataset.submenu;
+    const submenu = document.getElementById('submenu_' + id);
+
+    if (submenu) {
+      item.classList.add('active');
+      submenu.style.display = 'block';
+      submenu.style.top = item.offsetTop + 'px';
+    }
+  });
+});
+
+
+applyViewMode(viewMode);
 
 list('/');
