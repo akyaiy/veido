@@ -25,16 +25,13 @@ button:hover, .btn:hover {background: #dcdcdc;}
 
 #titlebar { background: #2d2d2e; color: white; padding: 0px; font-size: 18px; position: relative;
     display: flex; align-items: center; gap: 10px; height: 30px;}
-#fburger { position: relative; cursor: pointer; padding: 4px 8px; user-select: none;}
-#fburgerMenu {position: absolute; top: 100%; left: 0; background: #222; border: 1px solid #444; 
-    border-radius: 6px; display: none; min-width: 140px; z-index: 1000;}
-#fburgerMenu div {padding-left: 8px; cursor: pointer; white-space: nowrap; font-size: 15px;}
-#fburgerMenu div:hover {background: #444;}
-#fburger.open #fburgerMenu {display: block;}
-.title {flex: 1; text-align: center; font-weight: bold;}
 
-#cwd {padding: 2px 6px; border-radius: 4px; cursor: text;}
+#cwd {padding: 2px 6px; border-radius: 4px; cursor: text; white-space: nowrap;}
 #cwd.editing {background: #fff; color: #000; outline: 1px solid #4a90e2;}
+
+#cwd .cwd-base {color: inherit;}
+#cwd .cwd-selected {color: #999;}
+
 
 table {table-layout: fixed; width: 100%;}
 th, td {width: 33%; padding: 8px; text-align: left; overflow: hidden; white-space: nowrap; 
@@ -181,4 +178,93 @@ th, td {width: 33%; padding: 8px; text-align: left; overflow: hidden; white-spac
     flex-direction: column;
     align-items: center;
     gap: 6px;
+}
+
+#fburger { position: relative; cursor: pointer; padding: 4px 8px; user-select: none;}
+#fburgerMenu {position: absolute; top: 100%; left: 0; background: #222; border: 1px solid #444; 
+    border-radius: 6px; display: none; min-width: 140px; z-index: 1000;}
+#fburgerMenu div {padding-left: 8px; cursor: pointer; white-space: nowrap; font-size: 15px;}
+/* #fburgerMenu div:hover {background: #444;} */
+#fburger.open #fburgerMenu {display: block;}
+.title {flex: 1; font-weight: bold;}t/* ext-align: center;  */
+
+#fburgerMenu {
+  position: absolute;
+  background: #2b2b2b;
+  color: #fff;
+  min-width: 180px;
+}
+
+.menu_item {
+  padding: 6px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* Только для пунктов главного меню
+#fburgerMenu > .menu-item:hover {
+  background: #444;
+} */
+
+/* Подменю отдельные элементы
+.submenu div:hover {
+  background: #3a3a3a; /* можно свой цвет для подменю * /
+} */
+
+
+ .menu_item:hover {
+  background: #3a3a3a;
+} 
+
+/* Подменю */
+.submenu {
+  position: absolute;
+  top: 0;
+  left: 100%;
+  display: none;           /* скрыто по умолчанию */
+  padding: 4px 5px;          /* меньше паддинга */
+  min-width: 0;             /* минимальная ширина по содержимому */
+  width: max-content;       /* подстраивается под содержимое */
+  background: #2b2b2b;
+  border-radius: 6px;
+  border: 1px solid #444;
+  z-index: 1000;
+}
+
+/* Группы внутри подменю */
+.submenu_group {
+  padding: 2px 8px;        /* меньше внутренних отступов */
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Разделитель */
+.submen_sep {
+  height: 1px;
+  background: #444;
+  margin: 4px 0;
+}
+
+
+
+.menu_item.active {
+  background: #444;
+}
+
+/* Минимальный размер для радио и чекбоксов */
+.submenu_group label {
+  display: flex;           /* для выравнивания input + текст */
+  align-items: center;     /* вертикальное центрирование */
+  gap: 4px;                /* расстояние между кружком и текстом */
+  padding: 2px 6px;        /* минимальные внутренние отступы */
+  font-size: 13px;          /* компактный шрифт */
+  white-space: nowrap;      /* текст в одну строку */
+  cursor: pointer;
+}
+.submenu_group input[type="radio"],
+.submen_-group input[type="checkbox"] {
+  width: 14px;              /* маленький кружок */
+  height: 14px;
+  margin: 0;                /* убрать лишние отступы */
 }

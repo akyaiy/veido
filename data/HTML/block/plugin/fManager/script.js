@@ -10,15 +10,6 @@ closeBtn.addEventListener('click', () => {
 });
 let cwd = '/';
 let viewMode = 'table';
-/** *
-function applyViewMode() {
-    document.body.className =
-        document.body.className.replace(/\bview-\w+/g, '');
-
-    document.body.classList.add('view-' + viewMode);
-    renderFiles();
-}
-/** */
 
 const fburger = document.getElementById('fburger');
 const fburgerMenu = document.getElementById('fburgerMenu');
@@ -33,21 +24,6 @@ fburger.addEventListener('click', e => {
 document.addEventListener('click', () => {
     fburger.classList.remove('open');
 });
-
-
-/** /
-fburgerMenu.querySelectorAll('[data-view]').forEach(item => {
-    item.addEventListener('click', e => {
-        e.stopPropagation(); // ⬅ ВАЖНО
-
-        viewMode = item.dataset.view;
-        applyViewMode();
-        list(cwd);
-
-        fburger.classList.remove('open');
-    });
-});
-/**/
 
 const filesView = document.getElementById('files_view');
 
@@ -89,7 +65,8 @@ async function list(path) {
     currentFiles = await res.json();
 
     cwd = path;
-    cwdEl.textContent = cwd;
+    //cwdEl.textContent = cwd;
+    updateCwdDisplay();
     //console.log(currentFiles)
     currentFiles.sort((a, b) => {
         // сначала папки
@@ -103,55 +80,62 @@ async function list(path) {
     renderFiles();
 }
 
-// function renderFiles() {
-//   const container = document.getElementById('files_view');
-//   container.innerHTML = '';
+// filesView.addEventListener('click', (e) => {
+//     const item = e.target.closest('.file_item');
+//     //console.log(e.target)
+//     if (!item || e.target == filesView){
+//         filesView.querySelectorAll('.file_item.selected')
+//             .forEach(el => el.classList.remove('selected'));
+//         return;
+//     }
+//     if (!item) return;
 
-//   currentFiles.forEach(f => {
-//     const item = document.createElement('div');
-//     item.className = 'file_item';
-//     item.dataset.path = (cwd === '/' ? '' : cwd) + '/' + f.name;
 
-//     const icon = f.isDir ? '📁' : '📄';
-//     const nameEsc = escapeHtml(f.name);
+//     // если клик по уже выбранному — снять выделение
+//     if (item.classList.contains('selected')) {
+//         item.classList.remove('selected');
+//         return;
+//     }
 
-//     item.innerHTML = `
-//         <div class="file_main">  <!--ОДНА колонка -->
-//         <div class="file_icon">${icon}</div>
-//         <div class="file_name">${nameEsc}</div>
-//         </div><!---->
-//         ${viewMode === 'table' ? `<div>${f.size || '—'}</div><div>${f.modTime || ''}</div>` : ''}
-//     `;
+//     // if(document.getElementById('files_view')){
 
-    
-//     item.ondblclick = () => {
-//       const path = (cwd === '/' ? '' : cwd) + '/' + f.name;
-//       f.isDir ? list(path) : downloadFile(path);
-//     };
+//     // }
 
-//     container.appendChild(item);
-//   });
-// }
+//     // снять выделение со всех остальных
+//     filesView.querySelectorAll('.file_item.selected')
+//         .forEach(el => el.classList.remove('selected'));
 
-//const filesView = document.getElementById('files_view');
+//     // выделить текущий
+//     item.classList.add('selected');
+// });
 
 filesView.addEventListener('click', (e) => {
     const item = e.target.closest('.file_item');
-    if (!item) return;
 
-    // если клик по уже выбранному — снять выделение
-    if (item.classList.contains('selected')) {
-        item.classList.remove('selected');
+    if (!item || e.target === filesView) {
+        filesView.querySelectorAll('.file_item.selected')
+            .forEach(el => el.classList.remove('selected'));
+        updateCwdDisplay(); // сброс серого пути
         return;
     }
 
-    // снять выделение со всех остальных
+    if (item.classList.contains('selected')) {
+        item.classList.remove('selected');
+        updateCwdDisplay(); // убрали выделение
+        return;
+    }
+
     filesView.querySelectorAll('.file_item.selected')
         .forEach(el => el.classList.remove('selected'));
 
-    // выделить текущий
     item.classList.add('selected');
+
+    const name = item.querySelector('.file_name')?.textContent;
+    if (name) {
+        updateCwdDisplay(name);
+    }
 });
+
 
 function renderFiles() {
   const container = document.getElementById('files_view');
@@ -195,89 +179,6 @@ function renderFiles() {
     container.appendChild(item);
   });
 }
-
-
-
-// function renderTable(container) {
-//     const table = document.createElement('table');
-//      table.innerHTML = `
-//          <tbody></tbody>
-//      `;
-//     const tbody = table.querySelector('tbody');
-
-//     currentFiles.forEach(f => {
-//         const tr = document.createElement('tr');
-//         tr.innerHTML = `
-//             <td>${f.isDir ? '📁' : '📄'} ${escapeHtml(f.name)}</td>
-//             <td>${f.isDir ? '—' : f.size}</td>
-//             <td>${f.modTime || ''}</td>
-//         `;
-//         tr.ondblclick = () => f.isDir ? list(cwd + '/' + f.name) : downloadFile(cwd + '/' + f.name);
-//         tbody.appendChild(tr);
-//     });
-
-//     container.appendChild(table);
-// }
-
-// function renderColumns(container) {
-//     const cols = document.createElement('div');
-//     cols.className = 'files-columns';
-
-//     currentFiles.forEach(f => {
-//         const icon = f.isDir ? '📁' : '📄';
-//         const nameEsc = escapeHtml(f.name);
-//         const fullPath = (cwd === '/' ? '' : cwd) + '/' + f.name;
-
-//         const item = document.createElement('div');
-//         item.className = 'col-item';
-//         item.innerHTML = `
-//             <div class="icon">${icon}</div>
-//             <div class="name">${nameEsc}</div>
-//         `;
-
-//         item.ondblclick = () => {
-//             if (f.isDir) list(fullPath);
-//             else downloadFile(fullPath);
-//         };
-
-//         cols.appendChild(item);
-//     });
-
-//     container.appendChild(cols);
-// }
-
-// function renderTiles(container) {
-//     // Очищаем контейнер перед добавлением
-//     container.innerHTML = '';
-
-//     const tiles = document.createElement('div');
-//     tiles.className = 'files-tiles';
-
-//     currentFiles.forEach(f => {
-//         const icon = f.isDir ? '📁' : '📄';
-//         const nameEsc = escapeHtml(f.name);
-//         const fullPath = (cwd === '/' ? '' : cwd) + '/' + f.name;
-
-//         const tile = document.createElement('div');
-//         tile.className = 'tile';
-//         tile.dataset.path = fullPath;
-
-//         tile.innerHTML = `
-//             <div class="tile-icon">${icon}</div>
-//             <div class="tile-name">${nameEsc}</div>
-//         `;
-
-//         tile.ondblclick = () => {
-//             if (f.isDir) list(fullPath);
-//             else downloadFile(fullPath);
-//         };
-
-//         tiles.appendChild(tile);
-//     });
-
-//     container.appendChild(tiles);
-// }
-
 
 class FilesApiClient {
   constructor(baseUrl = '/api/files') {
@@ -455,7 +356,6 @@ cwdEl.addEventListener('blur', () => {
 
 
 applyViewMode("table");
-//applyViewMode();
 list('/');
 
 
@@ -481,3 +381,88 @@ function loadBlockBottomBtn() {
     path = path.replace(/^\/data\/HTML\/block\//, ''); 
     window.newLoadedBlock(path);
 }
+
+
+function updateCwdDisplay(selectedName = null) {
+    cwdEl.innerHTML = '';
+
+    const base = document.createElement('span');
+    base.className = 'cwd-base';
+    base.textContent = cwd;
+    cwdEl.appendChild(base);
+
+    if (selectedName) {
+        const suffix = document.createElement('span');
+        suffix.className = 'cwd-selected';
+        suffix.textContent =
+            (cwd.endsWith('/') ? '' : '/') + selectedName;
+        cwdEl.appendChild(suffix);
+    }
+}
+
+
+// const menuItems = document.querySelectorAll('#fburgerMenu .menu-item');
+// const submenus = document.querySelectorAll('#fburgerMenu .submenu');
+
+// function hideSubmenus() {
+//   submenus.forEach(sm => sm.style.display = 'none');
+//   menuItems.forEach(mi => mi.classList.remove('active'));
+// }
+
+// menuItems.forEach(item => {
+//   item.addEventListener('mouseenter', () => {
+//     hideSubmenus();
+
+//     const id = item.dataset.submenu;
+//     const submenu = document.getElementById('submenu-' + id);
+
+//     if (submenu) {
+//       item.classList.add('active');
+//       submenu.style.display = 'block';
+//       submenu.style.top = item.offsetTop + 'px';
+//     }
+//   });
+// });
+
+// document.getElementById('fburgerMenu')
+//   .addEventListener('mouseleave', hideSubmenus);
+
+//const fburger = document.getElementById('fburger');
+const fburgerMenuEl = document.getElementById('fburgerMenu');
+const menuItems = fburgerMenuEl.querySelectorAll('#fburgerMenu > .menu_item');
+const submenus = fburgerMenuEl.querySelectorAll('.submenu');
+
+// Скрыть все подменю и снять активные состояния
+function hideSubmenus() {
+  submenus.forEach(sm => sm.style.display = 'none');
+  menuItems.forEach(mi => mi.classList.remove('active'));
+  fburger.classList.remove('open');
+}
+
+// Показ подменю при наведении на пункт главного меню
+menuItems.forEach(item => {
+  item.addEventListener('mouseenter', () => {
+    submenus.forEach(sm => sm.style.display = 'none');
+    menuItems.forEach(mi => mi.classList.remove('active'));
+
+    const id = item.dataset.submenu;
+    const submenu = document.getElementById('submenu_' + id);
+
+    if (submenu) {
+      item.classList.add('active');
+      submenu.style.display = 'block';
+      submenu.style.top = item.offsetTop + 'px';
+    }
+  });
+});
+
+// Скрывать меню, если мышь не над fburger или подменю
+[fburger, ...submenus].forEach(el => {
+  el.addEventListener('mouseleave', () => {
+    setTimeout(() => {
+      if (!fburger.matches(':hover') && ![...submenus].some(sm => sm.matches(':hover'))) {
+        hideSubmenus();
+      }
+    }, 50);
+  });
+});

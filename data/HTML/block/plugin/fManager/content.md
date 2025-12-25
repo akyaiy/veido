@@ -4,16 +4,37 @@
   <div id="titlebar">
   <div id="fburger">
     ☰
-    <div id="fburgerMenu">
+    <!-- <div id="fburgerMenu">
       <div data-view="table">Таблица</div>
       <div data-view="columns">Столбцы</div>
       <div data-view="tiles">Плитка</div>
+    </div> -->
+    <div id="fburgerMenu">
+      <div class="menu_item" data-submenu="sort">Сортировка ▸</div>
+      <div class="menu_item" data-submenu="view">Режим просмотра ▸</div>
+      <!-- Подменю: Сортировка -->
+      <div class="submenu" id="submenu_sort">
+        <div class="submenu_group">
+          <label><input type="radio" name="sort" value="name" checked> По имени</label>
+          <label><input type="radio" name="sort" value="size"> По размеру</label>
+          <label><input type="radio" name="sort" value="date"> По дате создания</label>
+        </div>
+      <div class="submenu_sep"></div>
+        <div class="submenu_group">
+          <label><input type="checkbox" id="sortFoldersFirst"> С начала папки</label>
+          <label><input type="checkbox" id="showHidden"> Показывать скрытые объекты</label>
+        </div>
+      </div>
+      <!-- Подменю: Режим просмотра -->
+      <div class="submenu" id="submenu_view">
+        <div class="menu_item" data-view="table">Таблица</div>
+        <div class="menu_item" data-view="columns">Столбцы</div>
+        <div class="menu_item" data-view="tiles">Плитка</div>
+      </div>
     </div>
   </div>
-
 <span class="title">Файловый менеджер</span>
 <span id="closeBtn">&times;</span>
-
 </div>
   <div id="toolbar">
     <button id="btnUp">⬆</button>
@@ -39,5 +60,4 @@
       <button id="bottomBtn">Открыть</button>
     </div>
 </div>
-
 </div>
