@@ -181,7 +181,7 @@ th, td {width: 33%; padding: 8px; text-align: left; overflow: hidden; white-spac
 }
 
 #fburger { position: relative; cursor: pointer; padding: 4px 8px; user-select: none;}
-#fburgerMenu {position: absolute; top: 100%; left: 0; background: #222; border: 1px solid #444; 
+#fburgerMenu {position: absolute; top: 100%; left: 1px; background: #222; border: 1px solid #444; 
     border-radius: 6px; display: none; min-width: 140px; z-index: 1000;}
 #fburgerMenu div {padding-left: 8px; cursor: pointer; white-space: nowrap; font-size: 15px;}
 /* #fburgerMenu div:hover {background: #444;} */
@@ -222,7 +222,8 @@ th, td {width: 33%; padding: 8px; text-align: left; overflow: hidden; white-spac
   top: 0;
   left: 100%;
   display: none;           /* скрыто по умолчанию */
-  padding: 4px 5px;          /* меньше паддинга */
+  padding: 0px;         
+  padding-left: 0px !important;
   min-width: 0;             /* минимальная ширина по содержимому */
   width: max-content;       /* подстраивается под содержимое */
   background: #2b2b2b;
@@ -237,6 +238,8 @@ th, td {width: 33%; padding: 8px; text-align: left; overflow: hidden; white-spac
   display: flex;
   flex-direction: column;
   gap: 2px;
+  padding: 0px;         
+  padding-left: 0px !important;
 }
 
 /* Разделитель */
@@ -248,22 +251,25 @@ th, td {width: 33%; padding: 8px; text-align: left; overflow: hidden; white-spac
 
 
 
-.menu_item.active {
+.menu_item.active, .submenu_group label:hover {
   background: #444;
 }
+
 
 /* Минимальный размер для радио и чекбоксов */
 .submenu_group label {
   display: flex;           /* для выравнивания input + текст */
   align-items: center;     /* вертикальное центрирование */
   gap: 4px;                /* расстояние между кружком и текстом */
-  padding: 2px 6px;        /* минимальные внутренние отступы */
+  padding: 4px 6px;        /* минимальные внутренние отступы */
   font-size: 13px;          /* компактный шрифт */
   white-space: nowrap;      /* текст в одну строку */
   cursor: pointer;
 }
 .submenu_group input[type="radio"],
-.submen_-group input[type="checkbox"] {
+.submenu_group input[type="checkbox"],
+.submenu_group label input[type="radio"],
+.submenu_group label input[type="checkbox"] {
   width: 14px;              /* маленький кружок */
   height: 14px;
   margin: 0;                /* убрать лишние отступы */
