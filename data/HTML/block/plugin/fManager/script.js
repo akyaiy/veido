@@ -70,18 +70,46 @@ async function list(path) {
     renderFiles();
 }
 
-function renderFiles() {
-    const container = files_view;
-    container.innerHTML = '';
+// function renderFiles() {
+//     const container = files_view;
+//     container.innerHTML = '';
 
-    if (viewMode === 'table') {
-        renderTable(container);
-    } else if (viewMode === 'columns') {
-        renderColumns(container);
-    } else if (viewMode === 'tiles') {
-        renderTiles(container);
-    }
+//     if (viewMode === 'table') {
+//         renderTable(container);
+//     } else if (viewMode === 'columns') {
+//         renderColumns(container);
+//     } else if (viewMode === 'tiles') {
+//         renderTiles(container);
+//     }
+// }
+
+function renderFiles() {
+  const container = document.getElementById('files_view');
+  container.innerHTML = '';
+
+  currentFiles.forEach(f => {
+    const item = document.createElement('div');
+    item.className = 'file-item';
+    item.dataset.path = (cwd === '/' ? '' : cwd) + '/' + f.name;
+
+    const icon = f.isDir ? '📁' : '📄';
+    const nameEsc = escapeHtml(f.name);
+
+    item.innerHTML = `
+        <div class="file-icon">${icon}</div>
+        <div class="file-name">${nameEsc}</div>
+        ${viewMode === 'table' ? `<div>${f.size || '—'}</div><div>${f.modTime || ''}</div>` : ''}
+    `;
+
+    item.ondblclick = () => {
+      const path = (cwd === '/' ? '' : cwd) + '/' + f.name;
+      f.isDir ? list(path) : downloadFile(path);
+    };
+
+    container.appendChild(item);
+  });
 }
+
 
 function renderTable(container) {
     const table = document.createElement('table');

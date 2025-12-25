@@ -36,31 +36,53 @@ button:hover, .btn:hover {background: #dcdcdc;}
 #cwd {padding: 2px 6px; border-radius: 4px; cursor: text;}
 #cwd.editing {background: #fff; color: #000; outline: 1px solid #4a90e2;}
 
-/* Логика показа/скрытия контейнеров */
-#files, #files_tiles, #files_columns { display: none; }
-
-.view-table #files { display: table; width: 100%; }
-.view-tiles #files_tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
-.view-columns #files_columns { display: block; column-width: 220px; column-gap: 12px; overflow-x: auto; width: 100%; }
-
-/* ВАШИ СТИЛИ (оформление контента внутри) */
-/* TABLE VIEW */
-.file-table td { padding: 10px 16px; text-align: left; }
-.file-table .file-name { display: flex; align-items: center; }
-.file-table .icon { width: 32px; text-align: center; margin-right: 6px; }
-
-/* COLUMNS VIEW */
-.col-item { padding: 4px; display: flex; align-items: center; }
-.col-item .icon { width: 32px; text-align: center; margin-right: 6px; }
-.col-item .name { flex: 1; }
-
-/* TILES VIEW */
-.files-tiles {display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 10px;}
-.tile { width: 120px; padding: 8px; text-align: left; cursor: pointer;}
-.tile-icon {font-size: 40px; margin-bottom: 4px;}
-.tile-name {word-break: break-word;}
-
-
 table {table-layout: fixed; width: 100%;}
 th, td {width: 33%; padding: 8px; text-align: left; overflow: hidden; white-space: nowrap; 
     text-overflow: ellipsis;}
+
+#files_view {display: grid; overflow-y: auto; height: 600px;}
+
+/* .file-item {display: grid; grid-template-columns: 40px 200px 60px 460px; align-items: center;line-height: 20px;
+    padding: 0px 4px; cursor: pointer; white-space: nowrap;height: 20px;}
+.file-item .file-icon {text-align: center; overflow: hidden;font-size: 14px; display: flex; justify-content: center; align-items: center;}
+.file-item .file-name {overflow: hidden; text-overflow: ellipsis;}
+.file-item div:nth-child(3),
+.file-item div:nth-child(4) {overflow: hidden; text-overflow: ellipsis; text-align: right;} */
+
+
+#files_view {
+    display: block; /* Замена grid на block убирает лишние зазоры между строками */
+    overflow-y: auto;
+    height: 600px;
+}
+
+.file-item {
+    display: grid;
+    /* Регулируйте ширину колонок тут */
+    grid-template-columns: 40px 270px 60px 800px; 
+    
+    align-items: center;    /* Центрирует текст внутри строки */
+    height: 28px;           /* Жесткая высота всей строки */
+    margin: 0;              /* Убираем внешние отступы */
+    padding: 0 4px;         /* Только боковые отступы */
+    
+    /*border-bottom: 1px solid #eee;  Тонкая разделительная линия */
+    cursor: pointer;
+    white-space: nowrap;
+    font-family: sans-serif;
+}
+
+.file-item div {
+    /*font-size: 12px;         Уменьшенный шрифт */
+    line-height: 18px;      /* Высота строки текста равна высоте контейнера */
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.file-item .file-icon {
+    /*font-size: 14px;         Иконка чуть больше текста */
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
