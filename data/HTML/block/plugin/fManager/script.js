@@ -4,6 +4,7 @@ const filesTable = document.getElementById('files');
 const tbody = document.querySelector('#files tbody');
 const closeBtn = document.getElementById('closeBtn');
 closeBtn.addEventListener('click', () => {
+    window.listTfootAct = "";
     const fm = document.getElementById("fManager");
     if (fm) fm.remove();
     document.querySelectorAll('[data-dynamic="fManager"]').forEach(el => el.remove());
@@ -178,6 +179,30 @@ function renderFiles() {
 
     container.appendChild(item);
   });
+
+  if (window.listTfootAct) {
+    listTfoot(window.listTfootAct);
+  } else {
+    const toolbarBottom = document.getElementById('toolbarBottom');
+    toolbarBottom.style.display = 'none';
+  }
+}
+
+function listTfoot(act) {
+    const toolbarBottom = document.getElementById('toolbarBottom');
+    toolbarBottom.style.display = '';
+    
+    if (act === 'loadBlock') {
+        const bottomBtn = document.getElementById('bottomBtn');
+        bottomBtn.onclick = () => loadBlockBottomBtn();
+    }
+}
+
+function loadBlockBottomBtn() {
+    const input = document.getElementById('bottomInput');
+    let path = cwd + '/' + input.value;
+    path = path.replace(/^\/data\/HTML\/block\//, ''); 
+    window.newLoadedBlock(path);
 }
 
 class FilesApiClient {
@@ -356,6 +381,7 @@ cwdEl.addEventListener('blur', () => {
 
 
 applyViewMode("table");
+<<<<<<< HEAD
 list('/');
 
 
@@ -466,3 +492,7 @@ menuItems.forEach(item => {
     }, 50);
   });
 });
+=======
+//applyViewMode();
+list('/');
+>>>>>>> fbb43d4 (Исправлена логика нижнего меню менеджера)
