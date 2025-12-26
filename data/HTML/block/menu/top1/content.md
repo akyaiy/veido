@@ -1,5 +1,7 @@
 <button id="burger" class="burger" aria-label="Меню">
-     ☰
+    <span></span>
+    <span></span>
+    <span></span>
 </button>
 <nav id="nav">
     <ul>

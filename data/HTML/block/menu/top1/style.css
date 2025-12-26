@@ -1,4 +1,4 @@
- /* навигация
+ /* навигация */
 nav ul {
   list-style: none;
   display: flex;
@@ -18,7 +18,7 @@ nav a:hover {
 }
 
 /* бургер */
-/*
+
 .burger {
   display: none;
   flex-direction: column;
@@ -29,6 +29,7 @@ nav a:hover {
   background: none;
   border: none;
   cursor: pointer;
+  color: #ffffff;
 }
 
 .burger span {
@@ -51,9 +52,9 @@ nav a:hover {
 .burger.active span:nth-child(3) {
   transform: translateY(-8px) rotate(-45deg);
 }
-*/
+
  /* адаптив */
- /*
+ 
 @media (max-width: 425px) {
 
   .burger {
@@ -87,4 +88,4 @@ nav a:hover {
     from { opacity: 0; transform: translateY(-10px); }
     to { opacity: 1; transform: translateY(0); }
   }
-} */
+}

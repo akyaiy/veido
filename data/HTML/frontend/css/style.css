@@ -1,39 +1,32 @@
 body {font-family: system-ui, sans-serif; margin: 0; display: flex; flex-direction: column; min-height: 100vh;}
-header {display: flex; align-items: center; justify-content: space-between; background: #333; color: white; padding: 10px 15px; position: relative;}
+header {display: flex; align-items: center; justify-content: space-between; background: #333; color: white; 
+  width: 100%; padding: 10px 15px; position: relative;}
 footer {background: #333; color: white; text-align: center; padding: 10px;}
 main {flex: 1; padding: 20px; max-width: 1000px; margin: 0 auto;}
-button {cursor:pointer; border-radius: 8px; border: 1px solid #ccc; background:#e4e4e4; padding: 10px 12px; font-size: 16px;}
-button:hover {background: #aa92f8;}
+ button:not(.burger) {cursor:pointer; border-radius: 8px; border: 1px solid #ccc; background:#e4e4e4; padding: 10px 12px; font-size: 16px;}
+button:not(.burger):hover {background: #aa92f8;} 
 input {background: #ffffff; padding: 10px 12px; font-size: 15px; border-radius: 8px; border: 1px solid #ccc; transition: border 0.2s, box-shadow 0.2s; width:200px;}
 input:focus {border-color: #7f57ff; box-shadow: 0 0 0 2px rgba(127, 87, 255, 0.2); outline: none;}
 select{background: #ffffff; padding: 10px 12px; font-size: 15px; border-radius: 8px; border: 1px solid #ccc; transition: border 0.2s, box-shadow 0.2s; width:225px;}
 select:focus {border-color: #7f57ff; box-shadow: 0 0 0 2px rgba(127, 87, 255, 0.2); outline: none;}
-/* навигация */
+/* навигация
 nav ul {list-style: none; display: flex; gap: 20px; margin: 0; padding: 0;}
 nav a {color: white; text-decoration: none; font-weight: 500;}
 nav a:hover {text-decoration: underline;}
-/* бургер */
-/* .burger {display: none; flex-direction: column; justify-content: center; gap: 45px; width: 30px; height: 30px; background: none;
-   border: none; cursor: pointer;color: #ffffff;z-index: 1000;}
-.burger span {display: block; height: 3px; width: 100%; background: white; border-radius: 2px; transition: 0.3s;}
-.burger.active span:nth-child(1) {transform: translateY(4px) rotate(0deg);}
-.burger.active span:nth-child(2) {opacity: 0;}
-.burger.active span:nth-child(3) {transform: translateY(-4px) rotate(0deg);} */
-/* .burger {
-  color: #ffffff; */
+
 .burger {
-  display: none; /* показываем только на мобильных */
+  display: none; /* показываем только на мобильных * /
   width: 30px;
   height: 30px;
-  font-size: 30px;     /* размер символа равен высоте кнопки */
-  line-height: 30px;    /* выравнивание по вертикали */
-  text-align: center;   /* по горизонтали */
+  font-size: 30px;     /* размер символа равен высоте кнопки * /
+  line-height: 30px;    /* выравнивание по вертикали * /
+  text-align: center;   /* по горизонтали * /
   background: none;
   border: none;
   color: white;
   cursor: pointer;
   padding: 0;
-}
+} */
 
 
 
