@@ -4,6 +4,297 @@
 let accessToken = null;   
 
 /***********************************************************************
+ * TempStore — это временное хранилище данных в браузере на базе IndexedDB, с возможностями:
+ *
+ * - TTL (time-to-live) — данные автоматически считаются протухшими
+ * - Привязка к получателю (recipient) — доступ только конкретному “пользователю”
+ * - Destroy-on-read — данные удаляются после первого чтения. Управляется флагом destroyOnRead,
+ *    который задаёт издатель при сохранении данных.
+ * - Фоновая очистка протухших записей
+ * - Автоматическая генерация ID
+ ***********************************************************************/
+class TempStore {
+/***********************************************************************
+ * Конструктор
+ * Параметры:
+ *
+ * - dbName — имя IndexedDB базы
+ * - storeName — имя object store (таблицы)
+ * - cleanupIntervalMs — интервал автоочистки (по умолчанию 1 минута)
+ ***********************************************************************/
+    constructor({
+        dbName = 'temp-store',
+        storeName = 'records',
+        cleanupIntervalMs = 60_000
+    } = {}) {
+        this.dbName = dbName;
+        this.storeName = storeName;
+        this.cleanupIntervalMs = cleanupIntervalMs;
+
+        this._dbPromise = null;
+        this._cleanupTimer = null;
+    }
+
+  /* ---------- internal ---------- */
+/***********************************************************************
+ * Открытие IndexedDB
+ * Что делает:
+ * - Открывает IndexedDB один раз
+ * - Кеширует Promise, чтобы не открывать базу повторно
+ * - Создаёт objectStore при первом запуске
+ ***********************************************************************/
+    _openDB() {
+    if (this._dbPromise) return this._dbPromise;
+
+    this._dbPromise = new Promise((resolve, reject) => {
+        const req = indexedDB.open(this.dbName, 1);
+
+        req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(this.storeName)) {
+            const store = db.createObjectStore(this.storeName, { keyPath: 'id' });
+            // создаём индекс по recipient
+            store.createIndex('recipient', 'recipient', { unique: false });
+        }
+        };
+
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+
+    return this._dbPromise;
+    }
+/**************************************************************************
+ * Безопасная обёртка транзакций
+ * Назначение
+ * Упрощает работу с IndexedDB:
+ * - Открывает транзакцию
+ * - Передаёт objectStore в callback
+ * - Дожидается завершения транзакции
+ * - Корректно обрабатывает ошибки
+ **************************************************************************/
+    async _withStore(mode, fn) {
+        const db = await this._openDB();
+        const tx = db.transaction(this.storeName, mode);
+        const store = tx.objectStore(this.storeName);
+
+        const result = await fn(store);
+
+        await new Promise((res, rej) => {
+        tx.oncomplete = res;
+        tx.onerror = () => rej(tx.error);
+        tx.onabort = () => rej(tx.error);
+        });
+
+        return result;
+    }
+
+  /* ---------- public API ---------- */
+/***************************************************************************
+ * Функция сохранения данных:
+ * - recipient получатель данных
+ * - ttlMs время жизни данных TTL
+ * - destroyOnRead показывает, надо ли удалять данные после прочтения. 
+ *    По умолчанию = false
+ ***************************************************************************/
+    async store(data, { recipient, ttlMs, destroyOnRead = false }) {
+        // Что сохраняется
+        const record = {
+        id: crypto.randomUUID(),
+        data,
+        recipient,
+        destroyOnRead,
+        createdAt: Date.now(),
+        // запись считается недействительной после этого времени
+        expiresAt: Date.now() + ttlMs
+        };
+        // Совершение транзакции
+        await this._withStore('readwrite', store => {
+        store.put(record);
+        });
+
+        return record.id;
+    }
+   /* ---------- Функции получения данных ---------- */
+/**************************************************************************
+ * Получение по id 
+ * - id номер записи данных
+ * - requester получатель
+ **************************************************************************/
+    async getById(id, requester) {
+    return this._withStore('readwrite', async store => {
+        const record = await this._getRecord(store, id);
+        if (!record) return null;
+
+        // TTL
+        if (Date.now() > record.expiresAt) {
+        store.delete(id);
+        return null;
+        }
+
+        // recipient
+        if (record.recipient !== requester) {
+        return null;
+        }
+
+        const data = record.data;
+
+        // destroy on read
+        if (record.destroyOnRead) {
+        store.delete(id);
+        }
+
+        return data;
+    });
+    }
+/************************************************************************
+ * Получение всех записей по recipient
+ ************************************************************************/
+    async getByRecipient(recipient) {
+    return this._withStore('readwrite', async store => {
+        const records = await this._getRecordsByRecipient(store, recipient);
+
+        const result = [];
+
+        for (const record of records) {
+        // TTL
+        if (Date.now() > record.expiresAt) {
+            store.delete(record.id);
+            continue;
+        }
+
+        // destroy on read
+        if (record.destroyOnRead) {
+            store.delete(record.id);
+        }
+
+        result.push(record.data);
+        }
+
+        return result.length > 0 ? result : null;
+    });
+    }
+
+/************************************************************************
+ * Получение всех id записей по recipient
+ * - recipient получатель
+ * 
+ * Возвращает:
+ * - массив id
+ * - null, если записей нет
+ ************************************************************************/
+    async getIdsByRecipient(recipient) {
+        return this._withStore('readwrite', async store => {
+            const records = await this._getRecordsByRecipient(store, recipient);
+
+            const ids = [];
+
+            for (const record of records) {
+                // TTL
+                if (Date.now() > record.expiresAt) {
+                    store.delete(record.id);
+                    continue;
+                }
+
+                ids.push(record.id);
+            }
+
+            return ids.length > 0 ? ids : null;
+        });
+    }
+
+
+/************************************************************************
+ * Функция ручного удаления очисткой
+ * - Получает запись,
+ * - Проверяет получателя,
+ * - Удаляет запись.
+ * 
+ * Возвращает
+ * - true — удалено
+ * - false — нет доступа или записи нет
+ ************************************************************************/
+    async destroy(id, requester) {
+        return this._withStore('readwrite', async store => {
+        const record = await this._getRecord(store, id);
+        if (!record || record.recipient !== requester) return false;
+
+        store.delete(id);
+        return true;
+        });
+    }
+/***************************************************************************
+ * Автоочистка
+ * Запускает периодическую фоновую очистку протухших записей.
+ ***************************************************************************/
+    startCleanup() {
+        if (this._cleanupTimer) return;
+
+        this._cleanupTimer = setInterval(() => {
+        this.cleanup();
+        }, this.cleanupIntervalMs);
+    }
+
+/***************************************************************************
+ * Функция останавливает фоновую автоочистку протухших записей (по TTL)
+ ***************************************************************************/
+    stopCleanup() {
+        clearInterval(this._cleanupTimer);
+        this._cleanupTimer = null;
+    }
+
+/***************************************************************************
+ * Функция фоновой очистки хранилища.
+ * Проходит по всем записям в objectStore и удаляет те, у которых истёк TTL
+ ***************************************************************************/
+    async cleanup() {
+        return this._withStore('readwrite', store => {
+        return new Promise(resolve => {
+            const req = store.openCursor();
+            req.onsuccess = () => {
+            const cursor = req.result;
+            if (!cursor) return resolve();
+
+            if (Date.now() > cursor.value.expiresAt) {
+                cursor.delete();
+            }
+            cursor.continue();
+            };
+        });
+        });
+    }
+
+    /* ---------- helpers ---------- */
+/***************************************************************************
+ * Функция асинхронно получает запись по id и возвращает либо объект, 
+ * либо null, не усложняя вызывающий код обработкой ошибок.
+ ***************************************************************************/
+    _getRecord(store, id) {
+        return new Promise(resolve => {
+        const req = store.get(id);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => resolve(null);
+        });
+    }
+
+/***************************************************************************
+ * Функция асинхронно получить ВСЕ записи из IndexedDB, у которых поле recipient 
+ * равно заданному значению и возвращает либо объект, 
+ * либо null, не усложняя вызывающий код обработкой ошибок.
+ ***************************************************************************/
+    _getRecordsByRecipient(store, recipient) {
+        return new Promise(resolve => {
+            const index = store.index('recipient');
+            const req = index.getAll(recipient); // получаем все записи с этим recipient
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = () => resolve([]);
+        });
+    }
+}
+
+
+
+/***********************************************************************
  *  user объект в котором хранятся данные пользователя
  **********************************************************************/
 const user = {
@@ -229,22 +520,6 @@ window.addEventListener("popstate", () => {loadBlock(location.pathname);});
 window.addEventListener("popstate", () => loadBlock(window.location.pathname));
 
 /*****************************************************************************
- * Инициализация после загрузки DOM
- *****************************************************************************/
-window.onload = async function ()  {
-    let url = window.location.href;
-   // Убираем слеш в конце, если он есть
-    if (url.endsWith("/")) {
-        url = url.slice(0, -1);
-        // Меняем URL в адресной строке без перезагрузки страницы
-        window.history.replaceState(null, "", url);
-    }
-    //console.assert("читаем меню")
-    await loadMenu();
-    await loadPage("pages"+window.location.pathname);
-};
-
-/*****************************************************************************
  * Перехватчик ссылок
  *****************************************************************************/
 window.addEventListener("click", (event) => {
@@ -262,20 +537,56 @@ window.addEventListener("click", (event) => {
 /*****************************************************************************
  * Переключение видимости пароля
  *****************************************************************************/
-document.addEventListener("click", (e) => {
-    if (!e.target.classList.contains("toggle-pass")) return;
-console.log("toggle");
-    const input = e.target.previousElementSibling;
-    if (!input) return;
+// document.addEventListener("click", (e) => {
+//     if (!e.target.classList.contains("toggle-pass")) return;
+// console.log("toggle");
+//     const input = e.target.previousElementSibling;
+//     if (!input) return;
 
-    if (input.type === "password") {
-        input.type = "text";
-        e.target.textContent = "*";//🔓
-    } else {
-        input.type = "password";
-        e.target.textContent = "A";//🔒
+//     if (input.type === "password") {
+//         input.type = "text";
+//         e.target.textContent = "*";//🔓
+//     } else {
+//         input.type = "password";
+//         e.target.textContent = "A";//🔒
+//     }
+// });
+
+class PasswordToggle {
+    static selector = '.toggle-pass';
+    static active = false;
+
+    static init() {
+        if (this.active) return;
+        this.active = true;
+
+        document.addEventListener('click', this._handler);
     }
-});
+
+    static destroy() {
+        if (!this.active) return;
+        document.removeEventListener('click', this._handler);
+        this.active = false;
+    }
+
+    static _handler(e) {
+        const toggle = e.target.closest(PasswordToggle.selector);
+        if (!toggle) return;
+
+        const input = toggle.previousElementSibling;
+        if (!input || input.tagName !== 'INPUT') return;
+
+        PasswordToggle.toggle(input, toggle);
+    }
+
+    static toggle(input, toggleEl) {
+        const isHidden = input.type === 'password';
+        input.type = isHidden ? 'text' : 'password';
+
+        toggleEl.textContent = isHidden ? '*' : 'A';
+    }
+}
+
 
 /*****************************************************************************
  * Получение данных пользователя. Пример использования:
@@ -427,72 +738,72 @@ class UIComponents {
     /*==================== 2. confirm ===================== */
     /*                Аналог window.confirm                 */
     static confirm(message, title = 'Подтверждение') {
-    return new Promise(resolve => {
-        const overlay = document.createElement('div');
-        overlay.className = 'ui-overlay';
+        return new Promise(resolve => {
+            const overlay = document.createElement('div');
+            overlay.className = 'ui-overlay';
 
-        const box = document.createElement('div');
-        box.className = 'ui-alert';
+            const box = document.createElement('div');
+            box.className = 'ui-alert';
 
-        box.innerHTML = `
-            <h3>${title}</h3>
-            <p>${message}</p>
-            <div style="display:flex;justify-content:center;gap:12px;margin-top:16px">
-                <button data-yes>Да</button>
-                <button data-no>Нет</button>
-            </div>
-        `;
+            box.innerHTML = `
+                <h3>${title}</h3>
+                <p>${message}</p>
+                <div style="display:flex;justify-content:center;gap:12px;margin-top:16px">
+                    <button data-yes>Да</button>
+                    <button data-no>Нет</button>
+                </div>
+            `;
 
-        const close = (result) => {
-            overlay.remove();
-            resolve(result);
-        };
+            const close = (result) => {
+                overlay.remove();
+                resolve(result);
+            };
 
-        box.querySelector('[data-yes]').onclick = () => close(true);
-        box.querySelector('[data-no]').onclick = () => close(false);
+            box.querySelector('[data-yes]').onclick = () => close(true);
+            box.querySelector('[data-no]').onclick = () => close(false);
 
-        overlay.appendChild(box);
-        document.body.appendChild(overlay);
-    });
-}
+            overlay.appendChild(box);
+            document.body.appendChild(overlay);
+        });
+    }
 
 
     /* ========== 3. ПОПАП СПИСОК ========== */
-static showPopupList(items = {}, x = 0, y = 0) {
-    // Удаляем предыдущий popup
-    if (UIComponents.currentPopup) {
-        UIComponents.currentPopup.remove();
-        UIComponents.currentPopup = null;
-    }
-
-    const popup = document.createElement('div');
-    popup.className = 'ui-popup-list';
-    popup.style.left = x + 'px';
-    popup.style.top = y + 'px';
-
-    for (const [name, fn] of Object.entries(items)) {
-        const el = document.createElement('div');
-        el.textContent = name;
-        el.onclick = () => {
-            fn();                 // вызываем конкретную функцию
-            popup.remove();
-            UIComponents.currentPopup = null;
-        };
-        popup.appendChild(el);
-    }
-
-    document.body.appendChild(popup);
-    UIComponents.currentPopup = popup;
-
-    const removePopup = () => {
+    static showPopupList(items = {}, x = 0, y = 0) {
+        // Удаляем предыдущий popup
         if (UIComponents.currentPopup) {
             UIComponents.currentPopup.remove();
             UIComponents.currentPopup = null;
         }
-        document.removeEventListener('click', removePopup);
-    };
-    setTimeout(() => document.addEventListener('click', removePopup), 0);
-}
+
+        const popup = document.createElement('div');
+        popup.className = 'ui-popup-list';
+        popup.style.left = x + 'px';
+        popup.style.top = y + 'px';
+
+        for (const [name, fn] of Object.entries(items)) {
+            const el = document.createElement('div');
+            el.textContent = name;
+            el.onclick = () => {
+                fn();                 // вызываем конкретную функцию
+                popup.remove();
+                UIComponents.currentPopup = null;
+            };
+            popup.appendChild(el);
+        }
+
+        document.body.appendChild(popup);
+        UIComponents.currentPopup = popup;
+
+        const removePopup = () => {
+            if (UIComponents.currentPopup) {
+                UIComponents.currentPopup.remove();
+                UIComponents.currentPopup = null;
+            }
+            document.removeEventListener('click', removePopup);
+        };
+        setTimeout(() => document.addEventListener('click', removePopup), 0);
+    }
 
     /* ========== 4. ОКНО "СВОЙСТВА ФАЙЛА" ========== */
     static showFileProperties(general = {}, details = {}) {
@@ -572,3 +883,20 @@ function getCookie(name) {
         .find(row => row.startsWith(name + '='))
         ?.split('=')[1];
 }
+
+/*****************************************************************************
+ * Инициализация после загрузки DOM
+ *****************************************************************************/
+window.onload = async function ()  {
+    PasswordToggle.init();
+    let url = window.location.href;
+   // Убираем слеш в конце, если он есть
+    if (url.endsWith("/")) {
+        url = url.slice(0, -1);
+        // Меняем URL в адресной строке без перезагрузки страницы
+        window.history.replaceState(null, "", url);
+    }
+    //console.assert("читаем меню")
+    await loadMenu();
+    await loadPage("pages"+window.location.pathname);
+};
