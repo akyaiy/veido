@@ -38,8 +38,8 @@
                 <div class="center-tab" data-tab="js">JS код</div>
             </div>
             <div id="center-tab-controls" style="display:flex;gap:8px;padding:6px 8px">
-                <button id="btn-load-from-view" style="display:none">Загрузить из внешнего вида</button>
-                <button id="btn-apply-to-view" style="display:none">Применить в внешний вид</button>
+                <!-- <button id="btn-load-from-view" style="display:none">Загрузить из внешнего вида</button>
+                <button id="btn-apply-to-view" style="display:none">Применить в внешний вид</button> -->
                 <button id="btn-apply-js" style="display:none">Применить JS</button>
             </div>
             <div id="center-tab-content">

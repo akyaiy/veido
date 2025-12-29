@@ -107,6 +107,7 @@ async function newLoadedBlock(path) {
     viewDiv.id = blockId + '_view';
     viewDiv.className = 'loadedBlock_view';
     viewDiv.contentEditable = 'true';
+    viewDiv.oninput = () => syncViewToHtml(blockId);
 
     const htmlDiv = document.createElement('div');
     htmlDiv.id = blockId + '_html';
@@ -138,8 +139,14 @@ async function newLoadedBlock(path) {
 
     switchTo(blockId, tabEl);
 
-    await loadBlock(path, viewDiv.id, "jsText");
+    await loadBlock(path, viewDiv.id, ["js", "html"]);
 }
+document.getElementById('center-tab-pre-html').addEventListener('input', () => {
+    if (document.querySelector('#center-tabs .center-tab.active')?.dataset.tab !== 'html') return;
+
+    const blockId = getActiveBlockId();
+    if (blockId) syncHtmlToView(blockId);
+});
 
 function closeBlock(e, block, tabEl) {
     e.stopPropagation();
@@ -188,8 +195,8 @@ const centerTabs = document.querySelectorAll('#center-tabs .center-tab');
 const centerContent = document.getElementById('center-tab-content');
 const centerPreHtml = document.getElementById('center-tab-pre-html');
 const centerPreJs = document.getElementById('center-tab-pre-js');
-const btnLoadFromView = document.getElementById('btn-load-from-view');
-const btnApplyToView = document.getElementById('btn-apply-to-view');
+/* const btnLoadFromView = document.getElementById('btn-load-from-view');
+const btnApplyToView = document.getElementById('btn-apply-to-view'); */
 const btnApplyJs = document.getElementById('btn-apply-js');
 
 function getActiveBlockId() {
@@ -241,8 +248,8 @@ ${content}
 }
 
 function updateCenterControls(mode) {
-    btnLoadFromView.style.display = mode === 'html' ? '' : 'none';
-    btnApplyToView.style.display = mode === 'html' ? '' : 'none';
+    /* btnLoadFromView.style.display = mode === 'html' ? '' : 'none';
+    btnApplyToView.style.display = mode === 'html' ? '' : 'none'; */
     btnApplyJs.style.display = mode === 'js' ? '' : 'none';
 }
 
@@ -313,7 +320,7 @@ centerTabs.forEach(tab => {
     };
 });
 
-btnLoadFromView.onclick = () => {
+/* btnLoadFromView.onclick = () => {
     const blockId = getActiveBlockId();
     if (!blockId) return;
     const view = document.getElementById(blockId + '_view');
@@ -331,11 +338,30 @@ btnApplyToView.onclick = () => {
     if (!view || !htmlDiv) return;
 
     const md = window.markdownit({ html: true, linkify: true, typographer: true });
-    const rendered = md.render(centerPreHtml.textContent);
+    const rendered = centerPreHtml.textContent;
 
     htmlDiv.innerHTML = rendered;
     view.innerHTML = rendered;
-};
+}; */
+
+function syncViewToHtml(blockId) {
+    const view = document.getElementById(blockId + '_view');
+    const htmlDiv = document.getElementById(blockId + '_html');
+    if (!view || !htmlDiv) return;
+
+    htmlDiv.innerHTML = view.innerHTML;
+    centerPreHtml.textContent = htmlDiv.innerHTML;
+}
+
+function syncHtmlToView(blockId) {
+    const view = document.getElementById(blockId + '_view');
+    const htmlDiv = document.getElementById(blockId + '_html');
+    if (!view || !htmlDiv) return;
+
+    const html = centerPreHtml.textContent;
+    htmlDiv.innerHTML = html;
+    view.innerHTML = html;
+}
 
 btnApplyJs.onclick = () => {
     const blockId = getActiveBlockId();
@@ -357,16 +383,16 @@ document.getElementById('elements-ul').addEventListener('click', e => {
 });
 
 function handleLoadedBlockView(tag) {
-    const view = document.getElementById('loadedBlock_1_view');
-    if (!view) return;
-
     const sel = document.getSelection();
     if (!sel.rangeCount) return;
 
     const range = sel.getRangeAt(0);
     let node = range.commonAncestorContainer;
     while (node && node.nodeType !== 1) node = node.parentNode;
-    if (!node || !view.contains(node)) return;
+    if (!node) return;
+
+    const view = node.closest('[id^="loadedBlock_"][id$="_view"]');
+    if (!view) return;
 
     const voidTags = ['img','input','br','hr','meta','link','source'];
     const newEl = document.createElement(tag);
@@ -406,11 +432,15 @@ function handlePreHtml(tag, wantsClosing) {
 let currentSelectedEl = null;
 
 document.addEventListener('click', e => {
-    const view = document.getElementById('loadedBlock_1_view');
-    if (!view) return;
     const clicked = e.target;
+
+    const view = clicked.closest('[id^="loadedBlock_"][id$="_view"]');
+    if (!view) return;
+
     if (!view.contains(clicked)) return;
-    const el = clicked.closest('#loadedBlock_1_view, #loadedBlock_1_view *') || view;
+
+    const el = clicked.closest('[id^="loadedBlock_"][id$="_view"], [id^="loadedBlock_"][id$="_view"] *') || view;
+
     updateCssPanel(el);
     updatePropertiesPanel(el);
     updateTagLabel(el);
