@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <!-- Иконка “глаз открыт” -->
+  <symbol id="eye-open" viewBox="0 0 24 24">
+    <path
+       id="rect95-4"
+       style="fill:none;stroke:#000000;stroke-width:0.987726;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+       d="m 0.82208981,10.001617 c 5.70684359,-6.7461756 12.69166219,-6.7461756 18.39865619,0 -6.132897,6.13286 -12.8790533,6.13286 -18.39865619,0 z"
+       sodipodi:nodetypes="ccc" />
+    <path
+       id="path95-6"
+       style="fill:none;stroke:#000000;stroke-width:0.987726;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+       d="m 14.314398,8.7750802 c 0,2.4566718 -1.991532,4.4482788 -4.4482938,4.4482788 -2.4567588,0 -4.4483287,-1.991607 -4.4483287,-4.4482788 0,-1.2161278 0.4879684,-2.3182118 1.2788305,-3.1212098 1.6184704,-0.970261 4.211461,-0.80524 5.972285,-0.333478 1.00402,0.81562 1.645507,2.060057 1.645507,3.4544638 z"
+      sodipodi:nodetypes="sssccs" />
+  </symbol>
+
+  <!-- Иконка “глаз закрыт” -->
+  <symbol id="eye-closed" viewBox="0 0 24 24">
+    <path
+       id="rect95-4"
+       style="fill:none;stroke:#000000;stroke-width:0.987726;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+       d="m 0.82208981,10.001617 c 5.70684359,-6.7461756 12.69166219,-6.7461756 18.39865619,0 -6.132897,6.13286 -12.8790533,6.13286 -18.39865619,0 z"
+       sodipodi:nodetypes="ccc" />
+    <path
+       id="path95-6"
+       style="fill:none;stroke:#000000;stroke-width:0.987726;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+       d="m 14.314398,8.7750802 c 0,2.4566718 -1.991532,4.4482788 -4.4482938,4.4482788 -2.4567588,0 -4.4483287,-1.991607 -4.4483287,-4.4482788 0,-1.2161278 0.4879684,-2.3182118 1.2788305,-3.1212098 1.6184704,-0.970261 4.211461,-0.80524 5.972285,-0.333478 1.00402,0.81562 1.645507,2.060057 1.645507,3.4544638 z"
+       sodipodi:nodetypes="sssccs" />
+    <path
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.987726;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+       d="M 3.2106213,16.069836 16.089674,4.4174244"
+       id="path108" />
+  </symbol>
+</svg>
+
+

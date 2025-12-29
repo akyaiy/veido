@@ -552,6 +552,84 @@ window.addEventListener("click", (event) => {
 //     }
 // });
 
+// class PasswordToggle {
+//     static selector = '.toggle-pass';
+//     static active = false;
+
+//     static init() {
+//         if (this.active) return;
+//         this.active = true;
+
+//         document.addEventListener('click', this._handler);
+//     }
+
+//     static destroy() {
+//         if (!this.active) return;
+//         document.removeEventListener('click', this._handler);
+//         this.active = false;
+//     }
+
+//     static _handler(e) {
+//         const toggle = e.target.closest(PasswordToggle.selector);
+//         if (!toggle) return;
+
+//         const input = toggle.previousElementSibling;
+//         if (!input || input.tagName !== 'INPUT') return;
+
+//         PasswordToggle.toggle(input, toggle);
+//     }
+
+//     static toggle(input, toggleEl) {
+//         const isHidden = input.type === 'password';
+//         input.type = isHidden ? 'text' : 'password';
+
+//         toggleEl.textContent = isHidden ? '*' : 'A';
+//     }
+// }
+
+// class PasswordToggle {
+//     static selector = '.toggle-pass';
+//     static active = false;
+
+//     static init() {
+//         if (this.active) return;
+//         this.active = true;
+
+//         document.addEventListener('click', this._handler);
+//     }
+
+//     static destroy() {
+//         if (!this.active) return;
+//         document.removeEventListener('click', this._handler);
+//         this.active = false;
+//     }
+
+//     static _handler(e) {
+//         const toggle = e.target.closest(PasswordToggle.selector);
+//         if (!toggle) return;
+
+//         const input = toggle.previousElementSibling;
+//         if (!input || input.tagName !== 'INPUT') return;
+
+//         PasswordToggle.toggle(input, toggle);
+//     }
+
+//     static toggle(input, toggleEl) {
+//         const isHidden = input.type === 'password';
+//         input.type = isHidden ? 'text' : 'password';
+
+//         // Вместо текста вставляем HTML (SVG или символ)
+//         toggleEl.innerHTML = isHidden 
+//             ? `<svg width="80" height="80" viewBox="0 0 20 20">
+//                    <image href="img/b_iconslyb.svg" width="560" height="380"></image>
+//                </svg>`  // иконка для скрытого состояния
+//             : `<svg width="80" height="80" viewBox="0 0 20 20">
+//                    <image href="./img/b_iconslyb.svg" width="560" height="380"></image>
+//                </svg>`; // иконка для видимого состояния
+//     }
+// }
+
+
 class PasswordToggle {
     static selector = '.toggle-pass';
     static active = false;
@@ -583,9 +661,23 @@ class PasswordToggle {
         const isHidden = input.type === 'password';
         input.type = isHidden ? 'text' : 'password';
 
-        toggleEl.textContent = isHidden ? '*' : 'A';
+        // Фиксируем размер кнопки 20x20, масштабируем иконку через viewBox
+        toggleEl.style.width = '40px';
+        toggleEl.style.height = '40px';
+        toggleEl.style.display = 'inline-block';
+
+        toggleEl.innerHTML = isHidden
+            ? `<svg width="1100px" height="820px" viewBox="0 0 20 20">
+                   <image href="./img/b_iconslyb.svg" width="20" height="20"></image>
+               </svg>`
+            : `<svg width="50" height="50" viewBox=";0 0 20 20">
+                   <image href="./img/b_iconslyb.svg" width="560" height="380"></image>
+               </svg>`;
     }
 }
+
+// Инициализация
+PasswordToggle.init();
 
 
 /*****************************************************************************
