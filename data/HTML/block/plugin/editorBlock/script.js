@@ -118,7 +118,8 @@ tabOpen.onclick = async() => {
  * - Добавляет вкладку блока с возможностью переключения и закрытия.
  * - Загружает содержимое блока и активирует его отображение.
  **********************************************************************/
-async function newLoadedBlock(path) {
+async function newLoadedBlock() {
+    const path = (await tempStore.getByRecipient("editorBlock"))?.[0]?.path;
     let tabs = document.getElementById('blocks-tabs');
     let container = document.getElementById('loadedBlockMain');
     if (!container) {

@@ -381,24 +381,26 @@ function listTfoot(act) {
     
     if (act === 'loadBlock') {
         const bottomBtn = document.getElementById('bottomBtn');
-        bottomBtn.onclick = () => loadBlockBottomBtn();
+        bottomBtn.onclick = () => submitBlockPath();
     }
 }
 
 /***************************************************************************
- * loadBlockBottomBtn — загрузка блока из нижней панели:
+ * submitBlockPath — подтверждение выбора блока из нижней панели:
  * - Формирование пути по текущему каталогу и вводу пользователя.
- * - Загрузка блока.
+ * - Передача пути через tempStore.
+ * - Вызов callback-функции.
  * - Закрытие файлового менеджера.
  ***************************************************************************/
-async function loadBlockBottomBtn() {
+async function submitBlockPath() {
     const input = document.getElementById('bottomInput');
     let path = cwd + '/' + input.value;
     path = path.replace(/^\/data\/HTML\/block\//, '');
+    await tempStore.store({path: path}, { recipient: storeFManager?.[0]?.sender, ttlMs: 5000, destroyOnRead: true })
     
     const callbackName = storeFManager?.[0]?.callbackFun;
     if (callbackName && typeof window[callbackName] === "function") {
-        window[callbackName](path);
+        await window[callbackName]();
     }
     closeBtn.click();
 }
