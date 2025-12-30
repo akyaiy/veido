@@ -394,10 +394,15 @@ function listTfoot(act) {
 async function loadBlockBottomBtn() {
     const input = document.getElementById('bottomInput');
     let path = cwd + '/' + input.value;
-    path = path.replace(/^\/data\/HTML\/block\//, ''); 
-    await tempStore.store({path: path}, { recipient: storeFManager[0].sender, ttlMs: 5000, destroyOnRead: true })
+    path = path.replace(/^\/data\/HTML\/block\//, '');
+    
+    const callbackName = storeFManager?.[0]?.callbackFun;
+    if (callbackName && typeof window[callbackName] === "function") {
+        window[callbackName](path);
+    }
     closeBtn.click();
 }
+
 
 /***************************************************************************
  * FilesApiClient — клиент API для работы с файлами и каталогами.

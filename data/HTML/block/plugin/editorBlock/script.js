@@ -106,23 +106,9 @@ tabOpen.onclick = async() => {
     fm.id = 'fManager';
     content.appendChild(fm);
 
-    await tempStore.store({path: "/data/HTML/block", listTfootAct: "loadBlock", sender: "editorBlock"}, { recipient: 'fManager', ttlMs: 5000, destroyOnRead: true })
+    await tempStore.store({path: "/data/HTML/block", listTfootAct: "loadBlock", sender: "editorBlock", callbackFun: "newLoadedBlock"}, { recipient: 'fManager', ttlMs: 5000, destroyOnRead: true })
     loadBlock('plugin/fManager', 'fManager');
 };
-waitEditorBlock();
-function waitEditorBlock() {
-    const timer = setInterval(async () => {
-        if (!document.getElementById("block-editor-app")) {
-            clearInterval(timer);
-            return;
-        }
-        const storeEditorBlock = await tempStore.getByRecipient("editorBlock");
-        if (storeEditorBlock?.length) {
-            const path = storeEditorBlock[0].path;
-            newLoadedBlock(path);
-        }
-    }, 100);
-}
 
 /***********************************************************************
  * newLoadedBlock — загрузка и регистрация нового блока:
@@ -204,6 +190,7 @@ async function newLoadedBlock(path) {
 
     await loadBlock(path, viewDiv.id, ["js", "html"]);
 }
+window.newLoadedBlock = newLoadedBlock;
 
 /***********************************************************************
  * center-tab-pre-html input — синхронизация HTML и view:
