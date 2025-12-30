@@ -112,7 +112,6 @@ class TempStore {
         await this._withStore('readwrite', store => {
         store.put(record);
         });
-
         return record.id;
     }
    /* ---------- Функции получения данных ---------- */
@@ -291,6 +290,9 @@ class TempStore {
         });
     }
 }
+tempStore = new TempStore();
+tempStore.startCleanup();
+
 
 
 

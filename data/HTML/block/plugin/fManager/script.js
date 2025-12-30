@@ -25,7 +25,7 @@ const chkShowHidden = document.getElementById('showHidden');
  * - Удаляет связанные динамические стили и скрипты.
  ***************************************************************************/
 closeBtn.addEventListener('click', () => {
-    window.listTfootAct = "";
+    /* window.listTfootAct = ""; */
     const fm = document.getElementById("fManager");
     if (fm) fm.remove();
     document.querySelectorAll('[data-dynamic="fManager"]').forEach(el => el.remove());
@@ -210,7 +210,15 @@ function sortFiles() {
  * - Сортирует и перерисовывает список файлов.
  ***************************************************************************/
 async function list(path) {
-    const urlPath = path === '/' ? '' : path;
+    let urlPath = path;
+    if (storeFManager?.[0]?.path) {
+        urlPath = storeFManager[0].path;
+        path = storeFManager[0].path;
+        storeFManager[0].path = null;
+    } else if (path === '/') {
+        urlPath = '';
+    }
+
     const res = await fetch(`/api/files${urlPath}`);
     if (!res.ok) return alert('Ошибка списка файлов');
 
@@ -308,7 +316,7 @@ filesView.addEventListener('click', (e) => {
  * - Назначает обработчик двойного клика для открытия или скачивания.
  * - Управляет отображением нижней панели действий.
  ***************************************************************************/
-function renderFiles() {
+async function renderFiles() {
   const container = document.getElementById('files_view');
   container.innerHTML = '';
 
@@ -353,8 +361,9 @@ function renderFiles() {
     container.appendChild(item);
   });
 
-  if (window.listTfootAct) {
-    listTfoot(window.listTfootAct);
+  const act = storeFManager?.[0]?.listTfootAct ?? null;
+  if (act) {
+    listTfoot(act);
   } else {
     const toolbarBottom = document.getElementById('toolbarBottom');
     toolbarBottom.style.display = 'none';
@@ -382,11 +391,11 @@ function listTfoot(act) {
  * - Загрузка блока.
  * - Закрытие файлового менеджера.
  ***************************************************************************/
-function loadBlockBottomBtn() {
+async function loadBlockBottomBtn() {
     const input = document.getElementById('bottomInput');
     let path = cwd + '/' + input.value;
     path = path.replace(/^\/data\/HTML\/block\//, ''); 
-    window.newLoadedBlock(path);
+    await tempStore.store({path: path}, { recipient: storeFManager[0].sender, ttlMs: 5000, destroyOnRead: true })
     closeBtn.click();
 }
 
@@ -945,6 +954,11 @@ menuItems.forEach(item => {
 applyViewMode(viewMode);
 
 /***************************************************************************
- * list — загружает содержимое корневого каталога.
+ * init — загружает содержимое корневого каталога.
  ***************************************************************************/
-list('/');
+async function init() {
+    storeFManager = await tempStore.getByRecipient("fManager");
+    list('/');
+}
+let storeFManager = "";
+init();
