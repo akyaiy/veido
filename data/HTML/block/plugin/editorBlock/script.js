@@ -1,8 +1,17 @@
-// Переключает вкладки CSS и JS
+/***********************************************************************
+ * Элементы интерфейса вкладок CSS / JS.
+ **********************************************************************/
 const tabs = document.querySelectorAll('#css-js-tabs .tab');
 const cssPanel = document.getElementById('css-panel');
 const jsPanel = document.getElementById('js-panel');
 
+/***********************************************************************
+ * tabs tab click — переключение вкладок CSS и JS:
+ * - Снимает активное состояние со всех вкладок.
+ * - Активирует выбранную вкладку.
+ * - Отображает соответствующую панель (CSS или JS).
+ * - Скрывает неактивную панель.
+ **********************************************************************/
 tabs.forEach(tab => {
     tab.addEventListener('click', () => {
         tabs.forEach(t => t.classList.remove('active'));
@@ -19,13 +28,27 @@ tabs.forEach(tab => {
 });
 
 
-// Изменение размера блока перетаскиванием мыши
+
+
+/***********************************************************************
+ * Элементы интерфейса управления загруженным блоком.
+ **********************************************************************/
 const handle = document.querySelector('.small-handle');
 const loadedBlock = document.getElementById('loadedBlock');
 
+/***********************************************************************
+ * Переменные состояния перетаскивания и изменения размера блока.
+ **********************************************************************/
 let active = false;
 let sx, sy, sw, sh;
 
+/***********************************************************************
+ * handle mousedown — начало изменения размера блока:
+ * - Активирует режим перетаскивания.
+ * - Запоминает начальную позицию курсора.
+ * - Сохраняет исходные размеры блока.
+ * - Назначает обработчики движения и отпускания мыши.
+ **********************************************************************/
 handle.onmousedown = e => {
     e.preventDefault();
     active = true;
@@ -41,6 +64,14 @@ handle.onmousedown = e => {
     };
 };
 
+/***********************************************************************
+ * move — обработчик движения мыши при изменении размеров блока:
+ * - Принимает объект события мыши.
+ * - Проверяет, активен ли режим изменения размера.
+ * - Вычисляет смещение курсора от начальной позиции.
+ * - Рассчитывает новую ширину и высоту блока.
+ * - Применяет обновлённые размеры к элементу.
+ **********************************************************************/
 function move(e) {
     if (!active) return;
 
@@ -55,10 +86,21 @@ function move(e) {
 }
 
 
-// Загрузка и управление вкладками блоков
+
+
+/***********************************************************************
+ * Кнопка вкладки "Открыть" и контейнер содержимого.
+ **********************************************************************/
 const tabOpen = document.getElementById('tab-open');
 const content = document.getElementById('content');
 
+/***********************************************************************
+ * tabOpen onclick — обработчик клика по вкладке "Открыть":
+ * - Создаёт контейнер файлового менеджера.
+ * - Добавляет его в основную область контента.
+ * - Устанавливает режим нижней панели для загрузки блока.
+ * - Инициирует загрузку файлового менеджера.
+ **********************************************************************/
 tabOpen.onclick = () => {
     let fm = document.createElement('div');
     fm.id = 'fManager';
@@ -68,7 +110,14 @@ tabOpen.onclick = () => {
     loadBlock('plugin/fManager', 'fManager');
 };
 
-window.newLoadedBlock = newLoadedBlock;
+/***********************************************************************
+ * newLoadedBlock — загрузка и регистрация нового блока:
+ * - Принимает путь к блоку.
+ * - Проверяет, открыт ли блок с указанным путём, и активирует его при наличии.
+ * - Создаёт новый блок с view / html / scripts контейнерами.
+ * - Добавляет вкладку блока с возможностью переключения и закрытия.
+ * - Загружает содержимое блока и активирует его отображение.
+ **********************************************************************/
 async function newLoadedBlock(path) {
     let tabs = document.getElementById('blocks-tabs');
     let container = document.getElementById('loadedBlockMain');
@@ -141,6 +190,14 @@ async function newLoadedBlock(path) {
 
     await loadBlock(path, viewDiv.id, ["js", "html"]);
 }
+window.newLoadedBlock = newLoadedBlock;
+
+/***********************************************************************
+ * center-tab-pre-html input — синхронизация HTML и view:
+ * - Проверяет, что активна вкладка HTML.
+ * - Определяет id текущего активного блока.
+ * - Обновляет визуальное представление блока по HTML-коду.
+ **********************************************************************/
 document.getElementById('center-tab-pre-html').addEventListener('input', () => {
     if (document.querySelector('#center-tabs .center-tab.active')?.dataset.tab !== 'html') return;
 
@@ -148,6 +205,13 @@ document.getElementById('center-tab-pre-html').addEventListener('input', () => {
     if (blockId) syncHtmlToView(blockId);
 });
 
+/***********************************************************************
+ * closeBlock — закрытие блока и очистка интерфейса:
+ * - Принимает событие клика, элемент блока и вкладку.
+ * - Удаляет блок и связанную с ним вкладку.
+ * - Сбрасывает содержимое редакторов HTML и JS.
+ * - Очищает панели CSS, атрибутов, свойств и событий.
+ **********************************************************************/
 function closeBlock(e, block, tabEl) {
     e.stopPropagation();
 
@@ -190,7 +254,11 @@ function closeBlock(e, block, tabEl) {
 }
 
 
-// Вкладки view / html / js блока
+
+
+/***********************************************************************
+ * Элементы вкладок view / html / js центрального редактора.
+ **********************************************************************/
 const centerTabs = document.querySelectorAll('#center-tabs .center-tab');
 const centerContent = document.getElementById('center-tab-content');
 const centerPreHtml = document.getElementById('center-tab-pre-html');
@@ -199,17 +267,33 @@ const centerPreJs = document.getElementById('center-tab-pre-js');
 const btnApplyToView = document.getElementById('btn-apply-to-view'); */
 const btnApplyJs = document.getElementById('btn-apply-js');
 
+/***********************************************************************
+ * getActiveBlockId — определение активного блока:
+ * - Проверяет активную вкладку и возвращает связанный с ней blockId.
+ * - Если вкладка не найдена, ищет видимый блок в контейнере loadedBlockMain.
+ * - Возвращает идентификатор активного блока или null при его отсутствии.
+ **********************************************************************/
 function getActiveBlockId() {
     const tab = document.querySelector('#blocks-tabs .tab.active');
     if (tab && tab.dataset.blockId) return tab.dataset.blockId;
+
     const container = document.getElementById('loadedBlockMain');
     if (!container) return null;
+
     for (const ch of container.children) {
         if (getComputedStyle(ch).display !== 'none') return ch.id;
     }
     return null;
 }
 
+/***********************************************************************
+ * applyJs — применение JavaScript-кода к блоку:
+ * - Принимает идентификатор блока.
+ * - Получает код из JS-редактора и привязывает его к блоку.
+ * - Создаёт или обновляет динамический script-элемент блока.
+ * - Оборачивает код в защитную IIFE с обработкой ошибок.
+ * - Выполняет обновлённый скрипт для активного блока.
+ **********************************************************************/
 function applyJs(blockId) {
     const content = centerPreJs.textContent || '';
 
@@ -247,12 +331,24 @@ ${content}
     }
 }
 
+/***********************************************************************
+ * updateCenterControls — управление кнопками центральной панели:
+ * - Принимает текущий режим отображения (view / html / js).
+ * - Показывает или скрывает кнопку применения JS.
+ **********************************************************************/
 function updateCenterControls(mode) {
     /* btnLoadFromView.style.display = mode === 'html' ? '' : 'none';
     btnApplyToView.style.display = mode === 'html' ? '' : 'none'; */
     btnApplyJs.style.display = mode === 'js' ? '' : 'none';
 }
 
+/***********************************************************************
+ * showView — показ блока в режиме визуального просмотра:
+ * - Принимает идентификатор блока, который нужно отобразить.
+ * - Скрывает область редактирования HTML и JS.
+ * - Обновляет состояние кнопок управления в центре.
+ * - Отображает только активный блок, скрывая остальные.
+ **********************************************************************/
 function showView(blockId) {
     centerContent.style.display = 'none';
     updateCenterControls('view');
@@ -264,6 +360,14 @@ function showView(blockId) {
     document.getElementById('loadedBlock').style.display = '';
 }
 
+/***********************************************************************
+ * showHtml — показ блока в режиме редактирования HTML:
+ * - Принимает идентификатор блока.
+ * - Показывает HTML-редактор и скрывает JS-редактор.
+ * - Обновляет состояние кнопок управления.
+ * - Скрывает визуальный режим и отображает только активный блок.
+ * - Загружает HTML блока в редактор, если пользователь ещё не редактировал код.
+ **********************************************************************/
 function showHtml(blockId) {
     centerContent.style.display = '';
     centerPreHtml.style.display = '';
@@ -281,10 +385,20 @@ function showHtml(blockId) {
         centerPreHtml.textContent = htmlContainer.innerHTML;
     }
 }
+
+/***********************************************************************
+ * centerPreHtml input — помечает HTML-редактор как изменённый пользователем.
+ **********************************************************************/
 centerPreHtml.addEventListener('input', () => {
     centerPreHtml.dataset.userEdited = '1';
 });
 
+/***********************************************************************
+ * showJs — отображение и подготовка JS-кода блока:
+ * - Переключает интерфейс в режим редактирования JS.
+ * - Извлекает JS-код блока и очищает его от служебной обёртки.
+ * - Показывает JS-редактор и скрывает визуальное представление блока.
+ **********************************************************************/
 function showJs(blockId) {
     centerContent.style.display = '';
     centerPreHtml.style.display = 'none';
@@ -308,6 +422,13 @@ function showJs(blockId) {
     document.getElementById('loadedBlock').style.display = 'none';
 }
 
+/***********************************************************************
+ * centerTabs tab click — переключение режимов просмотра блока:
+ * - Обрабатывает клик по вкладкам view / html / js.
+ * - Делает выбранную вкладку активной.
+ * - Определяет текущий активный блок.
+ * - Переключает отображение блока в соответствующий режим.
+ **********************************************************************/
 centerTabs.forEach(tab => {
     tab.onclick = () => {
         centerTabs.forEach(t => t.classList.remove('active'));
@@ -344,6 +465,12 @@ btnApplyToView.onclick = () => {
     view.innerHTML = rendered;
 }; */
 
+/***********************************************************************
+ * syncViewToHtml — синхронизация view в HTML:
+ * - Принимает идентификатор блока.
+ * - Копирует содержимое визуального редактора в HTML-контейнер.
+ * - Обновляет текст HTML в центральном редакторе.
+ **********************************************************************/
 function syncViewToHtml(blockId) {
     const view = document.getElementById(blockId + '_view');
     const htmlDiv = document.getElementById(blockId + '_html');
@@ -353,6 +480,12 @@ function syncViewToHtml(blockId) {
     centerPreHtml.textContent = htmlDiv.innerHTML;
 }
 
+/***********************************************************************
+ * syncHtmlToView — синхронизация HTML в view:
+ * - Принимает идентификатор блока.
+ * - Берёт HTML-код из центрального редактора.
+ * - Обновляет HTML-контейнер и визуальное представление блока.
+ **********************************************************************/
 function syncHtmlToView(blockId) {
     const view = document.getElementById(blockId + '_view');
     const htmlDiv = document.getElementById(blockId + '_html');
@@ -363,6 +496,11 @@ function syncHtmlToView(blockId) {
     view.innerHTML = html;
 }
 
+/***********************************************************************
+ * btnApplyJs onclick — применение JS-кода:
+ * - Определяет активный блок.
+ * - Применяет JS-код из редактора к выбранному блоку.
+ **********************************************************************/
 btnApplyJs.onclick = () => {
     const blockId = getActiveBlockId();
     if (!blockId) return;
@@ -370,7 +508,14 @@ btnApplyJs.onclick = () => {
 };
 
 
-// Добавление HTML-элементов в view и HTML-редактор
+
+
+/***********************************************************************
+ * elements-ul click — добавление HTML-элемента:
+ * - Обрабатывает клик по элементу списка тегов.
+ * - Определяет выбранный HTML-тег.
+ * - Добавляет тег в визуальный редактор и HTML-код.
+ **********************************************************************/
 document.getElementById('elements-ul').addEventListener('click', e => {
     const el = e.target.closest('.add-el');
     if (!el) return;
@@ -382,6 +527,12 @@ document.getElementById('elements-ul').addEventListener('click', e => {
     handlePreHtml(tag, el.textContent.includes('</>'));
 });
 
+/***********************************************************************
+ * handleLoadedBlockView — вставка элемента в view:
+ * - Принимает имя HTML-тега.
+ * - Определяет позицию курсора в визуальном редакторе.
+ * - Создаёт и вставляет новый HTML-элемент в активный блок.
+ **********************************************************************/
 function handleLoadedBlockView(tag) {
     const sel = document.getSelection();
     if (!sel.rangeCount) return;
@@ -406,6 +557,12 @@ function handleLoadedBlockView(tag) {
     sel.addRange(range);
 }
 
+/***********************************************************************
+ * handlePreHtml — вставка HTML-кода в редактор:
+ * - Принимает имя тега и флаг закрывающего тега.
+ * - Формирует HTML-фрагмент.
+ * - Вставляет код в позицию курсора в HTML-редакторе.
+ **********************************************************************/
 function handlePreHtml(tag, wantsClosing) {
     const pre = document.getElementById('center-tab-pre-html');
     if (!pre || pre.contentEditable !== "true") return;
@@ -428,9 +585,19 @@ function handlePreHtml(tag, wantsClosing) {
 }
 
 
-// Выбор элемента 
+
+
+/***********************************************************************
+ * Ссылка на текущий выбранный элемент в view.
+ **********************************************************************/
 let currentSelectedEl = null;
 
+/***********************************************************************
+ * document click — выбор элемента в режиме view:
+ * - Обрабатывает клик по элементу внутри блока просмотра.
+ * - Определяет выбранный HTML-элемент для редактирования.
+ * - Обновляет связанные панели (CSS, свойства, JS).
+ **********************************************************************/
 document.addEventListener('click', e => {
     const clicked = e.target;
 
@@ -447,12 +614,19 @@ document.addEventListener('click', e => {
     updateJsPanel(el);
 });
 
+/***********************************************************************
+ * updateTagLabel — обновление метки тега:
+ * - Получает имя тега выбранного элемента.
+ * - Отображает его в панели информации.
+ **********************************************************************/
 function updateTagLabel(el) {
     const label = document.getElementById('tag-label');
     if (!label) return;
     let name = el.tagName.toLowerCase();
     label.textContent = name;
 }
+
+
 
 
 // Редактирование id и class элемента
