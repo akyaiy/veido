@@ -350,7 +350,7 @@ function listTfoot(act) {
     
     if (act === 'loadBlock') {
         const bottomBtn = document.getElementById('bottomBtn');
-        bottomBtn.onclick = () => submitBlockPath();
+        bottomBtn.onclick = () => submitPath();
     }
 }
 
@@ -361,7 +361,7 @@ function listTfoot(act) {
  * - Вызов callback-функции.
  * - Закрытие файлового менеджера.
  ***************************************************************************/
-async function submitBlockPath() {
+async function submitPath() {
     const input = document.getElementById('bottomInput');
     let path = cwd + '/' + input.value;
     path = path.replace(/^\/data\/HTML\/block\//, '');
