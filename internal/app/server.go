@@ -64,8 +64,8 @@ func ServerStart(db *sql.DB, aut *auth.Auth) {
 	r.Route("/dav", func(r chi.Router) {
 		// Используем r.Handle с подстановочным знаком (*), чтобы направить
 		// все методы (включая зарегистрированные выше) на davHandler
-		r.Handle("/", acl.RequirePermission(db, aut, acl.FilesPermissionFromRequest, davHandler))
-		r.Handle("/*", acl.RequirePermission(db, aut, acl.FilesPermissionFromRequest, davHandler))
+		r.Handle("/", acl.RequirePermission(db, aut, acl.FilesPermissionFromRequestWebDav, davHandler))
+		r.Handle("/*", acl.RequirePermission(db, aut, acl.FilesPermissionFromRequestWebDav, davHandler))
 	})
 
 	r.Route("/api", func(api chi.Router) {
@@ -73,8 +73,8 @@ func ServerStart(db *sql.DB, aut *auth.Auth) {
 		api.Get("/protected", HTML.LoadProtected(aut))
 		api.Route("/HTML", func(u chi.Router) { HTML.RegisterRoutes(u, db, aut) })
 		api.Route("/functions", func(u chi.Router) { functions.RegisterRoutes(u, db, aut) })
-		api.Route("/files", func(u chi.Router) { filesapi.RegisterRoutes(u) }) // { files.RegisterRoutes(u, db, aut) })
-		api.Route("/acl-admin", func(a chi.Router) { aclH.RegisterRoutes(a, db, aut) })
+		api.Route("/files", func(u chi.Router) { filesapi.RegisterRoutes(u, db, aut) })
+		api.Route("/acl-admin", func(u chi.Router) { aclH.RegisterRoutes(u, db, aut) })
 	})
 	// Фронтенд работает как SPA: любые не-API запросы → index.html
 	r.Get("/*", HTML.LoadTemplatePage)

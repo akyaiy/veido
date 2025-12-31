@@ -97,7 +97,7 @@ class TempStore {
  * - destroyOnRead показывает, надо ли удалять данные после прочтения. 
  *    По умолчанию = false
  ***************************************************************************/
-    async store(data, { recipient, ttlMs, destroyOnRead = false }) {
+    async store(data, { recipient, ttlMs = 1000, destroyOnRead = false }) {
         // Что сохраняется
         const record = {
         id: crypto.randomUUID(),

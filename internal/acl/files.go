@@ -5,17 +5,7 @@ import (
 	"strings"
 )
 
-func FilesPermissionFromRequest(r *http.Request) string {
-	action := filesActionFromMethod(r.Method)
-	path := filesPathFromRequest(r)
-
-	if path == "" {
-		return "files." + action
-	}
-
-	return "files." + action + "." + path
-}
-
+// ----------Функции вычисления permission------------
 func filesActionFromMethod(method string) string {
 	switch method {
 	case "GET", "HEAD", "PROPFIND":
@@ -33,6 +23,31 @@ func filesActionFromMethod(method string) string {
 	default:
 		return "unknown"
 	}
+}
+
+func FilesPermissionFromRequestWebDav(r *http.Request) string {
+	action := filesActionFromMethod(r.Method)
+	path := filesPathFromRequest(r)
+
+	if path == "" {
+		return "files." + action
+	}
+
+	return "files." + action + "." + path
+}
+
+func FilesPermissionFromRequestREST(r *http.Request) string {
+	action := filesActionFromMethod(r.Method) // теперь одинаково с WebDAV
+
+	// Получаем путь относительно /api/files
+	path := strings.TrimPrefix(r.URL.Path, "/api/files")
+	if path == "" || path == "/" {
+		return "files." + action
+	}
+
+	path = strings.TrimPrefix(path, "/")
+	path = strings.ReplaceAll(path, "/", ".")
+	return "files." + action + "." + path
 }
 
 func filesPathFromRequest(r *http.Request) string {

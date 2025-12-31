@@ -34,6 +34,7 @@ closeBtn.addEventListener('click', () => {
 /***********************************************************************
  * Текущее состояние файлового менеджера.
  **********************************************************************/
+//let storeFManager = "";
 let cwd = '/';
 let viewMode = 'table';
 let currentSort = 'name'; // name | size | date
@@ -209,66 +210,33 @@ function sortFiles() {
  * - Обновляет текущий путь и его отображение.
  * - Сортирует и перерисовывает список файлов.
  ***************************************************************************/
+
 async function list(path) {
-    let urlPath = path;
-    if (storeFManager?.[0]?.path) {
-        urlPath = storeFManager[0].path;
-        path = storeFManager[0].path;
-        storeFManager[0].path = null;
-    } else if (path === '/') {
-        urlPath = '';
+    // let urlPath = path;
+    // if (storeFManager?.[0]?.path) {
+    //     urlPath = storeFManager[0].path;
+    //     path = storeFManager[0].path;
+    //     storeFManager[0].path = null;
+    // } else if (path === '/') {
+    //     urlPath = '';
+    // }
+
+    try {
+        currentFiles = await apiProtected(`/api/files${path}`);//urlPath
+    } catch (e) {
+        if (e.status === 403) {
+            alert("Нет прав на просмотр файлов");
+        } else {
+            alert("Ошибка списка файлов");
+        }
+        return;
     }
 
-    const res = await fetch(`/api/files${urlPath}`);
-    if (!res.ok) return alert('Ошибка списка файлов');
-
-    currentFiles = await res.json();
-
     cwd = path;
-    //cwdEl.textContent = cwd;
     updateCwdDisplay();
-    // //console.log(currentFiles)
-    // currentFiles.sort((a, b) => {
-    //     // сначала папки
-    //     if (a.isDir !== b.isDir) {
-    //         return b.isDir - a.isDir;
-    //     }
-
-    //     // затем по имени
-    //     return a.name.localeCompare(b.name, 'ru', { sensitivity: 'base' });
-    //     });   
     sortFiles();
     renderFiles();
 }
-
-// filesView.addEventListener('click', (e) => {
-//     const item = e.target.closest('.file_item');
-//     //console.log(e.target)
-//     if (!item || e.target == filesView){
-//         filesView.querySelectorAll('.file_item.selected')
-//             .forEach(el => el.classList.remove('selected'));
-//         return;
-//     }
-//     if (!item) return;
-
-
-//     // если клик по уже выбранному — снять выделение
-//     if (item.classList.contains('selected')) {
-//         item.classList.remove('selected');
-//         return;
-//     }
-
-//     // if(document.getElementById('files_view')){
-
-//     // }
-
-//     // снять выделение со всех остальных
-//     filesView.querySelectorAll('.file_item.selected')
-//         .forEach(el => el.classList.remove('selected'));
-
-//     // выделить текущий
-//     item.classList.add('selected');
-// });
 
 /***************************************************************************
  * filesView click — управление выделением файлов и отображением пути:
@@ -361,7 +329,8 @@ async function renderFiles() {
     container.appendChild(item);
   });
 
-  const act = storeFManager?.[0]?.listTfootAct ?? null;
+  //const act = storeFManager?.[0]?.listTfootAct ?? null;
+  const act = M.data?.[0]?.listTfootAct ?? null;
   if (act) {
     listTfoot(act);
   } else {
@@ -396,15 +365,56 @@ async function submitBlockPath() {
     const input = document.getElementById('bottomInput');
     let path = cwd + '/' + input.value;
     path = path.replace(/^\/data\/HTML\/block\//, '');
-    await tempStore.store({path: path}, { recipient: storeFManager?.[0]?.sender, ttlMs: 5000, destroyOnRead: true })
-    
-    const callbackName = storeFManager?.[0]?.callbackFun;
-    if (callbackName && typeof window[callbackName] === "function") {
-        await window[callbackName]();
-    }
+    await M.setData(path);
+    await M.callBack();
     closeBtn.click();
 }
 
+
+/***************************************************************************
+ * MsgClient — клиент API для работы с Внутренними сообщениями.
+ ***************************************************************************/
+class MsgClient {
+
+/***************************************************************************
+ * Переменная для хранения полученых данных
+ ***************************************************************************/
+  constructor(data) {
+    this.data
+  }
+
+/***************************************************************************
+ * Функция получения данных из хранилища сообщений
+ ***************************************************************************/
+  async getData() {
+    this.data = await tempStore.getByRecipient("fManager");
+    let urlPath;
+    if (this.data){
+    if (this.data?.[0]?.path) {
+      urlPath = this.data[0].path;
+    } else if (this.data[0].path === '/') {
+      urlPath = '';
+    }} else {urlPath = "/"}
+    return urlPath
+  }
+
+/***************************************************************************
+ * Функция отправки данных в хранилище сообщений
+ ***************************************************************************/
+  async setData(path){
+    await tempStore.store({path: path}, { recipient: M.data?.[0]?.sender})
+  }
+
+/***************************************************************************
+ * Функция запуска callBack функций
+ ***************************************************************************/
+  async callBack(){
+    const callbackName = M.data?.[0]?.callbackFun;
+    if (callbackName && typeof window[callbackName] === "function") {
+        await window[callbackName]();
+    }
+ }
+}
 
 /***************************************************************************
  * FilesApiClient — клиент API для работы с файлами и каталогами.
@@ -417,6 +427,7 @@ class FilesApiClient {
   constructor(baseUrl = '/api/files') {
     this.baseUrl = baseUrl;
   }
+
 
 /***************************************************************************
  * list — получение списка файлов и папок:
@@ -601,6 +612,8 @@ class FilesApiClient {
     return res.json();
   }
 }
+
+let f = new FilesApiClient;
 
 /***************************************************************************
  * escapeHtml — экранирование HTML-символов для безопасного вывода текста.
@@ -963,9 +976,8 @@ applyViewMode(viewMode);
 /***************************************************************************
  * init — загружает содержимое корневого каталога.
  ***************************************************************************/
+let M = new MsgClient
 async function init() {
-    storeFManager = await tempStore.getByRecipient("fManager");
-    list('/');
+  list(await M.getData());
 }
-let storeFManager = "";
 init();

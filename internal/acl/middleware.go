@@ -2,6 +2,7 @@ package acl
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -39,7 +40,7 @@ func RequirePermission(db *sql.DB, aut *auth.Auth, permOrFunc interface{}, next 
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
-
+		fmt.Printf("permission: %v\n", perm)
 		_, err := db.Exec(`INSERT OR IGNORE INTO permissions(key) VALUES(?)`, perm)
 		if err != nil {
 			log.Println("RequirePermission: cannot insert permission:", err)
@@ -76,5 +77,16 @@ func RequirePermission(db *sql.DB, aut *auth.Auth, permOrFunc interface{}, next 
 		}
 
 		next.ServeHTTP(w, r)
+	}
+}
+
+// acl/middleware.go
+func RequirePermissionMW(
+	db *sql.DB,
+	aut *auth.Auth,
+	permOrFunc interface{},
+) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return RequirePermission(db, aut, permOrFunc, next)
 	}
 }
