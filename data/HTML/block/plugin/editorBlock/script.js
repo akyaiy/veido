@@ -6,6 +6,17 @@ const cssPanel = document.getElementById('css-panel');
 const jsPanel = document.getElementById('js-panel');
 
 /***********************************************************************
+ * Элементы вкладок view / html / js центрального редактора.
+ **********************************************************************/
+const centerTabs = document.querySelectorAll('#center-tabs .center-tab');
+const centerContent = document.getElementById('center-tab-content');
+const centerPreHtml = document.getElementById('center-tab-pre-html');
+const centerPreJs = document.getElementById('center-tab-pre-js');
+/* const btnLoadFromView = document.getElementById('btn-load-from-view');
+const btnApplyToView = document.getElementById('btn-apply-to-view'); */
+const btnApplyJs = document.getElementById('btn-apply-js');
+
+/***********************************************************************
  * tabs tab click — переключение вкладок CSS и JS:
  * - Снимает активное состояние со всех вкладок.
  * - Активирует выбранную вкладку.
@@ -119,6 +130,9 @@ tabOpen.onclick = async() => {
  * - Загружает содержимое блока и активирует его отображение.
  **********************************************************************/
 async function newLoadedBlock() {
+    const viewTab = document.querySelector('#center-tabs .center-tab[data-tab="view"]');
+    viewTab.click();
+
     const path = (await tempStore.getByRecipient("editorBlock"))?.[0]?.path;
     let tabs = document.getElementById('blocks-tabs');
     let container = document.getElementById('loadedBlockMain');
@@ -132,14 +146,24 @@ async function newLoadedBlock() {
     tabs.querySelectorAll('.tab').forEach(t => {
         if (t.dataset.path === path) existingTab = t;
     });
+    
+function switchTo(blockId, tabEl) {
+    tabs.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    if (tabEl) tabEl.classList.add('active');
 
-    function switchTo(blockId, tabEl) {
-        tabs.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        if (tabEl) tabEl.classList.add('active');
-        Array.from(container.children).forEach(ch => {
-            if (ch !== handle) ch.style.display = ch.id === blockId ? '' : 'none';
-        });
-    }
+    Array.from(container.children).forEach(ch => {
+        if (ch !== handle) ch.style.display = ch.id === blockId ? '' : 'none';
+    });
+
+    // 🔑 ВАЖНО: применяем текущий режим центра
+    const activeCenterTab = document.querySelector('#center-tabs .center-tab.active');
+    if (!activeCenterTab) return;
+
+    const mode = activeCenterTab.dataset.tab;
+    if (mode === 'view') showView(blockId);
+    if (mode === 'html') showHtml(blockId);
+    if (mode === 'js') showJs(blockId);
+}
 
     if (existingTab) {
         switchTo(existingTab.dataset.blockId, existingTab);
@@ -157,7 +181,7 @@ async function newLoadedBlock() {
     viewDiv.id = blockId + '_view';
     viewDiv.className = 'loadedBlock_view';
     viewDiv.contentEditable = 'true';
-    viewDiv.oninput = () => syncViewToHtml(blockId);
+    viewDiv.addEventListener('input', () => { viewDiv.dataset.dirty = "true"; syncHtmlFromView(blockId); });
 
     const htmlDiv = document.createElement('div');
     htmlDiv.id = blockId + '_html';
@@ -193,18 +217,171 @@ async function newLoadedBlock() {
 }
 window.newLoadedBlock = newLoadedBlock;
 
-/***********************************************************************
- * center-tab-pre-html input — синхронизация HTML и view:
- * - Проверяет, что активна вкладка HTML.
- * - Определяет id текущего активного блока.
- * - Обновляет визуальное представление блока по HTML-коду.
- **********************************************************************/
-document.getElementById('center-tab-pre-html').addEventListener('input', () => {
-    if (document.querySelector('#center-tabs .center-tab.active')?.dataset.tab !== 'html') return;
+const centerEditor = document.getElementById('center-tab-pre-html');
 
-    const blockId = getActiveBlockId();
-    if (blockId) syncHtmlToView(blockId);
+
+function syncActiveBlock() {
+    const tab = document.querySelector('#blocks-tabs .tab.active');
+    if (!tab) return;
+
+    const blockId = tab.dataset.blockId;
+    const htmlEl = document.getElementById(blockId + '_html');
+    if (!htmlEl) return;
+
+    htmlEl.textContent = centerEditor.textContent;
+    syncViewFromHtml(blockId);
+}
+
+const scheduleSync = () => queueMicrotask(syncActiveBlock);
+
+centerEditor.addEventListener('input', scheduleSync);
+centerEditor.addEventListener('paste', scheduleSync);
+centerEditor.addEventListener('keydown', e => (e.key === 'Enter' || (e.ctrlKey && (e.key === 'z' || e.key === 'y'))) && queueMicrotask(syncActiveBlock));
+
+
+centerEditor.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+
+        const sel = window.getSelection();
+        if (!sel.rangeCount) return;
+
+        const range = sel.getRangeAt(0);
+
+        const textNode = document.createTextNode('\n');
+
+        range.deleteContents();
+        range.insertNode(textNode);
+
+        range.setStartAfter(textNode);
+        range.collapse(true);
+
+        sel.removeAllRanges();
+        sel.addRange(range);
+    }
 });
+
+
+
+
+
+
+
+
+const md = window.markdownit({ html: true, linkify: true, typographer: true });
+
+let activeBlockId = null;
+let activeSyncSource = null; // 'html' | 'view'
+
+function logSync(nextBlockId, nextSource) {
+    const sameId = activeBlockId === nextBlockId;
+    return sameId;
+}
+
+function syncViewFromHtml(blockId) {
+    const canRender = logSync(blockId, 'html');
+
+    const htmlElPre = document.getElementById('center-tab-pre-html');
+    const htmlEl = document.getElementById(blockId + '_html');
+    const viewEl = document.getElementById(blockId + '_view');
+    if (!htmlElPre || !htmlEl || !viewEl) return;
+
+    if (canRender) {
+        let content = htmlElPre.textContent;
+
+        htmlEl.innerHTML = content;
+        viewEl.innerHTML = md.render(content);
+    }
+
+    activeBlockId = blockId;
+    activeSyncSource = 'html';
+}
+
+
+function syncHtmlFromView(blockId) {
+    const canRender = logSync(blockId, 'view');
+
+    const viewEl = document.getElementById(blockId + '_view');
+    const htmlEl = document.getElementById(blockId + '_html');
+    if (!viewEl || !htmlEl) return;
+
+    if (canRender) {
+        let mdText = htmlToMixed(viewEl.innerHTML);
+        htmlEl.innerHTML = mdText;
+    }
+
+    activeBlockId = blockId;
+    activeSyncSource = 'view';
+}
+
+function nodeToMd(node) {
+    if (node.nodeType === Node.TEXT_NODE) return node.nodeValue;
+    if (node.nodeType !== Node.ELEMENT_NODE) return '';
+
+    const tag = node.tagName.toLowerCase();
+    const children = [...node.childNodes].map(nodeToMd).join('');
+
+    switch (tag) {
+        case 'h1': return '# ' + children.trim() + '\n\n';
+        case 'h2': return '## ' + children.trim() + '\n\n';
+        case 'h3': return '### ' + children.trim() + '\n\n';
+        case 'h4': return '#### ' + children.trim() + '\n\n';
+        case 'strong':
+        case 'b': return '**' + children + '**';
+        case 'em':
+        case 'i': return '*' + children + '*';
+        case 'p': return children.trim() + '\n\n';
+        case 'br': return '  \n';
+        case 'ul':
+            return '\n' + [...node.children]
+                .map(li => '- ' + [...li.childNodes].map(nodeToMd).join('').trim())
+                .join('\n') + '\n\n';
+        case 'ol':
+            return '\n' + [...node.children]
+                .map((li, i) =>
+                    (i + 1) + '. ' +
+                    [...li.childNodes].map(nodeToMd).join('').trim()
+                ).join('\n') + '\n\n';
+        case 'a':
+            return '[' + (children || node.getAttribute('href') || '') + '](' +
+                   (node.getAttribute('href') || '') + ')';
+        case 'img':
+            return '![' + (node.getAttribute('alt') || '') + '](' +
+                   (node.getAttribute('src') || '') + ')';
+        case 'pre': {
+            const code = node.querySelector('code');
+            const txt = code ? code.textContent : node.textContent;
+            return '\n```\n' + txt.replace(/^\n+|\n+$/g, '') + '\n```\n\n';
+        }
+        default:
+            return node.attributes && node.attributes.length
+                ? node.outerHTML
+                : children;
+    }
+}
+
+function htmlToMixed(html) {
+    const doc = new DOMParser().parseFromString('<div>' + html + '</div>', 'text/html');
+    const wrapper = doc.body.firstElementChild;
+    if (!wrapper) return '\n';
+
+    const out = [...wrapper.childNodes]
+        .map(nodeToMd)
+        .join('')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+
+    return out ? out + '\n' : '\n';
+}
+
+
+
+
+
+
+
+
+
 
 /***********************************************************************
  * closeBlock — закрытие блока и очистка интерфейса:
@@ -256,17 +433,6 @@ function closeBlock(e, block, tabEl) {
 
 
 
-
-/***********************************************************************
- * Элементы вкладок view / html / js центрального редактора.
- **********************************************************************/
-const centerTabs = document.querySelectorAll('#center-tabs .center-tab');
-const centerContent = document.getElementById('center-tab-content');
-const centerPreHtml = document.getElementById('center-tab-pre-html');
-const centerPreJs = document.getElementById('center-tab-pre-js');
-/* const btnLoadFromView = document.getElementById('btn-load-from-view');
-const btnApplyToView = document.getElementById('btn-apply-to-view'); */
-const btnApplyJs = document.getElementById('btn-apply-js');
 
 /***********************************************************************
  * getActiveBlockId — определение активного блока:
@@ -382,9 +548,7 @@ function showHtml(blockId) {
     document.getElementById('loadedBlock').style.display = 'none';
 
     const htmlContainer = document.getElementById(blockId + '_html');
-    if (htmlContainer && !centerPreHtml.dataset.userEdited) {
-        centerPreHtml.textContent = htmlContainer.innerHTML;
-    }
+    centerPreHtml.textContent = htmlContainer.innerHTML;
 }
 
 /***********************************************************************
@@ -392,6 +556,28 @@ function showHtml(blockId) {
  **********************************************************************/
 centerPreHtml.addEventListener('input', () => {
     centerPreHtml.dataset.userEdited = '1';
+});
+
+centerPreHtml.addEventListener('paste', e => {
+    e.preventDefault();
+
+    const text = e.clipboardData.getData('text/plain');
+
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+
+    const range = sel.getRangeAt(0);
+
+    range.deleteContents();
+
+    const textNode = document.createTextNode(text);
+    range.insertNode(textNode);
+
+    range.setStartAfter(textNode);
+    range.collapse(true);
+
+    sel.removeAllRanges();
+    sel.addRange(range);
 });
 
 /***********************************************************************
@@ -465,37 +651,6 @@ btnApplyToView.onclick = () => {
     htmlDiv.innerHTML = rendered;
     view.innerHTML = rendered;
 }; */
-
-/***********************************************************************
- * syncViewToHtml — синхронизация view в HTML:
- * - Принимает идентификатор блока.
- * - Копирует содержимое визуального редактора в HTML-контейнер.
- * - Обновляет текст HTML в центральном редакторе.
- **********************************************************************/
-function syncViewToHtml(blockId) {
-    const view = document.getElementById(blockId + '_view');
-    const htmlDiv = document.getElementById(blockId + '_html');
-    if (!view || !htmlDiv) return;
-
-    htmlDiv.innerHTML = view.innerHTML;
-    centerPreHtml.textContent = htmlDiv.innerHTML;
-}
-
-/***********************************************************************
- * syncHtmlToView — синхронизация HTML в view:
- * - Принимает идентификатор блока.
- * - Берёт HTML-код из центрального редактора.
- * - Обновляет HTML-контейнер и визуальное представление блока.
- **********************************************************************/
-function syncHtmlToView(blockId) {
-    const view = document.getElementById(blockId + '_view');
-    const htmlDiv = document.getElementById(blockId + '_html');
-    if (!view || !htmlDiv) return;
-
-    const html = centerPreHtml.textContent;
-    htmlDiv.innerHTML = html;
-    view.innerHTML = html;
-}
 
 /***********************************************************************
  * btnApplyJs onclick — применение JS-кода:

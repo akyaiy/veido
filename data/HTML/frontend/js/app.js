@@ -468,7 +468,8 @@ async function loadBlock(path, block_Name, itemsHowText = null) {
        // Преобразуем markdown в HTML
         if (mdContent) {
             const md = window.markdownit({ html: true, linkify: true, typographer: true });
-            container.innerHTML = itemsHowText?.includes('html') ? mdContent : md.render(mdContent);
+            /* container.innerHTML = itemsHowText?.includes('html') ? mdContent : md.render(mdContent); */
+            container.innerHTML = md.render(mdContent);
             container?.id?.match(/^loadedBlock_\d+_view$/) && (document.getElementById(container.id.replace('_view', '_html')).innerHTML = mdContent);
         }
         // Добавление CSS блока
