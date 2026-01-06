@@ -217,9 +217,16 @@ function switchTo(blockId, tabEl) {
 }
 window.newLoadedBlock = newLoadedBlock;
 
+/***********************************************************************
+ * centerEditor — HTML/Markdown-редактор центра.
+ **********************************************************************/
 const centerEditor = document.getElementById('center-tab-pre-html');
 
-
+/***********************************************************************
+ * syncActiveBlock — синхронизация активного блока:
+ * - Копирует содержимое HTML-редактора в HTML-блок.
+ * - Обновляет визуальное представление блока через syncViewFromHtml.
+ **********************************************************************/
 function syncActiveBlock() {
     const tab = document.querySelector('#blocks-tabs .tab.active');
     if (!tab) return;
@@ -232,13 +239,21 @@ function syncActiveBlock() {
     syncViewFromHtml(blockId);
 }
 
+/***********************************************************************
+ * Асинхронная синхронизация активного блока при input, paste и keydown (Enter / Ctrl+Z / Ctrl+Y).
+ **********************************************************************/
 const scheduleSync = () => queueMicrotask(syncActiveBlock);
-
 centerEditor.addEventListener('input', scheduleSync);
 centerEditor.addEventListener('paste', scheduleSync);
 centerEditor.addEventListener('keydown', e => (e.key === 'Enter' || (e.ctrlKey && (e.key === 'z' || e.key === 'y'))) && queueMicrotask(syncActiveBlock));
 
-
+/***********************************************************************
+ * CenterEditor keydown — Вставка переноса строки при Enter:
+ * - Получает объект события клавиатуры.
+ * - Предотвращает стандартное действие Enter.
+ * - Вставляет текстовый узел с новой строкой.
+ * - Перемещает курсор после вставки.
+ **********************************************************************/
 centerEditor.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
         e.preventDefault();
@@ -264,20 +279,38 @@ centerEditor.addEventListener('keydown', (e) => {
 
 
 
-
-
-
-
+/***********************************************************************
+ * Создает объект MarkdownIt с HTML, автоссылками и типографикой
+ **********************************************************************/
 const md = window.markdownit({ html: true, linkify: true, typographer: true });
 
+/***********************************************************************
+ * Хранит идентификатор текущего активного блока
+ **********************************************************************/
 let activeBlockId = null;
-let activeSyncSource = null; // 'html' | 'view'
+/***********************************************************************
+ * Хранит источник последней синхронизации (например, HTML или редактор)
+ **********************************************************************/
+let activeSyncSource = null;
 
+/***********************************************************************
+ * logSync — Проверяет совпадение активного блока с переданным:
+ * - Принимает идентификатор следующего блока и источник.
+ * - Сравнивает с активным блоком.
+ * - Возвращает true, если блоки совпадают.
+ **********************************************************************/
 function logSync(nextBlockId, nextSource) {
     const sameId = activeBlockId === nextBlockId;
     return sameId;
 }
 
+/***********************************************************************
+ * syncViewFromHtml — Синхронизирует содержимое HTML-блока с редактором:
+ * - Принимает идентификатор блока.
+ * - Проверяет, нужно ли обновлять блок через logSync.
+ * - Копирует текст из редактора в скрытый HTML и обновляет визуальный блок через Markdown.
+ * - Обновляет активный блок и источник синхронизации.
+ **********************************************************************/
 function syncViewFromHtml(blockId) {
     const canRender = logSync(blockId, 'html');
 
@@ -297,7 +330,13 @@ function syncViewFromHtml(blockId) {
     activeSyncSource = 'html';
 }
 
-
+/***********************************************************************
+ * syncHtmlFromView — Синхронизирует HTML-блок с визуальным представлением:
+ * - Принимает идентификатор блока.
+ * - Проверяет, нужно ли обновлять блок через logSync.
+ * - Преобразует содержимое визуального блока в смешанный HTML и обновляет HTML-блок.
+ * - Обновляет активный блок и источник синхронизации.
+ **********************************************************************/
 function syncHtmlFromView(blockId) {
     const canRender = logSync(blockId, 'view');
 
@@ -314,6 +353,13 @@ function syncHtmlFromView(blockId) {
     activeSyncSource = 'view';
 }
 
+/***********************************************************************
+ * nodeToMd — Преобразует HTML-узел в Markdown:
+ * - Принимает HTML-узел.
+ * - Конвертирует текстовые узлы в текст.
+ * - Конвертирует элементы (заголовки, параграфы, списки, ссылки, изображения, код) в Markdown.
+ * - Рекурсивно обрабатывает дочерние узлы.
+ **********************************************************************/
 function nodeToMd(node) {
     if (node.nodeType === Node.TEXT_NODE) return node.nodeValue;
     if (node.nodeType !== Node.ELEMENT_NODE) return '';
@@ -360,6 +406,13 @@ function nodeToMd(node) {
     }
 }
 
+/***********************************************************************
+ * htmlToMixed — Конвертирует HTML в Markdown:
+ * - Принимает HTML строку.
+ * - Парсит и обрабатывает дочерние узлы через nodeToMd.
+ * - Убирает лишние пустые строки.
+ * - Возвращает Markdown с переносом строки.
+ **********************************************************************/
 function htmlToMixed(html) {
     const doc = new DOMParser().parseFromString('<div>' + html + '</div>', 'text/html');
     const wrapper = doc.body.firstElementChild;
@@ -373,12 +426,6 @@ function htmlToMixed(html) {
 
     return out ? out + '\n' : '\n';
 }
-
-
-
-
-
-
 
 
 
@@ -785,7 +832,13 @@ function updateTagLabel(el) {
 
 
 
-// Редактирование id и class элемента
+/***********************************************************************
+ * updateCssPanel — Обновляет панель атрибутов CSS для выбранного элемента:
+ * - Принимает HTML элемент.
+ * - Заполняет поля ввода ID и класса текущего элемента.
+ * - Очищает и заполняет таблицу остальных атрибутов.
+ * - Добавляет пустую строку для нового атрибута.
+ **********************************************************************/
 function updateCssPanel(el) {
     currentSelectedEl = el;
     const idInput = document.getElementById('attr-id');
@@ -800,19 +853,35 @@ function updateCssPanel(el) {
     ensureEmptyAttrRow();
 }
 
+/***********************************************************************
+ * attr-id input — Синхронизирует ввод ID с текущим элементом:
+ * - Принимает событие ввода.
+ * - Обновляет ID выбранного элемента или удаляет его, если пусто.
+ **********************************************************************/
 document.getElementById('attr-id')?.addEventListener('input', e => {
     if (!currentSelectedEl) return;
     const v = e.target.value.trim();
     v ? currentSelectedEl.id = v : currentSelectedEl.removeAttribute('id');
 });
 
+/***********************************************************************
+ * attr-class input — Синхронизирует ввод класса с текущим элементом:
+ * - Принимает событие ввода.
+ * - Обновляет class выбранного элемента.
+ **********************************************************************/
 document.getElementById('attr-class')?.addEventListener('input', e => {
     if (!currentSelectedEl) return;
     currentSelectedEl.className = e.target.value;
 });
 
 
-// Редактирование атрибутов элемента
+/***********************************************************************
+ * createAttrRow — Создает строку таблицы атрибутов элемента:
+ * - Принимает имя и значение атрибута.
+ * - Создает редактируемые ячейки name и value.
+ * - Добавляет кнопку удаления, если атрибут задан.
+ * - Вставляет строку в таблицу атрибутов.
+ **********************************************************************/
 function createAttrRow(name, value) {
     const attrsTable = document.getElementById('attributes-table');
     const tr = document.createElement('tr');
@@ -841,6 +910,12 @@ function createAttrRow(name, value) {
     attrsTable.appendChild(tr);
 }
 
+/***********************************************************************
+ * removeAttrRow — Удаляет строку атрибута из таблицы:
+ * - Удаляет атрибут с элемента, если он был задан.
+ * - Удаляет строку из таблицы.
+ * - Обеспечивает наличие пустой строки для нового атрибута.
+ **********************************************************************/
 function removeAttrRow(tr, td1) {
     const prev = td1.dataset.prev || '';
     if (prev && currentSelectedEl) {
@@ -850,6 +925,11 @@ function removeAttrRow(tr, td1) {
     ensureEmptyAttrRow();
 }
 
+/***********************************************************************
+ * ensureEmptyAttrRow — Гарантирует наличие пустой строки в таблице атрибутов:
+ * - Проверяет последнюю строку таблицы.
+ * - Если строки нет или она не пуста, создаёт новую пустую строку.
+ **********************************************************************/
 function ensureEmptyAttrRow() {
     const t = document.getElementById('attributes-table');
     if (!t) return;
@@ -864,6 +944,15 @@ function ensureEmptyAttrRow() {
     }
 }
 
+/***********************************************************************
+ * attributes-table input — Обновление атрибутов элемента:
+ * - Получает событие ввода.
+ * - Отслеживает редактирование ячеек name и value.
+ * - При изменении name удаляет старый атрибут и ставит новый.
+ * - При изменении value обновляет текущий атрибут.
+ * - Добавляет кнопку удаления при появлении значения.
+ * - Гарантирует наличие пустой строки в конце таблицы.
+ **********************************************************************/
 document.getElementById('attributes-table')?.addEventListener('input', e => {
     const td = e.target.closest('td');
     if (!td) return;
@@ -903,6 +992,13 @@ document.getElementById('attributes-table')?.addEventListener('input', e => {
     }
 });
 
+/***********************************************************************
+ * attributes-table blur — Обработка потери фокуса ячейки таблицы:
+ * - Получает событие потери фокуса.
+ * - Определяет ячейку и строку таблицы, к которой относится событие.
+ * - Удаляет атрибут у элемента, если имя стало пустым.
+ * - Удаляет строку таблицы, если она пустая и не последняя.
+ **********************************************************************/
 document.getElementById('attributes-table')?.addEventListener('blur', e => {
     const td = e.target.closest('td');
     if (!td) return;
@@ -918,7 +1014,13 @@ document.getElementById('attributes-table')?.addEventListener('blur', e => {
 }, true);
 
 
-// Редактирование свойства элемента
+/***********************************************************************
+ * getBlockIdFromEl — Определяет id блока по элементу:
+ * - Принимает DOM-элемент.
+ * - Поднимается по DOM вверх от переданного элемента.
+ * - Ищет первый элемент с id, оканчивающимся на "_view".
+ * - Возвращает id без суффикса "_view" или null, если такого элемента нет.
+ **********************************************************************/
 function getBlockIdFromEl(el) {
     let node = el;
     while (node) {
@@ -928,6 +1030,14 @@ function getBlockIdFromEl(el) {
     return null;
 }
 
+/***********************************************************************
+ * updatePropertiesPanel — Обновляет панель CSS-свойств элемента:
+ * - Принимает DOM-элемент.
+ * - Определяет id блока и связанные динамические стили.
+ * - Парсит CSS правила и сопоставляет их с элементом.
+ * - Формирует список селекторов по приоритету (id, классы, тег, matched rules).
+ * - Заполняет таблицу свойствами и добавляет строки для новых свойств.
+ **********************************************************************/
 function updatePropertiesPanel(el) {
     const table = document.getElementById('properties-table');
     if (!table) return;
@@ -982,6 +1092,13 @@ function updatePropertiesPanel(el) {
     });
 }
 
+/***********************************************************************
+ * parseCssToRules — Преобразует CSS строку в массив правил:
+ * - Принимает CSS строку.
+ * - Разбивает её на селекторы и декларации.
+ * - Для каждого селектора формирует объект {selector, decls}.
+ * - Возвращает массив таких объектов.
+ **********************************************************************/
 function parseCssToRules(css) {
     const out = [];
     const re = /([^{]+)\{([^}]*)\}/g;
@@ -995,12 +1112,24 @@ function parseCssToRules(css) {
     return out;
 }
 
+/***********************************************************************
+ * buildSelector — Создает CSS-селектор для элемента по id, классам или тегу.
+ * - Принимает DOM-элемент.
+ * - Возвращает селектор как строку.
+ **********************************************************************/
 function buildSelector(el) {
     if (el.id) return '#' + el.id;
     if (el.className) return '.' + el.className.split(' ').filter(Boolean).join('.');
     return el.tagName.toLowerCase();
 }
 
+/***********************************************************************
+ * createPropRow — Создает строку свойства CSS в таблице:
+ * - Принимает имя свойства, значение и флаг удаляемости.
+ * - Создает редактируемые ячейки для имени и значения.
+ * - Добавляет кнопку удаления, если нужно.
+ * - Вставляет строку в таблицу properties-table.
+ **********************************************************************/
 function createPropRow(prop, val, deletable) {
     const table = document.getElementById('properties-table');
     const tr = document.createElement('tr');
@@ -1026,6 +1155,12 @@ function createPropRow(prop, val, deletable) {
     table.appendChild(tr);
 }
 
+/***********************************************************************
+ * createAddPropRow — Добавляет пустую строку для нового свойства CSS:
+ * - Проверяет, что последняя строка таблицы пустая.
+ * - Создает редактируемые ячейки для имени и значения.
+ * - Вставляет строку в таблицу properties-table.
+ **********************************************************************/
 function createAddPropRow() {
     const table = document.getElementById('properties-table');
     const last = table.lastElementChild;
@@ -1043,6 +1178,14 @@ function createAddPropRow() {
     table.appendChild(tr);
 }
 
+/***********************************************************************
+ * properties-table input — следит за вводом в таблице CSS-свойств:
+ * - Получает объект события ввода в таблице.
+ * - Берёт имя и значение свойства из этой строки таблицы.
+ * - Если свойство новое, добавляет крестик для удаления.
+ * - Обновляет стиль выбранного блока на странице.
+ * - Всегда оставляет пустую строку для добавления следующего свойства.
+ **********************************************************************/
 document.getElementById('properties-table')?.addEventListener('input', e => {
     const td = e.target.closest('td');
     if (!td) return;
@@ -1068,6 +1211,13 @@ document.getElementById('properties-table')?.addEventListener('input', e => {
     rebuildStyleForActive();
 });
 
+/***********************************************************************
+ * properties-table blur — обработка потери фокуса в таблице CSS-свойств:
+ * - Получает событие потери фокуса.
+ * - Проверяет имя и значение свойства в строке таблицы.
+ * - Удаляет пустые строки, кроме последней.
+ * - Восстанавливает плейсхолдеры для имени и значения свойства.
+ **********************************************************************/
 document.getElementById('properties-table')?.addEventListener('blur', e => {
     const td = e.target.closest('td');
     if (!td) return;
@@ -1092,6 +1242,12 @@ document.getElementById('properties-table')?.addEventListener('blur', e => {
     }
 }, true);
 
+/***********************************************************************
+ * ensureAddRowExists — гарантирует наличие пустой строки для нового свойства:
+ * - Проверяет последнюю строку таблицы свойств.
+ * - Если строки нет или она некорректная, создаёт новую пустую строку.
+ * - Иначе восстанавливает плейсхолдеры для имени и значения свойства.
+ **********************************************************************/
 function ensureAddRowExists() {
     const table = document.getElementById('properties-table');
     const last = table.lastElementChild;
@@ -1102,6 +1258,13 @@ function ensureAddRowExists() {
     }
 }
 
+/***********************************************************************
+ * rebuildStyleForActive — обновляет CSS для активного элемента блока:
+ * - Считывает все строки таблицы свойств и формирует карту селекторов и их стилей.
+ * - Сохраняет порядок существующих правил и добавляет новые.
+ * - Генерирует итоговый CSS текст.
+ * - Создаёт или обновляет динамический `<style>` для текущего блока.
+ **********************************************************************/
 function rebuildStyleForActive() {
     const table = document.getElementById('properties-table');
     if (!table) return;
@@ -1158,12 +1321,17 @@ function rebuildStyleForActive() {
 }
 
 
-// Редактирование js элемента
 
+
+/***********************************************************************
+ * jsTable — таблица редактора JS-кода блока.
+ **********************************************************************/
 const jsTable = document.getElementById('editor-js-panel');
-
 jsTable.innerHTML = '';
 
+/***********************************************************************
+ * Список групп событий для элементов интерфейса.
+ **********************************************************************/
 const events = [
     [
         'onclick',
@@ -1193,6 +1361,11 @@ const events = [
     ]
 ];
 
+/***********************************************************************
+ * events group - Заполняет таблицу JS-событий:
+ * - Создаёт строки для каждого события с редактируемым именем.
+ * - Разделяет группы событий горизонтальной линией.
+ **********************************************************************/
 events.forEach((group, gi) => {
     group.forEach(ev => {
         const tr = document.createElement('tr');
@@ -1220,6 +1393,16 @@ events.forEach((group, gi) => {
     }
 });
 
+/***********************************************************************
+ * updateJsPanel — обновляет панель JS-событий для выбранного элемента:
+ * - Получает выбранный DOM-элемент (блок на странице).
+ * - Очищает все строки таблицы и сбрасывает клики.
+ * - Ищет все addEventListener и присваивания onX в скрипте.
+ * - Фильтрует события, которые применимы к текущему элементу.
+ * - Создаёт карту событий - селекторов.
+ * - Заполняет имена обработчиков в таблице и делает кликабельными события.
+ * - Присваивает обработчики для input и blur, передавая map, blockId и элемент.
+ **********************************************************************/
 function updateJsPanel(el) {
     const table = document.getElementById('editor-js-panel');
     const rows = Array.from(table.querySelectorAll('tr'));
@@ -1241,7 +1424,6 @@ function updateJsPanel(el) {
 
     const addListenerRe = /([^\n;]+?)\.addEventListener\(\s*['"]([^'"]+)['"]\s*,\s*([A-Za-z0-9_$]+|function\b)/g;
     let m;
-
     while ((m = addListenerRe.exec(txt)) !== null) {
         const selector = resolveSelectorFromExpr(m[1].trim(), txt);
         entries.push({
@@ -1296,113 +1478,154 @@ function updateJsPanel(el) {
         tdEvent.onclick = () => {
             const jsTab = document.querySelector('#center-tabs .center-tab[data-tab="js"]');
             if (jsTab) jsTab.click();
-            if (found.handler) {
-                highlightInJsEditor('function ' + found.handler + '(', txt);
-            } else {
-                highlightInJsEditor(found.raw, txt);
-            }
+            if (found.handler) highlightInJsEditor('function ' + found.handler + '(', txt);
+            else highlightInJsEditor(found.raw, txt);
         };
     });
 
     table.removeEventListener('blur', onJsTableBlur, true);
-    table.addEventListener('blur', onJsTableBlur, true);
+    table.addEventListener('blur', e => onJsTableBlur(e, eventToSelector, blockId, el), true);
     table.removeEventListener('input', onJsTableInput);
-    table.addEventListener('input', onJsTableInput);
-
-    function onJsTableInput(e) {
-        const td = e.target.closest('td');
-        if (!td) return;
-        const tr = td.parentNode;
-        if (!tr) return;
-        const tdEvent = tr.children[0];
-        const tdName = tr.children[1];
-        if (!tdEvent || !tdName) return;
-        if (td !== tdName) return;
-        const ev = tdEvent.textContent.trim();
-        const handler = tdName.textContent.trim();
-        const selector = eventToSelector.get(ev);
-        if (!selector) return;
-        updateScriptAssignment(blockId, selector, ev, handler);
-    }
-
-    function onJsTableBlur(e) {
-        const td = e.target.closest('td');
-        if (!td) return;
-        const tr = td.parentNode;
-        if (!tr) return;
-        const tdEvent = tr.children[0];
-        const tdName = tr.children[1];
-        if (!tdEvent || !tdName) return;
-        if (td !== tdName) return;
-        const ev = tdEvent.textContent.trim();
-        const handler = tdName.textContent.trim();
-        const selector = eventToSelector.get(ev);
-        if (!selector) return;
-        updateScriptAssignment(blockId, selector, ev, handler);
-    }
-
-    function updateScriptAssignment(blockId, selector, eventFull, handlerName) {
-        const scriptEl = document.querySelector('script[data-dynamic="' + blockId + '_view"]');
-        if (!scriptEl) return;
-        let s = scriptEl.textContent;
-        const ev = eventFull.replace(/^on/, '');
-
-        const lhsCandidates = buildLhsCandidates(selector, s);
-
-        const assignRegexFor = lhs => {
-            return new RegExp('(^|\\n)\\s*' + escapeRegExp(lhs) + '\\.on' + ev + '\\s*=\\s*[^;\\n]*;?', 'g');
-        };
-
-        lhsCandidates.forEach(lhs => {
-            s = s.replace(assignRegexFor(lhs), '');
-        });
-
-        if (handlerName) {
-            const preferredLhs = lhsCandidates[0] || (selector.startsWith('#') ? "document.getElementById('" + selector.slice(1) + "')" : "document.querySelector('" + selector.replace(/'/g, "\\'") + "')");
-            const line = preferredLhs + '.on' + ev + ' = ' + handlerName + ';';
-            const insertBeforeIdx = findInsertIndexBeforeClosingIIFE(s);
-            if (insertBeforeIdx !== -1) {
-                s = s.slice(0, insertBeforeIdx) + '\n' + line + '\n' + s.slice(insertBeforeIdx);
-            } else {
-                s = s.trimEnd() + '\n' + line + '\n';
-            }
-        }
-
-        scriptEl.textContent = s;
-        // обновляем centerPreJs если открыт
-        const blockPre = document.getElementById('center-tab-pre-js');
-        const activeBlock = getActiveBlockId();
-        if (blockPre && (getBlockIdFromEl(el) || activeBlock) === blockId) blockPre.textContent = scriptEl.textContent;
-    }
-
-    function buildLhsCandidates(selector, scriptText) {
-        const out = [];
-        const id = selector.startsWith('#') ? selector.slice(1) : null;
-        const escapedSel = escapeRegExp(id || selector);
-        const varAssignRe = new RegExp('\\b(var|let|const)\\s+([A-Za-z_$][A-Za-z0-9_$]*)\\s*=\\s*document\\.(getElementById|querySelector(All)?)\\(\\s*[\'"]' + escapedSel + '[\'"]\\s*\\)', 'g');
-        let mm;
-        while ((mm = varAssignRe.exec(scriptText)) !== null) {
-            out.push(mm[2]);
-        }
-        if (id) out.push("document.getElementById('" + id + "')");
-        out.push("document.querySelector('" + selector.replace(/'/g, "\\'") + "')");
-        return out;
-    }
-
-    function findInsertIndexBeforeClosingIIFE(text) {
-        const iife = '})();';
-        const idx = text.lastIndexOf(iife);
-        if (idx !== -1) return idx;
-        const lastClose = text.lastIndexOf('}');
-        if (lastClose !== -1) return lastClose + 1;
-        return -1;
-    }
-
-    function escapeRegExp(str) {
-        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    }
+    table.addEventListener('input', e => onJsTableInput(e, eventToSelector, blockId, el));
 }
 
+/***********************************************************************
+ * onJsTableInput — обновляет имя обработчика JS-события при редактировании:
+ * - Получает объект события, карту событий-селекторов, ID блока и элемент DOM.
+ * - Проверяет, что редактируется именно имя обработчика.
+ * - Берёт текст события и нового обработчика.
+ * - Находит селектор для события через карту.
+ * - Вызывает updateScriptAssignment для сохранения изменений в скрипте.
+ **********************************************************************/
+function onJsTableInput(e, eventToSelectorMap, blockId, el) {
+    const td = e.target.closest('td');
+    if (!td) return;
+    const tr = td.parentNode;
+    if (!tr) return;
+    const tdEvent = tr.children[0];
+    const tdName = tr.children[1];
+    if (!tdEvent || !tdName) return;
+    if (td !== tdName) return;
+    const ev = tdEvent.textContent.trim();
+    const handler = tdName.textContent.trim();
+    const selector = eventToSelectorMap.get(ev);
+    if (!selector) return;
+    updateScriptAssignment(blockId, selector, ev, handler, el);
+}
+
+/***********************************************************************
+ * onJsTableBlur — сохраняет изменения имени обработчика JS-события при потере фокуса:
+ * - Получает объект события, карту событий-селекторов, ID блока и элемент DOM.
+ * - Проверяет, что редактируется именно имя обработчика.
+ * - Берёт текст события и нового обработчика.
+ * - Находит селектор для события через карту.
+ * - Вызывает updateScriptAssignment для сохранения изменений в скрипте.
+ **********************************************************************/
+function onJsTableBlur(e, eventToSelectorMap, blockId, el) {
+    const td = e.target.closest('td');
+    if (!td) return;
+    const tr = td.parentNode;
+    if (!tr) return;
+    const tdEvent = tr.children[0];
+    const tdName = tr.children[1];
+    if (!tdEvent || !tdName) return;
+    if (td !== tdName) return;
+    const ev = tdEvent.textContent.trim();
+    const handler = tdName.textContent.trim();
+    const selector = eventToSelectorMap.get(ev);
+    if (!selector) return;
+    updateScriptAssignment(blockId, selector, ev, handler, el);
+}
+
+/***********************************************************************
+ * updateScriptAssignment — обновляет присвоение обработчика JS-события в скрипте:
+ * - Получает ID блока, селектор элемента, полное имя события, имя обработчика и DOM-элемент.
+ * - Находит скрипт блока и его текст.
+ * - Определяет возможные варианты левой части присвоения (lhs) для селектора.
+ * - Удаляет старые присвоения для данного события.
+ * - Если указано имя обработчика, создаёт новое присвоение и вставляет его в скрипт.
+ * - Обновляет содержимое блока pre-js в интерфейсе, если он открыт для текущего блока.
+ **********************************************************************/
+function updateScriptAssignment(blockId, selector, eventFull, handlerName, el) {
+    const scriptEl = document.querySelector('script[data-dynamic="' + blockId + '_view"]');
+    if (!scriptEl) return;
+    let s = scriptEl.textContent;
+    const ev = eventFull.replace(/^on/, '');
+
+    const lhsCandidates = buildLhsCandidates(selector, s);
+
+    lhsCandidates.forEach(lhs => {
+        const re = new RegExp('(^|\\n)\\s*' + escapeRegExp(lhs) + '\\.on' + ev + '\\s*=\\s*[^;\\n]*;?', 'g');
+        s = s.replace(re, '');
+    });
+
+    if (handlerName) {
+        const preferredLhs = lhsCandidates[0] || (selector.startsWith('#') ? "document.getElementById('" + selector.slice(1) + "')" : "document.querySelector('" + selector.replace(/'/g, "\\'") + "')");
+        const line = preferredLhs + '.on' + ev + ' = ' + handlerName + ';';
+        const insertBeforeIdx = findInsertIndexBeforeClosingIIFE(s);
+        if (insertBeforeIdx !== -1) s = s.slice(0, insertBeforeIdx) + '\n' + line + '\n' + s.slice(insertBeforeIdx);
+        else s = s.trimEnd() + '\n' + line + '\n';
+    }
+
+    scriptEl.textContent = s;
+    const blockPre = document.getElementById('center-tab-pre-js');
+    const activeBlock = getActiveBlockId();
+    if (blockPre && (getBlockIdFromEl(el) || activeBlock) === blockId) blockPre.textContent = scriptEl.textContent;
+}
+
+/***********************************************************************
+ * buildLhsCandidates — строит возможные варианты левой части присвоения для селектора:
+ * - Получает селектор элемента и текст скрипта блока.
+ * - Ищет переменные, которым присвоен этот элемент в коде.
+ * - Добавляет прямые обращения к элементу.
+ * - Возвращает массив всех найденных вариантов для использования при обновлении обработчиков.
+ **********************************************************************/
+function buildLhsCandidates(selector, scriptText) {
+    const out = [];
+    const id = selector.startsWith('#') ? selector.slice(1) : null;
+    const escapedSel = escapeRegExp(id || selector);
+    const varAssignRe = new RegExp('\\b(var|let|const)\\s+([A-Za-z_$][A-Za-z0-9_$]*)\\s*=\\s*document\\.(getElementById|querySelector(All)?)\\(\\s*[\'"]' + escapedSel + '[\'"]\\s*\\)', 'g');
+    let mm;
+    while ((mm = varAssignRe.exec(scriptText)) !== null) out.push(mm[2]);
+    if (id) out.push("document.getElementById('" + id + "')");
+    out.push("document.querySelector('" + selector.replace(/'/g, "\\'") + "')");
+    return out;
+}
+
+/***********************************************************************
+ * findInsertIndexBeforeClosingIIFE — находит место для вставки новой строки перед закрывающейся самовызывающейся функцией:
+ * - Получает текст скрипта блока.
+ * - Ищет последнюю строку с `})();`.
+ * - Если не найдено, ищет последний закрывающийся фигурный скобку `}`.
+ * - Возвращает индекс для вставки новой строки кода.
+ **********************************************************************/
+function findInsertIndexBeforeClosingIIFE(text) {
+    const iife = '})();';
+    const idx = text.lastIndexOf(iife);
+    if (idx !== -1) return idx;
+    const lastClose = text.lastIndexOf('}');
+    if (lastClose !== -1) return lastClose + 1;
+    return -1;
+}
+
+/***********************************************************************
+ * escapeRegExp — экранирует специальные символы для использования в RegExp:
+ * - Получает строку и возвращает её с экранированными символами.
+ **********************************************************************/
+function escapeRegExp(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/***********************************************************************
+ * highlightInJsEditor — подсвечивает фрагмент кода в панели JS:
+ * - Получает строку для поиска и полный текст скрипта.
+ * - Находит индекс строки в тексте.
+ * - Создаёт диапазон на соответствующем текстовом узле.
+ * - Вставляет временный span для подсветки.
+ * - Скроллит подсветку в центр видимой области.
+ * - Через 800 мс убирает span, оставляя текст без изменений.
+ * - Фокусируется на панели кода.
+ **********************************************************************/
 function highlightInJsEditor(search, fullText) {
     const pre = document.getElementById('center-tab-pre-js');
     if (!pre) return;
@@ -1443,6 +1666,13 @@ function highlightInJsEditor(search, fullText) {
     }
 }
 
+/***********************************************************************
+ * resolveSelectorFromExpr — определяет CSS-селектор из JS-выражения:
+ * - Получает строку выражения и полный текст скрипта.
+ * - Проверяет прямые обращения.
+ * - Если выражение — имя переменной, ищет его присвоение через var/let/const.
+ * - Возвращает CSS-селектор для использования в таблице событий.
+ **********************************************************************/
 function resolveSelectorFromExpr(expr, scriptText) {
     expr = expr.trim();
 
