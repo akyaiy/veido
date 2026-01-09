@@ -7,7 +7,7 @@ logservfile: ./data/log/server.log
 loguserfile: ./data/log/user.log
 logerrfile: ./data/log/error.log
 db: ./data/db/data.db
-atokentime: 15m
+atokentime: 1m
 rtokentime: 24h
 stimeouttime: 15s
 mysecret: 61f73e959b6d8e92ea3cfe6c41ed70ddc98eb0273910e647eab7e88d48701a33

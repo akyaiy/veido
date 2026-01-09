@@ -26,14 +26,13 @@ updateLineNumbers();
 // ==================== ORIGINAL FUNCTIONS ====================
 async function loadSource(name) {
     if (name != ""){
-        const res = await fetch("/api/functions/source/" + name);
-        if (!res.ok) {
+        const res = await apiProtected("/api/functions/source/" + name);
+        if (!res==="") {
             code.value = "// source not found or binary only";
             return;
         }
 
-        const text = await res.text();
-        code.value = text;
+         code.value = res;
         } else {
             code.value = "";    
         }
@@ -43,13 +42,8 @@ async function loadSource(name) {
 }
 
 async function loadFunctions() {
-    const res = await fetch('/api/functions/list');
-    const list = await res.json();
-
-    //const sel = document.getElementById('functionList');
+    const list = await apiProtected('/api/functions/list');
     functionList.innerHTML = '<option value="">— select —</option>';
-
-//    Object.keys(list).forEach(name => {
     list.forEach(name => {
         const opt = document.createElement('option');
         opt.value = name;
@@ -82,7 +76,7 @@ function selectFunction() {
 
 async function compile() {
     if (functionList.value != ""){
-    const res = await fetch('/api/functions/compile', {
+    const res = await apiProtected('/api/functions/compile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -90,23 +84,20 @@ async function compile() {
             goCode: code.value
         })
     });
-    output.textContent = await res.text();
+    output.textContent = res;
     }
 }
 
 async function savef() {
     if (newfunction.className == "hidden"){
-//        console.log("open")
         popup("old")
     } else {
-//        console.log("new")
-//        await popup("new",() => {return;});
         await popup("new");
         return;
-        console.log("test")
+        //console.log("test")
     }
     if (newfunction.value != ""){
-    const res = await fetch('/api/functions/save', {
+    const res = await apiProtected('/api/functions/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -114,20 +105,20 @@ async function savef() {
             goCode: code.value
         })
     });
-    output.textContent = await res.text();
+    output.textContent = res;
     }
 }
 
 async function run() {
     const name = functionList.value;
 
-    const res = await fetch('/api/functions/run/' + name, {
+    const res = await apiProtected('/api/functions/run/' + name, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ input: input.value })
     });
 
-    output.textContent = await res.text();
+    output.textContent = res;
 }
 
 function updateLineNumbers() {
@@ -141,10 +132,8 @@ function updateLineNumbers() {
 
 function btLoc(){
     if (newfunction.value != ""){
-        //bt_newFunc.disabled = true;
         nameStringMod = true;
     } else {
-        //bt_newFunc.disabled = false
         nameStringMod = false;
     }
 }
@@ -153,9 +142,6 @@ function codLoc(){
         fCodeMod = true;
         fCodeMod = false;
 }
-
-//bt_save.addEventListener("click", () => {const message = 'Пустое сообщение'; popup(message);});
-
 
 functionList.addEventListener("change", selectFunction);
 bt_newFunc.addEventListener("click", newf);
