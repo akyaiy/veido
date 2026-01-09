@@ -1,9 +1,10 @@
 body {font-family: system-ui, sans-serif; margin: 0; display: flex; flex-direction: column; min-height: 100vh;}
-header {display: flex; align-items: center; justify-content: space-between; background: #333; color: white; padding: 10px 15px; position: relative;}
+#header {display: flex; align-items: center; justify-content: space-between; background: #333; color: white; padding: 10px 15px; position: relative;}
+#header .svg-icon {color: rgb(255, 255, 255);}
 footer {background: #333; color: white; text-align: center; padding: 10px;}
 main {flex: 1; padding: 20px; max-width: 1000px; margin: 0 auto;}
- button:not(.burger) {cursor:pointer; border-radius: 8px; border: 1px solid #ccc; background:#e4e4e4; padding: 10px 12px; font-size: 16px;}
-button:not(.burger):hover {background: #aa92f8;} 
+button:not(.burger, .lng) {cursor:pointer; border-radius: 8px; border: 1px solid #ccc; background:#e4e4e4; padding: 10px 12px; font-size: 16px;}
+button:not(.burger, .lng):hover {background: #aa92f8;} 
 input {background: #ffffff; padding: 10px 12px; font-size: 15px; border-radius: 8px; border: 1px solid #ccc; transition: border 0.2s, box-shadow 0.2s; width:200px;}
 input:focus {border-color: #7f57ff; box-shadow: 0 0 0 2px rgba(127, 87, 255, 0.2); outline: none;}
 select{background: #ffffff; padding: 10px 12px; font-size: 15px; border-radius: 8px; border: 1px solid #ccc; transition: border 0.2s, box-shadow 0.2s; width:225px;}
@@ -38,7 +39,7 @@ select:focus {border-color: #7f57ff; box-shadow: 0 0 0 2px rgba(127, 87, 255, 0.
 .window-buttons button { padding:6px 16px; cursor:pointer; }
 
 /* адаптив */
-@media (max-width: 425px) {
+@media (max-width: 720px) {
   .grid-3 {grid-template-columns: 1fr;}
   .burger {display: block;}
   nav {position: absolute; top: 100%; left: 0; width: 100%; background: #222; display: none; flex-direction: column; text-align: center; padding: 10px 0; z-index: 10;}
@@ -51,7 +52,6 @@ select:focus {border-color: #7f57ff; box-shadow: 0 0 0 2px rgba(127, 87, 255, 0.
 }
 .ui-overlay {position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center;}
 .ui-alert {background: #fff; padding: 20px; border-radius: 16px; min-width: 300px; font-family: sans-serif; text-align: center;}
-/* .ui-alert button {margin-top: 20px; border: 1px solid #ccc; padding: 8px 16px; cursor: pointer; border-radius: 8px;} */
 .ui-popup-list {position: fixed; background: #fff; border: 1px solid #ccc; border-radius: 6px; box-shadow: 0 4px 10px rgba(0,0,0,.15); z-index: 1000;}
 .ui-popup-list .icon {width: 16px; text-align: center;}
 .ui-popup-list div {padding: 8px 12px; cursor: pointer; display: flex; align-items: center;}
@@ -65,5 +65,40 @@ select:focus {border-color: #7f57ff; box-shadow: 0 0 0 2px rgba(127, 87, 255, 0.
 .tab.active {border-bottom: 2px solid #0078d7; font-weight: bold;}
 .tab-content {display: none;}
 .tab-content.active {display: block;}
+
+.svg-icon {
+  color: rgb(124, 124, 124);
+  fill:none;
+  stroke-width: 2px; /*Увеличиваем толщину для видимости */
+}
+
+
+.pass-wrap {
+    position: relative;
+    display: inline-block;
+}
+
+.pass-wrap input {
+    padding-right: 40px;
+}
+
+.pass-toggle {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+/* кнопка языка */
+#lng_btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    padding: 5px;
+}
 
 

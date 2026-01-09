@@ -4,7 +4,7 @@ user:<br>
 <input id="log_user"  placeholder="Username">
 <br>
 password:<br>
-<input id="log_pass" placeholder="password"  type="password"><button class="toggle-pass" type="button">A</button>
+<input id="log_pass" placeholder="password"  type="password"><span class="pass-toggle"></span>
 <br><br>
 <button id="btn_log">Login</button>
 <br>
