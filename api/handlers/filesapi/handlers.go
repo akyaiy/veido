@@ -13,13 +13,14 @@ import (
 
 	"github.com/go-chi/chi/v5"
 )
-
+/*********************************************************************/
 type FileInfo struct {
 	Name    string `json:"name"`
 	IsDir   bool   `json:"isDir"`
 	Size    int64  `json:"size"`
 	ModTime string `json:"modTime"`
 }
+/*********************************************************************/
 
 // --- Универсальный обработчик ---
 func FilesHandler(w http.ResponseWriter, r *http.Request) {

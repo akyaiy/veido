@@ -2,6 +2,54 @@
  *  access-token хранится только в памяти (без localStorage)
  **********************************************************************/
 let accessToken = null;   
+let spritePath = './static/img/icons.svg';
+let tokenWriting = null; // флаг блокировки refresh
+
+const auth = {
+    ready: false,   // знаем ли мы статус?
+    loggedIn: false // авторизован?
+};
+
+class PageReady {
+    static callbacks = [];
+    static initialized = false;
+
+    /**
+     * Регистрация функции
+     * @param {Function} fn
+     */
+    static add(fn) {
+        if (typeof fn !== 'function') return;
+
+        if (document.readyState === 'complete') {
+            fn();
+            return;
+        }
+
+        this.callbacks.push(fn);
+        this.init();
+    }
+
+    static init() {
+        if (this.initialized) return;
+        this.initialized = true;
+
+        window.addEventListener('load', () => {
+            this.callbacks.forEach(fn => fn());
+            this.callbacks = [];
+        });
+    }
+}
+
+// функция для эмита события состояния
+function emitAuthEvent(isLoggedIn) {
+    //console.log("event1:"+isLoggedIn)
+  const event = new CustomEvent('authChange', {
+    detail: { loggedIn: isLoggedIn }
+  });
+  document.dispatchEvent(event);
+}
+
 
 /***********************************************************************
  * TempStore — это временное хранилище данных в браузере на базе IndexedDB, с возможностями:
@@ -293,9 +341,6 @@ class TempStore {
 tempStore = new TempStore();
 tempStore.startCleanup();
 
-
-
-
 /***********************************************************************
  *  user объект в котором хранятся данные пользователя
  **********************************************************************/
@@ -303,6 +348,12 @@ const user = {
   id: 0,
   name: ""
 }
+
+async function waitTokenWrite() {
+    if (!tokenWriting) return; // никто не пишет — идём
+    await tokenWriting;         // ждём, пока запись завершится
+}
+
 
 /***********************************************************************
  *  apiProtected — это удобная функция для защищённых API-запросов, 
@@ -316,6 +367,10 @@ const user = {
  *  - Выбрасывает ошибки для внешнего try...catch.
  ***********************************************************************/
 async function apiProtected(path, options = {}) {
+
+    await waitTokenWrite();
+    //console.log("send"+path+"\n");
+    //refreshingToken = true;
     // Базовые настройки
     const defaultOptions = {
         //method: "GET",
@@ -338,11 +393,14 @@ async function apiProtected(path, options = {}) {
             // Добавляем Authorization, если токен есть
             if (accessToken) {
                 finalOptions.headers.Authorization = `Bearer ${accessToken}`;
+            //console.log("AUTH:", finalOptions.headers.Authorization);
             }
             // Отправляем fetch запрос.
             const res = await fetch(path, finalOptions);
             const text = await res.text();
             let data;
+                //console.log(accessToken);
+
             // Пытаемся распарсить ответ как JSON, если не получается 
             // — возвращаем текст.
             try {
@@ -359,13 +417,19 @@ async function apiProtected(path, options = {}) {
     let { res, data } = await send();
     // Если 401 — обновляем токен и повторяем
     if (res && res.status === 401) {
-        await refreshAccess();       // обновляем accessToken
-        ({ res, data } = await send()); // повторный запрос
+        //await refreshAccessSafe();
+        // 🔒 блокировка записи токена
+        tokenWriting = refreshAccess(); // возвращает промис
+            //console.log("await tokenWriting\n");
+        await tokenWriting;             // ждём завершения записи токена
+        tokenWriting = null;
+    ({ res, data } = await send()); // повторный запрос
     }
     // Если всё равно ошибка — кидаем
     if (!res || !res.ok) {
         throw { status: res ? res.status : 0, data };
     }
+    //console.log(accessToken);
     return data; // возвращаем распарсенный JSON или текст
 }
 
@@ -385,9 +449,15 @@ async function refreshAccess (){
         credentials: "include"
     });
     // Проверка ответа
-    if (!rr.ok) throw "refresh failed";
+    if (!rr.ok) {
+        emitAuthEvent(false); // Пользователь вышел из системы ❌
+        //console.log("---")
+        throw "refresh failed";
+    }
     // Получение нового токена
     const j = await rr.json();
+    emitAuthEvent(true);  // Пользователь вошёл в систему ✅
+    //console.log("+++")
     accessToken = j.access_token;
     // Декодирование payload JWT
     const payload = JSON.parse(
@@ -395,8 +465,47 @@ async function refreshAccess (){
     );
     // Обновление данных пользователя
     user.id = payload.user_id;
-    user.name = (await getUserDataByID(user.id)).name;
+    //user.name = (await getUserDataByID(user.id)).name;
+    //lngEdit();
 }
+
+// async function refreshAccess() {
+//     try {
+//         const rr = await fetch("/api/users/refresh", {
+//             method: "POST",
+//             credentials: "include"
+//         });
+
+//         if (!rr.ok) throw "not authorized";
+
+//         const j = await rr.json();
+//         accessToken = j.access_token;
+
+//         const payload = JSON.parse(
+//             atob(accessToken.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))
+//         );
+
+//         user.id = payload.user_id;
+//         user.name = (await getUserDataByID(user.id)).name;
+
+//         auth.loggedIn = true;
+//     } catch {
+//         accessToken = null;
+//         user.id = 0;
+//         user.name = "";
+//         auth.loggedIn = false;
+//     } finally {
+//         auth.ready = true;
+
+//         document.dispatchEvent(new CustomEvent('auth:ready', {
+//             detail: { loggedIn: auth.loggedIn }
+//         }));
+//     }
+// }
+
+PageReady.add(async () => {
+    await refreshAccess();
+});
 
 /********************************************************************************
  * loadMenu функция загрузки блока меню страницы в формате Markdown            
@@ -404,6 +513,7 @@ async function refreshAccess (){
 async function loadMenu() {
      await loadBlock("menu/top1", "header");
 }
+
 /********************************************************************************
  * loadPage функция загрузки блока страницы в формате Markdown                 
  ********************************************************************************/
@@ -437,6 +547,7 @@ async function loadMenu() {
  * - Обрабатывает ошибки.
  **********************************************************************************/
 async function loadBlock(path, block_Name, itemsHowText = null) {
+    //console.log(path);
     // Получаем контейнер блока
     const container = document.getElementById(block_Name);
     if (!container) {
@@ -540,148 +651,66 @@ window.addEventListener("click", (event) => {
 /*****************************************************************************
  * Переключение видимости пароля
  *****************************************************************************/
-// document.addEventListener("click", (e) => {
-//     if (!e.target.classList.contains("toggle-pass")) return;
-// console.log("toggle");
-//     const input = e.target.previousElementSibling;
-//     if (!input) return;
-
-//     if (input.type === "password") {
-//         input.type = "text";
-//         e.target.textContent = "*";//🔓
-//     } else {
-//         input.type = "password";
-//         e.target.textContent = "A";//🔒
-//     }
-// });
-
-// class PasswordToggle {
-//     static selector = '.toggle-pass';
-//     static active = false;
-
-//     static init() {
-//         if (this.active) return;
-//         this.active = true;
-
-//         document.addEventListener('click', this._handler);
-//     }
-
-//     static destroy() {
-//         if (!this.active) return;
-//         document.removeEventListener('click', this._handler);
-//         this.active = false;
-//     }
-
-//     static _handler(e) {
-//         const toggle = e.target.closest(PasswordToggle.selector);
-//         if (!toggle) return;
-
-//         const input = toggle.previousElementSibling;
-//         if (!input || input.tagName !== 'INPUT') return;
-
-//         PasswordToggle.toggle(input, toggle);
-//     }
-
-//     static toggle(input, toggleEl) {
-//         const isHidden = input.type === 'password';
-//         input.type = isHidden ? 'text' : 'password';
-
-//         toggleEl.textContent = isHidden ? '*' : 'A';
-//     }
-// }
-
-// class PasswordToggle {
-//     static selector = '.toggle-pass';
-//     static active = false;
-
-//     static init() {
-//         if (this.active) return;
-//         this.active = true;
-
-//         document.addEventListener('click', this._handler);
-//     }
-
-//     static destroy() {
-//         if (!this.active) return;
-//         document.removeEventListener('click', this._handler);
-//         this.active = false;
-//     }
-
-//     static _handler(e) {
-//         const toggle = e.target.closest(PasswordToggle.selector);
-//         if (!toggle) return;
-
-//         const input = toggle.previousElementSibling;
-//         if (!input || input.tagName !== 'INPUT') return;
-
-//         PasswordToggle.toggle(input, toggle);
-//     }
-
-//     static toggle(input, toggleEl) {
-//         const isHidden = input.type === 'password';
-//         input.type = isHidden ? 'text' : 'password';
-
-//         // Вместо текста вставляем HTML (SVG или символ)
-//         toggleEl.innerHTML = isHidden 
-//             ? `<svg width="80" height="80" viewBox="0 0 20 20">
-//                    <image href="img/b_iconslyb.svg" width="560" height="380"></image>
-//                </svg>`  // иконка для скрытого состояния
-//             : `<svg width="80" height="80" viewBox="0 0 20 20">
-//                    <image href="./img/b_iconslyb.svg" width="560" height="380"></image>
-//                </svg>`; // иконка для видимого состояния
-//     }
-// }
-
-
 class PasswordToggle {
-    static selector = '.toggle-pass';
-    static active = false;
+    //static spritePath = './static/img/icons.svg';
 
-    static init() {
-        if (this.active) return;
-        this.active = true;
-
-        document.addEventListener('click', this._handler);
+    static init(root = document) {
+        root.querySelectorAll('input[type="password"]:not([data-pass-init])')
+            .forEach(input => this._setup(input));
     }
 
-    static destroy() {
-        if (!this.active) return;
-        document.removeEventListener('click', this._handler);
-        this.active = false;
+    static _setup(input) {
+        input.dataset.passInit = '1';
+
+        const wrap = document.createElement('span');
+        wrap.className = 'pass-wrap';
+
+        input.after(wrap);
+        wrap.appendChild(input);
+
+        const toggle = document.createElement('span');
+        toggle.className = 'pass-toggle';
+        wrap.appendChild(toggle);
+
+        this._render(toggle, false);
+
+        toggle.addEventListener('click', () => {
+            const hidden = input.type === 'password';
+            input.type = hidden ? 'text' : 'password';
+            this._render(toggle, hidden);
+        });
     }
 
-    static _handler(e) {
-        const toggle = e.target.closest(PasswordToggle.selector);
-        if (!toggle) return;
+    static _render(toggle, hidden) {
+        const iconId = hidden ? '18x7' : '18x8';
 
-        const input = toggle.previousElementSibling;
-        if (!input || input.tagName !== 'INPUT') return;
+        toggle.innerHTML = `
+            <svg class="svg-icon" width="20" height="20">
+                <use href="${spritePath}#${iconId}"></use>
+            </svg>
+        `;//                <use href="${this.spritePath}#${iconId}"></use>
 
-        PasswordToggle.toggle(input, toggle);
-    }
-
-    static toggle(input, toggleEl) {
-        const isHidden = input.type === 'password';
-        input.type = isHidden ? 'text' : 'password';
-
-        // Фиксируем размер кнопки 20x20, масштабируем иконку через viewBox
-        toggleEl.style.width = '40px';
-        toggleEl.style.height = '40px';
-        toggleEl.style.display = 'inline-block';
-
-        toggleEl.innerHTML = isHidden
-            ? `<svg width="1100px" height="820px" viewBox="0 0 20 20">
-                   <image href="./img/b_iconslyb.svg" width="20" height="20"></image>
-               </svg>`
-            : `<svg width="50" height="50" viewBox=";0 0 20 20">
-                   <image href="./img/b_iconslyb.svg" width="560" height="380"></image>
-               </svg>`;
     }
 }
 
-// Инициализация
-PasswordToggle.init();
+const observer = new MutationObserver(mutations => {
+    mutations.forEach(m => {
+        m.addedNodes.forEach(node => {
+            if (node.nodeType !== 1) return;
 
+            if (node.matches?.('input[type="password"]')) {
+                PasswordToggle.init(node.parentNode);
+            } else {
+                PasswordToggle.init(node);
+            }
+        });
+    });
+});
+
+observer.observe(document.body, {
+    childList: true,
+    subtree: true
+});
 
 /*****************************************************************************
  * Получение данных пользователя. Пример использования:
@@ -707,6 +736,39 @@ async function getUserDataByID(id) {
  * - возвращает accessToken при успехе,
  * - бросает понятные ошибки (INVALID_CREDENTIALS, LOGIN_FAILED) при неудаче.
  ******************************************************************************/
+// async function userLogin(username, password) {
+//     try {
+//         const r = await apiProtected(`/api/users/login`, {
+//             method: "POST",
+//             body: { username, password }
+//         });
+
+//         if (!r?.access_token) {
+//             throw new Error("Token not received");
+//         }
+
+//         // Парсим токен
+//         const payload = JSON.parse(
+//             atob(r.access_token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))
+//         );
+
+//         // Сохраняем токен и данные пользователя
+//         accessToken = r.access_token;
+//         user.id = payload.user_id;
+//         user.name = username;
+
+//         // ✅ Здесь нужно сигналить UI, что пользователь залогинен
+//         AuthStore.setLoggedIn(true);
+
+//         return { accessToken };
+
+//     } catch (err) {
+//         console.error("Login error:", err);
+//         if (err?.status === 401) throw new Error("INVALID_CREDENTIALS");
+//         throw new Error("LOGIN_FAILED");
+//     }
+// }
+
 async function userLogin(username, password) {
     try {
         // Запрос логина
@@ -728,6 +790,8 @@ async function userLogin(username, password) {
             atob(r.access_token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))
     );
         // Успешный результат
+        emitAuthEvent(true);  // Пользователь вошёл в систему ✅
+        //console.log("+++");
         user.name = username;
         user.id = payload.user_id;
         return {
@@ -748,9 +812,28 @@ async function userLogin(username, password) {
 /******************************************************************************
  * userLogout — это функция выхода пользователя из системы.
  ******************************************************************************/
+
+// async function userLogout() {
+//     // Очищаем accessToken
+//     accessToken = null;
+
+//     // Очищаем данные пользователя
+//     user.id = 0;
+//     user.name = "";
+
+//     // ✅ Здесь сигналим UI, что пользователь вышел
+//     AuthStore.setLoggedIn(false);
+
+//     // Отправляем запрос на сервер
+//     await fetch("/api/users/logout", { method: "POST", credentials: "include" });
+// }
+
 async function userLogout() {
     accessToken = "";
-    await fetch("/api/users/logout", { method: "POST", credentials: "include" });
+    emitAuthEvent(false); // Пользователь вышел из системы ❌
+    //console.log("---")apiProtected
+    //await fetch("/api/users/logout", { method: "POST", credentials: "include" });
+    await apiProtected("/api/users/logout", { method: "POST", credentials: "include" });
 };
 
 /******************************************************************************
@@ -979,7 +1062,16 @@ function getCookie(name) {
         ?.split('=')[1];
 }
 
-/*****************************************************************************
+document.addEventListener('DOMContentLoaded', () => {
+    PasswordToggle.init();
+
+});
+
+// Подписка UI на изменения статуса авторизации
+document.addEventListener("auth:changed", () => {
+    // Эта функция будет вызываться при каждом изменении статуса (login/logout/refresh)
+    lngEdit();
+});/*****************************************************************************
  * Инициализация после загрузки DOM
  *****************************************************************************/
 window.onload = async function ()  {
@@ -995,3 +1087,23 @@ window.onload = async function ()  {
     await loadMenu();
     await loadPage("pages"+window.location.pathname);
 };
+// проверка токена при загрузке
+async function initAuth() {
+    try {
+        const rr = await fetch("/api/users/refresh", {
+            method: "POST",
+            credentials: "include"
+        });
+        if (!rr.ok) throw "refresh failed";
+
+        const j = await rr.json();
+        accessToken = j.access_token;
+        emitAuthEvent(true); // событие выбрасывается
+        //console.log("--- refresh ок ---");
+    } catch (err) {
+        emitAuthEvent(false); // событие выбрасывается
+        //console.log("--- refresh failed ---");
+    }
+}
+
+initAuth();

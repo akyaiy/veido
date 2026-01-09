@@ -1,228 +1,30 @@
-/***********************************************************************
- * Элементы интерфейса файлового менеджера.
- **********************************************************************/
-const cwdEl = document.getElementById('cwd');
-const mainEl = document.getElementById('main');
-const filesTable = document.getElementById('files');
-const tbody = document.querySelector('#files tbody');
-const closeBtn = document.getElementById('closeBtn');
-const fburger = document.getElementById('fburger');
-const fburgerMenu = document.getElementById('fburgerMenu');
-const fburgerMenuEl = document.getElementById('fburgerMenu');
-const menuItems = fburgerMenuEl.querySelectorAll('#fburgerMenu > .menu_item');
-const submenus = fburgerMenuEl.querySelectorAll('.submenu');
-
-/***********************************************************************
- * Чекбоксы управления списком файлов.
- **********************************************************************/
-const chkFoldersFirst = document.getElementById('sortFoldersFirst');
-const chkShowHidden = document.getElementById('showHidden');
+/***************************************************************************
+ * FilesApiClient — клиент API для работы с файлами и каталогами.
+ ***************************************************************************/
+class FilesApiClient {
 
 /***************************************************************************
- * closeBtn click — закрывает окно файлового менеджера:
- * - Сбрасывает активное состояние панели.
- * - Удаляет окно файлового менеджера со страницы.
- * - Удаляет связанные динамические стили и скрипты.
+ * constructor — инициализация базового пути.
  ***************************************************************************/
-closeBtn.addEventListener('click', () => {
-    /* window.listTfootAct = ""; */
-    const fm = document.getElementById("fManager");
-    if (fm) fm.remove();
-    document.querySelectorAll('[data-dynamic="fManager"]').forEach(el => el.remove());
-});
+  constructor(baseUrl = '/api/files') {
+    this.baseUrl = baseUrl;
+  }
 
-/***********************************************************************
- * Текущее состояние файлового менеджера.
- **********************************************************************/
-//let storeFManager = "";
-let cwd = '/';
-let viewMode = 'table';
-let currentSort = 'name'; // name | size | date
-let sortFoldersFirst = false;
-let showHidden = false;
-let currentFiles = [];
 
-/***********************************************************************
- * Пользовательские настройки файлового менеджера.
- **********************************************************************/
-const settings = {
-    sort: 'name',
-    foldersFirst: false,
-    showHidden: false,
-    view: 'table'
-};
-
-/***********************************************************************
- * Загрузка сохранённых настроек файлового менеджера из cookie.
- **********************************************************************/
-const saved = getCookie('fm_settings');
-if (saved) {
+/****************************************************************************
+ * list — запрашивает список файлов и каталогов по указанному пути.
+ *
+ * @param {string} path Путь к каталогу
+ * @returns {Promise<any>} Результат запроса к API со списком файлов
+ *
+ * Поведение:
+ * - Отправляет защищённый запрос к `/api/files{path}`.
+ * - При ошибке 403 выводит сообщение об отсутствии прав доступа.
+ * - При любой другой ошибке выводит общее сообщение об ошибке загрузки.
+ ***************************************************************************/
+  async list(path) {
     try {
-        Object.assign(settings, JSON.parse(decodeURIComponent(saved)));
-    } catch {}
-}
-chkFoldersFirst.checked = settings.foldersFirst;
-chkShowHidden.checked = settings.showHidden;
-
-/***********************************************************************
- * Применение сохранённых настроек к текущему состоянию и интерфейсу.
- **********************************************************************/
-currentSort = settings.sort;
-document.querySelector(`input[name="sort"][value="${settings.sort}"]`)?.click();
-
-sortFoldersFirst = settings.foldersFirst;
-showHidden = settings.showHidden;
-viewMode = settings.view || 'table';
-
-
-
-
-/***************************************************************************
- * fburger click — переключает состояние главного меню файлового менеджера.
- ***************************************************************************/
-fburger.addEventListener('click', e => {
-    e.stopPropagation();
-    fburger.classList.toggle('open');
-});
-
-/***************************************************************************
- * document click — закрывает меню файлового менеджера.
- ***************************************************************************/
-document.addEventListener('click', () => {
-    fburger.classList.remove('open');
-});
-
-/***********************************************************************
- * Контейнер отображения списка файлов.
- **********************************************************************/
-const filesView = document.getElementById('files_view');
-
-/***********************************************************************
- * Классы режимов отображения списка файлов.
- **********************************************************************/
-const VIEW_CLASSES = {
-    table: 'view_table',
-    columns: 'view_list',
-    tiles: 'view_tiles'
-};
-
-/***************************************************************************
- * applyViewMode — переключает режим отображения:
- * - Принимает режим отображения.
- * - Убирает все активные режимы у списка файлов.
- * - Применяет выбранный режим к списку файлов.
- ***************************************************************************/
-function applyViewMode(view) {
-    // убрать все режимы
-    filesView.classList.remove(...Object.values(VIEW_CLASSES));
-
-    // добавить нужный
-    if (VIEW_CLASSES[view]) {
-        filesView.classList.add(VIEW_CLASSES[view]);
-    }
-}
-
-// fburgerMenu.querySelectorAll('[data-view]').forEach(item => {
-//     item.addEventListener('click', e => {
-//         e.stopPropagation();
-
-//         const view = item.dataset.view;
-//         applyViewMode(view);
-//         saveSettings();
-
-//         fburger.classList.remove('open');
-//     });
-// });
-
-/***************************************************************************
- * fburgerMenu item click — изменяет режим отображения списка файлов:
- * - Обновляет текущий режим отображения.
- * - Применяет режим и перерисовывает список файлов.
- * - Сохраняет выбранный режим в настройках и закрывает меню.
- ***************************************************************************/
-fburgerMenu.querySelectorAll('[data-view]').forEach(item => {
-    item.addEventListener('click', e => {
-        e.stopPropagation();
-
-        viewMode = item.dataset.view;
-        settings.view = viewMode;   // сохраняем в settings
-        applyViewMode(viewMode);
-        renderFiles();
-        saveSettings();
-
-        fburgerMenu.style.display = 'none';
-    });
-});
-
-
-// function sortFiles() {
-//     currentFiles.sort((a, b) => {
-//         // папки всегда сверху
-//         if (a.isDir !== b.isDir) {
-//             return b.isDir - a.isDir;
-//         }
-
-//         switch (currentSort) {
-//             case 'size':
-//                 return (a.size || 0) - (b.size || 0);
-
-//             case 'date':
-//                 return new Date(a.modTime || 0) - new Date(b.modTime || 0);
-
-//             case 'name':
-//             default:
-//                 return a.name.localeCompare(b.name, 'ru', { sensitivity: 'base' });
-//         }
-//     });
-// }
-
-/***************************************************************************
- * sortFiles — сортирует список файлов:
- * - При включённой опции поднимает папки выше файлов.
- * - Сортирует по имени размеру или дате в зависимости от выбранного режима.
- * - Обновляет порядок элементов в списке.
- ***************************************************************************/
-function sortFiles() {
-    currentFiles.sort((a, b) => {
-
-        // папки вверх ТОЛЬКО если включено
-        if (sortFoldersFirst && a.isDir !== b.isDir) {
-            return b.isDir - a.isDir;
-        }
-
-        if (currentSort === 'size') {
-            return (a.size || 0) - (b.size || 0);
-        }
-
-        if (currentSort === 'date') {
-            return new Date(a.modTime || 0) - new Date(b.modTime || 0);
-        }
-
-        return a.name.localeCompare(b.name, 'ru', { sensitivity: 'base' });
-    });
-}
-
-/***************************************************************************
- * list — загружает и отображает содержимое каталога:
- * - Принимает путь к каталогу.
- * - Запрашивает список файлов с сервера.
- * - При ошибке загрузки показывает сообщение об ошибке.
- * - Обновляет текущий путь и его отображение.
- * - Сортирует и перерисовывает список файлов.
- ***************************************************************************/
-
-async function list(path) {
-    // let urlPath = path;
-    // if (storeFManager?.[0]?.path) {
-    //     urlPath = storeFManager[0].path;
-    //     path = storeFManager[0].path;
-    //     storeFManager[0].path = null;
-    // } else if (path === '/') {
-    //     urlPath = '';
-    // }
-
-    try {
-        currentFiles = await apiProtected(`/api/files${path}`);//urlPath
+        return  await apiProtected(`/api/files${path}`);//urlPath
     } catch (e) {
         if (e.status === 403) {
             alert("Нет прав на просмотр файлов");
@@ -231,49 +33,297 @@ async function list(path) {
         }
         return;
     }
-
-    cwd = path;
-    updateCwdDisplay();
-    sortFiles();
-    renderFiles();
 }
 
 /***************************************************************************
- * filesView click — управление выделением файлов и отображением пути:
- * - Принимает событие клика мыши.
- * - Снимает выделение при клике по пустой области.
- * - Переключает выделение элемента файла.
- * - Обновляет отображение текущего пути в зависимости от выбора.
+ * getFile — получение содержимого файла:
+ *
+ * @param {string} path Путь к каталогу
+ * @returns {Promise<any>} Cодержимое файла в текстовом виде.
+ *
+ * Поведение:
+ * - Принимает путь к файлу относительно базового пути.
+ * - При неуспешном ответе сервера выбрасывает ошибку.
+ * - Возвращает содержимое файла в текстовом виде.
  ***************************************************************************/
-filesView.addEventListener('click', (e) => {
-    const item = e.target.closest('.file_item');
+  async getFile(path) {
+    const url = `${this.baseUrl}/${path}`;
+    const res = await apiProtected(url);
+    if (!res.ok) throw new Error(`Error getting file: ${res.statusText}`);
+    return res.text(); // для бинарных файлов можно использовать res.arrayBuffer()
+  }
 
-    if (!item || e.target === filesView) {
-        filesView.querySelectorAll('.file_item.selected')
-            .forEach(el => el.classList.remove('selected'));
-        updateCwdDisplay(); // сброс серого пути
-        return;
+/***************************************************************************
+ * head — получение метаинформации файла:
+ *
+ * @param {string} path Путь к каталогу
+ * @returns {Promise<{
+ *   size: number | null,
+ *   lastModified: Date | null,
+ *   contentType: string | null
+ *  }>}
+ *
+ * Поведение:
+ * - Принимает путь к файлу относительно базового пути.
+ * - Выполняет HEAD-запрос без загрузки содержимого.
+ * - При неуспешном ответе сервера выбрасывает ошибку.
+ * - Возвращает размер, дату изменения и тип содержимого.
+ ***************************************************************************/
+  async head(path) {
+    const url = `${this.baseUrl}/${path}`;
+    const res = await apiProtected(url, { method: 'HEAD' });
+    if (!res.ok) throw new Error(`Error fetching metadata: ${res.statusText}`);
+    return {
+      size: res.headers.get('Content-Length'),
+      lastModified: res.headers.get('Last-Modified'),
+      contentType: res.headers.get('Content-Type')
+    };
+  }
+
+/***************************************************************************
+ * upload — загрузка файла:
+ * 
+ * @param {string} path Путь назначения относительно baseUrl
+ * @param {File|Blob} file Файл для загрузки
+ * @returns {Promise<boolean>}
+ *
+ * Поведение:
+ * - Принимает путь назначения и файл для загрузки.
+ * - Отправляет файл на сервер с использованием FormData.
+ * - При неуспешном ответе сервера выбрасывает ошибку.
+ * - Возвращает успешный результат загрузки.
+ ***************************************************************************/
+  async upload(path, file) {
+    const url = `${this.baseUrl}/${path}`;
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await apiProtected(url, { method: 'POST', body: formData });
+    if (!res.ok) throw new Error(`Error uploading file: ${res.statusText}`);
+    return true;
+  }
+
+/***************************************************************************
+ * mkdir — создание папки:
+ * 
+ * @param {string} path Путь создаваемого каталога относительно baseUrl
+ * @returns {Promise<boolean>} Успешный результат операции.
+ *
+ * Поведение:
+ * - Принимает путь создаваемой папки.
+ * - Отправляет запрос на создание папки.
+ * - При неуспешном ответе сервера выбрасывает ошибку.
+ * - Возвращает успешный результат операции.
+ ***************************************************************************/
+  async mkdir(path) {
+    const url = `${this.baseUrl}/${path}`;
+    const res = await apiProtected(url, { method: 'POST' });
+    if (!res.ok) throw new Error(`Error creating folder: ${res.statusText}`);
+    return true;
+  }
+
+/***************************************************************************
+ * put — полная замена содержимого файла:
+ * - Принимает путь к файлу и новое содержимое.
+ * - Полностью перезаписывает файл на сервере.
+ * - При неуспешном ответе сервера выбрасывает ошибку.
+ * - Возвращает успешный результат операции.
+ ***************************************************************************/
+  async put(path, content) {
+    const url = `${this.baseUrl}/${path}`;
+    const res = await apiProtected(url, { method: 'PUT', body: content });
+    if (!res.ok) throw new Error(`Error updating file: ${res.statusText}`);
+    return true;
+  }
+
+/***************************************************************************
+ * patch — частичное обновление содержимого файла:
+ * - Принимает путь к файлу и обновляемое содержимое.
+ * - Обновляет часть файла без полной перезаписи.
+ * - При неуспешном ответе сервера выбрасывает ошибку.
+ * - Возвращает успешный результат операции.
+ ***************************************************************************/
+  async patch(path, content) {
+    const url = `${this.baseUrl}/${path}`;
+    const res = await apiProtected(url, { method: 'PATCH', body: content });
+    if (!res.ok) throw new Error(`Error patching file: ${res.statusText}`);
+    return true;
+  }
+
+/***************************************************************************
+ * delete — удаление файла или папки:
+ * - Принимает путь к файлу или папке.
+ * - Удаляет указанный объект на сервере.
+ * - При неуспешном ответе сервера выбрасывает ошибку.
+ * - Возвращает успешный результат операции.
+ ***************************************************************************/
+  async delete(path) {
+    const url = `${this.baseUrl}/${path}`;
+    const res = await apiProtected(url, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`Error deleting: ${res.statusText}`);
+    return true;
+  }
+
+/***************************************************************************
+ * copy — копирование файла:
+ * - Принимает путь исходного файла и целевой путь.
+ * - Создаёт копию файла в указанном месте.
+ * - При неуспешном ответе сервера выбрасывает ошибку.
+ * - Возвращает успешный результат операции.
+ ***************************************************************************/
+  async copy(path, target) {
+    const url = `${this.baseUrl}/${path}/copy`;
+    const res = await apiProtected(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target })
+    });
+    if (!res.ok) throw new Error(`Error copying file: ${res.statusText}`);
+    return true;
+  }
+
+/***************************************************************************
+ * move — перемещение файла:
+ * - Принимает путь исходного файла и целевой путь.
+ * - Перемещает файл в указанное место.
+ * - При неуспешном ответе сервера выбрасывает ошибку.
+ * - Возвращает успешный результат операции.
+ ***************************************************************************/
+  async move(path, target) {
+    const url = `${this.baseUrl}/${path}/move`;
+    const res = await apiProtected(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target })
+    });
+    if (!res.ok) throw new Error(`Error moving file: ${res.statusText}`);
+    return true;
+  }
+
+/***************************************************************************
+ * getRange — загрузка части файла:
+ * - Принимает путь к файлу и диапазон байт.
+ * - Загружает указанную часть файла с использованием Range-запроса.
+ * - При неуспешном ответе сервера выбрасывает ошибку.
+ * - Возвращает данные файла в бинарном виде.
+ ***************************************************************************/
+  async getRange(path, start = 0, end = null) {
+    const url = `${this.baseUrl}/${path}`;
+    const headers = {};
+    if (end !== null) headers['Range'] = `bytes=${start}-${end}`;
+    const res = await apiProtected(url, { headers });
+    if (!res.ok && res.status !== 206) throw new Error(`Error fetching range: ${res.statusText}`);
+    return res.arrayBuffer();
+  }
+
+/***************************************************************************
+ * search — поиск файлов с фильтрацией:
+ * - Принимает путь каталога и параметры поиска.
+ * - Выполняет поиск файлов по заданным условиям.
+ * - При неуспешном ответе сервера выбрасывает ошибку.
+ * - Возвращает список найденных файлов.
+ ***************************************************************************/
+  async search(path = '', query = {}) {
+    const params = new URLSearchParams(query);
+    const url = `${this.baseUrl}/${path}?${params.toString()}`;
+    const res = await apiProtected(url);
+    if (!res.ok) throw new Error(`Error searching files: ${res.statusText}`);
+    return res.json();
+  }
+}
+
+/***************************************************************************
+ * Основной класс файлового менеджера.
+ ***************************************************************************/
+class FileManager {
+
+/***************************************************************************
+ * Переменные для хранения текущее состояние файлового менеджера.
+ ***************************************************************************/
+  constructor(apiClient, Msg) {
+    this.cwd = '/';
+    this.currentFiles = [];
+    this.api = apiClient;
+    // Пользовательские настройки файлового менеджера.
+    this.settings = {
+      sort: 'name', // name | size | date  
+      view: 'table',//
+      foldersFirst: false,
+      showHidden: false
+    };
+    this.msg = Msg;
+  }
+
+/***************************************************************************
+ * init — загружает содержимое корневого каталога.
+ ***************************************************************************/
+async init() {
+  this.currentFiles = await f.list(await this.msg.getData() || []);
+  //console.log(this.currentFiles);
+    this.updateCwdDisplay();
+    this.sortFiles();
+    this.renderFiles();
+}
+
+/***************************************************************************
+ * sortFiles — сортирует список файлов:
+ * - При включённой опции поднимает папки выше файлов.
+ * - Сортирует по имени размеру или дате в зависимости от выбранного режима.
+ * - Обновляет порядок элементов в списке.
+ ***************************************************************************/
+  sortFiles() {
+    this.currentFiles.sort((a, b) => {
+
+        // папки вверх ТОЛЬКО если включено
+        if (this.settings.foldersFirst && a.isDir !== b.isDir) {
+            return b.isDir - a.isDir;
+        }
+
+        if (this.settings.sort === 'size') {
+            return (a.size || 0) - (b.size || 0); 
+        }
+
+        if (this.settings.sort === 'date') {
+            return new Date(a.modTime || 0) - new Date(b.modTime || 0);
+        }
+
+        return a.name.localeCompare(b.name, 'ru', { sensitivity: 'base' });
+    });
+}
+
+
+/***************************************************************************
+ * Переменные для хранения текущее состояние файлового менеджера.
+ ***************************************************************************/
+  async openDir(path) {
+    this.currentFiles = await this.api.list(path);
+    this.cwd = path;
+    this.updateCwdDisplay();
+    this.sortFiles();
+    this.renderFiles();
+  }
+
+/***************************************************************************
+ * updateCwdDisplay — обновление отображения текущего пути:
+ * - Очищает текущее содержимое строки пути.
+ * - Отображает базовый текущий каталог.
+ * - При наличии выбранного элемента добавляет выделенный суффикс пути.
+ ***************************************************************************/
+  updateCwdDisplay(selectedName = null) {
+    cwdEl.innerHTML = '';
+
+    const base = document.createElement('span');
+    base.className = 'cwdEl-base';
+    base.textContent = this.cwd;
+    cwdEl.appendChild(base);
+
+    if (selectedName) {
+        const suffix = document.createElement('span');
+        suffix.className = 'cwdEl-selected';
+        suffix.textContent =
+            (this.cwd.endsWith('/') ? '' : '/') + selectedName;
+        cwdEl.appendChild(suffix);
     }
-
-    if (item.classList.contains('selected')) {
-        item.classList.remove('selected');
-        updateCwdDisplay(); // убрали выделение
-        return;
-    }
-
-    filesView.querySelectorAll('.file_item.selected')
-        .forEach(el => el.classList.remove('selected'));
-
-    item.classList.add('selected');
-
-    const name = item.querySelector('.file_name')?.textContent;
-    if (name) {
-        updateCwdDisplay(name);
-    }
-});
-
-
-
+}
 
 /***************************************************************************
  * renderFiles — отрисовка списка файлов в текущем режиме отображения:
@@ -284,92 +334,63 @@ filesView.addEventListener('click', (e) => {
  * - Назначает обработчик двойного клика для открытия или скачивания.
  * - Управляет отображением нижней панели действий.
  ***************************************************************************/
-async function renderFiles() {
-  const container = document.getElementById('files_view');
-  container.innerHTML = '';
+  async renderFiles() {
+    const container = document.getElementById('files_view');
+    container.innerHTML = '';
 
-  // Если режим "table", добавляем заголовок первой строкой
-  if (viewMode === 'table') {
-    const header = document.createElement('div');
-    header.id = 'files_header';
-    //header.classList.add("file_item");
-    header.innerHTML = `
-      <div>Имя</div>
-      <div>Размер</div>
-      <div>Дата</div>
-    `;
-    container.appendChild(header);
-  }
-
-  // Рендерим файлы
-//   currentFiles.forEach(f => {
-    currentFiles
-    .filter(f => showHidden || !f.name.startsWith('.'))
-    .forEach(f => {
-    const item = document.createElement('div');
-    item.className = 'file_item';
-    item.dataset.path = (cwd === '/' ? '' : cwd) + '/' + f.name;
-
-    const icon = f.isDir ? '📁' : '📄';
-    const nameEsc = escapeHtml(f.name);
-
-    item.innerHTML = `
-      <div class="file_main">  <!--ОДНА колонка -->
-        <div class="file_icon">${icon}</div>
-        <div class="file_name">${nameEsc}</div>
-      </div>
-      ${viewMode === 'table' ? `<div>${f.size || '—'}</div><div>${f.modTime || ''}</div>` : ''}
-    `;
-
-    item.ondblclick = () => {
-      const path = (cwd === '/' ? '' : cwd) + '/' + f.name;
-      f.isDir ? list(path) : downloadFile(path);
-    };
-
-    container.appendChild(item);
-  });
-
-  //const act = storeFManager?.[0]?.listTfootAct ?? null;
-  const act = M.data?.[0]?.listTfootAct ?? null;
-  if (act) {
-    listTfoot(act);
-  } else {
-    const toolbarBottom = document.getElementById('toolbarBottom');
-    toolbarBottom.style.display = 'none';
-  }
-}
-
-/***************************************************************************
- * listTfoot — управление нижней панелью действий:
- * - Отображает нижнюю панель файлового менеджера.
- * - Назначает действие кнопки в зависимости от режима.
- ***************************************************************************/
-function listTfoot(act) {
-    const toolbarBottom = document.getElementById('toolbarBottom');
-    toolbarBottom.style.display = '';
-    
-    if (act === 'loadBlock') {
-        const bottomBtn = document.getElementById('bottomBtn');
-        bottomBtn.onclick = () => submitPath();
+    // Если режим "table", добавляем заголовок первой строкой
+    if (this.settings.view === 'table') {
+      const header = document.createElement('div');
+      header.id = 'files_header';
+      header.innerHTML = `
+        <div>Имя</div>
+        <div>Размер</div>
+        <div>Дата</div>
+      `;
+      container.appendChild(header);
     }
-}
 
-/***************************************************************************
- * submitBlockPath — подтверждение выбора блока из нижней панели:
- * - Формирование пути по текущему каталогу и вводу пользователя.
- * - Передача пути через tempStore.
- * - Вызов callback-функции.
- * - Закрытие файлового менеджера.
- ***************************************************************************/
-async function submitPath() {
-    const input = document.getElementById('bottomInput');
-    let path = cwd + '/' + input.value;
-    path = path.replace(/^\/data\/HTML\/block\//, '');
-    await M.setData(path);
-    await M.callBack();
-    closeBtn.click();
-}
+    // Рендерим файлы
+      this.currentFiles
+      .filter(file => this.settings.showHidden || !file.name.startsWith('.'))
+      .forEach(file => {
+      const item = document.createElement('div');
+      item.className = 'file_item';
+      item.dataset.path = (this.cwd === '/' ? '' : this.cwd) + '/' + file.name;
 
+      const icon = file.isDir ? '📁' : '📄';
+      const nameEsc = escapeHtml(file.name);
+
+      item.innerHTML = `
+        <div class="file_main">  <!--ОДНА колонка -->
+          <div class="file_icon">${icon}</div>
+          <div class="file_name">${nameEsc}</div>
+        </div>
+        ${this.settings.view === 'table' ? `<div>${file.size || '—'}</div><div>${file.modTime || ''}</div>` : ''}
+      `;
+
+      item.ondblclick = () => {
+          const path = (this.cwd === '/' ? '' : this.cwd) + '/' + file.name;
+          if (file.isDir) {
+              this.openDir(path);  // <- используем метод класса
+          } else {
+              downloadFile(path);
+          }
+      };
+
+
+      container.appendChild(item);
+    });
+
+    const act = M.data?.[0]?.listTfootAct ?? null;
+    if (act) {
+      listTfoot(act);
+    } else {
+      const toolbarBottom = document.getElementById('toolbarBottom');
+      toolbarBottom.style.display = 'none';
+    }
+  }
+}
 
 /***************************************************************************
  * MsgClient — клиент API для работы с Внутренними сообщениями.
@@ -416,204 +437,178 @@ class MsgClient {
  }
 }
 
-/***************************************************************************
- * FilesApiClient — клиент API для работы с файлами и каталогами.
- ***************************************************************************/
-class FilesApiClient {
+let f = new FilesApiClient;
+let M = new MsgClient
+let fm = new FileManager(f,M)
+
+/***********************************************************************
+ * Элементы интерфейса файлового менеджера.
+ **********************************************************************/
+const cwdEl = document.getElementById('cwdEl');
+const mainEl = document.getElementById('main');
+const filesTable = document.getElementById('files');
+const tbody = document.querySelector('#files tbody');
+const closeBtn = document.getElementById('closeBtn');
+const fburger = document.getElementById('fburger');
+const fburgerMenu = document.getElementById('fburgerMenu');
+const fburgerMenuEl = document.getElementById('fburgerMenu');
+const menuItems = fburgerMenuEl.querySelectorAll('#fburgerMenu > .menu_item');
+const submenus = fburgerMenuEl.querySelectorAll('.submenu');
+// Чекбоксы управления списком файлов.
+const chkFoldersFirst = document.getElementById('sortFoldersFirst');
+const chkShowHidden = document.getElementById('showHidden');
+// Контейнер отображения списка файлов.
+const filesView = document.getElementById('files_view');
 
 /***************************************************************************
- * constructor — инициализация базового пути.
+ * closeBtn click — закрывает окно файлового менеджера:
+ * - Сбрасывает активное состояние панели.
+ * - Удаляет окно файлового менеджера со страницы.
+ * - Удаляет связанные динамические стили и скрипты.
  ***************************************************************************/
-  constructor(baseUrl = '/api/files') {
-    this.baseUrl = baseUrl;
-  }
-
-
-/***************************************************************************
- * list — получение списка файлов и папок:
- * - Принимает путь к каталогу относительно базового пути.
- * - При неуспешном ответе сервера выбрасывает ошибку.
- * - Возвращает массив объектов с метаданными файлов.
- ***************************************************************************/
-  async list(path = '') {
-    const url = `${this.baseUrl}/${path}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Error listing files: ${res.statusText}`);
-    return res.json(); // возвращает массив {name, isDir, size, modTime}
-  }
+closeBtn.addEventListener('click', () => {
+    const f_m = document.getElementById("fManager");
+    if (f_m) f_m.remove();
+    document.querySelectorAll('[data-dynamic="fManager"]').forEach(el => el.remove());
+});
 
 /***************************************************************************
- * getFile — получение содержимого файла:
- * - Принимает путь к файлу относительно базового пути.
- * - При неуспешном ответе сервера выбрасывает ошибку.
- * - Возвращает содержимое файла в текстовом виде.
+ * document click — закрывает меню файлового менеджера.
  ***************************************************************************/
-  async getFile(path) {
-    const url = `${this.baseUrl}/${path}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Error getting file: ${res.statusText}`);
-    return res.text(); // для бинарных файлов можно использовать res.arrayBuffer()
-  }
+document.addEventListener('click', () => {
+    fburger.classList.remove('open');
+});
+
+ /***********************************************************************
+  * Пользовательские настройки файлового менеджера.
+  **********************************************************************/
+
+/***********************************************************************
+ * Загрузка сохранённых настроек файлового менеджера из cookie.
+ **********************************************************************/
+const saved = getCookie('fm_settings');
+if (saved) {
+    try {
+        Object.assign(fm.settings, JSON.parse(decodeURIComponent(saved)));
+    } catch {}
+}
+chkFoldersFirst.checked = fm.settings.foldersFirst;
+chkShowHidden.checked = fm.settings.showHidden;
 
 /***************************************************************************
- * head — получение метаинформации файла:
- * - Принимает путь к файлу относительно базового пути.
- * - Выполняет HEAD-запрос без загрузки содержимого.
- * - При неуспешном ответе сервера выбрасывает ошибку.
- * - Возвращает размер, дату изменения и тип содержимого.
+ * fburger click — переключает состояние главного меню файлового менеджера.
  ***************************************************************************/
-  async head(path) {
-    const url = `${this.baseUrl}/${path}`;
-    const res = await fetch(url, { method: 'HEAD' });
-    if (!res.ok) throw new Error(`Error fetching metadata: ${res.statusText}`);
-    return {
-      size: res.headers.get('Content-Length'),
-      lastModified: res.headers.get('Last-Modified'),
-      contentType: res.headers.get('Content-Type')
-    };
-  }
+fburger.addEventListener('click', e => {
+    e.stopPropagation();
+    fburger.classList.toggle('open');
+});
+
+/***********************************************************************
+ * Классы режимов отображения списка файлов.
+ **********************************************************************/
+const VIEW_CLASSES = {
+    table: 'view_table',
+    columns: 'view_list',
+    tiles: 'view_tiles'
+};
 
 /***************************************************************************
- * upload — загрузка файла:
- * - Принимает путь назначения и файл для загрузки.
- * - Отправляет файл на сервер с использованием FormData.
- * - При неуспешном ответе сервера выбрасывает ошибку.
- * - Возвращает успешный результат загрузки.
+ * applyViewMode — переключает режим отображения:
+ * - Принимает режим отображения.
+ * - Убирает все активные режимы у списка файлов.
+ * - Применяет выбранный режим к списку файлов.
  ***************************************************************************/
-  async upload(path, file) {
-    const url = `${this.baseUrl}/${path}`;
-    const formData = new FormData();
-    formData.append('file', file);
-    const res = await fetch(url, { method: 'POST', body: formData });
-    if (!res.ok) throw new Error(`Error uploading file: ${res.statusText}`);
-    return true;
-  }
-
-/***************************************************************************
- * mkdir — создание папки:
- * - Принимает путь создаваемой папки.
- * - Отправляет запрос на создание папки.
- * - При неуспешном ответе сервера выбрасывает ошибку.
- * - Возвращает успешный результат операции.
- ***************************************************************************/
-  async mkdir(path) {
-    const url = `${this.baseUrl}/${path}`;
-    const res = await fetch(url, { method: 'POST' });
-    if (!res.ok) throw new Error(`Error creating folder: ${res.statusText}`);
-    return true;
-  }
-
-/***************************************************************************
- * put — полная замена содержимого файла:
- * - Принимает путь к файлу и новое содержимое.
- * - Полностью перезаписывает файл на сервере.
- * - При неуспешном ответе сервера выбрасывает ошибку.
- * - Возвращает успешный результат операции.
- ***************************************************************************/
-  async put(path, content) {
-    const url = `${this.baseUrl}/${path}`;
-    const res = await fetch(url, { method: 'PUT', body: content });
-    if (!res.ok) throw new Error(`Error updating file: ${res.statusText}`);
-    return true;
-  }
-
-/***************************************************************************
- * patch — частичное обновление содержимого файла:
- * - Принимает путь к файлу и обновляемое содержимое.
- * - Обновляет часть файла без полной перезаписи.
- * - При неуспешном ответе сервера выбрасывает ошибку.
- * - Возвращает успешный результат операции.
- ***************************************************************************/
-  async patch(path, content) {
-    const url = `${this.baseUrl}/${path}`;
-    const res = await fetch(url, { method: 'PATCH', body: content });
-    if (!res.ok) throw new Error(`Error patching file: ${res.statusText}`);
-    return true;
-  }
-
-/***************************************************************************
- * delete — удаление файла или папки:
- * - Принимает путь к файлу или папке.
- * - Удаляет указанный объект на сервере.
- * - При неуспешном ответе сервера выбрасывает ошибку.
- * - Возвращает успешный результат операции.
- ***************************************************************************/
-  async delete(path) {
-    const url = `${this.baseUrl}/${path}`;
-    const res = await fetch(url, { method: 'DELETE' });
-    if (!res.ok) throw new Error(`Error deleting: ${res.statusText}`);
-    return true;
-  }
-
-/***************************************************************************
- * copy — копирование файла:
- * - Принимает путь исходного файла и целевой путь.
- * - Создаёт копию файла в указанном месте.
- * - При неуспешном ответе сервера выбрасывает ошибку.
- * - Возвращает успешный результат операции.
- ***************************************************************************/
-  async copy(path, target) {
-    const url = `${this.baseUrl}/${path}/copy`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ target })
-    });
-    if (!res.ok) throw new Error(`Error copying file: ${res.statusText}`);
-    return true;
-  }
-
-/***************************************************************************
- * move — перемещение файла:
- * - Принимает путь исходного файла и целевой путь.
- * - Перемещает файл в указанное место.
- * - При неуспешном ответе сервера выбрасывает ошибку.
- * - Возвращает успешный результат операции.
- ***************************************************************************/
-  async move(path, target) {
-    const url = `${this.baseUrl}/${path}/move`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ target })
-    });
-    if (!res.ok) throw new Error(`Error moving file: ${res.statusText}`);
-    return true;
-  }
-
-/***************************************************************************
- * getRange — загрузка части файла:
- * - Принимает путь к файлу и диапазон байт.
- * - Загружает указанную часть файла с использованием Range-запроса.
- * - При неуспешном ответе сервера выбрасывает ошибку.
- * - Возвращает данные файла в бинарном виде.
- ***************************************************************************/
-  async getRange(path, start = 0, end = null) {
-    const url = `${this.baseUrl}/${path}`;
-    const headers = {};
-    if (end !== null) headers['Range'] = `bytes=${start}-${end}`;
-    const res = await fetch(url, { headers });
-    if (!res.ok && res.status !== 206) throw new Error(`Error fetching range: ${res.statusText}`);
-    return res.arrayBuffer();
-  }
-
-/***************************************************************************
- * search — поиск файлов с фильтрацией:
- * - Принимает путь каталога и параметры поиска.
- * - Выполняет поиск файлов по заданным условиям.
- * - При неуспешном ответе сервера выбрасывает ошибку.
- * - Возвращает список найденных файлов.
- ***************************************************************************/
-  async search(path = '', query = {}) {
-    const params = new URLSearchParams(query);
-    const url = `${this.baseUrl}/${path}?${params.toString()}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Error searching files: ${res.statusText}`);
-    return res.json();
-  }
+function applyViewMode(view) {
+    // убрать все режимы
+    filesView.classList.remove(...Object.values(VIEW_CLASSES));
+    // добавить нужный
+    if (VIEW_CLASSES[view]) {
+        filesView.classList.add(VIEW_CLASSES[view]);
+    }
 }
 
-let f = new FilesApiClient;
+/***********************************************************************
+ * Применение сохранённых настроек к текущему состоянию и интерфейсу.
+ **********************************************************************/
+document.querySelector(`input[name="sort"][value="${fm.settings.sort}"]`)?.click();
+
+/***************************************************************************
+ * fburgerMenu item click — изменяет режим отображения списка файлов:
+ * - Обновляет текущий режим отображения.
+ * - Применяет режим и перерисовывает список файлов.
+ * - Сохраняет выбранный режим в настройках и закрывает меню.
+ ***************************************************************************/
+fburgerMenu.querySelectorAll('[data-view]').forEach(item => {
+    item.addEventListener('click', e => {
+        e.stopPropagation();
+        fm.settings.view = item.dataset.view;
+        applyViewMode(fm.settings.view);
+        fm.renderFiles();
+        saveSettings();
+        fburgerMenu.style.display = 'none';
+    });
+});
+
+
+/***************************************************************************
+ * filesView click — управление выделением файлов и отображением пути:
+ * - Принимает событие клика мыши.
+ * - Снимает выделение при клике по пустой области.
+ * - Переключает выделение элемента файла.
+ * - Обновляет отображение текущего пути в зависимости от выбора.
+ ***************************************************************************/
+filesView.addEventListener('click', (e) => {
+    const item = e.target.closest('.file_item');
+    if (!item || e.target === filesView) {
+        filesView.querySelectorAll('.file_item.selected')
+            .forEach(el => el.classList.remove('selected'));
+        fm.updateCwdDisplay(); // сброс серого пути
+        return;
+    }
+    if (item.classList.contains('selected')) {
+        item.classList.remove('selected');
+        fm.updateCwdDisplay(); // убрали выделение
+        return;
+    }
+    filesView.querySelectorAll('.file_item.selected')
+        .forEach(el => el.classList.remove('selected'));
+    item.classList.add('selected');
+    const name = item.querySelector('.file_name')?.textContent;
+    if (name) {
+        fm.updateCwdDisplay(name);
+    }
+});
+
+/***************************************************************************
+ * listTfoot — управление нижней панелью действий:
+ * - Отображает нижнюю панель файлового менеджера.
+ * - Назначает действие кнопки в зависимости от режима.
+ ***************************************************************************/
+function listTfoot(act) {
+    const toolbarBottom = document.getElementById('toolbarBottom');
+    toolbarBottom.style.display = '';
+    
+    if (act === 'loadBlock') {
+        const bottomBtn = document.getElementById('bottomBtn');
+        bottomBtn.onclick = () => submitPath();
+    }
+}
+
+/***************************************************************************
+ * submitBlockPath — подтверждение выбора:
+ * - Формирование пути по текущему каталогу и вводу пользователя.
+ * - Передача пути через tempStore.
+ * - Вызов callback-функции.
+ * - Закрытие файлового менеджера.
+ ***************************************************************************/
+async function submitPath() {
+    const input = document.getElementById('bottomInput');
+    let path = fm.cwd + '/' + input.value;
+    path = path.replace(/^\/data\/HTML\/block\//, '');
+    await M.setData(path);
+    await M.callBack();
+    closeBtn.click();
+}
 
 /***************************************************************************
  * escapeHtml — экранирование HTML-символов для безопасного вывода текста.
@@ -622,27 +617,29 @@ function escapeHtml(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-
-/***************************************************************************
+/**************************************************************************
  * btnUp — кнопка перехода в родительский каталог.
  ***************************************************************************/
 const btnUp = document.getElementById('btnUp');
+
 /***************************************************************************
  * btnUp click — переход в родительский каталог:
- * - Проверяет возможность перехода выше корневого каталога.
+ * - Проверяет корневой ли каталог.
  * - Определяет путь родительского каталога.
  * - Загружает содержимое родительского каталога.
  ***************************************************************************/
 btnUp.addEventListener('click', () => {
-    if (cwd === '/' || !cwd) return;
-
-    const parts = cwd.split('/').filter(Boolean);
-    parts.pop(); // убрать текущий каталог
-
+    // если мы уже в корне, не делаем ничего
+    if (!fm.cwd || fm.cwd === '/') return;
+    // разбиваем путь на части
+    const parts = fm.cwd.split('/').filter(Boolean);
+    // убираем последний сегмент (текущий каталог)
+    parts.pop();
+    // формируем путь родителя
     const parent = '/' + parts.join('/');
-    list(parent === '' ? '/' : parent);
+    // переходим в родительский каталог
+    fm.openDir(parent === '' ? '/' : parent);
 });
-
 
 /***************************************************************************
  * cwdEl — включение редактирования и отключение проверки орфографии.
@@ -651,9 +648,9 @@ cwdEl.contentEditable = "true";
 cwdEl.spellcheck = false;
 
 /***************************************************************************
- * cwdEditBackup — временное хранение пути при редактировании.
+ * Временное хранение пути при редактировании.
  ***************************************************************************/
-let cwdEditBackup = "";
+let cwdHtmlBackup = "";
 
 /***************************************************************************
  * cwdEl focus — начало редактирования текущего пути:
@@ -662,9 +659,18 @@ let cwdEditBackup = "";
  * - Отображает текущий путь в поле ввода.
  ***************************************************************************/
 cwdEl.addEventListener('focus', () => {
-    cwdEditBackup = cwd;
+    cwdHtmlBackup = cwdEl.innerHTML;
     cwdEl.classList.add('editing');
-    cwdEl.textContent = cwd;
+});
+
+/***************************************************************************
+ * cwdEl blur — завершение редактирования пути:
+ * - Отключает режим редактирования.
+ * - Возвращает отображение текущего пути.
+ ***************************************************************************/
+cwdEl.addEventListener('blur', () => {
+    cwdEl.classList.remove('editing');
+    cwdEl.innerHTML = cwdHtmlBackup;
 });
 
 /***************************************************************************
@@ -690,7 +696,7 @@ cwdEl.addEventListener('keydown', e => {
 
         if (path === '') path = '/';
 
-        list(path);
+        fm.openDir(path);
         cwdEl.blur();
     }
 
@@ -701,70 +707,6 @@ cwdEl.addEventListener('keydown', e => {
     }
 });
 
-/***************************************************************************
- * cwdEl blur — завершение редактирования пути:
- * - Отключает режим редактирования.
- * - Возвращает отображение текущего пути.
- ***************************************************************************/
-cwdEl.addEventListener('blur', () => {
-    cwdEl.classList.remove('editing');
-    cwdEl.textContent = cwd;
-});
-
-//applyViewMode("table");
-//list('/');
-
-/***************************************************************************
- * updateCwdDisplay — обновление отображения текущего пути:
- * - Очищает текущее содержимое строки пути.
- * - Отображает базовый текущий каталог.
- * - При наличии выбранного элемента добавляет выделенный суффикс пути.
- ***************************************************************************/
-function updateCwdDisplay(selectedName = null) {
-    cwdEl.innerHTML = '';
-
-    const base = document.createElement('span');
-    base.className = 'cwd-base';
-    base.textContent = cwd;
-    cwdEl.appendChild(base);
-
-    if (selectedName) {
-        const suffix = document.createElement('span');
-        suffix.className = 'cwd-selected';
-        suffix.textContent =
-            (cwd.endsWith('/') ? '' : '/') + selectedName;
-        cwdEl.appendChild(suffix);
-    }
-}
-
-
-// const menuItems = document.querySelectorAll('#fburgerMenu .menu-item');
-// const submenus = document.querySelectorAll('#fburgerMenu .submenu');
-
-// function hideSubmenus() {
-//   submenus.forEach(sm => sm.style.display = 'none');
-//   menuItems.forEach(mi => mi.classList.remove('active'));
-// }
-
-// menuItems.forEach(item => {
-//   item.addEventListener('mouseenter', () => {
-//     hideSubmenus();
-
-//     const id = item.dataset.submenu;
-//     const submenu = document.getElementById('submenu-' + id);
-
-//     if (submenu) {
-//       item.classList.add('active');
-//       submenu.style.display = 'block';
-//       submenu.style.top = item.offsetTop + 'px';
-//     }
-//   });
-// });
-
-// document.getElementById('fburgerMenu')
-//   .addEventListener('mouseleave', hideSubmenus);
-
-//const fburger = document.getElementById('fburger');
 
 /***************************************************************************
  * hideSubmenus — скрытие подменю и сброс состояний меню:
@@ -816,7 +758,6 @@ menuItems.forEach(item => {
     }, 50);
   });
 });
-//applyViewMode();
 
 /***************************************************************************
  * document radio change — изменение режима сортировки:
@@ -826,14 +767,11 @@ menuItems.forEach(item => {
  ***************************************************************************/
 document.querySelectorAll('input[name="sort"]').forEach(radio => {
     radio.addEventListener('change', () => {
-        currentSort = radio.value;
-        sortFiles();
-        renderFiles();
+        fm.settings.sort = radio.value;
+        fm.sortFiles();
+        fm.renderFiles();
     });
 });
-
-
-
 
 /***************************************************************************
  * chkFoldersFirst change — переключение приоритета папок:
@@ -842,9 +780,9 @@ document.querySelectorAll('input[name="sort"]').forEach(radio => {
  * - Перерисовывает отображение файлов.
  ***************************************************************************/
 chkFoldersFirst.addEventListener('change', () => {
-    sortFoldersFirst = chkFoldersFirst.checked;
-    sortFiles();
-    renderFiles();
+    fm.settings.foldersFirst = chkFoldersFirst.checked;
+    fm.sortFiles();
+    fm.renderFiles();
 });
 
 /***************************************************************************
@@ -853,14 +791,9 @@ chkFoldersFirst.addEventListener('change', () => {
  * - Перерисовывает список файлов.
  ***************************************************************************/
 chkShowHidden.addEventListener('change', () => {
-    showHidden = chkShowHidden.checked;
-    renderFiles();
+    fm.settings.showHidden = chkShowHidden.checked;
+    fm.renderFiles();
 });
-
-
-// --- режим просмотра ---
-//viewMode = settings.view;
-//applyViewMode(viewMode);
 
 /***************************************************************************
  * document radio change — изменение и сохранение режима сортировки:
@@ -871,25 +804,14 @@ chkShowHidden.addEventListener('change', () => {
  ***************************************************************************/
 document.querySelectorAll('input[name="sort"]').forEach(radio => {
     radio.addEventListener('change', () => {
-        currentSort = radio.value;
-        settings.sort = radio.value;
-
-        sortFiles();
-        renderFiles();
+        fm.settings.sort = radio.value;
+        
+        fm.sortFiles();
+        fm.renderFiles();
 
         saveSettings();
     });
 });
-
-
-
-
-/***************************************************************************
- * Инициализация параметров сортировки и отображения из настроек.
- ***************************************************************************/
-sortFoldersFirst = settings.foldersFirst;
-showHidden = settings.showHidden;
-
 
 /***************************************************************************
  * chkFoldersFirst change — переключение приоритета папок и сохранение настройки:
@@ -899,11 +821,10 @@ showHidden = settings.showHidden;
  * - Перерисовывает отображение файлов.
  ***************************************************************************/
 chkFoldersFirst.addEventListener('change', () => {
-    sortFoldersFirst = chkFoldersFirst.checked;
-    settings.foldersFirst = sortFoldersFirst;
+    fm.settings.foldersFirst = chkFoldersFirst.checked;
 
-    sortFiles();
-    renderFiles();
+    fm.sortFiles();
+    fm.renderFiles();
     saveSettings();
 });
 
@@ -914,10 +835,9 @@ chkFoldersFirst.addEventListener('change', () => {
  * - Перерисовывает список файлов.
  ***************************************************************************/
 chkShowHidden.addEventListener('change', () => {
-    showHidden = chkShowHidden.checked;
-    settings.showHidden = showHidden;
+    fm.settings.showHidden = chkShowHidden.checked;
 
-    renderFiles();
+    fm.renderFiles();
     saveSettings();
 });
 
@@ -925,7 +845,7 @@ chkShowHidden.addEventListener('change', () => {
  * saveSettings — сохранение текущих настроек в cookie.
  ***************************************************************************/
 function saveSettings() {
-    setCookie('fm_settings', JSON.stringify(settings));
+    setCookie('fm_settings', JSON.stringify(fm.settings));
 }
 
 /***************************************************************************
@@ -971,13 +891,6 @@ menuItems.forEach(item => {
 /***************************************************************************
  * applyViewMode — применяет текущий режим отображения файлов.
  ***************************************************************************/
-applyViewMode(viewMode);
+applyViewMode(fm.settings.view);
 
-/***************************************************************************
- * init — загружает содержимое корневого каталога.
- ***************************************************************************/
-let M = new MsgClient
-async function init() {
-  list(await M.getData());
-}
-init();
+fm.init();

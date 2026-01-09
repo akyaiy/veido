@@ -17,6 +17,7 @@ import (
 	"MyServer/internal/config"
 	"MyServer/internal/dav"
 	"MyServer/internal/files"
+	"MyServer/internal/vfs"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -49,24 +50,70 @@ func ServerStart(db *sql.DB, aut *auth.Auth) {
 	// -----------------------------
 	// 2. Настройка WebDAV обработчика
 	// В данном примере используем текущую директорию "." как хранилище
-	davHandler := &webdav.Handler{
-		Prefix:     "/dav",
-		FileSystem: dav.FS{},
-		LockSystem: webdav.NewMemLS(),
-		Logger: func(r *http.Request, err error) {
-			if err != nil {
-				log.Printf("WebDAV Error: %s %s: %v", r.Method, r.URL.Path, err)
-			}
-		},
-	}
-
-	// 3. Маршрут /dav
 	r.Route("/dav", func(r chi.Router) {
-		// Используем r.Handle с подстановочным знаком (*), чтобы направить
-		// все методы (включая зарегистрированные выше) на davHandler
-		r.Handle("/", acl.RequirePermission(db, aut, acl.FilesPermissionFromRequestWebDav, davHandler))
-		r.Handle("/*", acl.RequirePermission(db, aut, acl.FilesPermissionFromRequestWebDav, davHandler))
+		r.Handle("/*", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			// 1. Получаем пользователя через ACL или aut
+			user, err := aut.GetUserFromRequest(req)
+			if err != nil {
+				user = &auth.User{ID: 0, Username: "Guest"} // или return 401
+			}
+			//fmt.Printf("user:%v\n", user)
+
+			// 2. Строим VFS динамически
+			vfsRoot := vfs.BuildVFS(db, user)
+
+			// 3. Создаём WebDAV handler для этого пользователя
+			handler := &webdav.Handler{
+				Prefix:     "/dav",
+				FileSystem: &dav.VFSWebDAV{Root: vfsRoot},
+				LockSystem: webdav.NewMemLS(),
+				Logger: func(r *http.Request, err error) {
+					if err != nil {
+						log.Printf("WebDAV Error: %s %s: %v", r.Method, r.URL.Path, err)
+					}
+				},
+			}
+
+			// 4. Оборачиваем через ACL
+			acl.RequirePermission(db, aut, acl.FilesPermissionFromRequestWebDav, handler).ServeHTTP(w, req)
+		}))
 	})
+
+	// vfsRoot := vfs.BuildVFS(db, user)
+	// davHandler := &webdav.Handler{
+	// 	Prefix:     "/dav",
+	// 	FileSystem: &dav.VFSWebDAV{Root: vfsRoot},
+	// 	LockSystem: webdav.NewMemLS(),
+	// 	Logger: func(r *http.Request, err error) {
+	// 		if err != nil {
+	// 			log.Printf("WebDAV Error: %s %s: %v", r.Method, r.URL.Path, err)
+	// 		}
+	// 	},
+	// }
+
+	// r.Route("/dav", func(r chi.Router) {
+	// 	r.Handle("/", acl.RequirePermission(db, aut, acl.FilesPermissionFromRequestWebDav, davHandler))
+	// 	r.Handle("/*", acl.RequirePermission(db, aut, acl.FilesPermissionFromRequestWebDav, davHandler))
+	// })
+
+	// davHandler := &webdav.Handler{
+	// 	Prefix:     "/dav",
+	// 	FileSystem: dav.FS{},
+	// 	LockSystem: webdav.NewMemLS(),
+	// 	Logger: func(r *http.Request, err error) {
+	// 		if err != nil {
+	// 			log.Printf("WebDAV Error: %s %s: %v", r.Method, r.URL.Path, err)
+	// 		}
+	// 	},
+	// }
+
+	// // 3. Маршрут /dav
+	// r.Route("/dav", func(r chi.Router) {
+	// 	// Используем r.Handle с подстановочным знаком (*), чтобы направить
+	// 	// все методы (включая зарегистрированные выше) на davHandler
+	// 	r.Handle("/", acl.RequirePermission(db, aut, acl.FilesPermissionFromRequestWebDav, davHandler))
+	// 	r.Handle("/*", acl.RequirePermission(db, aut, acl.FilesPermissionFromRequestWebDav, davHandler))
+	// })
 
 	r.Route("/api", func(api chi.Router) {
 		api.Route("/users", func(u chi.Router) { users.RegisterRoutes(u, db, aut) })

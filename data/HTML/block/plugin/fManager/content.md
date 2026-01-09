@@ -33,7 +33,7 @@
 </div>
   <div id="toolbar">
     <button id="btnUp">⬆</button>
-    <span id="cwd"></span>
+    <span id="cwdEl"></span>
     <div id="actions">
       <label class="btn">Загрузить<input id="uploadFile" type="file" hidden /></label>
       <button id="btnUpload">Загрузить</button>

@@ -31,31 +31,15 @@ type User struct {
 	Username string `json:"username"`
 }
 
-// func (a *Auth) GetUserFromRequest(r *http.Request) (*User, error) {
-// 	userID, ok := a.AuthenticateRequest(r)
-// 	if !ok || userID == 0 {
-// 		return nil, errors.New("unauthenticated")
-// 	}
-
-// 	row := a.db.QueryRow("SELECT id, username FROM users WHERE id = ?", userID)
-// 	var u User
-// 	if err := row.Scan(&u.ID, &u.Username); err != nil {
-// 		if err == sql.ErrNoRows {
-// 			return nil, errors.New("user not found")
-// 		}
-// 		return nil, err
-// 	}
-// 	return &u, nil
-// }
-
+/*******************************************************************************
+ * GetUserFromRequest — это функция аутентификации пользователя по HTTP-запросу.
+ *******************************************************************************/
 func (a *Auth) GetUserFromRequest(r *http.Request) (*User, error) {
-	// 1️⃣ JWT — как и раньше (UI, API)
+	// 1️⃣ Аутентификация через JWT
 	userID, ok := a.AuthenticateRequest(r)
 	if ok && userID != 0 {
 		return a.loadUserByID(userID)
 	}
-	//	fmt.Println("userID:%v", userID)
-
 	// 2️⃣ Basic Auth — ТОЛЬКО для WebDAV
 	if strings.HasPrefix(r.URL.Path, "/dav") {
 		login, pass, ok := r.BasicAuth()
@@ -70,7 +54,7 @@ func (a *Auth) GetUserFromRequest(r *http.Request) (*User, error) {
 			//fmt.Println("No BasicAuth header sent by client")
 		}
 	}
-
+	// Если аутентификация не удалась.
 	return nil, errors.New("unauthenticated")
 }
 
@@ -91,11 +75,7 @@ func (a *Auth) AuthenticateUser(login, password string) (*User, error) {
 	}
 
 	// Здесь проверяем ошибку
-	//fmt.Println("Trying login:", login)
-	//fmt.Println("Password hash:", hash)
-
 	err := a.CheckPassword(hash, password)
-	//fmt.Println("Password check error:", err)
 	if err != nil {
 		return nil, errors.New("invalid credentials")
 	}
@@ -215,31 +195,46 @@ func (a *Auth) VerifyRefreshToken(tokenString string) (int64, error) {
 	return claims.UserID, nil
 }
 
-// AuthenticateRequest reads Authorization header and validates access token.
-// Returns userID and ok flag.
+/****************************************************************************
+ * AuthenticateRequest аутентифицирует HTTP-запрос по JWT-токену.
+ * Возвращает:
+ *
+ * - int64 — UserID, извлечённый из токена
+ * - bool — успешна ли аутентификация
+ * - (0, false) - если что-то пошло не так.
+******************************************************************************/
 func (a *Auth) AuthenticateRequest(r *http.Request) (int64, bool) {
+	// Чтение заголовка Authorization.
+	// Ожидаемый формат: Authorization: Bearer <JWT>
 	header := r.Header.Get("Authorization")
 	if header == "" {
 		return 0, false
 	}
-	//const prefix = "Bearer "
+	// Проверка префикса Bearer
 	if !strings.HasPrefix(header, "Bearer ") {
 		return 0, false
 	}
+	// Извлечение JWT-токена
 	tokenString := strings.TrimPrefix(header, "Bearer ")
+	// Создание структуры claims
+	// Claims — это структура, в которую будут распарсены данные из JWT.
 	claims := &Claims{}
-
+	// Парсинг и проверка JWT
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-		// Validate alg
+		// Проверка алгоритма подписи
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			// Разрешаются только HMAC-алгоритмы (HS256, HS384, HS512)
 			return nil, errors.New("unexpected signing method")
 		}
+		// Передача секретного ключа
 		return a.secret, nil
 	})
+	// Проверка результата
 	if err != nil || !token.Valid {
 		return 0, false
 	}
-
+	//Успешная аутентификация
+	//fmt.Print("auth ok!\n")
 	return claims.UserID, true
 }
 
@@ -259,6 +254,6 @@ func (a *Auth) ParseRefreshToken(tokenString string) (int64, error) {
 	if err != nil || !token.Valid {
 		return 0, errors.New("invalid token")
 	}
-
+	fmt.Printf("user id: %v\n", claims.UserID)
 	return claims.UserID, nil
 }
