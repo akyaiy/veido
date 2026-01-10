@@ -35,27 +35,28 @@ type User struct {
  * GetUserFromRequest — это функция аутентификации пользователя по HTTP-запросу.
  *******************************************************************************/
 func (a *Auth) GetUserFromRequest(r *http.Request) (*User, error) {
-	// 1️⃣ Аутентификация через JWT
+	// 1️⃣ JWT (основной способ)
 	userID, ok := a.AuthenticateRequest(r)
 	if ok && userID != 0 {
 		return a.loadUserByID(userID)
 	}
+
 	// 2️⃣ Basic Auth — ТОЛЬКО для WebDAV
 	if strings.HasPrefix(r.URL.Path, "/dav") {
 		login, pass, ok := r.BasicAuth()
 		if ok {
 			u, err := a.AuthenticateUser(login, pass)
-			//fmt.Println("AuthenticateUser error:", err)
 			if err == nil {
-				//fmt.Println("Authenticated DAV user:", u.Username)
 				return u, nil
 			}
-		} else {
-			//fmt.Println("No BasicAuth header sent by client")
 		}
 	}
-	// Если аутентификация не удалась.
-	return nil, errors.New("unauthenticated")
+
+	// 3️⃣ Fallback → Guest (НЕ ошибка)
+	return &User{
+		ID:       0,
+		Username: "Guest",
+	}, nil
 }
 
 func (a *Auth) AuthenticateUser(login, password string) (*User, error) {

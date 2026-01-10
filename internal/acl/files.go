@@ -52,7 +52,6 @@ func FilesPermissionFromRequestREST(r *http.Request) string {
 /*************************************************************************
  * filesPathFromRequest извлекает путь каталога из HTTP-запроса и
  * возвращает его в формате:
- * возвращает в формате:
  * dir.subdir.subsubdir
  *************************************************************************/
 func filesPathFromRequest(r *http.Request) string {
