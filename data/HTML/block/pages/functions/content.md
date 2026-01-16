@@ -19,7 +19,7 @@
 <div id="codeWrapper">
     <div id="lineNumbers"></div>
     <div id="Wrapper"></div>
-    <textarea id="code"></textarea>
+    <div id="code" contenteditable="true" spellcheck="false"><div><br></div></div>
 </div><br>
 <button id="bt_compile" class="all_button">Компилировать</button>
 <button id="bt_run" class="all_button">Запустить</button><br>

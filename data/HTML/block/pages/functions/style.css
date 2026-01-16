@@ -27,4 +27,23 @@ textarea { width: 100%; height: 200px; }
     box-shadow: 0 0 10px rgba(0,0,0,0.3);}
 .popup button {margin-top: 20px; padding: 5px 10px;}
 
-
+#code { 
+    background: rgba(0,0,0); 
+    padding: 5px;
+    color: #ffffff;
+}
+/* синтаксис кода */
+.go-keyword      { color: #569CD6; font-weight: 600; }
+.go-builtin      { color: #4EC9B0; font-weight: 500; }
+.go-type         { color: #4FC1FF; font-weight: 600; }
+.go-const        { color: #D7BA7D; font-weight: 600; }
+.go-string       { color: #CE9178; }
+.go-comment      { color: #6A9955; font-style: italic; }
+.go-number       { color: #B5CEA8; }
+.go-variable     { color: #9CDCFE; }
+.go-method       { color: #DCDCAA; }
+.go-field        { color: #C586C0; }
+.go-package      { color: #569CD6; font-weight: 600; }
+.go-interface    { color: #4FC1FF; font-weight: 600; }
+.go-operator     { color: #D4D4D4; }
+.go-empty        { color: #333; font-style: italic; }
