@@ -2,6 +2,7 @@
  * Элементы интерфейса вкладок CSS / JS.
  **********************************************************************/
 const tabs = document.querySelectorAll('#css-js-tabs .tab');
+const propertiesPanel = document.getElementById('properties-panel');
 const cssPanel = document.getElementById('css-panel');
 const jsPanel = document.getElementById('js-panel');
 
@@ -28,15 +29,22 @@ tabs.forEach(tab => {
         tabs.forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
 
-        if (tab.dataset.tab === 'css') {
+        if (tab.dataset.tab === 'properties') {
+            propertiesPanel.style.display = '';
+            cssPanel.style.display = 'none';
+            jsPanel.style.display = 'none';
+        } else if (tab.dataset.tab === 'css') {
+            propertiesPanel.style.display = 'none';
             cssPanel.style.display = 'flex';
             jsPanel.style.display = 'none';
-        } else {
+        } else if (tab.dataset.tab === 'js') {
+            propertiesPanel.style.display = 'none';
             cssPanel.style.display = 'none';
             jsPanel.style.display = 'flex';
         }
     });
 });
+
 
 
 
@@ -815,6 +823,7 @@ document.addEventListener('click', e => {
     updatePropertiesPanel(el);
     updateTagLabel(el);
     updateJsPanel(el);
+    updatePropertiesPanel(el);
 });
 
 /***********************************************************************
@@ -1703,4 +1712,114 @@ function resolveSelectorFromExpr(expr, scriptText) {
     }
 
     return null;
+}
+
+
+
+
+
+function updatePropertiesPanel(el) {
+    updateSimpleFormats(el);
+    updateSelectProperties(el);
+}
+
+function updateSimpleFormats(el) {
+    if (!el) return;
+    const simple = document.getElementById('properties-simpleFormats');
+    if (!simple) return;
+    const btns = Array.from(simple.querySelectorAll('[simpleformats-button]'));
+
+    btns.forEach(b => {
+        const key = b.getAttribute('simpleformats-button');
+        b.classList.remove('active');
+
+        switch (key) {
+            case 'bold':
+                if (el.style.fontWeight === 'bold') b.classList.add('active');
+                break;
+            case 'italic':
+                if (el.style.fontStyle === 'italic') b.classList.add('active');
+                break;
+            case 'underline':
+                if (el.style.textDecoration && el.style.textDecoration.includes('underline')) b.classList.add('active');
+                break;
+            case 'strike':
+                if (el.style.textDecoration && el.style.textDecoration.includes('line-through')) b.classList.add('active');
+                break;
+            case 'sup':
+                if (el.style.verticalAlign === 'super') b.classList.add('active');
+                break;
+            case 'sub':
+                if (el.style.verticalAlign === 'sub') b.classList.add('active');
+                break;
+        }
+
+        b.onclick = () => {
+            switch (key) {
+                case 'bold':
+                    el.style.fontWeight = el.style.fontWeight === 'bold' ? '' : 'bold';
+                    break;
+                case 'italic':
+                    el.style.fontStyle = el.style.fontStyle === 'italic' ? '' : 'italic';
+                    break;
+                case 'underline':
+                    const tdU = el.style.textDecoration || '';
+                    el.style.textDecoration = tdU.includes('underline') ? tdU.replace(/(^|\s)*underline(\s|$)*/g, '').trim() : (tdU ? tdU + ' underline' : 'underline');
+                    break;
+                case 'strike':
+                    const tdS = el.style.textDecoration || '';
+                    el.style.textDecoration = tdS.includes('line-through') ? tdS.replace(/(^|\s)*line-through(\s|$)*/g, '').trim() : (tdS ? tdS + ' line-through' : 'line-through');
+                    break;
+                case 'text-color':
+                    const valC = prompt('Введите цвет текста (например #ff0000 или red):', el.style.color || '');
+                    if (valC !== null) el.style.color = valC.trim() || '';
+                    break;
+                case 'bg-color':
+                    const valB = prompt('Введите цвет фона (например #ffff00 или yellow):', el.style.backgroundColor || '');
+                    if (valB !== null) el.style.backgroundColor = valB.trim() || '';
+                    break;
+                case 'sup':
+                    el.style.verticalAlign = el.style.verticalAlign === 'super' ? '' : 'super';
+                    break;
+                case 'sub':
+                    el.style.verticalAlign = el.style.verticalAlign === 'sub' ? '' : 'sub';
+                    break;
+            }
+            updateSimpleFormats(el);
+        };
+    });
+}
+
+function updateSelectProperties(el) {
+    if (!el) return;
+    const list = document.getElementById('properties-list');
+    if (!list) return;
+    const selects = Array.from(list.querySelectorAll('[property-item]'));
+
+    selects.forEach(sel => {
+        const prop = sel.getAttribute('property-item');
+        let value = '';
+        if (prop === 'font-size') value = el.style.fontSize || window.getComputedStyle(el).fontSize || '';
+        if (prop === 'font-family') value = el.style.fontFamily || window.getComputedStyle(el).fontFamily || '';
+        if (prop === 'text-align') value = el.style.textAlign || window.getComputedStyle(el).textAlign || '';
+
+        const found = Array.from(sel.options).some(o => o.value === value);
+        if (!found) {
+            if (!Array.from(sel.options).some(o => o.value === '-')) {
+                const dash = document.createElement('option');
+                dash.value = '-';
+                dash.textContent = '-';
+                sel.insertBefore(dash, sel.firstChild);
+            }
+            sel.value = '-';
+        } else sel.value = value;
+
+        sel.onchange = e => {
+            const v = e.target.value;
+            if (prop === 'font-size') el.style.fontSize = v === '-' ? '' : v;
+            if (prop === 'font-family') el.style.fontFamily = v === '-' ? '' : v;
+            if (prop === 'text-align') el.style.textAlign = v === '-' ? '' : v;
+            updateSelectProperties(el);
+        };
+    });
 }

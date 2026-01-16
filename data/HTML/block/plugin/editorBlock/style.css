@@ -267,3 +267,14 @@ td[contenteditable][data-placeholder]:empty:before {
     background: rgba(0,0,0,0.2);
     margin: 2px 0;
 }
+
+/* редактор свойств */
+#properties-simpleFormats [simpleformats-button] {
+    padding: 4px;
+    cursor: pointer;
+    display: inline-block;
+    user-select: none; 
+}
+#properties-simpleFormats [simpleformats-button].active {
+    background-color: lightgray;
+}
