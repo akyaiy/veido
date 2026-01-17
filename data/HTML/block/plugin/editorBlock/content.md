@@ -69,12 +69,15 @@
             <div simpleformats-button="bg-color" style="background-color:blue;color:white;">T</div>
             <div simpleformats-button="sup">T<span style="font-size:0.7em; vertical-align:super;">x</span></div>
             <div simpleformats-button="sub">T<span style="font-size:0.7em; vertical-align:sub;">x</span></div>
+            <div simpleformats-button="border-color" style="border: 2px solid blue;">T</div>
             <div simpleformats-button="delete">-</div>
         </div>
         <div id="properties-list">
+            Размер текста:
             <select property-item="font-size">
                 <option value="8px">8</option><option value="10px">10</option><option value="12px">12</option><option value="14px">14</option><option value="16px">16</option><option value="18px">18</option><option value="20px">20</option><option value="22px">22</option><option value="24px">24</option><option value="26px">26</option><option value="28px">28</option><option value="30px">30</option><option value="32px">32</option><option value="36px">36</option><option value="40px">40</option><option value="48px">48</option><option value="56px">56</option><option value="64px">64</option><option value="72px">72</option>
             </select>
+            Шрифт:
             <select property-item="font-family">
                 <option value="Arial, sans-serif">Arial</option>
                 <option value="'Times New Roman', serif">Times New Roman</option>
@@ -82,11 +85,48 @@
                 <option value="'Courier New', monospace">Courier New</option>
                 <option value="Georgia, serif">Georgia</option>
             </select>
+            Выравнивание:
             <select property-item="text-align">
                 <option value="left">Слева</option>
                 <option value="center">По центру</option>
                 <option value="right">Справа</option>
                 <option value="justify">По ширине</option>
+            </select>
+            Список:
+            <select property-item="list">
+                <option value="none">Без списка</option>
+                <option value="disc">Точка</option>
+                <option value="circle">Кружок</option>
+                <option value="square">Квадрат</option>
+                <option value="decimal">Нумерованный</option>
+            </select>
+            Межстрочный интервал:
+            <select property-item="line-height">
+                <option value="1">1</option>
+                <option value="1.2">1.2</option>
+                <option value="1.4">1.4</option>
+                <option value="1.5">1.5</option>
+                <option value="1.6">1.6</option>
+                <option value="1.8">1.8</option>
+                <option value="2">2</option>
+            </select>
+            Ширина границ:
+            <select property-item="border-width">
+                <option value="">0px</option>
+                <option value="1px">1px</option>
+                <option value="2px">2px</option>
+                <option value="3px">3px</option>
+                <option value="4px">4px</option>
+                <option value="5px">5px</option>
+            </select>
+            Отступ:
+            <select property-item="padding">
+                <option value="">0px</option>
+                <option value="2px">2px</option>
+                <option value="4px">4px</option>
+                <option value="6px">6px</option>
+                <option value="8px">8px</option>
+                <option value="10px">10px</option>
             </select>
         </div>
     </div>

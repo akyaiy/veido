@@ -1723,6 +1723,8 @@ function updatePropertiesPanel(el) {
     updateSelectProperties(el);
 }
 
+
+
 function updateSimpleFormats(el) {
     if (!el) return;
     const simple = document.getElementById('properties-simpleFormats');
@@ -1731,62 +1733,8 @@ function updateSimpleFormats(el) {
 
     btns.forEach(b => {
         const key = b.getAttribute('simpleformats-button');
-        b.classList.remove('active');
-
-        switch (key) {
-            case 'bold':
-                if (el.style.fontWeight === 'bold') b.classList.add('active');
-                break;
-            case 'italic':
-                if (el.style.fontStyle === 'italic') b.classList.add('active');
-                break;
-            case 'underline':
-                if (el.style.textDecoration && el.style.textDecoration.includes('underline')) b.classList.add('active');
-                break;
-            case 'strike':
-                if (el.style.textDecoration && el.style.textDecoration.includes('line-through')) b.classList.add('active');
-                break;
-            case 'sup':
-                if (el.style.verticalAlign === 'super') b.classList.add('active');
-                break;
-            case 'sub':
-                if (el.style.verticalAlign === 'sub') b.classList.add('active');
-                break;
-        }
-
-        b.onclick = () => {
-            switch (key) {
-                case 'bold':
-                    el.style.fontWeight = el.style.fontWeight === 'bold' ? '' : 'bold';
-                    break;
-                case 'italic':
-                    el.style.fontStyle = el.style.fontStyle === 'italic' ? '' : 'italic';
-                    break;
-                case 'underline':
-                    const tdU = el.style.textDecoration || '';
-                    el.style.textDecoration = tdU.includes('underline') ? tdU.replace(/(^|\s)*underline(\s|$)*/g, '').trim() : (tdU ? tdU + ' underline' : 'underline');
-                    break;
-                case 'strike':
-                    const tdS = el.style.textDecoration || '';
-                    el.style.textDecoration = tdS.includes('line-through') ? tdS.replace(/(^|\s)*line-through(\s|$)*/g, '').trim() : (tdS ? tdS + ' line-through' : 'line-through');
-                    break;
-                case 'text-color':
-                    const valC = prompt('Введите цвет текста (например #ff0000 или red):', el.style.color || '');
-                    if (valC !== null) el.style.color = valC.trim() || '';
-                    break;
-                case 'bg-color':
-                    const valB = prompt('Введите цвет фона (например #ffff00 или yellow):', el.style.backgroundColor || '');
-                    if (valB !== null) el.style.backgroundColor = valB.trim() || '';
-                    break;
-                case 'sup':
-                    el.style.verticalAlign = el.style.verticalAlign === 'super' ? '' : 'super';
-                    break;
-                case 'sub':
-                    el.style.verticalAlign = el.style.verticalAlign === 'sub' ? '' : 'sub';
-                    break;
-            }
-            updateSimpleFormats(el);
-        };
+        updateButtonActive(b, el, key);
+        b.onclick = () => handleSimpleFormatClick(b, el, key);
     });
 }
 
@@ -1798,10 +1746,9 @@ function updateSelectProperties(el) {
 
     selects.forEach(sel => {
         const prop = sel.getAttribute('property-item');
-        let value = '';
-        if (prop === 'font-size') value = el.style.fontSize || window.getComputedStyle(el).fontSize || '';
-        if (prop === 'font-family') value = el.style.fontFamily || window.getComputedStyle(el).fontFamily || '';
-        if (prop === 'text-align') value = el.style.textAlign || window.getComputedStyle(el).textAlign || '';
+
+        // отдельная функция для вычисления текущего значения
+        const value = getSelectValue(el, prop);
 
         const found = Array.from(sel.options).some(o => o.value === value);
         if (!found) {
@@ -1814,12 +1761,264 @@ function updateSelectProperties(el) {
             sel.value = '-';
         } else sel.value = value;
 
-        sel.onchange = e => {
-            const v = e.target.value;
-            if (prop === 'font-size') el.style.fontSize = v === '-' ? '' : v;
-            if (prop === 'font-family') el.style.fontFamily = v === '-' ? '' : v;
-            if (prop === 'text-align') el.style.textAlign = v === '-' ? '' : v;
-            updateSelectProperties(el);
-        };
+        // отдельная функция для обработчика onchange
+        sel.onchange = createSelectChangeHandler(el, prop);
     });
+}
+
+
+
+// --- новая функция для присвоения active ---
+function updateButtonActive(button, el, key) {
+    button.classList.remove('active');
+
+    switch (key) {
+        case 'bold':
+            if (getComputedProp(el, 'fontWeight') === 'bold') button.classList.add('active');
+            break;
+        case 'italic':
+            if (getComputedProp(el, 'fontStyle') === 'italic') button.classList.add('active');
+            break;
+        case 'underline':
+            if (getComputedProp(el, 'textDecoration').includes('underline')) button.classList.add('active');
+            break;
+        case 'strike':
+            if (getComputedProp(el, 'textDecoration').includes('line-through')) button.classList.add('active');
+            break;
+        case 'sup':
+            if (getComputedProp(el, 'verticalAlign') === 'super') button.classList.add('active');
+            break;
+        case 'sub':
+            if (getComputedProp(el, 'verticalAlign') === 'sub') button.classList.add('active');
+            break;
+    }
+}
+
+// --- вычисляет текущее значение свойства ---
+function getSelectValue(el, prop) {
+    switch (prop) {
+        case 'font-size': return getComputedProp(el, 'fontSize');
+        case 'font-family': return getComputedProp(el, 'fontFamily');
+        case 'text-align': return getComputedProp(el, 'textAlign');
+        case 'line-height': return getComputedProp(el, 'lineHeight');
+        case 'border-width': return getComputedProp(el, 'borderWidth');
+        case 'padding': return getComputedProp(el, 'padding');
+        case 'list': return getComputedProp(el, 'listStyleType');
+        default: return '';
+    }
+}
+
+// --- вспомогательная функция: возвращает текущее значение свойства ---
+function getComputedProp(el, prop) {
+    if (!el) return '';
+
+    const cs = window.getComputedStyle(el);
+
+    switch (prop) {
+        case 'fontWeight':
+            // inline, computed и теги <strong>/<b>
+            if (el.style.fontWeight) return el.style.fontWeight;
+            if (el.closest('strong,b')) return 'bold';
+            return cs.fontWeight;
+
+        case 'fontStyle':
+            // inline, computed и теги <em>/<i>
+            if (el.style.fontStyle) return el.style.fontStyle;
+            if (el.closest('em,i')) return 'italic';
+            return cs.fontStyle;
+
+        case 'textDecoration':
+            // inline, computed и теги <u>, <s>, <strike>
+            let td = el.style.textDecoration || cs.textDecorationLine || cs.textDecoration;
+            if (el.closest('u')) td = td ? td + ' underline' : 'underline';
+            if (el.closest('s, strike')) td = td ? td + ' line-through' : 'line-through';
+            return td.trim();
+
+        case 'verticalAlign':
+            if (el.style.verticalAlign) return el.style.verticalAlign;
+            if (el.closest('sup')) return 'super';
+            if (el.closest('sub')) return 'sub';
+            return cs.verticalAlign;
+
+        case 'lineHeight': return el.style.lineHeight || cs.lineHeight;
+        case 'fontSize': return el.style.fontSize || cs.fontSize;
+        case 'fontFamily': return el.style.fontFamily || cs.fontFamily;
+        case 'textAlign': return el.style.textAlign || cs.textAlign;
+        case 'borderWidth': return el.style.borderWidth || cs.borderWidth;
+        case 'padding': return el.style.padding || cs.padding;
+        case 'borderColor': return el.style.borderColor || cs.borderColor;
+        case 'backgroundColor': return el.style.backgroundColor || cs.backgroundColor;
+        case 'color': return el.style.color || cs.color;
+        case 'listStyleType': return el.style.listStyleType || cs.listStyleType || 'none';
+
+        default: return '';
+    }
+}
+
+
+
+// --- Вспомогательная функция: Оборачивает выделение в SPAN с нужным стилем ---
+function applyStyleToSelection(styleProp, styleValue) {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return; // Нет выделения
+
+    const range = sel.getRangeAt(0);
+    if (range.collapsed) return; // Курсор стоит, но текст не выделен
+
+    // Создаем span
+    const span = document.createElement('span');
+    span.style[styleProp] = styleValue;
+
+    // Извлекаем содержимое выделения и помещаем в span
+    // extractContents безопаснее surroundContents, так как работает с частичным выделением тегов
+    try {
+        const fragment = range.extractContents();
+        span.appendChild(fragment);
+        range.insertNode(span);
+
+        // Снимаем выделение, чтобы было видно результат
+        sel.removeAllRanges();
+    } catch (e) {
+        console.warn('Не удалось применить стиль к сложной структуре', e);
+    }
+}
+
+// --- Вспомогательная функция: Для переключения стандартных стилей (Bold, Italic) ---
+// Используем execCommand с флагом styleWithCSS, чтобы браузер создавал span style="...", а не <b>/<i>
+function toggleFormatCommand(command, value = null) {
+    document.execCommand('styleWithCSS', false, true);
+    document.execCommand(command, false, value);
+}
+
+// --- НОВАЯ ФУНКЦИЯ для обработчика клика ---
+function handleSimpleFormatClick(button, el, key) {
+    // Убедимся, что фокус на редактируемом элементе, если он был потерян
+    if (document.activeElement !== el) {
+       // el.focus(); // Можно раскомментировать, если фокус теряется при клике
+    }
+
+    switch (key) {
+        case 'bold':
+            toggleFormatCommand('bold');
+            break;
+        case 'italic':
+            toggleFormatCommand('italic');
+            break;
+        case 'underline':
+            toggleFormatCommand('underline');
+            break;
+        case 'strike':
+            toggleFormatCommand('strikeThrough');
+            break;
+        case 'sup':
+            toggleFormatCommand('superscript');
+            break;
+        case 'sub':
+            toggleFormatCommand('subscript');
+            break;
+            
+        case 'text-color':
+            const valC = prompt('Введите цвет текста (red, #f00):', '');
+            if (valC) toggleFormatCommand('foreColor', valC);
+            break;
+            
+        case 'bg-color':
+            const valB = prompt('Введите цвет фона (yellow, #ff0):', '');
+            if (valB) toggleFormatCommand('hiliteColor', valB); // hiliteColor делает фон текста
+            break;
+
+        case 'border-color':
+            // execCommand не умеет делать border, делаем через наш SPAN
+            const valBorder = prompt('Введите цвет рамки (blue, #00f):', 'blue');
+            if (valBorder) {
+                // Добавим сразу и рамку, и стиль
+                applyStyleToSelection('border', `1px solid ${valBorder}`);
+            }
+            break;
+
+        case 'delete':
+            // Удаляет форматирование с выделения
+            toggleFormatCommand('removeFormat');
+            break;
+    }
+
+    // Обновляем UI (если у вас есть такая функция, иначе можно убрать)
+    if (typeof updateSimpleFormats === 'function') {
+        updateSimpleFormats(el);
+    }
+}
+
+// --- ВОЗВРАЩАЕТ функцию-обработчик для onchange (Списки и шрифты) ---
+function createSelectChangeHandler(el, prop) {
+    return e => {
+        const v = e.target.value;
+        if (v === '-') return; // Ничего не делаем, если выбрано "по умолчанию"
+
+        switch (prop) {
+            case 'font-size':
+                // Создаем span с размером шрифта
+                applyStyleToSelection('fontSize', v);
+                break;
+
+            case 'font-family':
+                applyStyleToSelection('fontFamily', v);
+                break;
+
+            case 'line-height':
+                // line-height часто лучше работает на блоке, но можно и на span
+                applyStyleToSelection('lineHeight', v);
+                break;
+                
+            case 'border-width':
+                // Применяем толщину рамки к выделению
+                applyStyleToSelection('borderWidth', v);
+                applyStyleToSelection('borderStyle', 'solid'); // Гарантируем, что рамка видна
+                break;
+                
+            case 'padding':
+                 applyStyleToSelection('padding', v);
+                 break;
+
+            // --- БЛОЧНЫЕ СТИЛИ (Нельзя применять к SPAN) ---
+            case 'text-align':
+                // Выравнивание работает только для блочных элементов (div, p).
+                // execCommand 'justify...' применяет стиль к родительскому блоку выделения.
+                if (v === 'left') document.execCommand('justifyLeft');
+                if (v === 'center') document.execCommand('justifyCenter');
+                if (v === 'right') document.execCommand('justifyRight');
+                if (v === 'justify') document.execCommand('justifyFull');
+                break;
+
+            case 'list':
+                // Списки меняют структуру HTML (добавляют ul/li), это не span.
+                // Сначала создаем список, если его нет
+                if (v === 'none') {
+                    // Убираем список
+                    document.execCommand('insertUnorderedList'); // Переключатель, может потребоваться логика
+                    // Или просто removeFormat, если нужно жестко удалить
+                } else if (v === 'decimal') {
+                    document.execCommand('insertOrderedList');
+                } else {
+                    // Для disc, circle, square
+                    document.execCommand('insertUnorderedList');
+                    // Чтобы сменить тип маркера (disc/circle), нужно найти созданный UL и дать ему стиль.
+                    // Это сложно сделать через простое выделение, но базово:
+                    const sel = window.getSelection();
+                    if (sel.rangeCount > 0) {
+                        const node = sel.anchorNode;
+                        // Ищем ближайший родительский UL/OL
+                        const listNode = node.parentElement ? node.parentElement.closest('ul, ol') : null;
+                        if (listNode) {
+                            listNode.style.listStyleType = v;
+                        }
+                    }
+                }
+                break;
+        }
+
+        // Обновляем UI
+        if (typeof updateSelectProperties === 'function') {
+            updateSelectProperties(el);
+        }
+    };
 }
