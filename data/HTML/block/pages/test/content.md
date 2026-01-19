@@ -1,14 +1,20 @@
-<div style="font-weight:bold;">Жирный</div>
-<div style="font-style:italic;">Курсив</div>
-<div style="text-decoration:underline;">Подчеркнутый</div>
-<div style="text-decoration:line-through;">Зачеркнутый</div>
-<div style="color:red;">Цвет текста</div>
-<div style="background-color:yellow;">Фон</div>
-<div style="vertical-align:super;">Суперскрипт</div>
-<div style="vertical-align:sub;">Субскрипт</div>
-<div style="font-size:20px;">Размер шрифта</div>
-<div style="font-family:Arial;">Шрифт Arial</div>
-<div style="text-align:center;">Выравнивание по центру</div>
+<div>Тест1Тест1Тест1</div>
+<div>Тест2</div>
+<div>Тест3</div>
+<div><br></div>
+
+
+<div><span style="font-weight:bold;">Жирный</span></div>
+<div><span style="font-style:italic;">Курсив</span></div>
+<div><span style="text-decoration:underline;">Подчеркнутый</span></div>
+<div><span style="text-decoration:line-through;">Зачеркнутый</span></div>
+<div><span style="color:red;">Цвет текста</span></div>
+<div><span style="background-color:yellow;">Фон</span></div>
+<div><span style="vertical-align:super;">Суперскрипт</span></div>
+<div><span style="vertical-align:sub;">Субскрипт</span></div>
+<div><span style="font-size:20px;">Размер шрифта</span></div>
+<div><span style="font-family:Arial;">Шрифт Arial</span></div>
+<div><span style="text-align:center;">Выравнивание по центру</span></div>
 
 
 
