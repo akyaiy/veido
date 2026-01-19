@@ -1810,215 +1810,569 @@ function getSelectValue(el, prop) {
 
 // --- вспомогательная функция: возвращает текущее значение свойства ---
 function getComputedProp(el, prop) {
-    if (!el) return '';
+    if (!el && !window.getSelection) return '';
 
-    const cs = window.getComputedStyle(el);
-
-    switch (prop) {
-        case 'fontWeight':
-            // inline, computed и теги <strong>/<b>
-            if (el.style.fontWeight) return el.style.fontWeight;
-            if (el.closest('strong,b')) return 'bold';
-            return cs.fontWeight;
-
-        case 'fontStyle':
-            // inline, computed и теги <em>/<i>
-            if (el.style.fontStyle) return el.style.fontStyle;
-            if (el.closest('em,i')) return 'italic';
-            return cs.fontStyle;
-
-        case 'textDecoration':
-            // inline, computed и теги <u>, <s>, <strike>
-            let td = el.style.textDecoration || cs.textDecorationLine || cs.textDecoration;
-            if (el.closest('u')) td = td ? td + ' underline' : 'underline';
-            if (el.closest('s, strike')) td = td ? td + ' line-through' : 'line-through';
-            return td.trim();
-
-        case 'verticalAlign':
-            if (el.style.verticalAlign) return el.style.verticalAlign;
-            if (el.closest('sup')) return 'super';
-            if (el.closest('sub')) return 'sub';
-            return cs.verticalAlign;
-
-        case 'lineHeight': return el.style.lineHeight || cs.lineHeight;
-        case 'fontSize': return el.style.fontSize || cs.fontSize;
-        case 'fontFamily': return el.style.fontFamily || cs.fontFamily;
-        case 'textAlign': return el.style.textAlign || cs.textAlign;
-        case 'borderWidth': return el.style.borderWidth || cs.borderWidth;
-        case 'padding': return el.style.padding || cs.padding;
-        case 'borderColor': return el.style.borderColor || cs.borderColor;
-        case 'backgroundColor': return el.style.backgroundColor || cs.backgroundColor;
-        case 'color': return el.style.color || cs.color;
-        case 'listStyleType': return el.style.listStyleType || cs.listStyleType || 'none';
-
-        default: return '';
-    }
-}
-
-
-
-// --- Вспомогательная функция: Оборачивает выделение в SPAN с нужным стилем ---
-function applyStyleToSelection(styleProp, styleValue) {
-    const sel = window.getSelection();
-    if (!sel.rangeCount) return; // Нет выделения
-
-    const range = sel.getRangeAt(0);
-    if (range.collapsed) return; // Курсор стоит, но текст не выделен
-
-    // Создаем span
-    const span = document.createElement('span');
-    span.style[styleProp] = styleValue;
-
-    // Извлекаем содержимое выделения и помещаем в span
-    // extractContents безопаснее surroundContents, так как работает с частичным выделением тегов
-    try {
-        const fragment = range.extractContents();
-        span.appendChild(fragment);
-        range.insertNode(span);
-
-        // Снимаем выделение, чтобы было видно результат
-        sel.removeAllRanges();
-    } catch (e) {
-        console.warn('Не удалось применить стиль к сложной структуре', e);
-    }
-}
-
-// --- Вспомогательная функция: Для переключения стандартных стилей (Bold, Italic) ---
-// Используем execCommand с флагом styleWithCSS, чтобы браузер создавал span style="...", а не <b>/<i>
-function toggleFormatCommand(command, value = null) {
-    document.execCommand('styleWithCSS', false, true);
-    document.execCommand(command, false, value);
-}
-
-// --- НОВАЯ ФУНКЦИЯ для обработчика клика ---
-function handleSimpleFormatClick(button, el, key) {
-    // Убедимся, что фокус на редактируемом элементе, если он был потерян
-    if (document.activeElement !== el) {
-       // el.focus(); // Можно раскомментировать, если фокус теряется при клике
+    // --- нормализация fontWeight ---
+    function normalizeFontWeight(v) {
+        if (!v && v !== 0) return '';
+        const s = String(v).trim();
+        const n = parseInt(s, 10);
+        if (!isNaN(n)) return n >= 700 ? 'bold' : (n >= 400 ? 'normal' : s);
+        return s === 'bolder' || s === 'bold' ? 'bold' : s;
     }
 
-    switch (key) {
-        case 'bold':
-            toggleFormatCommand('bold');
-            break;
-        case 'italic':
-            toggleFormatCommand('italic');
-            break;
-        case 'underline':
-            toggleFormatCommand('underline');
-            break;
-        case 'strike':
-            toggleFormatCommand('strikeThrough');
-            break;
-        case 'sup':
-            toggleFormatCommand('superscript');
-            break;
-        case 'sub':
-            toggleFormatCommand('subscript');
-            break;
-            
-        case 'text-color':
-            const valC = prompt('Введите цвет текста (red, #f00):', '');
-            if (valC) toggleFormatCommand('foreColor', valC);
-            break;
-            
-        case 'bg-color':
-            const valB = prompt('Введите цвет фона (yellow, #ff0):', '');
-            if (valB) toggleFormatCommand('hiliteColor', valB); // hiliteColor делает фон текста
-            break;
+    // --- нормализация textDecoration в упорядоченную строку ---
+    function normalizeTextDecorationStr(s) {
+        if (!s) return '';
+        const parts = String(s).split(/\s+/).map(p => p.trim()).filter(Boolean);
+        const set = new Set();
+        for (const p of parts) {
+            if (/underline/i.test(p)) set.add('underline');
+            if (/line-?through|strike|strikethrough/i.test(p)) set.add('line-through');
+        }
+        return Array.from(set).sort().join(' ');
+    }
 
-        case 'border-color':
-            // execCommand не умеет делать border, делаем через наш SPAN
-            const valBorder = prompt('Введите цвет рамки (blue, #00f):', 'blue');
-            if (valBorder) {
-                // Добавим сразу и рамку, и стиль
-                applyStyleToSelection('border', `1px solid ${valBorder}`);
+    // --- вычислить свойство для конкретного элемента-родителя текстового узла ---
+    function computeForElement(target, propName) {
+        if (!target) return '';
+        const cs = window.getComputedStyle(target);
+
+        switch (propName) {
+            case 'fontWeight':
+                if (target.style && target.style.fontWeight) return normalizeFontWeight(target.style.fontWeight);
+                if (target.closest && target.closest('strong,b')) return 'bold';
+                return normalizeFontWeight(cs.fontWeight || '');
+            case 'fontStyle':
+                if (target.style && target.style.fontStyle) return target.style.fontStyle;
+                if (target.closest && target.closest('em,i')) return 'italic';
+                return cs.fontStyle || '';
+            case 'textDecoration':
+                let td = (target.style && target.style.textDecoration) || cs.textDecorationLine || cs.textDecoration || '';
+                if (target.closest && target.closest('u')) td = td ? td + ' underline' : 'underline';
+                if (target.closest && target.closest('s, strike, del')) td = td ? td + ' line-through' : 'line-through';
+                return normalizeTextDecorationStr(td);
+            case 'verticalAlign':
+                if (target.style && target.style.verticalAlign) return target.style.verticalAlign;
+                if (target.closest && target.closest('sup')) return 'super';
+                if (target.closest && target.closest('sub')) return 'sub';
+                return cs.verticalAlign || '';
+            case 'lineHeight': return (target.style && target.style.lineHeight) || cs.lineHeight || '';
+            case 'fontSize': return (target.style && target.style.fontSize) || cs.fontSize || '';
+            case 'fontFamily': return (target.style && target.style.fontFamily) || cs.fontFamily || '';
+            case 'textAlign': return (target.style && target.style.textAlign) || cs.textAlign || '';
+            case 'borderWidth': return (target.style && target.style.borderWidth) || cs.borderWidth || '';
+            case 'padding': return (target.style && target.style.padding) || cs.padding || '';
+            case 'borderColor': return (target.style && target.style.borderColor) || cs.borderColor || '';
+            case 'backgroundColor': return (target.style && target.style.backgroundColor) || cs.backgroundColor || '';
+            case 'color': return (target.style && target.style.color) || cs.color || '';
+            case 'listStyleType': return (target.style && target.style.listStyleType) || cs.listStyleType || 'none';
+            default: return '';
+        }
+    }
+
+    // --- собрать текстовые узлы, которые реально входят в Range (если есть) ---
+    function textNodesInRange(range) {
+        const nodes = [];
+        const root = range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+            ? range.commonAncestorContainer
+            : range.commonAncestorContainer.parentElement || document.body;
+
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+            acceptNode(node) {
+                if (!node.nodeValue) return NodeFilter.FILTER_REJECT;
+                if (!node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+                try {
+                    if (range.intersectsNode(node)) return NodeFilter.FILTER_ACCEPT;
+                } catch (e) {
+                }
+                return NodeFilter.FILTER_REJECT;
             }
-            break;
+        }, false);
 
-        case 'delete':
-            // Удаляет форматирование с выделения
-            toggleFormatCommand('removeFormat');
-            break;
+        while (walker.nextNode()) nodes.push(walker.currentNode);
+        return nodes;
     }
 
-    // Обновляем UI (если у вас есть такая функция, иначе можно убрать)
-    if (typeof updateSimpleFormats === 'function') {
-        updateSimpleFormats(el);
+    // --- собрать текстовые узлы внутри элемента целиком (fallback) ---
+    function textNodesInElement(root) {
+        const nodes = [];
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+            acceptNode(node) {
+                if (!node.nodeValue) return NodeFilter.FILTER_REJECT;
+                if (!node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+                return NodeFilter.FILTER_ACCEPT;
+            }
+        }, false);
+        while (walker.nextNode()) nodes.push(walker.currentNode);
+        return nodes;
+    }
+
+    // --- определим набор текстовых узлов для проверки ---
+    let nodes = [];
+
+    // Если есть активное выделение и оно не пустое, используем его (обычно это то, что нужно при кликах на панели)
+    const sel = window.getSelection && window.getSelection();
+    if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+        const range = sel.getRangeAt(0);
+        nodes = textNodesInRange(range);
+    }
+
+    // иначе если передан элемент — берём все текстовые узлы внутри него
+    if (!nodes.length && el) {
+        if (el.nodeType === Node.TEXT_NODE) {
+            if (el.nodeValue && el.nodeValue.trim()) nodes = [el];
+        } else if (el.nodeType === Node.ELEMENT_NODE || el.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+            nodes = textNodesInElement(el);
+        }
+    }
+
+    // Если всё ещё пусто — fallback: вычислить для самого элемента
+    if (!nodes.length) {
+        return computeForElement(el, prop);
+    }
+
+    const values = [];
+    for (const tn of nodes) {
+        const parent = tn.parentElement || tn.parentNode;
+        values.push(computeForElement(parent, prop));
+    }
+
+    const uniq = Array.from(new Set(values.map(v => (v === null || v === undefined) ? '' : String(v).trim())));
+    if (uniq.length === 1) return uniq[0];
+
+    return '';
+}
+
+
+
+
+
+// Конфигурация кнопок форматов (key, type, target, style)
+const FORMAT_BUTTONS = [
+    { key: 'bold', type: 'toggle', target: 'inline', style: { prop: 'fontWeight', value: 'bold' } },
+    { key: 'italic', type: 'toggle', target: 'inline', style: { prop: 'fontStyle', value: 'italic' } },
+    { key: 'underline', type: 'toggle', target: 'inline', style: { prop: 'textDecoration', value: 'underline' } },
+    { key: 'strike', type: 'toggle', target: 'inline', style: { prop: 'textDecoration', value: 'line-through' } },
+    { key: 'sup', type: 'toggle', target: 'inline', style: { prop: 'verticalAlign', value: 'super' } },
+    { key: 'sub', type: 'toggle', target: 'inline', style: { prop: 'verticalAlign', value: 'sub' } },
+    { key: 'text-color', type: 'color', target: 'inline', style: { prop: 'color' } },
+    { key: 'bg-color', type: 'color', target: 'inline', style: { prop: 'backgroundColor' } },
+    { key: 'border-color', type: 'color', target: 'inline', style: { prop: 'border', wrap: v => `1px solid ${v}` } },
+    { key: 'delete', type: 'action', target: 'any', action: 'remove-all' }
+];
+
+// Конфигурация селектов (key, css, target)
+const FORMAT_SELECTS = [
+    { key: 'font-size', css: 'fontSize', target: 'inline' },
+    { key: 'font-family', css: 'fontFamily', target: 'inline' },
+    { key: 'text-align', css: 'textAlign', target: 'block' },
+    { key: 'line-height', css: 'lineHeight', target: 'block' },
+    { key: 'border-width', css: 'borderWidth', target: 'block' },
+    { key: 'padding', css: 'padding', target: 'block' },
+    { key: 'list', css: 'listStyleType', target: 'block' }
+];
+
+/* Utility: вернуть текущий Range, если выделение внутри el или на документе */
+function getCurrentRange() {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return null;
+    const range = sel.getRangeAt(0);
+    if (range.collapsed) return range; // возвращаем коллапсный range для применения к элементу
+    return range;
+}
+
+/* Utility: возвращает корневой element для range */
+function getRangeRootElement(range) {
+    return range.commonAncestorContainer.nodeType === 1
+        ? range.commonAncestorContainer
+        : range.commonAncestorContainer.parentElement;
+}
+
+/* Utility: вернуть текстовые узлы, пересекающиеся с range */
+function getTextNodesInRange(range) {
+    const root = getRangeRootElement(range);
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+        acceptNode(node) {
+            if (!node.nodeValue || !node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+            try { return range.intersectsNode(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT; }
+            catch (e) { return NodeFilter.FILTER_ACCEPT; }
+        }
+    });
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    return nodes;
+}
+
+/* Utility: вернуть все текстовые узлы под элементом */
+function getTextNodesUnder(element) {
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null);
+    const res = [];
+    while (walker.nextNode()) res.push(walker.currentNode);
+    return res;
+}
+
+/* Utility: делит текстовый узел так, чтобы выбранная часть стала отдельным узлом */
+function splitTextNodeByRange(textNode, range) {
+    const isStart = textNode === range.startContainer;
+    const isEnd = textNode === range.endContainer;
+    const start = isStart ? range.startOffset : 0;
+    const end = isEnd ? range.endOffset : textNode.length;
+    if (start === 0 && end === textNode.length) return textNode;
+    let node = textNode;
+    if (end < node.length) node.splitText(end);
+    if (start > 0) return node.splitText(start);
+    return node;
+}
+
+/* Utility: обернуть текстовый узел в span, если нужно */
+function ensureWrapperSpanForTextNode(textNode) {
+    if (!textNode) return null;
+    const parent = textNode.parentNode;
+    if (!parent) return null;
+
+    if (parent.tagName === 'SPAN' && parent.getAttribute('data-format') === 'true') {
+        if (parent.childNodes.length === 1) return parent;
+
+        const parentParent = parent.parentNode;
+        if (!parentParent) return null;
+
+        const before = parent.cloneNode(false);
+        const middle = parent.cloneNode(false);
+        const after = parent.cloneNode(false);
+
+        let isAfterTarget = false;
+        Array.from(parent.childNodes).forEach(child => {
+            if (child === textNode) {
+                middle.appendChild(child);
+                isAfterTarget = true;
+            } else if (!isAfterTarget) before.appendChild(child);
+            else after.appendChild(child);
+        });
+
+        if (before.hasChildNodes()) parentParent.insertBefore(before, parent);
+        parentParent.insertBefore(middle, parent);
+        if (after.hasChildNodes()) parentParent.insertBefore(after, parent);
+
+        parentParent.removeChild(parent);
+        return middle;
+    }
+
+    const span = document.createElement('span');
+    span.setAttribute('data-format', 'true');
+    parent.insertBefore(span, textNode);
+    span.appendChild(textNode);
+    return span;
+}
+
+
+/* Utility: разворачивает span если у него нет стилей */
+function cleanupSpanIfEmpty(span) {
+    if (!span || span.nodeType !== 1 || span.tagName !== 'SPAN') return;
+    const style = span.getAttribute('style');
+    if (!style || style.trim() === '') {
+        const parent = span.parentNode;
+        while (span.firstChild) parent.insertBefore(span.firstChild, span);
+        span.remove();
     }
 }
 
-// --- ВОЗВРАЩАЕТ функцию-обработчик для onchange (Списки и шрифты) ---
+/* Utility: сливает соседние span с одинаковым style */
+function mergeAdjacentSpans(root) {
+    if (!root) return;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, null);
+    const toVisit = [];
+    while (walker.nextNode()) toVisit.push(walker.currentNode);
+    for (const el of toVisit) {
+        if (el.tagName === 'SPAN') {
+            let next = el.nextSibling;
+            if (next && next.nodeType === 1 && next.tagName === 'SPAN' &&
+                el.getAttribute('style') === next.getAttribute('style')) {
+                while (next.firstChild) el.appendChild(next.firstChild);
+                next.remove();
+            }
+        }
+    }
+}
+
+/* Utility: находит блочные контейнеры (div, p, section...) для выделения */
+function getBlockContainersForRange(range) {
+    const root = getRangeRootElement(range);
+    const textNodes = getTextNodesInRange(range);
+    const containers = new Set();
+    for (const tn of textNodes) {
+        let el = tn.parentElement;
+        while (el && el !== root && el !== document.body) {
+            const cs = window.getComputedStyle(el);
+            if (cs && cs.display && cs.display !== 'inline' && cs.display !== 'inline-block') {
+                containers.add(el);
+                break;
+            }
+            el = el.parentElement;
+        }
+        if (!el && tn.parentElement) containers.add(tn.parentElement);
+    }
+    return Array.from(containers);
+}
+
+/* Основная: применять/удалять inline-стиль к выделению (span) */
+function applyInlineStyleToSelection(styleProp, styleValue) {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    if (range.collapsed) return;
+    const root = getRangeRootElement(range);
+    const textNodes = getTextNodesInRange(range);
+    if (!textNodes.length) return;
+    const selectedNodes = [];
+    for (const tn of textNodes) {
+        try {
+            const selNode = splitTextNodeByRange(tn, range);
+            if (selNode && range.intersectsNode(selNode)) selectedNodes.push(selNode);
+        } catch (e) {
+            console.warn('splitTextNodeByRange failed', e);
+        }
+    }
+    if (!selectedNodes.length) return;
+    const selectedSet = new Set(selectedNodes);
+    for (const sNode of selectedNodes) {
+        const parent = sNode.parentNode;
+        if (parent && parent.nodeType === 1 && parent.tagName === 'SPAN') {
+            const allText = getTextNodesUnder(parent);
+            let allInside = true;
+            for (const t of allText) { if (!selectedSet.has(t)) { allInside = false; break; } }
+            if (allInside) {
+                const isTextDecoration = styleProp === 'textDecoration';
+                const current = parent.style.textDecoration || '';
+                const parts = current.split(/\s+/).filter(Boolean);
+                            
+                if (isTextDecoration) {
+                    if (!styleValue) {
+                        parent.style.textDecoration = '';
+                        cleanupSpanIfEmpty(parent);
+                    } else {
+                        if (parts.includes(styleValue)) {
+                            const newParts = parts.filter(v => v !== styleValue);
+                            parent.style.textDecoration = newParts.join(' ');
+                            cleanupSpanIfEmpty(parent);
+                        } else {
+                            parts.push(styleValue);
+                            parent.style.textDecoration = parts.join(' ');
+                        }
+                    }
+                } else {
+                    if (!styleValue) {
+                        parent.style[styleProp] = '';
+                        cleanupSpanIfEmpty(parent);
+                    } else {
+                        parent.style[styleProp] = styleValue;
+                    }
+                }
+                continue;
+            }
+        }
+        if (!styleValue) {
+            const wrapper = ensureWrapperSpanForTextNode(sNode);
+            wrapper.style[styleProp] = '';
+            cleanupSpanIfEmpty(wrapper);
+        } else {
+            if (parent && parent.nodeType === 1 && parent.tagName === 'SPAN' && parent.style[styleProp] === styleValue) continue;
+            const wrapper = ensureWrapperSpanForTextNode(sNode);
+            wrapper.style[styleProp] = styleValue;
+        }
+    }
+    mergeAdjacentSpans(root);
+    const spans = root.querySelectorAll('span');
+    spans.forEach(s => cleanupSpanIfEmpty(s));
+    try {
+        const newRange = document.createRange();
+        const first = selectedNodes[0];
+        const last = selectedNodes[selectedNodes.length - 1];
+        newRange.setStartBefore(first);
+        newRange.setEndAfter(last);
+        sel.removeAllRanges();
+        sel.addRange(newRange);
+    } catch (e) {}
+}
+
+/* Основная: применять/удалять блочный стиль к ближайшим блочным контейнерам */
+function applyBlockStyleToSelection(cssProp, cssValue) {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    const blocks = getBlockContainersForRange(range);
+    if (!blocks.length) return;
+    for (const b of blocks) {
+        if (!cssValue) {
+            b.style[cssProp] = '';
+            if (!b.getAttribute('style') || b.getAttribute('style').trim() === '') b.removeAttribute('style');
+        } else {
+            b.style[cssProp] = cssValue;
+        }
+    }
+}
+
+/* Удаление формата: удаляет style у span и у других тегов внутри выделения */
+function removeFormattingInSelection() {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    if (range.collapsed) return;
+    const root = getRangeRootElement(range);
+    // извлечь содержимое, пройти и удалить style у всех элементов, затем вставить обратно
+    const frag = range.extractContents();
+    const walker = document.createTreeWalker(frag, NodeFilter.SHOW_ELEMENT, null);
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    for (const el of nodes) {
+        if (el.nodeType === 1) {
+            el.removeAttribute('style');
+            if (el.tagName === 'SPAN' && (!el.getAttribute('style') || el.getAttribute('style').trim() === '')) {
+                // unwrap empty spans
+                while (el.firstChild) el.parentNode.insertBefore(el.firstChild, el);
+                el.remove();
+            }
+        }
+    }
+    range.insertNode(frag);
+}
+
+/* Toggle: простые форматы (bold/italic/underline/strike/sup/sub) */
+function toggleInlineFormatting(key) {
+    const map = {
+        bold: { prop: 'fontWeight', value: 'bold' },
+        italic: { prop: 'fontStyle', value: 'italic' },
+        underline: { prop: 'textDecoration', value: 'underline' },
+        strike: { prop: 'textDecoration', value: 'line-through' },
+        sup: { prop: 'verticalAlign', value: 'super' },
+        sub: { prop: 'verticalAlign', value: 'sub' }
+    };
+    if (!map[key]) return;
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    if (range.collapsed) return;
+    const nodes = getTextNodesInRange(range);
+    if (!nodes.length) return;
+    const { prop, value } = map[key];
+    let allHave = true;
+    for (const tn of nodes) {
+        const p = tn.parentNode;
+        if (!(p && p.nodeType === 1 && p.tagName === 'SPAN' && p.style[prop] === value)) { allHave = false; break; }
+    }
+    applyInlineStyleToSelection(prop, allHave ? '' : value);
+}
+
+/* Обработчик кнопок: использует конфиг FORMAT_BUTTONS */
+function handleSimpleFormatClick(button, el, key) {
+    if (document.activeElement !== el) { /* el.focus(); */ }
+    const cfg = FORMAT_BUTTONS.find(x => x.key === key);
+    if (!cfg) return;
+    if (cfg.type === 'toggle' && cfg.target === 'inline') {
+        toggleInlineFormatting(key);
+        if (typeof updateSimpleFormats === 'function') updateSimpleFormats(el);
+        return;
+    }
+    if (cfg.type === 'color' && cfg.target === 'inline' && cfg.style) {
+        const promptText = cfg.key === 'text-color' ? 'Введите цвет текста (red, #f00):' :
+            cfg.key === 'bg-color' ? 'Введите цвет фона (yellow, #ff0):' : 'Введите цвет (например #00f):';
+        const v = prompt(promptText, '');
+        if (v === null) return;
+        const val = cfg.style.wrap ? cfg.style.wrap(v.trim()) : v.trim();
+        applyInlineStyleToSelection(cfg.style.prop, val === '' ? '' : val);
+        if (typeof updateSimpleFormats === 'function') updateSimpleFormats(el);
+        return;
+    }
+    if (cfg.type === 'action' && cfg.action === 'remove-all') {
+        removeFormattingInSelection();
+        if (typeof updateSimpleFormats === 'function') updateSimpleFormats(el);
+        return;
+    }
+}
+
+/* Обработчик select: возвращает onchange-функцию (использует FORMAT_SELECTS) */
 function createSelectChangeHandler(el, prop) {
     return e => {
         const v = e.target.value;
-        if (v === '-') return; // Ничего не делаем, если выбрано "по умолчанию"
-
-        switch (prop) {
-            case 'font-size':
-                // Создаем span с размером шрифта
-                applyStyleToSelection('fontSize', v);
-                break;
-
-            case 'font-family':
-                applyStyleToSelection('fontFamily', v);
-                break;
-
-            case 'line-height':
-                // line-height часто лучше работает на блоке, но можно и на span
-                applyStyleToSelection('lineHeight', v);
-                break;
-                
-            case 'border-width':
-                // Применяем толщину рамки к выделению
-                applyStyleToSelection('borderWidth', v);
-                applyStyleToSelection('borderStyle', 'solid'); // Гарантируем, что рамка видна
-                break;
-                
-            case 'padding':
-                 applyStyleToSelection('padding', v);
-                 break;
-
-            // --- БЛОЧНЫЕ СТИЛИ (Нельзя применять к SPAN) ---
-            case 'text-align':
-                // Выравнивание работает только для блочных элементов (div, p).
-                // execCommand 'justify...' применяет стиль к родительскому блоку выделения.
-                if (v === 'left') document.execCommand('justifyLeft');
-                if (v === 'center') document.execCommand('justifyCenter');
-                if (v === 'right') document.execCommand('justifyRight');
-                if (v === 'justify') document.execCommand('justifyFull');
-                break;
-
-            case 'list':
-                // Списки меняют структуру HTML (добавляют ul/li), это не span.
-                // Сначала создаем список, если его нет
-                if (v === 'none') {
-                    // Убираем список
-                    document.execCommand('insertUnorderedList'); // Переключатель, может потребоваться логика
-                    // Или просто removeFormat, если нужно жестко удалить
-                } else if (v === 'decimal') {
-                    document.execCommand('insertOrderedList');
-                } else {
-                    // Для disc, circle, square
-                    document.execCommand('insertUnorderedList');
-                    // Чтобы сменить тип маркера (disc/circle), нужно найти созданный UL и дать ему стиль.
-                    // Это сложно сделать через простое выделение, но базово:
-                    const sel = window.getSelection();
-                    if (sel.rangeCount > 0) {
-                        const node = sel.anchorNode;
-                        // Ищем ближайший родительский UL/OL
-                        const listNode = node.parentElement ? node.parentElement.closest('ul, ol') : null;
-                        if (listNode) {
-                            listNode.style.listStyleType = v;
-                        }
-                    }
-                }
-                break;
+        const cfg = FORMAT_SELECTS.find(s => s.key === prop);
+        const target = cfg ? cfg.target : 'inline';
+        const css = cfg ? cfg.css : prop;
+        if (v === '' || v === '-' || v === 'none') {
+            if (target === 'block') {
+                if (prop === 'list') toggleListForSelection('none');
+                else applyBlockStyleToSelection(css, '');
+            } else {
+                applyInlineStyleToSelection(css === 'fontSize' ? 'fontSize' : css, '');
+            }
+            if (typeof updateSelectProperties === 'function') updateSelectProperties(el);
+            return;
         }
-
-        // Обновляем UI
-        if (typeof updateSelectProperties === 'function') {
-            updateSelectProperties(el);
+        if (target === 'block') {
+            if (prop === 'list') {
+                if (v === 'decimal') toggleListForSelection('decimal');
+                else toggleListForSelection(v);
+            } else {
+                applyBlockStyleToSelection(css, v);
+                if (prop === 'border-width') applyBlockStyleToSelection('borderStyle', 'solid');
+            }
+        } else {
+            applyInlineStyleToSelection(css === 'fontSize' ? 'fontSize' : css, v);
         }
+        if (typeof updateSelectProperties === 'function') updateSelectProperties(el);
     };
+}
+
+/* Переключатель списков: использует блочные контейнеры */
+function toggleListForSelection(listType) {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    const blocks = getBlockContainersForRange(range);
+    if (!blocks.length) return;
+    if (listType === 'none') {
+        blocks.forEach(block => {
+            const li = block.closest('li');
+            if (li) {
+                const parentList = li.parentElement;
+                const parent = parentList.parentElement;
+                while (li.firstChild) parentList.parentElement.insertBefore(li.firstChild, parentList);
+                li.remove();
+                if (!parentList.querySelector('li')) parentList.remove();
+            }
+        });
+        return;
+    }
+    let i = 0;
+    while (i < blocks.length) {
+        const block = blocks[i];
+        const parentList = block.closest('ul, ol');
+        if (parentList) {
+            if (listType === 'decimal') {
+                if (parentList.tagName !== 'OL') {
+                    const ol = document.createElement('ol'); ol.innerHTML = parentList.innerHTML; parentList.parentNode.replaceChild(ol, parentList);
+                }
+            } else {
+                if (parentList.tagName !== 'UL') {
+                    const ul = document.createElement('ul'); ul.innerHTML = parentList.innerHTML; parentList.parentNode.replaceChild(ul, parentList);
+                }
+                parentList.style.listStyleType = listType;
+            }
+            i++;
+            continue;
+        }
+        const group = [block];
+        let j = i + 1;
+        while (j < blocks.length) { group.push(blocks[j]); j++; }
+        const listEl = listType === 'decimal' ? document.createElement('ol') : document.createElement('ul');
+        if (listType !== 'decimal') listEl.style.listStyleType = listType;
+        const first = group[0];
+        first.parentNode.insertBefore(listEl, first);
+        for (const b of group) {
+            const li = document.createElement('li');
+            while (b.firstChild) li.appendChild(b.firstChild);
+            listEl.appendChild(li);
+            b.remove();
+        }
+        i = j;
+    }
 }
