@@ -2274,13 +2274,8 @@ function handleSimpleFormatClick(button, el, key) {
         return;
     }
     if (cfg.type === 'color' && cfg.target === 'inline' && cfg.style) {
-        const promptText = cfg.key === 'text-color' ? 'Введите цвет текста (red, #f00):' :
-            cfg.key === 'bg-color' ? 'Введите цвет фона (yellow, #ff0):' : 'Введите цвет (например #00f):';
-        const v = prompt(promptText, '');
-        if (v === null) return;
-        const val = cfg.style.wrap ? cfg.style.wrap(v.trim()) : v.trim();
-        applyInlineStyleToSelection(cfg.style.prop, val === '' ? '' : val);
-        if (typeof updateSimpleFormats === 'function') updateSimpleFormats(el);
+        /* applyInlineStyleToSelection(cfg.style.prop, val === '' ? '' : val);
+        if (typeof updateSimpleFormats === 'function') updateSimpleFormats(el); */
         return;
     }
     if (cfg.type === 'action' && cfg.action === 'remove-all') {
@@ -2376,3 +2371,280 @@ function toggleListForSelection(listType) {
         i = j;
     }
 }
+
+
+
+
+
+let savedRange = null;
+let lastEditableElement = null; 
+
+function saveSelection(editableEl) {
+    if (!editableEl) return;
+
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    
+    const range = sel.getRangeAt(0);
+
+    if (!editableEl.contains(range.commonAncestorContainer)) return;
+    
+    savedRange = range.cloneRange();
+    lastEditableElement = editableEl; 
+}
+
+function restoreSelection() {
+    if (!savedRange) return;
+    
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(savedRange);
+    
+    if (lastEditableElement) {
+        lastEditableElement.focus();
+    }
+}
+
+function trySaveSelection() {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+
+    let node = sel.anchorNode;
+    
+    if (node && node.nodeType === Node.ELEMENT_NODE && node.closest('#rgb-picker')) {
+        return;
+    }
+    if (node.nodeType === Node.TEXT_NODE) {
+        node = node.parentElement;
+    }
+
+    const editableEl = node ? node.closest('[contenteditable="true"]') : null;
+
+    if (editableEl) {
+        saveSelection(editableEl);
+    }
+}
+
+// Слушатели для сохранения позиции курсора
+document.addEventListener('mouseup', trySaveSelection);
+document.addEventListener('keyup', trySaveSelection);
+
+
+
+
+/* Окно выбора цвета */
+const colorState = { h: 0, s: 100, l: 50 }; 
+let activeContext = null;
+
+const picker = document.getElementById('rgb-picker');
+const hueCanvas = document.getElementById('cp-hue');
+const lightCanvas = document.getElementById('cp-light');
+const hueThumb = document.getElementById('hue-thumb');
+const lightThumb = document.getElementById('light-thumb');
+const hexInput = document.getElementById('cp-hex');
+const closeBtn = document.getElementById('cp-close');
+
+const ctxHue = hueCanvas.getContext('2d');
+const ctxLight = lightCanvas.getContext('2d');
+let isDragging = null;
+
+// --- CONVERTERS ---
+function hslToHex(h, s, l) {
+    l /= 100;
+    const a = s * Math.min(l, 1 - l) / 100;
+    const f = n => {
+        const k = (n + h / 30) % 12;
+        const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+        return Math.round(255 * color).toString(16).padStart(2, '0');
+    };
+    return `#${f(0)}${f(8)}${f(4)}`;
+}
+
+function hexToHsl(H) {
+    let r = 0, g = 0, b = 0;
+    if (H.length === 4) {
+        r = "0x" + H[1] + H[1]; g = "0x" + H[2] + H[2]; b = "0x" + H[3] + H[3];
+    } else if (H.length === 7) {
+        r = "0x" + H[1] + H[2]; g = "0x" + H[3] + H[4]; b = "0x" + H[5] + H[6];
+    }
+    r /= 255; g /= 255; b /= 255;
+    let cmin = Math.min(r,g,b), cmax = Math.max(r,g,b), delta = cmax - cmin;
+    let h = 0, s = 0, l = 0;
+
+    if (delta === 0) h = 0;
+    else if (cmax === r) h = ((g - b) / delta) % 6;
+    else if (cmax === g) h = (b - r) / delta + 2;
+    else h = (r - g) / delta + 4;
+
+    h = Math.round(h * 60);
+    if (h < 0) h += 360;
+    l = (cmax + cmin) / 2;
+    s = delta === 0 ? 0 : delta / (1 - Math.abs(2 * l - 1));
+    s = +(s * 100).toFixed(1);
+    l = +(l * 100).toFixed(1);
+    return { h, s, l };
+}
+
+// --- DRAWING ---
+function drawHueBar() {
+    const w = hueCanvas.width, h = hueCanvas.height;
+    const grad = ctxHue.createLinearGradient(0, 0, w, 0);
+    // Спектр: Красный -> Желтый -> Зеленый -> Голубой -> Синий -> Магента -> Красный
+    grad.addColorStop(0, '#ff0000');
+    grad.addColorStop(0.17, '#ffff00');
+    grad.addColorStop(0.33, '#00ff00');
+    grad.addColorStop(0.50, '#00ffff');
+    grad.addColorStop(0.67, '#0000ff');
+    grad.addColorStop(0.83, '#ff00ff');
+    grad.addColorStop(1, '#ff0000');
+    ctxHue.fillStyle = grad;
+    ctxHue.fillRect(0, 0, w, h);
+}
+
+function drawLightBar() {
+    const w = lightCanvas.width, h = lightCanvas.height;
+    const grad = ctxLight.createLinearGradient(0, 0, w, 0);
+    const currentColor = `hsl(${colorState.h}, 100%, 50%)`;
+    grad.addColorStop(0, '#000000');
+    grad.addColorStop(0.5, currentColor);
+    grad.addColorStop(1, '#ffffff');
+    ctxLight.fillStyle = grad;
+    ctxLight.fillRect(0, 0, w, h);
+}
+
+function updateThumbs() {
+    hueThumb.style.left = (colorState.h / 360) * hueCanvas.width + 'px';
+    lightThumb.style.left = (colorState.l / 100) * lightCanvas.width + 'px';
+}
+
+// --- CORE LOGIC ---
+function applyToSelection(hexValue) {
+    if (!activeContext) return;
+    
+    let cssProp = activeContext.prop;
+    if(cssProp === 'text-color') cssProp = 'color';
+    if(cssProp === 'bg-color') cssProp = 'background-color';
+    
+    if (typeof applyInlineStyleToSelection === 'function') {
+        applyInlineStyleToSelection(cssProp, hexValue);
+    }
+    if (typeof updateSimpleFormats === 'function') {
+        updateSimpleFormats(activeContext.el);
+    }
+}
+
+function syncFromState(apply = false) {
+    const hex = hslToHex(colorState.h, colorState.s, colorState.l);
+    hexInput.value = hex;
+    drawLightBar();
+    updateThumbs();
+    if (apply) applyToSelection(hex);
+}
+
+// --- EVENTS ---
+function handleDrag(e, type) {
+    const canvas = type === 'hue' ? hueCanvas : lightCanvas;
+    const rect = canvas.getBoundingClientRect();
+    let x = Math.max(0, Math.min(e.clientX - rect.left, canvas.width));
+    const ratio = x / canvas.width;
+
+    if (type === 'hue') {
+        colorState.h = Math.round(ratio * 360);
+        colorState.s = 100; // Сброс насыщенности при смене тона
+    } else {
+        colorState.l = Math.round(ratio * 100);
+    }
+    syncFromState();
+}
+
+function initDrag(e, type) {
+    isDragging = type;
+    handleDrag(e, type);
+    const move = ev => handleDrag(ev, type);
+    const stop = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', stop); isDragging = null; };
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', stop);
+}
+
+hueCanvas.addEventListener('mousedown', e => initDrag(e, 'hue'));
+lightCanvas.addEventListener('mousedown', e => initDrag(e, 'light'));
+
+// INPUT HANDLER
+hexInput.addEventListener('input', (e) => {
+    let val = e.target.value;
+    // Разрешаем ввод без решетки, добавляем её сами для проверки
+    if(!val.startsWith('#') && val.length === 6) val = '#' + val;
+
+    if (/^#[0-9A-F]{6}$/i.test(val)) {
+        const hsl = hexToHsl(val);
+        colorState.h = hsl.h;
+        colorState.s = hsl.s;
+        colorState.l = hsl.l;
+        
+        drawLightBar();
+        updateThumbs();
+        applyToSelection(val); // <--- ПРИМЕНЯЕМ СРАЗУ
+    }
+});
+
+closeBtn.addEventListener('click', () => picker.style.display = 'none');
+document.addEventListener('mousedown', e => {
+    if (picker.style.display === 'block' &&
+        !picker.contains(e.target) &&
+        !e.target.closest('[simpleformats-button]')) {
+        picker.style.display = 'none';
+
+        restoreSelection(); 
+        const hex = hslToHex(colorState.h, colorState.s, colorState.l);
+        
+        if (typeof applyToSelection === 'function') {
+            applyToSelection(hex);
+        }
+    }
+});
+
+
+// --- OPEN ---
+function openColorPicker(cfg, el, currentHex) {
+    activeContext = { prop: cfg.style.prop, el };
+    
+    // Парсинг стартового цвета
+    if (currentHex && /^#[0-9A-F]{6}$/i.test(currentHex)) {
+        Object.assign(colorState, hexToHsl(currentHex));
+    } else {
+        colorState.h = 0; colorState.s = 100; colorState.l = 50;
+    }
+
+    picker.style.display = 'block';
+    drawHueBar();
+    syncFromState();
+
+    // Positioning
+    if (el) {
+        const r = el.getBoundingClientRect();
+        let top = r.bottom + window.scrollY + 6;
+        let left = r.left + window.scrollX;
+        if (left + 300 > window.innerWidth) left = window.innerWidth - 310;
+        if (left < 10) left = 10;
+        if (r.bottom + 160 > window.innerHeight) top = r.top + window.scrollY - 170;
+        picker.style.top = top + 'px';
+        picker.style.left = left + 'px';
+    }
+}
+
+document.addEventListener('mousedown', e => {
+    const btn = e.target.closest('[simpleformats-button]');
+    if(!btn) return;
+    const type = btn.getAttribute('simpleformats-button');
+    if(['text-color','bg-color','border-color'].includes(type)){
+        // Тут надо получить реальный цвет выделения, пока #000000
+        openColorPicker({ style:{ prop: type } }, btn, '#000000'); 
+    }
+});
+
+
+
+
+
+window.tempStore.getByRecipient = async () => [{ path: "/pages/test" }];
+newLoadedBlock();
