@@ -2641,10 +2641,3 @@ document.addEventListener('mousedown', e => {
         openColorPicker({ style:{ prop: type } }, btn, '#000000'); 
     }
 });
-
-
-
-
-
-window.tempStore.getByRecipient = async () => [{ path: "/pages/test" }];
-newLoadedBlock();
