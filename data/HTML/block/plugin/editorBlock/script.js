@@ -1,3 +1,8 @@
+window.tempStore.getByRecipient = async () => [{ path: "/pages/empty" }];
+newLoadedBlock();
+
+
+
 /***********************************************************************
  * Элементы интерфейса вкладок CSS / JS.
  **********************************************************************/
@@ -43,6 +48,259 @@ tabs.forEach(tab => {
             jsPanel.style.display = 'flex';
         }
     });
+});
+
+
+
+/***********************************************************************
+ * Специальные свойства.
+ **********************************************************************/
+// Управление "Специальными свойствами" - полный модуль (JS)
+// - Работает только с элементами ВНУТРИ loadedBlock_<число>_view (не включает сам container).
+// - Поддерживаемые редактируемые теги: img, a, input, table, button, span.
+// - Левый клик - выбрать элемент (заполнить поля, панель не открывается).
+// - Правый клик - открыть properties-panel-spec для выбранного элемента и скрыть обычную панель.
+// - Скрытие/показ панелей через display = 'none' / ''. Нет outline и inline-подсветки.
+// - Комментариев немного для понимания. 
+
+let selectedEl = null;
+const specRoot = document.getElementById('properties-panel-spec');
+const normalPanel = document.getElementById('properties-panel');
+if (!specRoot) throw new Error('properties-panel-spec not found');
+
+// по умолчанию скрыть панель специальных свойств
+specRoot.style.display = 'none';
+
+// --- конфигурация: какие теги считаем "специальными" ---
+const EDITABLE_TAGS = new Set(['img', 'a', 'input', 'table', 'button', 'span']);
+
+// --- Утилиты -----------------------------------------------------------------
+
+// Проверка id контейнера view соответствует loadedBlock_<число>_view
+function isValidViewContainer(view) {
+    if (!view || !view.id) return false;
+    return /^loadedBlock_\d+_view$/.test(view.id);
+}
+
+// Рекурсивный поиск редактируемого элемента:
+// - поднимаемся от node вверх до контейнера view (исключая сам view)
+// - если встречаем элемент с тегом из EDITABLE_TAGS - возвращаем его
+// - иначе возвращаем null
+function findEditableElement(startNode) {
+    if (!startNode) return null;
+    const view = startNode.closest('[id^="loadedBlock_"][id$="_view"]');
+    if (!view || !isValidViewContainer(view)) return null;
+    // не допускаем выбор самого view
+    if (startNode === view) return null;
+
+    let node = startNode.nodeType === Node.TEXT_NODE ? startNode.parentElement : startNode;
+    while (node && node !== view) {
+        if (node.nodeType === 1) {
+            const tag = node.tagName.toLowerCase();
+            if (EDITABLE_TAGS.has(tag)) return node;
+        }
+        node = node.parentElement;
+    }
+    return null;
+}
+
+// Преобразовать rgb(...) в hex
+function rgbToHex(rgb) {
+    if (!rgb) return '';
+    if (rgb[0] === '#') return rgb;
+    const m = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+    if (!m) return '';
+    return '#' + [m[1], m[2], m[3]].map(x => parseInt(x, 10).toString(16).padStart(2, '0')).join('');
+}
+
+// Получить округлённое числовое значение CSS (без единицы)
+function getComputedNum(v) {
+    if (!v) return '';
+    const n = parseFloat(v);
+    return isNaN(n) ? '' : Math.round(n);
+}
+
+// Показать controls, отфильтрованные по data-target
+function showSpecForTarget(target) {
+    // скрыть обычную панель (если есть)
+    if (normalPanel) normalPanel.style.display = 'none';
+    // показать спец-панель
+    specRoot.style.display = '';
+    // фильтруем дочерние группы по attribute data-target
+    Array.from(specRoot.querySelectorAll('[data-target]')).forEach(node => {
+        const t = node.getAttribute('data-target');
+        if (!t) { node.style.display = ''; return; }
+        const allowed = t.split(/\s+/);
+        node.style.display = (allowed.includes('all') || allowed.includes(target)) ? '' : 'none';
+    });
+}
+
+// Заполнить controls значениями выбранного элемента
+function populateSpecialProps(el) {
+    if (!el) return;
+    const cs = window.getComputedStyle(el);
+    const set = (prop, val) => {
+        const inp = specRoot.querySelector('[data-prop="' + prop + '"]');
+        if (!inp) return;
+        if (inp.type === 'checkbox') inp.checked = Boolean(val);
+        else inp.value = val == null ? '' : String(val);
+    };
+
+    set('width-value', el.style.width || getComputedNum(cs.width));
+    set('height-value', el.style.height || getComputedNum(cs.height));
+    set('background-color', rgbToHex(cs.backgroundColor) || '');
+    set('border-width', getComputedNum(cs.borderWidth) || '');
+    set('border-style', cs.borderStyle || '');
+    set('border-color', rgbToHex(cs.borderColor) || '');
+    set('img-src', el.tagName === 'IMG' ? (el.getAttribute('src') || '') : '');
+    set('link-href', el.tagName === 'A' ? (el.getAttribute('href') || '') : '');
+    set('input-placeholder', el.tagName === 'INPUT' ? (el.getAttribute('placeholder') || '') : '');
+    if (el.tagName === 'TABLE') {
+        const rows = el.querySelectorAll('tr').length || 0;
+        const cols = el.querySelector('tr') ? el.querySelector('tr').children.length : 0;
+        set('table-rows', rows);
+        set('table-cols', cols);
+    } else {
+        set('table-rows', '');
+        set('table-cols', '');
+    }
+}
+
+// Применить отдельное свойство к элементу
+function applyPropToElement(el, prop, rawValue) {
+    if (!el) return;
+    const val = rawValue == null ? '' : rawValue;
+    const markDirty = () => {
+        const view = el.closest('[id^="loadedBlock_"][id$="_view"]');
+        if (view) view.dataset.dirty = 'true';
+    };
+
+    switch (prop) {
+        case 'width-value':
+            el.style.width = val === '' ? '' : (isNaN(Number(val)) ? val : Number(val) + 'px');
+            break;
+        case 'height-value':
+            el.style.height = val === '' ? '' : (isNaN(Number(val)) ? val : Number(val) + 'px');
+            break;
+        case 'background-color':
+            el.style.backgroundColor = val || '';
+            break;
+        case 'border-width':
+            el.style.borderWidth = (val === '' || val === '-') ? '' : (isNaN(Number(val)) ? val : Number(val) + 'px');
+            break;
+        case 'border-style':
+            el.style.borderStyle = val || '';
+            break;
+        case 'border-color':
+            el.style.borderColor = val || '';
+            break;
+        case 'img-src':
+            if (el.tagName === 'IMG') el.setAttribute('src', val || '');
+            break;
+        case 'link-href':
+            if (el.tagName === 'A') el.setAttribute('href', val || '');
+            break;
+        case 'input-placeholder':
+            if (el.tagName === 'INPUT') {
+                if (val === '') el.removeAttribute('placeholder');
+                else el.setAttribute('placeholder', val);
+            }
+            break;
+        case 'table-rows':
+        case 'table-cols':
+            if (el.tagName === 'TABLE') {
+                const rows = parseInt(specRoot.querySelector('[data-prop="table-rows"]').value || '0', 10) || 0;
+                const cols = parseInt(specRoot.querySelector('[data-prop="table-cols"]').value || '0', 10) || 0;
+                rebuildTable(el, Math.max(1, rows), Math.max(1, cols));
+            }
+            break;
+    }
+
+    markDirty();
+}
+
+// Перестроить таблицу (создать tbody с rows x cols)
+function rebuildTable(table, rows, cols) {
+    while (table.firstChild) table.removeChild(table.firstChild);
+    const tbody = document.createElement('tbody');
+    for (let r = 0; r < rows; r++) {
+        const tr = document.createElement('tr');
+        for (let c = 0; c < cols; c++) {
+            const td = document.createElement('td');
+            td.textContent = '';
+            tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+}
+
+// Сброс выбора: скрыть specRoot, восстановить normalPanel
+function clearSelection() {
+    selectedEl = null;
+    specRoot.style.display = 'none';
+    if (normalPanel) normalPanel.style.display = '';
+    // очистить значения контролов
+    specRoot.querySelectorAll('[data-prop]').forEach(inp => {
+        if (inp.type === 'checkbox') inp.checked = false;
+        else inp.value = '';
+    });
+}
+
+// --- Слушатели для панели (делегированно) ------------------------------------
+
+// ввод в любом контроле применяет свойство немедленно
+specRoot.addEventListener('input', e => {
+    if (!selectedEl) return;
+    const ctrl = e.target.closest('[data-prop]');
+    if (!ctrl) return;
+    const prop = ctrl.getAttribute('data-prop');
+    const val = ctrl.type === 'checkbox' ? ctrl.checked : ctrl.value;
+    applyPropToElement(selectedEl, prop, val);
+});
+specRoot.addEventListener('change', e => {
+    if (!selectedEl) return;
+    const ctrl = e.target.closest('[data-prop]');
+    if (!ctrl) return;
+    const prop = ctrl.getAttribute('data-prop');
+    const val = ctrl.type === 'checkbox' ? ctrl.checked : ctrl.value;
+    applyPropToElement(selectedEl, prop, val);
+});
+
+// --- Взаимодействие с loadedBlock_*_view ------------------------------------
+
+// Левый клик - выбрать элемент (только специальные элементы), не открываем панель
+document.addEventListener('click', e => {
+    if (e.button !== 0) return; // только левая кнопка
+    const el = findEditableElement(e.target);
+    if (!el) return; // игнорируем клики по тексту и обычным контейнерам
+    selectedEl = el;
+    populateSpecialProps(selectedEl);
+}, true);
+
+// Правый клик - открыть properties-panel-spec (скрыть обычную), показать только нужные контролы
+document.addEventListener('contextmenu', e => {
+    const el = findEditableElement(e.target);
+    if (!el) return;
+    e.preventDefault();
+    selectedEl = el;
+    // показать спец-панель, отфильтровать по типу
+    const tag = el.tagName.toLowerCase();
+    let target = 'all';
+    if (tag === 'img') target = 'image';
+    else if (tag === 'a') target = 'link';
+    else if (tag === 'input') target = 'input';
+    else if (tag === 'table') target = 'table';
+    else target = 'all';
+    showSpecForTarget(target);
+    populateSpecialProps(selectedEl);
+});
+
+// Клик в любом месте вне view и вне панели - скрыть спец-панель
+document.addEventListener('click', e => {
+    const inView = !!e.target.closest('[id^="loadedBlock_"][id$="_view"]');
+    const inSpec = !!e.target.closest('#properties-panel-spec');
+    if (!inView && !inSpec) clearSelection();
 });
 
 
@@ -408,9 +666,13 @@ function nodeToMd(node) {
             return '\n```\n' + txt.replace(/^\n+|\n+$/g, '') + '\n```\n\n';
         }
         default:
-            return node.attributes && node.attributes.length
-                ? node.outerHTML
-                : children;
+            // сохранить тег целиком, если он не преобразуется в Markdown
+            try {
+                return node.outerHTML;
+            } catch (e) {
+                // если по какой-то причине outerHTML недоступен — вернуть дочерний контент
+                return children;
+            }
     }
 }
 
@@ -422,17 +684,19 @@ function nodeToMd(node) {
  * - Возвращает Markdown с переносом строки.
  **********************************************************************/
 function htmlToMixed(html) {
+    let out = html;
     const doc = new DOMParser().parseFromString('<div>' + html + '</div>', 'text/html');
     const wrapper = doc.body.firstElementChild;
     if (!wrapper) return '\n';
 
-    const out = [...wrapper.childNodes]
+    out = [...wrapper.childNodes]
         .map(nodeToMd)
         .join('')
         .replace(/\n{3,}/g, '\n\n')
         .trim();
 
-    return out ? out + '\n' : '\n';
+    out = out ? out + '\n' : '\n'
+    return out;
 }
 
 
@@ -722,79 +986,246 @@ btnApplyJs.onclick = () => {
 
 
 /***********************************************************************
- * elements-ul click — добавление HTML-элемента:
- * - Обрабатывает клик по элементу списка тегов.
- * - Определяет выбранный HTML-тег.
- * - Добавляет тег в визуальный редактор и HTML-код.
+ * Универсальный обработчик вставки элементов из панели
  **********************************************************************/
 document.getElementById('elements-ul').addEventListener('click', e => {
     const el = e.target.closest('.add-el');
     if (!el) return;
 
-    const tag = el.dataset.el;
-    if (!tag) return;
+    const dataEl = el.dataset.el;
+    if (!dataEl) return;
 
-    handleLoadedBlockView(tag);
-    handlePreHtml(tag, el.textContent.includes('</>'));
+    handleLoadedBlockView(dataEl);
+    handlePreHtml(dataEl);
 });
 
 /***********************************************************************
- * handleLoadedBlockView — вставка элемента в view:
- * - Принимает имя HTML-тега.
- * - Определяет позицию курсора в визуальном редакторе.
- * - Создаёт и вставляет новый HTML-элемент в активный блок.
+ * Вспомогательные функции: парсинг и проверка тегов
  **********************************************************************/
-function handleLoadedBlockView(tag) {
-    const sel = document.getSelection();
-    if (!sel.rangeCount) return;
+function parseDataEl(dataEl) {
+    const tmp = document.createElement('template');
+    tmp.innerHTML = dataEl.trim();
+    const node = tmp.content.firstElementChild;
+    if (node) {
+        return {
+            tagName: node.tagName.toLowerCase(),
+            nodeTemplate: node
+        };
+    }
+    const match = dataEl.trim().match(/^<\s*([a-z0-9-]+)/i);
+    const tagName = match ? match[1].toLowerCase() : dataEl.trim().toLowerCase();
+    return { tagName, nodeTemplate: null };
+}
 
-    const range = sel.getRangeAt(0);
-    let node = range.commonAncestorContainer;
-    while (node && node.nodeType !== 1) node = node.parentNode;
-    if (!node) return;
+function cloneNodeFromTemplate(nodeTemplate, tagName) {
+    if (nodeTemplate) return nodeTemplate.cloneNode(true);
+    return document.createElement(tagName);
+}
 
-    const view = node.closest('[id^="loadedBlock_"][id$="_view"]');
-    if (!view) return;
+function isVoidTag(tagName) {
+    return ['img','input','br','hr','meta','link','source'].includes(tagName);
+}
 
-    const voidTags = ['img','input','br','hr','meta','link','source'];
-    const newEl = document.createElement(tag);
-    if (!voidTags.includes(tag)) newEl.textContent = tag;
-
-    range.insertNode(newEl);
-    range.setStartAfter(newEl);
-    range.collapse(true);
-
-    sel.removeAllRanges();
-    sel.addRange(range);
+function escapeHtml(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 /***********************************************************************
- * handlePreHtml — вставка HTML-кода в редактор:
- * - Принимает имя тега и флаг закрывающего тега.
- * - Формирует HTML-фрагмент.
- * - Вставляет код в позицию курсора в HTML-редакторе.
+ * performUnwrap — Глубокое удаление тегов с сохранением контента
  **********************************************************************/
-function handlePreHtml(tag, wantsClosing) {
+function performUnwrap(node, tag) {
+    const parent = node.parentNode;
+    if (!parent) return;
+
+    if (tag === 'table') {
+        // Вытаскиваем содержимое всех ячеек перед удалением таблицы
+        const cells = node.querySelectorAll('td, th');
+        cells.forEach(cell => {
+            while (cell.firstChild) {
+                parent.insertBefore(cell.firstChild, node);
+            }
+        });
+    } else {
+        // Обычный unwrap для a, li, button, span и т.д.
+        while (node.firstChild) {
+            parent.insertBefore(node.firstChild, node);
+        }
+    }
+    parent.removeChild(node);
+}
+
+/***********************************************************************
+ * handleLoadedBlockView — Логика Toggle (Unwrap) и вставки в визуальный редактор
+ **********************************************************************/
+function handleLoadedBlockView(dataEl) {
+    const sel = document.getSelection();
+    if (!sel || !sel.rangeCount) return;
+
+    const range = sel.getRangeAt(0);
+    let commonAncestor = range.commonAncestorContainer;
+    if (commonAncestor.nodeType !== 1) commonAncestor = commonAncestor.parentNode;
+
+    const view = commonAncestor.closest('[id^="loadedBlock_"][id$="_view"]');
+    if (!view) return;
+
+    const parsed = parseDataEl(dataEl);
+    const tag = parsed.tagName;
+    
+    // --- 1. Поиск существующего элемента для удаления (Toggle) ---
+    let targetNode = null;
+
+    // Проверка: находится ли курсор ВНУТРИ тега (для ссылок, кнопок, li, table)
+    targetNode = (tag === 'span') ? null : commonAncestor.closest(tag);
+
+    // Специальная проверка для input (так как курсор не бывает "внутри" текстового узла инпута)
+    if (!targetNode && tag === 'input') {
+        if (range.startContainer.nodeType === 1 && range.startContainer.tagName.toLowerCase() === 'input') {
+            targetNode = range.startContainer;
+        } else if (range.startContainer.childNodes[range.startOffset]?.tagName?.toLowerCase() === 'input') {
+            targetNode = range.startContainer.childNodes[range.startOffset];
+        }
+    }
+
+    // Проверка: выделен ли тег целиком или частично (поиск внутри Range)
+    if (!targetNode && !range.collapsed) {
+        const fragment = range.cloneContents();
+        if (fragment.querySelector(tag)) {
+            // Если внутри выделения есть такие теги, находим их в реальном DOM
+            const walker = document.createTreeWalker(view, NodeFilter.SHOW_ELEMENT);
+            while (walker.nextNode()) {
+                const el = walker.currentNode;
+                if (el.tagName.toLowerCase() === tag) {
+                    const nodeRange = document.createRange();
+                    nodeRange.selectNode(el);
+                    // Проверяем пересечение диапазонов
+                    if (range.compareBoundaryPoints(Range.END_TO_START, nodeRange) === -1 &&
+                        range.compareBoundaryPoints(Range.START_TO_END, nodeRange) === 1) {
+                        performUnwrap(el, tag);
+                    }
+                }
+            }
+            view.normalize();
+            return;
+        }
+    }
+
+    if (targetNode && view.contains(targetNode)) {
+        performUnwrap(targetNode, tag);
+        view.normalize();
+        return;
+    }
+
+    // --- 2. Логика вставки (если Toggle не сработал) ---
+    const newEl = cloneNodeFromTemplate(parsed.nodeTemplate, tag);
+    const selectionHasContent = sel.toString().length > 0;
+
+    if (tag === 'table') {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        if (selectionHasContent) {
+            td.appendChild(range.extractContents());
+        } else {
+            td.innerHTML = 'ячейка';
+        }
+        tr.appendChild(td);
+        newEl.innerHTML = ''; // очистка шаблона от лишних tbody
+        newEl.appendChild(tr);
+        range.insertNode(newEl);
+    } else if (tag === 'input') {
+        if (selectionHasContent) {
+            newEl.placeholder = sel.toString();
+            range.deleteContents();
+        }
+        range.insertNode(newEl);
+    } else if (tag === 'span') {
+        newEl.style.border = '1px solid #000000';
+        newEl.style.padding = '3px';
+        newEl.style.margin = '3px';
+        newEl.style.display = 'inline-block';
+        if (selectionHasContent) {
+            newEl.appendChild(range.extractContents());
+        } else if (!newEl.innerHTML.trim()) {
+            console.log('Setting textContent for', dataEl);
+            newEl.textContent = "блок";
+        }
+        range.insertNode(newEl);
+    } else if (isVoidTag(tag)) {
+        range.deleteContents();
+        range.insertNode(newEl);
+    } else {
+        if (selectionHasContent) {
+            newEl.appendChild(range.extractContents());
+        } else if (!newEl.innerHTML.trim()) {
+            console.log('Setting textContent for', dataEl);
+            newEl.textContent = tag;
+        }
+        range.insertNode(newEl);
+    }
+
+    // Сброс выделения и установка курсора после элемента
+    sel.removeAllRanges();
+    const afterRange = document.createRange();
+    afterRange.setStartAfter(newEl);
+    afterRange.collapse(true);
+    sel.addRange(afterRange);
+}
+
+/***********************************************************************
+ * handlePreHtml — Вставка HTML кода в текстовый редактор (pre)
+ **********************************************************************/
+function handlePreHtml(dataEl) {
     const pre = document.getElementById('center-tab-pre-html');
     if (!pre || pre.contentEditable !== "true") return;
 
-    const snippet = wantsClosing ? `<${tag}></${tag}>` : `<${tag}>`;
     const sel = document.getSelection();
-    if (!sel.rangeCount) return;
+    if (!sel || !sel.rangeCount) return;
 
     const range = sel.getRangeAt(0);
-    let node = range.commonAncestorContainer;
-    while (node && node.nodeType !== 1) node = node.parentNode;
-    if (!node || !pre.contains(node)) return;
+    let commonAncestor = range.commonAncestorContainer;
+    if (commonAncestor.nodeType !== 1) commonAncestor = commonAncestor.parentNode;
+    if (!pre.contains(commonAncestor)) return;
 
+    const parsed = parseDataEl(dataEl);
+    const tag = parsed.tagName;
+    const selectionHasContent = sel.toString().length > 0;
+
+    let selectedHtml = '';
+    if (selectionHasContent) {
+        const div = document.createElement('div');
+        div.appendChild(range.cloneContents());
+        selectedHtml = div.innerHTML;
+    }
+
+    let snippet = '';
+    if (tag === 'table') {
+        snippet = `<table><tr><td>${selectionHasContent ? selectedHtml : 'ячейка'}</td></tr></table>`;
+    } else if (tag === 'input') {
+        snippet = `<input placeholder="${selectionHasContent ? escapeHtml(sel.toString()) : ''}">`;
+    } else if (parsed.nodeTemplate) {
+        const tmp = parsed.nodeTemplate.cloneNode(true);
+        if (!isVoidTag(tag)) {
+            if (selectionHasContent) tmp.innerHTML = selectedHtml;
+            else if (!tmp.innerHTML.trim()) tmp.textContent = tag;
+        }
+        snippet = tmp.outerHTML;
+    } else {
+        if (isVoidTag(tag)) {
+            snippet = `<${tag}>`;
+        } else {
+            snippet = `<${tag}>${selectionHasContent ? selectedHtml : tag}</${tag}>`;
+        }
+    }
+
+    if (selectionHasContent) range.deleteContents();
     const textNode = document.createTextNode(snippet);
     range.insertNode(textNode);
-    range.setStartAfter(textNode);
-    range.collapse(true);
-    sel.removeAllRanges();
-    sel.addRange(range);
-}
 
+    sel.removeAllRanges();
+    const afterRange = document.createRange();
+    afterRange.setStartAfter(textNode);
+    afterRange.collapse(true);
+    sel.addRange(afterRange);
+}
 
 
 
@@ -1666,7 +2097,7 @@ function highlightInJsEditor(search, fullText) {
                 const parent = span.parentNode;
                 while (span.firstChild) parent.insertBefore(span.firstChild, span);
                 parent.removeChild(span);
-            }, 800);
+            }, 100);
 
             pre.focus();
             return;

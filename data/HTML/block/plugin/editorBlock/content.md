@@ -8,24 +8,12 @@
     <div class="elements-header">Html</div>
     <hr>
     <div id="elements-ul">
-        <div class="add-el" data-el="div">&lt;div&gt;&lt;/&gt;</div>
-        <div class="add-el" data-el="span">&lt;span&gt;&lt;/&gt;</div>
-        <div class="add-el" data-el="p">&lt;p&gt;&lt;/&gt;</div>
-        <div class="add-el" data-el="img">&lt;img&gt;</div>
-        <div class="add-el" data-el="a">&lt;a&gt;&lt;/&gt;</div>
-        <div class="add-el" data-el="ul">&lt;ul&gt;&lt;/&gt;</div>
-        <div class="add-el" data-el="ol">&lt;ol&gt;&lt;/&gt;</div>
-        <div class="add-el" data-el="li">&lt;li&gt;&lt;/&gt;</div>
-        <div class="add-el" data-el="button">&lt;button&gt;&lt;/&gt;</div>
-        <div class="add-el" data-el="input">&lt;input&gt;</div>
-        <div class="add-el" data-el="textarea">&lt;textarea&gt;&lt;/&gt;</div>
-        <div class="add-el" data-el="select">&lt;select&gt;&lt;/&gt;</div>
-        <div class="add-el" data-el="option">&lt;option&gt;&lt;/&gt;</div>
-        <div class="add-el" data-el="table">&lt;table&gt;&lt;/&gt;</div>
-        <div class="add-el" data-el="tr">&lt;tr&gt;&lt;/&gt;</div>
-        <div class="add-el" data-el="td">&lt;td&gt;&lt;/&gt;</div>
-        <div class="add-el" data-el="th">&lt;th&gt;&lt;/&gt;</div>
-        <div class="add-el" data-el="form">&lt;form&gt;&lt;/&gt;</div>
+        <div class="add-el" data-el="<span></span>">блок</div>
+        <div class="add-el" data-el="<img src='#'>">изображение</div>
+        <div class="add-el" data-el="<a href='#'></a>">ссылка</div>
+        <div class="add-el" data-el="<button></button>">кнопка</div>
+        <div class="add-el" data-el="<input placeholder=''>">поле ввода</div>
+        <div class="add-el" data-el="<table><tr><td></td></tr></table>">таблица</div>
     </div>
 </div>
     
@@ -57,6 +45,23 @@
         <div class="tab" data-tab="js">JS</div>
     </div>
     <hr>
+    <!--  -->
+    <div id="properties-panel-spec" style="dispaly: none;">
+        <div class="table-title">Специальные свойства</div>
+        <label data-target="all">Ширина: <input data-prop="width-value"></label>
+        <label data-target="all">Высота: <input data-prop="height-value"></label>
+        <label data-target="all">Фон: <input type="color" data-prop="background-color"></label>
+        <label data-target="all">Граница: 
+            <select data-prop="border-width"><option value="">-</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option></select>
+            <select data-prop="border-style"><option value="">-</option><option value="solid">сплошная</option><option value="dashed">пунктирная</option><option value="dotted">точечная</option><option value="double">двойная</option></select>
+            <input type="color" data-prop="border-color">
+        </label>
+        <label data-target="image">src: <input type="text" data-prop="img-src"></label>
+        <label data-target="link">URL: <input type="text" data-prop="link-href"></label>
+        <label data-target="input">Placeholder: <input type="text" data-prop="input-placeholder"></label>
+        <label data-target="table">Строки: <input type="number" min="1" step="1" data-prop="table-rows" value="1"></label>
+        <label data-target="table">Столбцы: <input type="number" min="1" step="1" data-prop="table-cols" value="1"></label>
+    </div>
     <!--  -->
     <div id="properties-panel">
         <div class="table-title">Свойсвтва</div>
