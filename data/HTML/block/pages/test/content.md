@@ -1,4 +1,4 @@
-<div><span style="border: 1px solid rgb(0, 0, 0); padding: 3px; margin: 3px; display: inline-block; width: 100%;">блок1<br><span style="border: 1px solid rgb(0, 0, 0); padding: 3px; margin: 3px; display: inline-block; width: 50%;">блок</span><span style="border: 1px solid rgb(0, 0, 0); padding: 3px; margin: 3px; display: inline-block; width: 50px;">блок</span><br></span></div>
+<div><block style="border: 1px solid rgb(0, 0, 0); padding: 3px; margin: 3px; display: inline-block; width: 100%;">блок1<br><block style="border: 1px solid rgb(0, 0, 0); padding: 3px; margin: 3px; display: inline-block; width: 50%;">блок</block><block style="border: 1px solid rgb(0, 0, 0); padding: 3px; margin: 3px; display: inline-block; width: 50px;">блок</block><br></block></div>
 <div><img src="https://upload.wikimedia.org/wikipedia/commons/a/a6/Pink_lady_and_cross_section.jpg" style="width: 280px;"><br></div>
 <div><a href="https://www.e-klase.lv/">alink</a><br></div>
 <div><button>button</button><br></div>

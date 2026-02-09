@@ -1,7 +1,50 @@
-window.tempStore.getByRecipient = async () => [{ path: "/pages/test" }];
-newLoadedBlock();
 window.tempStore.getByRecipient = async () => [{ path: "/pages/example" }];
 newLoadedBlock();
+window.tempStore.getByRecipient = async () => [{ path: "/pages/test" }];
+newLoadedBlock();
+
+
+document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Enter') return;
+
+    const editable = e.target.closest('[contenteditable="true"]');
+    if (!editable) return;
+
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+
+    const range = sel.getRangeAt(0);
+
+    const node = range.startContainer.nodeType === 3
+        ? range.startContainer.parentElement
+        : range.startContainer;
+
+    // если внутри списка - не трогаем
+    if (node.closest('li')) return;
+
+    // ищем block, span не учитывается
+    const block = node.closest('block');
+    if (!block || !editable.contains(block)) return;
+
+    e.preventDefault();
+
+    const br = document.createElement('br');
+    range.deleteContents();
+    range.insertNode(br);
+
+    range.setStartAfter(br);
+    range.collapse(true);
+
+    sel.removeAllRanges();
+    sel.addRange(range);
+});
+
+document.querySelector('#center-panel').addEventListener('click', (e) => {
+    const link = e.target.closest('a');
+    if (link) {
+        e.preventDefault();
+    }
+});
 
 
 
@@ -25,6 +68,28 @@ const btnApplyToView = document.getElementById('btn-apply-to-view'); */
 const btnApplyJs = document.getElementById('btn-apply-js');
 
 /***********************************************************************
+ * switchTabPanel — переключение видимости панелей (properties, css, js):
+ * - Принимает имя вкладки: 'properties', 'css' или 'js'.
+ * - Показывает соответствующую панель.
+ * - Скрывает остальные панели.
+ **********************************************************************/
+function switchTabPanel(tabName) {
+    if (tabName === 'properties') {
+        if (propertiesPanel) propertiesPanel.style.display = '';
+        if (cssPanel) cssPanel.style.display = 'none';
+        if (jsPanel) jsPanel.style.display = 'none';
+    } else if (tabName === 'css') {
+        if (propertiesPanel) propertiesPanel.style.display = 'none';
+        if (cssPanel) cssPanel.style.display = 'flex';
+        if (jsPanel) jsPanel.style.display = 'none';
+    } else if (tabName === 'js') {
+        if (propertiesPanel) propertiesPanel.style.display = 'none';
+        if (cssPanel) cssPanel.style.display = 'none';
+        if (jsPanel) jsPanel.style.display = 'flex';
+    }
+}
+
+/***********************************************************************
  * tabs tab click — переключение вкладок CSS и JS:
  * - Снимает активное состояние со всех вкладок.
  * - Активирует выбранную вкладку.
@@ -35,20 +100,7 @@ tabs.forEach(tab => {
     tab.addEventListener('click', () => {
         tabs.forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
-
-        if (tab.dataset.tab === 'properties') {
-            propertiesPanel.style.display = '';
-            cssPanel.style.display = 'none';
-            jsPanel.style.display = 'none';
-        } else if (tab.dataset.tab === 'css') {
-            propertiesPanel.style.display = 'none';
-            cssPanel.style.display = 'flex';
-            jsPanel.style.display = 'none';
-        } else if (tab.dataset.tab === 'js') {
-            propertiesPanel.style.display = 'none';
-            cssPanel.style.display = 'none';
-            jsPanel.style.display = 'flex';
-        }
+        switchTabPanel(tab.dataset.tab);
     });
 });
 
@@ -57,24 +109,15 @@ tabs.forEach(tab => {
 /***********************************************************************
  * Специальные свойства.
  **********************************************************************/
-// Управление "Специальными свойствами" - полный модуль (JS)
-// - Работает только с элементами ВНУТРИ loadedBlock_<число>_view (не включает сам container).
-// - Поддерживаемые редактируемые теги: img, a, input, table, button, span.
-// - Левый клик - выбрать элемент (заполнить поля, панель не открывается).
-// - Правый клик - открыть properties-panel-spec для выбранного элемента и скрыть обычную панель.
-// - Скрытие/показ панелей через display = 'none' / ''. Нет outline и inline-подсветки.
-// - Комментариев немного для понимания. 
-
 let selectedEl = null;
 const specRoot = document.getElementById('properties-panel-spec');
 const normalPanel = document.getElementById('properties-panel');
-if (!specRoot) throw new Error('properties-panel-spec not found');
 
 // по умолчанию скрыть панель специальных свойств
 specRoot.style.display = 'none';
 
 // --- конфигурация: какие теги считаем "специальными" ---
-const EDITABLE_TAGS = new Set(['img', 'a', 'input', 'table', 'button', 'span']);
+const EDITABLE_TAGS = new Set(['img', 'a', 'input', 'table', 'button', 'span', 'block']);
 
 // --- Утилиты -----------------------------------------------------------------
 
@@ -126,6 +169,8 @@ function getComputedNum(v) {
 function showSpecForTarget(target) {
     // скрыть обычную панель (если есть)
     if (normalPanel) normalPanel.style.display = 'none';
+    if (cssPanel) cssPanel.style.display = 'none';
+    if (jsPanel) jsPanel.style.display = 'none';
     // показать спец-панель
     specRoot.style.display = '';
     // фильтруем дочерние группы по attribute data-target
@@ -223,17 +268,27 @@ function applyPropToElement(el, prop, rawValue) {
 
 // Перестроить таблицу (создать tbody с rows x cols)
 function rebuildTable(table, rows, cols) {
-    while (table.firstChild) table.removeChild(table.firstChild);
+    const oldRows = Array.from(table.querySelectorAll('tr'));
     const tbody = document.createElement('tbody');
+
     for (let r = 0; r < rows; r++) {
         const tr = document.createElement('tr');
+        const oldCells = oldRows[r] ? Array.from(oldRows[r].children) : [];
+
         for (let c = 0; c < cols; c++) {
-            const td = document.createElement('td');
-            td.textContent = '';
+            let td;
+            if (oldCells[c]) {
+                td = oldCells[c];
+            } else {
+                td = document.createElement('td');
+                td.innerHTML = '<br>';
+            }
             tr.appendChild(td);
         }
         tbody.appendChild(tr);
     }
+
+    while (table.firstChild) table.removeChild(table.firstChild);
     table.appendChild(tbody);
 }
 
@@ -293,6 +348,7 @@ document.addEventListener('contextmenu', e => {
     else if (tag === 'a') target = 'link';
     else if (tag === 'input') target = 'input';
     else if (tag === 'table') target = 'table';
+    else if (tag === 'block') target = 'block';
     else target = 'all';
     showSpecForTarget(target);
     populateSpecialProps(selectedEl);
@@ -300,9 +356,8 @@ document.addEventListener('contextmenu', e => {
 
 // Клик в любом месте вне view и вне панели - скрыть спец-панель
 document.addEventListener('click', e => {
-    const inView = !!e.target.closest('[id^="loadedBlock_"][id$="_view"]');
     const inSpec = !!e.target.closest('#properties-panel-spec');
-    if (!inView && !inSpec) clearSelection();
+    if (!inSpec) clearSelection();
 });
 
 
@@ -999,6 +1054,21 @@ document.getElementById('elements-ul').addEventListener('click', e => {
 
     handleLoadedBlockView(dataEl);
     handlePreHtml(dataEl);
+    
+    const blockId = getActiveBlockId();
+    if (!blockId) return;
+    
+    // Определяем активный режим и синхронизируем соответствующим образом
+    const activeCenterTab = document.querySelector('#center-tabs .center-tab.active');
+    const mode = activeCenterTab ? activeCenterTab.dataset.tab : 'view';
+    
+    if (mode === 'view') {
+        // В режиме view: синхронизируем view -> html
+        syncHtmlFromView(blockId);
+    } else if (mode === 'html') {
+        // В режиме html: синхронизируем html -> view
+        syncActiveBlock();
+    }
 });
 
 /***********************************************************************
@@ -1122,16 +1192,9 @@ function handleLoadedBlockView(dataEl) {
     const selectionHasContent = sel.toString().length > 0;
 
     if (tag === 'table') {
-        const tr = document.createElement('tr');
-        const td = document.createElement('td');
-        if (selectionHasContent) {
-            td.appendChild(range.extractContents());
-        } else {
-            td.innerHTML = 'ячейка';
-        }
-        tr.appendChild(td);
-        newEl.innerHTML = ''; // очистка шаблона от лишних tbody
-        newEl.appendChild(tr);
+        newEl.style.border = '1px solid #000000';
+        newEl.innerHTML = '<tr><td><br></td><td><br></td></tr><tr><td><br></td><td><br></td></tr>';
+        newEl.querySelectorAll('td, th').forEach(cell => { cell.style.border = '1px solid #000000'; });
         range.insertNode(newEl);
     } else if (tag === 'input') {
         if (selectionHasContent) {
@@ -1139,7 +1202,7 @@ function handleLoadedBlockView(dataEl) {
             range.deleteContents();
         }
         range.insertNode(newEl);
-    } else if (tag === 'span') {
+    } else if (tag === 'block') {
         newEl.style.border = '1px solid #000000';
         newEl.style.padding = '3px';
         newEl.style.margin = '3px';
@@ -1147,8 +1210,19 @@ function handleLoadedBlockView(dataEl) {
         if (selectionHasContent) {
             newEl.appendChild(range.extractContents());
         } else if (!newEl.innerHTML.trim()) {
-            console.log('Setting textContent for', dataEl);
             newEl.textContent = "блок";
+        }
+        range.insertNode(newEl);
+    } else if (tag === 'a') {
+        if (selectionHasContent) {
+            newEl.appendChild(range.extractContents());
+            range.insertNode(newEl);
+        }
+    } else if (tag === 'button') {
+        if (selectionHasContent) {
+            newEl.appendChild(range.extractContents());
+        } else if (!newEl.innerHTML.trim()) {
+            newEl.textContent = "кнопка";
         }
         range.insertNode(newEl);
     } else if (isVoidTag(tag)) {
@@ -1158,7 +1232,6 @@ function handleLoadedBlockView(dataEl) {
         if (selectionHasContent) {
             newEl.appendChild(range.extractContents());
         } else if (!newEl.innerHTML.trim()) {
-            console.log('Setting textContent for', dataEl);
             newEl.textContent = tag;
         }
         range.insertNode(newEl);
@@ -2167,7 +2240,13 @@ function updateSimpleFormats(el) {
     btns.forEach(b => {
         const key = b.getAttribute('simpleformats-button');
         updateButtonActive(b, el, key);
-        b.onclick = () => handleSimpleFormatClick(b, el, key);
+        b.onclick = () => { 
+            handleSimpleFormatClick(b, el, key);
+            const blockId = getActiveBlockId();
+            if (blockId) {
+                syncHtmlFromView(blockId);
+            }
+        };
     });
 }
 
@@ -2195,7 +2274,14 @@ function updateSelectProperties(el) {
         } else sel.value = value;
 
         // отдельная функция для обработчика onchange
-        sel.onchange = createSelectChangeHandler(el, prop);
+        sel.onchange = (e) => {
+            const handler = createSelectChangeHandler(el, prop);
+            if (handler) handler(e);
+            const blockId = getActiveBlockId();
+            if (blockId) {
+                syncHtmlFromView(blockId);
+            }
+        };
     });
 }
 
@@ -2236,7 +2322,18 @@ function getSelectValue(el, prop) {
         case 'line-height': return getComputedProp(el, 'lineHeight');
         case 'border-width': return getComputedProp(el, 'borderWidth');
         case 'padding': return getComputedProp(el, 'padding');
-        case 'list': return getComputedProp(el, 'listStyleType');
+        case 'list': {
+            const li = el.closest && el.closest('li');
+            if (!li) return 'none';
+            const parent = li.parentElement;
+            if (!parent) return 'none';
+            if (parent.tagName === 'OL') return 'decimal';
+            if (parent.tagName === 'UL') {
+                const cs = window.getComputedStyle(parent);
+                return cs.listStyleType || 'disc';
+            }
+            return 'none';
+        }
         default: return '';
     }
 }
@@ -2633,17 +2730,50 @@ function applyBlockStyleToSelection(cssProp, cssValue) {
     const sel = window.getSelection();
     if (!sel || !sel.rangeCount) return;
     const range = sel.getRangeAt(0);
-    const blocks = getBlockContainersForRange(range);
-    if (!blocks.length) return;
-    for (const b of blocks) {
-        if (!cssValue) {
-            b.style[cssProp] = '';
-            if (!b.getAttribute('style') || b.getAttribute('style').trim() === '') b.removeAttribute('style');
-        } else {
-            b.style[cssProp] = cssValue;
+    if (range.collapsed) return;
+
+    // --- Вспомогательная функция: разворачивает div с заданным cssProp ---
+    function unwrapDivWithProp(node) {
+        if (!node) return;
+        const divs = node.querySelectorAll(`div[style*="${cssProp}"]`);
+        divs.forEach(d => {
+            while (d.firstChild) d.parentNode.insertBefore(d.firstChild, d);
+            d.remove();
+        });
+        if (node.nodeType === 1 && node.tagName === 'DIV') {
+            const style = node.style[cssProp];
+            if (style) {
+                while (node.firstChild) node.parentNode.insertBefore(node.firstChild, node);
+                node.remove();
+            }
         }
     }
+
+    // --- извлекаем содержимое временно ---
+    const frag = range.extractContents();
+
+    // --- разворачиваем старые div с тем же cssProp внутри фрагмента ---
+    const tempContainer = document.createElement('div');
+    tempContainer.appendChild(frag);
+    unwrapDivWithProp(tempContainer);
+
+    // --- создаём новый div и применяем стиль ---
+    const div = document.createElement('div');
+    if (cssValue) div.style[cssProp] = cssValue;
+
+    // --- помещаем содержимое внутрь нового div ---
+    while (tempContainer.firstChild) div.appendChild(tempContainer.firstChild);
+
+    // --- вставляем div обратно в документ ---
+    range.insertNode(div);
+
+    // --- восстанавливаем выделение на новый div ---
+    sel.removeAllRanges();
+    const newRange = document.createRange();
+    newRange.selectNodeContents(div);
+    sel.addRange(newRange);
 }
+
 
 /* Удаление формата: удаляет style у span и у других тегов внутри выделения */
 function removeFormattingInSelection() {
@@ -2651,23 +2781,113 @@ function removeFormattingInSelection() {
     if (!sel || !sel.rangeCount) return;
     const range = sel.getRangeAt(0);
     if (range.collapsed) return;
-    const root = getRangeRootElement(range);
-    // извлечь содержимое, пройти и удалить style у всех элементов, затем вставить обратно
+
+    // извлечь содержимое выделения
     const frag = range.extractContents();
-    const walker = document.createTreeWalker(frag, NodeFilter.SHOW_ELEMENT, null);
-    const nodes = [];
-    while (walker.nextNode()) nodes.push(walker.currentNode);
-    for (const el of nodes) {
-        if (el.nodeType === 1) {
-            el.removeAttribute('style');
-            if (el.tagName === 'SPAN' && (!el.getAttribute('style') || el.getAttribute('style').trim() === '')) {
-                // unwrap empty spans
-                while (el.firstChild) el.parentNode.insertBefore(el.firstChild, el);
-                el.remove();
+
+    // рекурсивная очистка фрагмента
+    (function clean(node) {
+        // проходим детей сначала (depth-first)
+        const children = Array.from(node.childNodes);
+        for (const ch of children) {
+            if (ch.nodeType === Node.ELEMENT_NODE) clean(ch);
+        }
+
+        if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+        const tag = node.tagName;
+
+        // 1) Развернуть <a> — удалить сам тег, оставить содержимое
+        if (tag === 'A') {
+            const parent = node.parentNode;
+            while (node.firstChild) parent.insertBefore(node.firstChild, node);
+            parent.removeChild(node);
+            return;
+        }
+
+        // 2) Поменять <ul>/<ol> на последовательность li->content + <br>
+        if (tag === 'UL' || tag === 'OL') {
+            const wrapper = document.createDocumentFragment();
+            const lis = Array.from(node.children).filter(n => n.tagName === 'LI');
+            for (const li of lis) {
+                // перенести содержимое li
+                while (li.firstChild) wrapper.appendChild(li.firstChild);
+                // добавить br для разделения пунктов
+                wrapper.appendChild(document.createElement('br'));
+            }
+            // если нет li — просто разворачиваем(удаляем) сам список
+            if (!lis.length) {
+                while (node.firstChild) wrapper.appendChild(node.firstChild);
+            }
+            node.parentNode.replaceChild(wrapper, node);
+            return;
+        }
+
+        // 3) Удалить стилевые и служебные атрибуты, влияющие на отображение
+        // удаляем: style, class, align
+        node.removeAttribute('style');
+        node.removeAttribute('class');
+        node.removeAttribute('align');
+
+        // дополнительно: удалить inline-атрибуты, которые используются для размеров/границ
+        // (если не нужны, можно расширить список)
+        node.removeAttribute('width');
+        node.removeAttribute('height');
+        node.removeAttribute('cellpadding');
+        node.removeAttribute('cellspacing');
+        node.removeAttribute('border');
+        node.removeAttribute('bgcolor');
+
+        // 4) Если это <span> и после очистки он пустой от атрибутов — разворачиваем
+        if (tag === 'SPAN') {
+            if (!node.attributes.length) {
+                const parent = node.parentNode;
+                while (node.firstChild) parent.insertBefore(node.firstChild, node);
+                parent.removeChild(node);
             }
         }
-    }
+    })(frag);
+
+    // дополнительная чистка: сливаем подряд идущие <br> (оставляем максимум один)
+    (function collapseBrs(root) {
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, null);
+        const nodes = [];
+        while (walker.nextNode()) nodes.push(walker.currentNode);
+        for (const n of nodes) {
+            if (n.nodeType === 1) {
+                let child = n.firstChild;
+                while (child) {
+                    if (child.nodeType === 1 && child.tagName === 'BR') {
+                        let next = child.nextSibling;
+                        // удалить повторяющиеся BR подряд
+                        while (next && next.nodeType === 1 && next.tagName === 'BR') {
+                            const toRemove = next;
+                            next = next.nextSibling;
+                            toRemove.parentNode.removeChild(toRemove);
+                        }
+                        child = next;
+                    } else child = child.nextSibling;
+                }
+            }
+        }
+    })(frag);
+
+    // вставить очищённый фрагмент обратно и восстановить выделение на вставленное содержимое
     range.insertNode(frag);
+
+    // опционально: поместить курсор в конец вставленного содержимого
+    sel.removeAllRanges();
+    const newRange = document.createRange();
+    // пытаемся выбрать вставленный узел(ы) — выбираем следующий узел после range.startContainer
+    try {
+        // если вставлен фрагмент — не всегда есть простой way; попробуем выбрать после startContainer
+        const after = range.startContainer.nodeType === 3 ? range.startContainer : range.startContainer;
+        newRange.setStartAfter(after);
+        newRange.collapse(true);
+        sel.addRange(newRange);
+    } catch (e) {
+        // безопасный fallback — ничего не делать
+    }
 }
 
 /* Toggle: простые форматы (bold/italic/underline/strike/sup/sub) */
@@ -2755,52 +2975,108 @@ function toggleListForSelection(listType) {
     const sel = window.getSelection();
     if (!sel || !sel.rangeCount) return;
     const range = sel.getRangeAt(0);
-    const blocks = getBlockContainersForRange(range);
-    if (!blocks.length) return;
+    if (range.collapsed) return;
+
+    // получаем блочные контейнеры для выделения
+    let blocks = getBlockContainersForRange(range);
+
+    // если блочных контейнеров нет — оборачиваем выделение в div и используем его
+    if (!blocks.length) {
+        // Вырезаем содержимое range во фрагмент
+        const frag = range.extractContents();
+        const wrapper = document.createElement('div');
+        // вставляем содержимое внутрь wrapper
+        wrapper.appendChild(frag);
+        // вставляем wrapper на место range
+        range.insertNode(wrapper);
+
+        // обновляем selection — теперь wrapper покрывает вставленное содержимое
+        sel.removeAllRanges();
+        const newRange = document.createRange();
+        newRange.selectNodeContents(wrapper);
+        sel.addRange(newRange);
+
+        blocks = [wrapper];
+    }
+
+    // helper: удалить list (unwrap li -> содержимое, убрать пустой список)
     if (listType === 'none') {
         blocks.forEach(block => {
             const li = block.closest('li');
             if (li) {
-                const parentList = li.parentElement;
-                const parent = parentList.parentElement;
-                while (li.firstChild) parentList.parentElement.insertBefore(li.firstChild, parentList);
+                const parentList = li.parentElement;        // ul/ol
+                const grandParent = parentList.parentElement; // куда вернуть содержимое li
+                // вставляем содержимое li перед списком
+                while (li.firstChild) grandParent.insertBefore(li.firstChild, parentList);
                 li.remove();
+                // если список пуст - удаляем
                 if (!parentList.querySelector('li')) parentList.remove();
+            } else {
+                // если блок сам внутри списка (например wrapper внутри ul/ol), попробуем распаковать его
+                const parentList = block.closest('ul,ol');
+                if (parentList) {
+                    // для каждого li внутри parentList: если li содержит наш block, разворачиваем
+                    const lis = Array.from(parentList.querySelectorAll('li'));
+                    lis.forEach(liItem => {
+                        if (liItem.contains(block)) {
+                            while (liItem.firstChild) parentList.parentNode.insertBefore(liItem.firstChild, parentList);
+                            liItem.remove();
+                        }
+                    });
+                    if (!parentList.querySelector('li')) parentList.remove();
+                }
             }
         });
         return;
     }
+
+    // otherwise — создать/изменить список
     let i = 0;
     while (i < blocks.length) {
         const block = blocks[i];
         const parentList = block.closest('ul, ol');
+
+        // если уже в списке — изменить тип/стиль списка
         if (parentList) {
             if (listType === 'decimal') {
                 if (parentList.tagName !== 'OL') {
-                    const ol = document.createElement('ol'); ol.innerHTML = parentList.innerHTML; parentList.parentNode.replaceChild(ol, parentList);
+                    const ol = document.createElement('ol');
+                    ol.innerHTML = parentList.innerHTML;
+                    parentList.parentNode.replaceChild(ol, parentList);
                 }
             } else {
                 if (parentList.tagName !== 'UL') {
-                    const ul = document.createElement('ul'); ul.innerHTML = parentList.innerHTML; parentList.parentNode.replaceChild(ul, parentList);
+                    const ul = document.createElement('ul');
+                    ul.innerHTML = parentList.innerHTML;
+                    parentList.parentNode.replaceChild(ul, parentList);
                 }
                 parentList.style.listStyleType = listType;
             }
             i++;
             continue;
         }
+
+        // группируем последовательные блоки (если есть) в одну группу
         const group = [block];
         let j = i + 1;
         while (j < blocks.length) { group.push(blocks[j]); j++; }
+
+        // создаём список нужного типа
         const listEl = listType === 'decimal' ? document.createElement('ol') : document.createElement('ul');
         if (listType !== 'decimal') listEl.style.listStyleType = listType;
+
         const first = group[0];
         first.parentNode.insertBefore(listEl, first);
+
+        // переносим содержимое каждого блока в <li>
         for (const b of group) {
             const li = document.createElement('li');
+            // переносим все дочерние узлы блока в li
             while (b.firstChild) li.appendChild(b.firstChild);
             listEl.appendChild(li);
             b.remove();
         }
+
         i = j;
     }
 }

@@ -8,9 +8,9 @@
     <div class="elements-header">Html</div>
     <hr>
     <div id="elements-ul">
-        <div class="add-el" data-el="<span></span>">блок</div>
+        <div class="add-el" data-el="<block></block>">блок</div>
         <div class="add-el" data-el="<img src='#'>">изображение</div>
-        <div class="add-el" data-el="<a href='#'></a>">ссылка</div>
+        <div class="add-el" data-el="<a href=''></a>">ссылка</div>
         <div class="add-el" data-el="<button></button>">кнопка</div>
         <div class="add-el" data-el="<input placeholder=''>">поле ввода</div>
         <div class="add-el" data-el="<table><tr><td></td></tr></table>">таблица</div>
@@ -63,7 +63,7 @@
         <label data-target="table">Столбцы: <input type="number" min="1" step="1" data-prop="table-cols" value="1"></label>
     </div>
     <!--  -->
-    <div id="properties-panel">
+    <div id="properties-panel" style="dispaly: none;">
         <div class="table-title">Свойсвтва</div>
         <div id="properties-simpleFormats">
             <div simpleformats-button="bold" style="font-weight:bold;">B</div>
