@@ -1,3 +1,10 @@
+<div><span style="border: 1px solid rgb(0, 0, 0); padding: 3px; margin: 3px; display: inline-block; width: 100%;">блок1<br><span style="border: 1px solid rgb(0, 0, 0); padding: 3px; margin: 3px; display: inline-block; width: 50%;">блок</span><span style="border: 1px solid rgb(0, 0, 0); padding: 3px; margin: 3px; display: inline-block; width: 50px;">блок</span><br></span></div>
+<div><img src="https://upload.wikimedia.org/wikipedia/commons/a/a6/Pink_lady_and_cross_section.jpg" style="width: 280px;"><br></div>
+<div><a href="https://www.e-klase.lv/">alink</a><br></div>
+<div><button>button</button><br></div>
+<div><input placeholder=""><br></div><div>
+<table><tbody><tr><td>1</td><td>2</td></tr><tr><td>3</td><td>4</td></tr></tbody></table><br></div><div><br></div>
+
 <div>Тест1Тест1Тест1</div>
 <div>Тест2</div>
 <div>Тест3</div>

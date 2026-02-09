@@ -1,4 +1,4 @@
-window.tempStore.getByRecipient = async () => [{ path: "/pages/empty" }];
+window.tempStore.getByRecipient = async () => [{ path: "/pages/test" }];
 newLoadedBlock();
 
 
