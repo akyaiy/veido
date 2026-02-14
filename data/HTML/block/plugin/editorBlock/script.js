@@ -1,3 +1,40 @@
+// Патчируем addEventListener заранее
+window.__BE_listeners = window.__BE_listeners || [];
+if (!window.__BE_add_patched) {
+    window.__BE_add_patched = true;
+    const origAdd = EventTarget.prototype.addEventListener;
+    EventTarget.prototype.addEventListener = function(type, handler, options) {
+        if (this === document || this === window) {
+            try { window.__BE_listeners.push({target: this, type, handler, options}); } catch(e) {}
+        }
+        return origAdd.call(this, type, handler, options);
+    };
+
+    window.__BE_remove_all = function() {
+        try {
+            (window.__BE_listeners || []).forEach(l => {
+                try { l.target.removeEventListener(l.type, l.handler, l.options); } catch(e) {}
+            });
+        } finally {
+            window.__BE_listeners = [];
+        }
+    };
+}
+
+// Создаем BlockEditorApp
+window.BlockEditorApp = (function() {
+    const api = {
+        destroy() {
+            console.log('Удаляем BlockEditorApp и все слушатели');
+            window.__BE_remove_all();
+            delete window.BlockEditorApp;
+        }
+    };
+/* хранение кода */
+
+
+
+
 window.tempStore.getByRecipient = async () => [{ path: "/pages/example" }];
 newLoadedBlock();
 window.tempStore.getByRecipient = async () => [{ path: "/pages/test" }];
@@ -5,6 +42,7 @@ newLoadedBlock();
 
 
 document.addEventListener('keydown', function(e) {
+    console.log('1');
     if (e.key !== 'Enter') return;
 
     const editable = e.target.closest('[contenteditable="true"]');
@@ -489,6 +527,7 @@ function clearSelection() {
     // очистить значения контролов
     specRoot.querySelectorAll('[data-prop]').forEach(inp => {
         if (inp.type === 'checkbox') inp.checked = false;
+        else if (inp.type === 'color') inp.value = '#000000';
         else inp.value = '';
     });
 }
@@ -3817,3 +3856,28 @@ document.getElementById('previewPage').addEventListener('click', () => {
         backBtn.remove();
     });
 });
+
+
+
+
+/* хранение кода */
+    return api;
+})();
+
+// Наблюдаем за блоком и удаляем BlockEditorApp при его удалении
+const editor = document.getElementById('block-editor-app');
+if (editor && editor.parentNode) {
+    const observer = new MutationObserver(mutations => {
+        mutations.forEach(m => {
+            m.removedNodes.forEach(node => {
+                if (node === editor) {
+                    console.log('block-editor-app удалён, вызываем destroy');
+                    window.BlockEditorApp.destroy();
+                    observer.disconnect();
+                }
+            });
+        });
+    });
+    console.log('Наблюдаем за родителем block-editor-app');
+    observer.observe(editor.parentNode, { childList: true });
+}
