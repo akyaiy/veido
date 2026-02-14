@@ -1,6 +1,9 @@
 <div id="block-editor-app">
-<div id="blocks-tabs">
-    <div id="tab-open" class="tab active">Открыть</div>
+<div class="blocks-tabs">
+    <div id="blocks-tabs">
+        <div id="tab-open" class="tab active">Открыть</div>
+    </div>
+    <div class="tab" id="previewPage">Предпросмотр</div>
 </div>
 <div id="editor-area">
     
@@ -46,8 +49,8 @@
     </div>
     <hr>
     <!--  -->
-    <div id="properties-panel-spec" style="dispaly: none;">
-        <div class="table-title">Специальные свойства</div>
+    <div id="properties-panel-spec" style="display: none;">
+        <div class="table-title" style="padding-bottom: 5px;">Свойства элементов</div>
         <label data-target="all">Ширина: <input data-prop="width-value"></label>
         <label data-target="all">Высота: <input data-prop="height-value"></label>
         <label data-target="all">Фон: <input type="color" data-prop="background-color"></label>
@@ -56,15 +59,29 @@
             <select data-prop="border-style"><option value="">-</option><option value="solid">сплошная</option><option value="dashed">пунктирная</option><option value="dotted">точечная</option><option value="double">двойная</option></select>
             <input type="color" data-prop="border-color">
         </label>
-        <label data-target="image">src: <input type="text" data-prop="img-src"></label>
-        <label data-target="link">URL: <input type="text" data-prop="link-href"></label>
-        <label data-target="input">Placeholder: <input type="text" data-prop="input-placeholder"></label>
+        <label data-target="all">Отступы:
+            <div class="margin-grid">
+                <div class="col left">
+                    <input data-prop="margin-left" placeholder="Слева">
+                </div>
+                <div class="col center">
+                    <input data-prop="margin-top" placeholder="Сверху">
+                    <input data-prop="margin-bottom" placeholder="Снизу">
+                </div>
+                <div class="col right">
+                    <input data-prop="margin-right" placeholder="Справа">
+                </div>
+            </div>
+        </label>
+        <label data-target="image">Ссылка: <input type="text" data-prop="img-src"></label>
+        <label data-target="link">Ссылка: <input type="text" data-prop="link-href"></label>
+        <label data-target="input">Подсказка (ввода): <input type="text" data-prop="input-placeholder"></label>
         <label data-target="table">Строки: <input type="number" min="1" step="1" data-prop="table-rows" value="1"></label>
         <label data-target="table">Столбцы: <input type="number" min="1" step="1" data-prop="table-cols" value="1"></label>
     </div>
     <!--  -->
-    <div id="properties-panel" style="dispaly: none;">
-        <div class="table-title">Свойсвтва</div>
+    <div id="properties-panel">
+        <div class="table-title">Свойства текста</div>
         <div id="properties-simpleFormats">
             <div simpleformats-button="bold" style="font-weight:bold;">B</div>
             <div simpleformats-button="italic" style="font-style:italic;">I</div>
@@ -184,6 +201,16 @@
     <div class="picker-row inputs">
         <input id="cp-hex" type="text" placeholder="#000000" maxlength="7" />
         <button id="cp-close" type="button">&times;</button> </div>
+</div>
+
+
+<div id="ed-properties">
+    <div act="paste">Вставить</div>
+    <div act="copy" class="elementProp">Копировать</div>
+    <div act="cut" class="elementProp">Вырезать</div>
+    <div act="delete" class="elementProp">Удалить</div>
+    <div act="deleteLine" class="elementTableProp">Удалить строку</div>
+    <div act="deleteColumn" class="elementTableProp">Удалить столбец</div>
 </div>
 
 

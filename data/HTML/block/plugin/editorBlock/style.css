@@ -1,5 +1,5 @@
 /* основная область страницы */
-main {
+main.editor {
     width: calc(100% - 40px);
     max-width: calc(100% - 40px);
     margin: 0 auto;
@@ -19,15 +19,25 @@ main {
 }
 
 /* верхние вкладки блоков */
-#blocks-tabs {
+.blocks-tabs {
     display: flex;
     padding: 2px;
     gap: 2px;
     background: #f4f4f4;
     border-bottom: 1px solid rgba(0,0,0,0.06);
 }
+.blocks-tabs > :first-child {
+    flex: 1 1 auto;
+}
+.blocks-tabs > :nth-child(2) {
+    flex: 0 0 auto; 
+}
 
-#blocks-tabs .tab {
+#blocks-tabs {
+    display: flex;
+}
+
+.blocks-tabs .tab {
     padding: 2px 4px;
     border-radius: 3px;
     user-select: none;
@@ -35,7 +45,7 @@ main {
     font-size: 13px;
 }
 
-#blocks-tabs .tab.active {
+.blocks-tabs .tab.active {
     background: #fff;
     border-color: rgba(0,0,0,0.06);
 }
@@ -92,6 +102,9 @@ main {
     width: 100%;
     height: 70vh;
     max-width: calc(100% - 200px);
+}
+#center-panel a {
+    pointer-events: none;
 }
 
 /* область просмотра блока */
@@ -245,6 +258,20 @@ main {
     word-break: break-word;
 }
 
+/* отступы */
+.margin-grid {
+    display: flex;
+    gap: 5px; 
+}
+.col {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+.col input {
+    width: 64%;
+}
+
 /* js панель */
 #js-panel {
     display: flex;
@@ -325,4 +352,23 @@ block {
 
 #center-panel td {
     width: auto;
+}
+
+/* блок свойства */
+#ed-properties {
+    position: absolute;
+    border: 1px solid #ccc;
+    user-select: none;
+    z-index: 1000;
+    display: none;
+}
+
+#ed-properties div {
+    padding: 2px 4px;
+    cursor: pointer;
+    background: #fff;
+}
+
+#ed-properties div:hover {
+    background: #e0e0e0;
 }

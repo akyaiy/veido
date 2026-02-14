@@ -46,6 +46,179 @@ document.querySelector('#center-panel').addEventListener('click', (e) => {
     }
 });
 
+document.querySelector('#center-panel').addEventListener('click', (e) => {
+    const table = e.target.closest('table');
+
+    // удалить старые кнопки, если клик вне таблицы
+    document.querySelectorAll('.table-controls-btn').forEach(btn => btn.remove());
+    if (!table) return;
+
+    // помечаем таблицу уникальным id
+    if (!table.dataset._tcid) table.dataset._tcid = String(Math.random()).slice(2);
+
+    table.style.position = table.style.position || 'relative';
+
+    // кнопка справа — добавить столбец
+    const btnRight = document.createElement('button');
+    btnRight.textContent = '+';
+    btnRight.title = 'Добавить столбец справа';
+    btnRight.className = 'table-controls-btn';
+    btnRight.style.position = 'absolute';
+    btnRight.style.width = '16px';
+    btnRight.style.height = '16px';
+    btnRight.style.top = '10px';
+    btnRight.style.right = '-17px';
+    btnRight.style.transform = 'translateY(-50%)';
+    btnRight.style.fontSize = '12px';
+    btnRight.style.opacity = '0.8';
+    btnRight.style.padding = '2px';
+    table.appendChild(btnRight);
+
+    // кнопка снизу — добавить строку
+    const btnBottom = document.createElement('button');
+    btnBottom.textContent = '+';
+    btnBottom.title = 'Добавить строку снизу';
+    btnBottom.className = 'table-controls-btn';
+    btnBottom.style.position = 'absolute';
+    btnBottom.style.right = '-7px';
+    btnBottom.style.bottom = '-17px';
+    btnBottom.style.transform = 'translateX(-50%)';
+    btnBottom.style.width = '16px';
+    btnBottom.style.height = '16px';
+    btnBottom.style.fontSize = '12px';
+    btnBottom.style.opacity = '0.8';
+    btnBottom.style.padding = '2px';
+    table.appendChild(btnBottom);
+
+    // добавить столбец
+    btnRight.addEventListener('click', ev => {
+        ev.stopPropagation();
+        Array.from(table.querySelectorAll('tr')).forEach(tr => {
+            const td = document.createElement('td');
+            td.innerHTML = '<br>';
+            tr.appendChild(td);
+        });
+    });
+
+    // добавить строку
+    btnBottom.addEventListener('click', ev => {
+        ev.stopPropagation();
+        const firstRow = table.querySelector('tr');
+        const cols = firstRow ? firstRow.children.length : 1;
+        const tr = document.createElement('tr');
+        for (let i = 0; i < cols; i++) {
+            const td = document.createElement('td');
+            td.innerHTML = '<br>';
+            tr.appendChild(td);
+        }
+        const tbody = table.querySelector('tbody');
+        if (tbody) tbody.appendChild(tr);
+        else table.appendChild(tr);
+    });
+
+    // убрать кнопки при клике вне таблицы
+    const onDocClick = ev => {
+        if (!ev.target.closest('table') || ev.target.closest('.table-controls-btn') === null) {
+            document.querySelectorAll('.table-controls-btn').forEach(btn => btn.remove());
+            document.removeEventListener('click', onDocClick, true);
+        }
+    };
+    document.addEventListener('click', onDocClick, true);
+});
+
+
+let selectedElBorder = null;
+let isResizing = false;
+let startX, startY, startWidth, startHeight;
+const margin = 5; // зона границы
+
+document.addEventListener('mousemove', e => {
+    if (!selectedElBorder || isResizing) return;
+
+    const rect = selectedElBorder.getBoundingClientRect();
+
+    // правая граница
+    if (e.clientX >= rect.right - margin && e.clientX <= rect.right + margin) {
+        document.body.style.cursor = 'e-resize';
+    }
+    // нижняя граница
+    else if (e.clientY >= rect.bottom - margin && e.clientY <= rect.bottom + margin) {
+        document.body.style.cursor = 's-resize';
+    } else {
+        document.body.style.cursor = '';
+    }
+});
+
+document.addEventListener('mousedown', e => {
+    if (!selectedElBorder) return;
+
+    const rect = selectedElBorder.getBoundingClientRect();
+    // правая граница
+    if (e.clientX >= rect.right - margin && e.clientX <= rect.right + margin) {
+        isResizing = 'width';
+        startX = e.clientX;
+        startWidth = rect.width;
+        e.preventDefault();
+    }
+    // нижняя граница
+    else if (e.clientY >= rect.bottom - margin && e.clientY <= rect.bottom + margin) {
+        isResizing = 'height';
+        startY = e.clientY;
+        startHeight = rect.height;
+        e.preventDefault();
+    }
+});
+
+document.addEventListener('mousemove', e => {
+    if (!isResizing) return;
+
+    if (isResizing === 'width') {
+        selectedElBorder.style.width = startWidth + (e.clientX - startX) + 'px';
+    } else if (isResizing === 'height') {
+        selectedElBorder.style.height = startHeight + (e.clientY - startY) + 'px';
+    }
+});
+
+document.addEventListener('mouseup', () => {
+    isResizing = false;
+    document.body.style.cursor = '';
+});
+
+document.addEventListener('click', e => {
+    const el = findEditableElement(e.target); // вызываем только на клике
+    if (!el) {
+        selectedElBorder = null;
+        return;
+    }
+
+    selectedElBorder = el;
+});
+
+
+
+
+/* выделеине в view при клике по нему */
+document.getElementById('loadedBlock').addEventListener('click', e => {
+    const all = document.querySelectorAll('[id^="loadedBlock_"]');
+    let active = null;
+    for (const el of all) {
+        if (!/^loadedBlock_\d+$/.test(el.id)) continue;
+        if (getComputedStyle(el).display !== 'none') { active = el; break; }
+    }
+    if (!active) return;
+
+    const view = document.getElementById(active.id + '_view');
+    const sel = window.getSelection();
+    if (!view || (sel.rangeCount && view.contains(sel.anchorNode))) return;
+
+    const range = document.createRange();
+    range.selectNodeContents(view);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+});
+
+
 
 
 /***********************************************************************
@@ -211,6 +384,10 @@ function populateSpecialProps(el) {
         set('table-rows', '');
         set('table-cols', '');
     }
+    set('margin-top', el.style.marginTop || getComputedNum(cs.marginTop));
+    set('margin-right', el.style.marginRight || getComputedNum(cs.marginRight));
+    set('margin-bottom', el.style.marginBottom || getComputedNum(cs.marginBottom));
+    set('margin-left', el.style.marginLeft || getComputedNum(cs.marginLeft));
 }
 
 // Применить отдельное свойство к элементу
@@ -260,6 +437,18 @@ function applyPropToElement(el, prop, rawValue) {
                 const cols = parseInt(specRoot.querySelector('[data-prop="table-cols"]').value || '0', 10) || 0;
                 rebuildTable(el, Math.max(1, rows), Math.max(1, cols));
             }
+            break;
+        case 'margin-top':
+            el.style.marginTop = val === '' ? '' : (isNaN(Number(val)) ? val : Number(val) + 'px');
+            break;
+        case 'margin-right':
+            el.style.marginRight = val === '' ? '' : (isNaN(Number(val)) ? val : Number(val) + 'px');
+            break;
+        case 'margin-bottom':
+            el.style.marginBottom = val === '' ? '' : (isNaN(Number(val)) ? val : Number(val) + 'px');
+            break;
+        case 'margin-left':
+            el.style.marginLeft = val === '' ? '' : (isNaN(Number(val)) ? val : Number(val) + 'px');
             break;
     }
 
@@ -328,37 +517,187 @@ specRoot.addEventListener('change', e => {
 
 // Левый клик - выбрать элемент (только специальные элементы), не открываем панель
 document.addEventListener('click', e => {
-    if (e.button !== 0) return; // только левая кнопка
     const el = findEditableElement(e.target);
     if (!el) return; // игнорируем клики по тексту и обычным контейнерам
     selectedEl = el;
     populateSpecialProps(selectedEl);
 }, true);
 
-// Правый клик - открыть properties-panel-spec (скрыть обычную), показать только нужные контролы
-document.addEventListener('contextmenu', e => {
+// левый клик - открыть properties-panel-spec (скрыть обычную), показать только нужные контролы
+document.addEventListener('click', e => {
+    // Проверяем, кликнут ли элемент панели свойств
+    const inSpec = !!e.target.closest('#properties-panel-spec');
+    if (inSpec) return;
+
+    // Ищем редактируемый элемент
     const el = findEditableElement(e.target);
-    if (!el) return;
-    e.preventDefault();
-    selectedEl = el;
-    // показать спец-панель, отфильтровать по типу
-    const tag = el.tagName.toLowerCase();
-    let target = 'all';
-    if (tag === 'img') target = 'image';
-    else if (tag === 'a') target = 'link';
-    else if (tag === 'input') target = 'input';
-    else if (tag === 'table') target = 'table';
-    else if (tag === 'block') target = 'block';
-    else target = 'all';
-    showSpecForTarget(target);
-    populateSpecialProps(selectedEl);
+
+    // Проверка, есть ли выделение текста
+    const selection = window.getSelection();
+    const hasTextSelection = selection && !selection.isCollapsed;
+
+    // Если клик на редактируемом элементе, нет текущего выделения элемента и нет текста — показываем панель
+    if (el && !hasTextSelection) {
+        selectedEl = el;
+
+        // Определяем тип элемента для фильтрации панели
+        const tag = el.tagName.toLowerCase();
+        let target = 'all';
+        if (tag === 'img') target = 'image';
+        else if (tag === 'a') target = 'link';
+        else if (tag === 'input') target = 'input';
+        else if (tag === 'table') target = 'table';
+        else if (tag === 'block') target = 'block';
+
+        // Показ спец-панели и заполнение свойств
+        showSpecForTarget(target);
+        populateSpecialProps(selectedEl);
+        return;
+    }
+
+    // Все остальные случаи (клик вне элемента или есть выделение текста) — сброс выделения
+    clearSelection();
 });
 
-// Клик в любом месте вне view и вне панели - скрыть спец-панель
-document.addEventListener('click', e => {
-    const inSpec = !!e.target.closest('#properties-panel-spec');
-    if (!inSpec) clearSelection();
+/* блок свойства */
+const menu = document.getElementById('ed-properties');
+let clipboard = null;
+let tableContext = null; // { table: Element, cell: Element|null }
+
+document.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    const editableArea = e.target.closest('[contenteditable="true"]');
+    if (!editableArea) {
+        menu.style.display = 'none';
+        tableContext = null;
+        return;
+    }
+
+    const el = findEditableElement(e.target);
+    const selection = window.getSelection();
+    const hasTextSelection = selection && !selection.isCollapsed;
+
+    // Контекст таблицы - если кликнут по таблице/ячейке
+    const clickedTable = e.target.closest('table');
+    const clickedCell = e.target.closest('td,th');
+    tableContext = clickedTable ? { table: clickedTable, cell: clickedCell } : null;
+
+    // Скрыть или показать paste (paste отдельно)
+    const pasteItem = menu.querySelector('[act="paste"]');
+    if (pasteItem) pasteItem.style.display = clipboard ? '' : 'none';
+
+    // Остальные общие пункты меню (для элементов)
+    const elementItems = menu.querySelectorAll('.elementProp');
+    elementItems.forEach(item => {
+        item.style.display = (el && !hasTextSelection) ? '' : 'none';
+    });
+
+    // Пункты, специфичные для таблицы
+    const tableItems = menu.querySelectorAll('.elementTableProp');
+    tableItems.forEach(item => {
+        item.style.display = (tableContext && !hasTextSelection) ? '' : 'none';
+    });
+
+    // если все пункты (включая paste) скрыты — не показывать меню
+    const anyVisible = Array.from(menu.children).some(i => i.style.display !== 'none');
+    if (!anyVisible) {
+        menu.style.display = 'none';
+        tableContext = null;
+        return;
+    }
+
+    menu.style.display = 'block';
+    menu.style.top = e.pageY + 2 + 'px';
+    menu.style.left = e.pageX + 2 + 'px';
+
+    if (el && !hasTextSelection) selectedEl = el;
+    else clearSelection();
 });
+
+document.addEventListener('click', () => { menu.style.display = 'none'; tableContext = null; });
+document.addEventListener('input', () => { menu.style.display = 'none'; tableContext = null; });
+document.addEventListener('paste', () => { menu.style.display = 'none'; tableContext = null; });
+
+// Обработка нажатий по пунктам меню
+menu.addEventListener('click', e => {
+    const act = e.target.getAttribute('act');
+
+    switch(act) {
+        case 'copy':
+            if (!selectedEl) break;
+            clipboard = selectedEl.cloneNode(true);
+            break;
+        case 'cut':
+            if (!selectedEl) break;
+            clipboard = selectedEl.cloneNode(true);
+            selectedEl.remove();
+            selectedEl = null;
+            break;
+        case 'paste':
+            if (clipboard) {
+                const sel = window.getSelection();
+                if (!sel.rangeCount) break;
+                const range = sel.getRangeAt(0);
+                const clone = clipboard.cloneNode(true);
+                range.deleteContents();
+                range.insertNode(clone);
+                range.setStartAfter(clone);
+                range.collapse(true);
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }
+            break;
+        case 'delete':
+            if (!selectedEl) break;
+            selectedEl.remove();
+            selectedEl = null;
+            break;
+
+        // таблица - удалить строку
+        case 'deleteLine':
+            if (!tableContext || !tableContext.table) break;
+            {
+                const cell = tableContext.cell;
+                // если есть конкретная ячейка - удаляем её строку
+                if (cell) {
+                    const tr = cell.closest('tr');
+                    if (tr) tr.remove();
+                } else {
+                    // иначе удалить последнюю строку
+                    const rows = tableContext.table.querySelectorAll('tr');
+                    if (rows.length) rows[rows.length - 1].remove();
+                }
+            }
+            break;
+
+        // таблица - удалить столбец
+        case 'deleteColumn':
+            if (!tableContext || !tableContext.table) break;
+            {
+                const cell = tableContext.cell;
+                let colIndex = null;
+                if (cell) {
+                    // standard cellIndex works in simple tables
+                    colIndex = cell.cellIndex;
+                } else {
+                    // если нет ячейки - взять последний индекс первой строки
+                    const firstRow = tableContext.table.querySelector('tr');
+                    if (firstRow && firstRow.children.length) colIndex = firstRow.children.length - 1;
+                }
+                if (colIndex != null) {
+                    Array.from(tableContext.table.querySelectorAll('tr')).forEach(tr => {
+                        const cells = tr.children;
+                        if (cells[colIndex]) cells[colIndex].remove();
+                    });
+                }
+            }
+            break;
+    }
+
+    menu.style.display = 'none';
+    tableContext = null;
+});
+
 
 
 
@@ -567,8 +906,13 @@ function syncActiveBlock() {
  **********************************************************************/
 const scheduleSync = () => queueMicrotask(syncActiveBlock);
 centerEditor.addEventListener('input', scheduleSync);
-centerEditor.addEventListener('paste', scheduleSync);
-centerEditor.addEventListener('keydown', e => (e.key === 'Enter' || (e.ctrlKey && (e.key === 'z' || e.key === 'y'))) && queueMicrotask(syncActiveBlock));
+centerEditor.addEventListener('paste', () => {
+    setTimeout(syncActiveBlock, 0);
+});
+centerEditor.addEventListener('keydown', e =>
+    (e.key === 'Enter' || (e.ctrlKey && (e.key === 'z' || e.key === 'y'))) &&
+    queueMicrotask(syncActiveBlock)
+);
 
 /***********************************************************************
  * CenterEditor keydown — Вставка переноса строки при Enter:
@@ -635,6 +979,9 @@ function logSync(nextBlockId, nextSource) {
  * - Обновляет активный блок и источник синхронизации.
  **********************************************************************/
 function syncViewFromHtml(blockId) {
+    activeBlockId = blockId;
+    activeSyncSource = 'html';
+
     const canRender = logSync(blockId, 'html');
 
     const htmlElPre = document.getElementById('center-tab-pre-html');
@@ -643,14 +990,42 @@ function syncViewFromHtml(blockId) {
     if (!htmlElPre || !htmlEl || !viewEl) return;
 
     if (canRender) {
-        let content = htmlElPre.textContent;
+        let content = htmlElPre.textContent.trim();
+
+        if (!content) {
+            content = '<div><br></div>';
+        } else {
+            const tmp = document.createElement('div');
+            tmp.innerHTML = content;
+
+            const result = document.createElement('div');
+            let buffer = [];
+
+            const flush = () => {
+                if (buffer.length) {
+                    const d = document.createElement('div');
+                    buffer.forEach(n => d.appendChild(n));
+                    result.appendChild(d);
+                    buffer = [];
+                }
+            };
+
+            [...tmp.childNodes].forEach(node => {
+                if (node.nodeType === 1 && node.tagName === 'DIV') {
+                    flush();
+                    result.appendChild(node);
+                } else {
+                    buffer.push(node);
+                }
+            });
+
+            flush();
+            content = result.innerHTML;
+        }
 
         htmlEl.innerHTML = content;
         viewEl.innerHTML = md.render(content);
     }
-
-    activeBlockId = blockId;
-    activeSyncSource = 'html';
 }
 
 /***********************************************************************
@@ -661,6 +1036,9 @@ function syncViewFromHtml(blockId) {
  * - Обновляет активный блок и источник синхронизации.
  **********************************************************************/
 function syncHtmlFromView(blockId) {
+    activeBlockId = blockId;
+    activeSyncSource = 'view';
+
     const canRender = logSync(blockId, 'view');
 
     const viewEl = document.getElementById(blockId + '_view');
@@ -671,9 +1049,6 @@ function syncHtmlFromView(blockId) {
         let mdText = htmlToMixed(viewEl.innerHTML);
         htmlEl.innerHTML = mdText;
     }
-
-    activeBlockId = blockId;
-    activeSyncSource = 'view';
 }
 
 /***********************************************************************
@@ -1213,11 +1588,6 @@ function handleLoadedBlockView(dataEl) {
             newEl.textContent = "блок";
         }
         range.insertNode(newEl);
-    } else if (tag === 'a') {
-        if (selectionHasContent) {
-            newEl.appendChild(range.extractContents());
-            range.insertNode(newEl);
-        }
     } else if (tag === 'button') {
         if (selectionHasContent) {
             newEl.appendChild(range.extractContents());
@@ -1225,7 +1595,22 @@ function handleLoadedBlockView(dataEl) {
             newEl.textContent = "кнопка";
         }
         range.insertNode(newEl);
-    } else if (isVoidTag(tag)) {
+    }  else if (tag === 'a') {
+        const url = prompt('Введите ссылку:', '');
+        newEl.href = url;
+        if (selectionHasContent) {
+            newEl.appendChild(range.extractContents());
+        } else if (!newEl.innerHTML.trim()) {
+            newEl.textContent = "ссылка";
+        }
+        range.insertNode(newEl);
+    } else if (tag === 'img') {
+        const url = prompt('Введите ссылку на изображение:', '');
+        if (url == "") {
+            newEl.src = '#';
+        } else {
+            newEl.src = url;
+        }
         range.deleteContents();
         range.insertNode(newEl);
     } else {
@@ -3349,4 +3734,86 @@ document.addEventListener('mousedown', e => {
         // Тут надо получить реальный цвет выделения, пока #000000
         openColorPicker({ style:{ prop: type } }, btn, '#000000'); 
     }
+});
+
+
+document.getElementById('content').classList.add('editor');
+
+document.getElementById('previewPage').addEventListener('click', () => {
+    // 1. Поиск активного блока и вьюхи
+    const blocks = Array.from(document.querySelectorAll('[id^="loadedBlock_"]'))
+        .filter(b => /^loadedBlock_\d+$/.test(b.id));
+    
+    let activeBlock = null;
+    for (const block of blocks) {
+        if (getComputedStyle(block).display !== 'none') {
+            activeBlock = block;
+            break;
+        }
+    }
+
+    if (!activeBlock) return;
+
+    const view = activeBlock.querySelector('[id$="_view"]');
+    const editorApp = document.getElementById('block-editor-app');
+    const content = document.getElementById('content');
+
+    if (!view || !editorApp || !content) return;
+
+    // --- ПЕРЕХОД В ПРЕВЬЮ ---
+
+    // Скрываем редактор, но НЕ удаляем его из DOM
+    editorApp.style.display = 'none';
+    content.classList.remove('editor');
+
+    // Создаем временный контейнер для превью, чтобы не смешивать с editorApp
+    const previewContainer = document.createElement('div');
+    previewContainer.id = 'preview-render-area';
+    
+    // Переносим содержимое из view в контейнер превью
+    while (view.firstChild) {
+        previewContainer.appendChild(view.firstChild);
+    }
+    
+    content.appendChild(previewContainer);
+
+    // --- КНОПКА ВЫХОДА ---
+
+    const backBtn = document.createElement('button');
+    backBtn.innerHTML = '← Выйти из превью';
+    Object.assign(backBtn.style, {
+        position: 'fixed',
+        top: '15px',
+        right: '15px',
+        zIndex: '10000',
+        padding: '10px 15px',
+        backgroundColor: 'rgb(255, 68, 68)',
+        color: '#fff',
+        fontWeight: 'bold',
+        border: 'none',
+        borderRadius: '6px',
+        cursor: 'pointer',
+        boxShadow: '0 4px 10px rgba(0,0,0,0.3)'
+    });
+
+    document.body.appendChild(backBtn);
+
+    // --- ЛОГИКА ВОЗВРАТА ---
+
+    backBtn.addEventListener('click', () => {
+        // 1. Возвращаем элементы из превью-контейнера обратно в оригинальный view
+        while (previewContainer.firstChild) {
+            view.appendChild(previewContainer.firstChild);
+        }
+
+        // 2. Удаляем временный контейнер превью
+        previewContainer.remove();
+
+        // 3. Показываем редактор обратно
+        editorApp.style.display = '';
+        content.classList.add('editor');
+
+        // 4. Удаляем кнопку
+        backBtn.remove();
+    });
 });
