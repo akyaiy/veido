@@ -328,7 +328,7 @@ const normalPanel = document.getElementById('properties-panel');
 specRoot.style.display = 'none';
 
 // --- конфигурация: какие теги считаем "специальными" ---
-const EDITABLE_TAGS = new Set(['img', 'a', 'input', 'table', 'button', 'span', 'block']);
+const EDITABLE_TAGS = new Set([ 'block', 'img', 'a', 'table', 'hr', 'textarea', 'button', 'input', 'select', 'form', 'code' ]);
 
 // --- Утилиты -----------------------------------------------------------------
 
@@ -1652,6 +1652,53 @@ function handleLoadedBlockView(dataEl) {
         }
         range.deleteContents();
         range.insertNode(newEl);
+    } else if (tag === 'textarea') {
+        newEl.style.border = '1px solid #cccccc';
+        newEl.style.padding = '4px';
+        if (selectionHasContent) {
+            newEl.textContent = sel.toString();
+        } else {
+            newEl.textContent = 'текст...';
+        }
+        range.deleteContents();
+        range.insertNode(newEl);
+    } else if (tag === 'select') {
+        if (!newEl.querySelector('option')) {
+            const opt1 = document.createElement('option');
+            opt1.textContent = 'вариант 1';
+            const opt2 = document.createElement('option');
+            opt2.textContent = 'вариант 2';
+            newEl.appendChild(opt1);
+            newEl.appendChild(opt2);
+        }
+        range.deleteContents();
+        range.insertNode(newEl);
+    } else if (tag === 'form') {
+        newEl.style.border = '1px solid #999999';
+        newEl.style.padding = '8px';
+        if (selectionHasContent) {
+            newEl.appendChild(range.extractContents());
+        } else {
+            newEl.innerHTML = '<input type="text" placeholder="поле формы"><button type="submit">Отправить</button>';
+        }
+        range.insertNode(newEl);
+    } else if (tag === 'code') {
+        newEl.style.backgroundColor = '#f4f4f4';
+        newEl.style.padding = '2px 4px';
+        newEl.style.fontFamily = 'monospace';
+        newEl.style.borderRadius = '3px';
+        if (selectionHasContent) {
+            newEl.textContent = sel.toString();
+        } else {
+            newEl.textContent = 'код';
+        }
+        range.insertNode(newEl);
+    } else if (tag === 'hr') {
+        newEl.style.border = 'none';
+        newEl.style.borderTop = '2px solid #cccccc';
+        newEl.style.margin = '10px 0';
+        range.deleteContents();
+        range.insertNode(newEl);
     } else {
         if (selectionHasContent) {
             newEl.appendChild(range.extractContents());
@@ -1700,6 +1747,16 @@ function handlePreHtml(dataEl) {
         snippet = `<table><tr><td>${selectionHasContent ? selectedHtml : 'ячейка'}</td></tr></table>`;
     } else if (tag === 'input') {
         snippet = `<input placeholder="${selectionHasContent ? escapeHtml(sel.toString()) : ''}">`;
+    } else if (tag === 'textarea') {
+        snippet = `<textarea>${selectionHasContent ? escapeHtml(sel.toString()) : 'текст...'}</textarea>`;
+    } else if (tag === 'select') {
+        snippet = `<select><option>вариант 1</option><option>вариант 2</option></select>`;
+    } else if (tag === 'form') {
+        snippet = `<form><input type="text" placeholder="поле формы"><button type="submit">Отправить</button></form>`;
+    } else if (tag === 'code') {
+        snippet = `<code>${selectionHasContent ? escapeHtml(sel.toString()) : 'код'}</code>`;
+    } else if (tag === 'hr') {
+        snippet = `<hr style='height: 5px;'>`;
     } else if (parsed.nodeTemplate) {
         const tmp = parsed.nodeTemplate.cloneNode(true);
         if (!isVoidTag(tag)) {

@@ -14,9 +14,15 @@
         <div class="add-el" data-el="<block></block>">блок</div>
         <div class="add-el" data-el="<img src='#'>">изображение</div>
         <div class="add-el" data-el="<a href=''></a>">ссылка</div>
-        <div class="add-el" data-el="<button></button>">кнопка</div>
-        <div class="add-el" data-el="<input placeholder=''>">поле ввода</div>
         <div class="add-el" data-el="<table><tr><td></td></tr></table>">таблица</div>
+        <div class="add-el" data-el="<hr style='height: 5px;'>">линия</div>
+        <hr>
+        <div class="add-el" data-el="<textarea></textarea>">многострочное поле ввода</div>
+        <div class="add-el" data-el="<button></button>">кнопка</div>
+        <div class="add-el" data-el="<input placeholder=''>">однострочное поле ввода</div>
+        <div class="add-el" data-el="<select><option>вариант</option></select>">выпадающий список</div>
+        <div class="add-el" data-el="<form></form>">форма</div>
+        <div class="add-el" data-el="<code></code>">фрагмент кода</div>
     </div>
 </div>
     
