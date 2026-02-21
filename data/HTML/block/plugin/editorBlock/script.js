@@ -286,17 +286,17 @@ const btnApplyJs = document.getElementById('btn-apply-js');
  **********************************************************************/
 function switchTabPanel(tabName) {
     if (tabName === 'properties') {
-        if (propertiesPanel) propertiesPanel.style.display = '';
-        if (cssPanel) cssPanel.style.display = 'none';
-        if (jsPanel) jsPanel.style.display = 'none';
+        propertiesPanel.style.display = '';
+        cssPanel.style.display = 'none';
+        jsPanel.style.display = 'none';
     } else if (tabName === 'css') {
-        if (propertiesPanel) propertiesPanel.style.display = 'none';
-        if (cssPanel) cssPanel.style.display = 'flex';
-        if (jsPanel) jsPanel.style.display = 'none';
+        propertiesPanel.style.display = 'none';
+        cssPanel.style.display = 'flex';
+        jsPanel.style.display = 'none';
     } else if (tabName === 'js') {
-        if (propertiesPanel) propertiesPanel.style.display = 'none';
-        if (cssPanel) cssPanel.style.display = 'none';
-        if (jsPanel) jsPanel.style.display = 'flex';
+        propertiesPanel.style.display = 'none';
+        cssPanel.style.display = 'none';
+        jsPanel.style.display = 'flex';
     }
 }
 
@@ -328,8 +328,7 @@ const normalPanel = document.getElementById('properties-panel');
 specRoot.style.display = 'none';
 
 // --- конфигурация: какие теги считаем "специальными" ---
-const EDITABLE_TAGS = new Set([ 'block', 'img', 'a', 'table', 'hr', 'textarea', 'button', 'input', 'select', 'form', 'code' ]);
-
+const EDITABLE_TAGS = new Set(['block', 'img', 'a', 'table', 'hr', 'textarea', 'button', 'input', 'select', 'form', 'code', 'video', 'audio', 'iframe', 'details']);
 // --- Утилиты -----------------------------------------------------------------
 
 // Проверка id контейнера view соответствует loadedBlock_<число>_view
@@ -522,8 +521,8 @@ function rebuildTable(table, rows, cols) {
 // Сброс выбора: скрыть specRoot, восстановить normalPanel
 function clearSelection() {
     selectedEl = null;
+    if (specRoot.style.display !== 'none') normalPanel.style.display = '';
     specRoot.style.display = 'none';
-    if (normalPanel) normalPanel.style.display = '';
     // очистить значения контролов
     specRoot.querySelectorAll('[data-prop]').forEach(inp => {
         if (inp.type === 'checkbox') inp.checked = false;
@@ -564,37 +563,41 @@ document.addEventListener('click', e => {
 
 // левый клик - открыть properties-panel-spec (скрыть обычную), показать только нужные контролы
 document.addEventListener('click', e => {
-    // Проверяем, кликнут ли элемент панели свойств
     const inSpec = !!e.target.closest('#properties-panel-spec');
     if (inSpec) return;
 
-    // Ищем редактируемый элемент
     const el = findEditableElement(e.target);
-
-    // Проверка, есть ли выделение текста
     const selection = window.getSelection();
     const hasTextSelection = selection && !selection.isCollapsed;
 
-    // Если клик на редактируемом элементе, нет текущего выделения элемента и нет текста — показываем панель
     if (el && !hasTextSelection) {
         selectedEl = el;
-
-        // Определяем тип элемента для фильтрации панели
         const tag = el.tagName.toLowerCase();
         let target = 'all';
+
+        // Расширяем поддержку новых тегов
         if (tag === 'img') target = 'image';
         else if (tag === 'a') target = 'link';
         else if (tag === 'input') target = 'input';
         else if (tag === 'table') target = 'table';
         else if (tag === 'block') target = 'block';
+        else if (tag === 'video') target = 'video';
+        else if (tag === 'audio') target = 'audio';
+        else if (tag === 'iframe') target = 'iframe';
+        else if (tag === 'details') target = 'details';
+        else if (tag === 'textarea') target = 'textarea';
+        else if (tag === 'button') target = 'button';
+        else if (tag === 'select') target = 'select';
+        else if (tag === 'form') target = 'form';
+        else if (tag === 'code') target = 'code';
+        else if (tag === 'hr') target = 'hr';
+        // можно добавить другие, если появятся
 
-        // Показ спец-панели и заполнение свойств
         showSpecForTarget(target);
         populateSpecialProps(selectedEl);
         return;
     }
 
-    // Все остальные случаи (клик вне элемента или есть выделение текста) — сброс выделения
     clearSelection();
 });
 
@@ -1456,6 +1459,12 @@ btnApplyJs.onclick = () => {
 
 
 
+
+
+
+
+
+
 /***********************************************************************
  * Универсальный обработчик вставки элементов из панели
  **********************************************************************/
@@ -1466,50 +1475,71 @@ document.getElementById('elements-ul').addEventListener('click', e => {
     const dataEl = el.dataset.el;
     if (!dataEl) return;
 
-    handleLoadedBlockView(dataEl);
-    handlePreHtml(dataEl);
+    handleLoadedBlockView(dataEl, el.textContent || "текст");
+    handlePreHtml(dataEl, el.textContent || "текст");
     
     const blockId = getActiveBlockId();
     if (!blockId) return;
     
-    // Определяем активный режим и синхронизируем соответствующим образом
     const activeCenterTab = document.querySelector('#center-tabs .center-tab.active');
     const mode = activeCenterTab ? activeCenterTab.dataset.tab : 'view';
     
-    if (mode === 'view') {
-        // В режиме view: синхронизируем view -> html
-        syncHtmlFromView(blockId);
-    } else if (mode === 'html') {
-        // В режиме html: синхронизируем html -> view
-        syncActiveBlock();
-    }
+    if (mode === 'view') syncHtmlFromView(blockId);
+    else if (mode === 'html') syncActiveBlock();
+});
+document.querySelectorAll('#elements-ul > div > div:first-child').forEach(tab => {
+    tab.style.cursor = 'pointer';
+    tab.addEventListener('click', () => {
+        const content = tab.nextElementSibling;
+        if (!content) return;
+        content.style.display = content.style.display === 'block' ? 'none' : 'block';
+    });
 });
 
 /***********************************************************************
- * Вспомогательные функции: парсинг и проверка тегов
+ * Вспомогательные функции: парсинг шаблона и маркеров
  **********************************************************************/
 function parseDataEl(dataEl) {
-    const tmp = document.createElement('template');
-    tmp.innerHTML = dataEl.trim();
-    const node = tmp.content.firstElementChild;
-    if (node) {
-        return {
-            tagName: node.tagName.toLowerCase(),
-            nodeTemplate: node
-        };
+    // Возвращает объект: { templateHtml, nodeTemplate (Element|null), tagName, hasST, markers: [] }
+    const tpl = document.createElement('template');
+    tpl.innerHTML = dataEl.trim();
+    const node = tpl.content.firstElementChild;
+    const templateHtml = dataEl.trim();
+    const tagName = node ? node.tagName.toLowerCase() : (function(){
+        const m = dataEl.trim().match(/^<\s*([a-z0-9-]+)/i);
+        return m ? m[1].toLowerCase() : null;
+    })();
+
+    // Найти маркеры вида [ST], [LINK], [URL], [COUNT], [ATTR:name] и т.д.
+    const markers = [];
+    const re = /\[([A-Z0-9:_-]+)\]/g;
+    let mm;
+    while ((mm = re.exec(templateHtml)) !== null) {
+        if (!markers.includes(mm[1])) markers.push(mm[1]);
     }
-    const match = dataEl.trim().match(/^<\s*([a-z0-9-]+)/i);
-    const tagName = match ? match[1].toLowerCase() : dataEl.trim().toLowerCase();
-    return { tagName, nodeTemplate: null };
+
+    return {
+        templateHtml,
+        nodeTemplate: node ? node.cloneNode(true) : null,
+        tagName,
+        hasST: templateHtml.indexOf('[ST]') !== -1,
+        markers
+    };
+}
+
+function replaceSTInAttributes(el, stValue) {
+    // Заменяет [ST] в атрибутах на stValue
+    for (let i = 0; i < el.attributes.length; i++) {
+        const attr = el.attributes[i];
+        const val = attr.value;
+        const newVal = val.replace(/\[ST\]/g, stValue);
+        if (newVal !== val) el.setAttribute(attr.name, newVal);
+    }
 }
 
 function cloneNodeFromTemplate(nodeTemplate, tagName) {
     if (nodeTemplate) return nodeTemplate.cloneNode(true);
-    return document.createElement(tagName);
-}
-
-function isVoidTag(tagName) {
-    return ['img','input','br','hr','meta','link','source'].includes(tagName);
+    return document.createElement(tagName || 'div');
 }
 
 function escapeHtml(str) {
@@ -1517,33 +1547,97 @@ function escapeHtml(str) {
 }
 
 /***********************************************************************
- * performUnwrap — Глубокое удаление тегов с сохранением контента
+ * Helpers: маркеры, замена в узле, поиск места [ST]
  **********************************************************************/
-function performUnwrap(node, tag) {
+function askForMarkerValue(marker) {
+    // Простая политика: для LINK/URL/IMAGE/PATH запрашиваем URL, для COUNT - число, для прочих - строка
+    const lower = marker.toLowerCase();
+    if (lower === 'link' || lower === 'url' || lower === 'image' || lower === 'src') {
+        return prompt('Введите ссылку (URL):', '');
+    }
+    if (lower === 'count' || lower === 'number') {
+        return prompt('Введите число:', '0');
+    }
+    return prompt(`Введите значение для ${marker}:`, '');
+}
+
+function replaceMarkersInAttributes(el, markerValues) {
+    // Заменяет маркеры в атрибутах, например href="[LINK]" -> href="...".
+    for (let i = 0; i < el.attributes.length; i++) {
+        const attr = el.attributes[i];
+        const val = attr.value;
+        const newVal = val.replace(/\[([A-Z0-9:_-]+)\]/g, (m, name) => {
+            return (markerValues[name] !== undefined) ? markerValues[name] : m;
+        });
+        if (newVal !== val) el.setAttribute(attr.name, newVal);
+    }
+}
+
+function replaceMarkersInTextNodes(root, markerValues) {
+    // Рекурсивно заменяет маркеры в текстовых узлах
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+    const toReplace = [];
+    while (walker.nextNode()) {
+        const txt = walker.currentNode;
+        if (/\[([A-Z0-9:_-]+)\]/.test(txt.nodeValue)) toReplace.push(txt);
+    }
+    toReplace.forEach(txtNode => {
+        const newValue = txtNode.nodeValue.replace(/\[([A-Z0-9:_-]+)\]/g, (m, name) => {
+            return (markerValues[name] !== undefined) ? markerValues[name] : m;
+        });
+        const parent = txtNode.parentNode;
+        // Если маркер [ST] — оставим маркер-узел (обработается отдельно)
+        parent.replaceChild(document.createTextNode(newValue), txtNode);
+    });
+}
+
+function findSTTextNode(root) {
+    // Ищет текстовую ноду или элемент, содержащий точную подпоследовательность "[ST]"
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+    while (walker.nextNode()) {
+        if (walker.currentNode.nodeValue.indexOf('[ST]') !== -1) return walker.currentNode;
+    }
+    // если текстовый узел не найден, попробуем найти элемент с текстом '[ST]' как единственный текст
+    const nodes = root.querySelectorAll('*');
+    for (let i = 0; i < nodes.length; i++) {
+        const n = nodes[i];
+        if (n.childNodes.length === 1 && n.childNodes[0].nodeType === Node.TEXT_NODE && n.textContent.trim() === '[ST]') return n.childNodes[0];
+    }
+    return null;
+}
+
+function extractSelectionFragment(range) {
+    return range.cloneContents();
+}
+
+/***********************************************************************
+ * performUnwrap — Глубокое удаление тегов с сохранением контента
+ * Универсальная версия: действует по tagName / детекции табличного шаблона
+ **********************************************************************/
+function performUnwrap(node, templateInfo) {
     const parent = node.parentNode;
     if (!parent) return;
 
-    if (tag === 'table') {
-        // Вытаскиваем содержимое всех ячеек перед удалением таблицы
+    // Если шаблон похож на таблицу (в шаблоне есть td/th) - извлечь из ячеек
+    const tplHasCells = (templateInfo.nodeTemplate && (templateInfo.nodeTemplate.querySelector('td') || templateInfo.nodeTemplate.querySelector('th')));
+    if (tplHasCells) {
         const cells = node.querySelectorAll('td, th');
         cells.forEach(cell => {
-            while (cell.firstChild) {
-                parent.insertBefore(cell.firstChild, node);
-            }
+            while (cell.firstChild) parent.insertBefore(cell.firstChild, node);
         });
-    } else {
-        // Обычный unwrap для a, li, button, span и т.д.
-        while (node.firstChild) {
-            parent.insertBefore(node.firstChild, node);
-        }
+        parent.removeChild(node);
+        return;
     }
+
+    // Общий unwrap
+    while (node.firstChild) parent.insertBefore(node.firstChild, node);
     parent.removeChild(node);
 }
 
 /***********************************************************************
- * handleLoadedBlockView — Логика Toggle (Unwrap) и вставки в визуальный редактор
+ * handleLoadedBlockView — Универсальная логика Toggle (Unwrap) и вставки
  **********************************************************************/
-function handleLoadedBlockView(dataEl) {
+function handleLoadedBlockView(dataEl, placeholderText="текст") {
     const sel = document.getSelection();
     if (!sel || !sel.rangeCount) return;
 
@@ -1555,38 +1649,41 @@ function handleLoadedBlockView(dataEl) {
     if (!view) return;
 
     const parsed = parseDataEl(dataEl);
+    const templateHtml = parsed.templateHtml;
+    const templateNode = parsed.nodeTemplate;
     const tag = parsed.tagName;
-    
-    // --- 1. Поиск существующего элемента для удаления (Toggle) ---
+    const hasST = parsed.hasST;
+    const selectionHasContent = sel.toString().length > 0;
+
+    // --- 1. Toggle / Unwrap: найдем существующий похожий узел ---
     let targetNode = null;
+    if (tag) {
+        // closest по тегу
+        targetNode = (tag === 'span') ? null : commonAncestor.closest(tag);
+    }
 
-    // Проверка: находится ли курсор ВНУТРИ тега (для ссылок, кнопок, li, table)
-    targetNode = (tag === 'span') ? null : commonAncestor.closest(tag);
-
-    // Специальная проверка для input (так как курсор не бывает "внутри" текстового узла инпута)
+    // Если не нашли и шаблон - input-like (нет внутренних текстовых нод), попробуем найти input рядом
     if (!targetNode && tag === 'input') {
-        if (range.startContainer.nodeType === 1 && range.startContainer.tagName.toLowerCase() === 'input') {
+        if (range.startContainer.nodeType === 1 && range.startContainer.tagName && range.startContainer.tagName.toLowerCase() === 'input') {
             targetNode = range.startContainer;
         } else if (range.startContainer.childNodes[range.startOffset]?.tagName?.toLowerCase() === 'input') {
             targetNode = range.startContainer.childNodes[range.startOffset];
         }
     }
 
-    // Проверка: выделен ли тег целиком или частично (поиск внутри Range)
+    // Если в выделении уже есть элементы такого типа - unwrap их (generic)
     if (!targetNode && !range.collapsed) {
         const fragment = range.cloneContents();
-        if (fragment.querySelector(tag)) {
-            // Если внутри выделения есть такие теги, находим их в реальном DOM
+        if (fragment.querySelector && tag && fragment.querySelector(tag)) {
             const walker = document.createTreeWalker(view, NodeFilter.SHOW_ELEMENT);
             while (walker.nextNode()) {
                 const el = walker.currentNode;
                 if (el.tagName.toLowerCase() === tag) {
                     const nodeRange = document.createRange();
                     nodeRange.selectNode(el);
-                    // Проверяем пересечение диапазонов
                     if (range.compareBoundaryPoints(Range.END_TO_START, nodeRange) === -1 &&
                         range.compareBoundaryPoints(Range.START_TO_END, nodeRange) === 1) {
-                        performUnwrap(el, tag);
+                        performUnwrap(el, parsed);
                     }
                 }
             }
@@ -1596,119 +1693,66 @@ function handleLoadedBlockView(dataEl) {
     }
 
     if (targetNode && view.contains(targetNode)) {
-        performUnwrap(targetNode, tag);
+        performUnwrap(targetNode, parsed);
         view.normalize();
         return;
     }
 
-    // --- 2. Логика вставки (если Toggle не сработал) ---
-    const newEl = cloneNodeFromTemplate(parsed.nodeTemplate, tag);
-    const selectionHasContent = sel.toString().length > 0;
+    // --- 2. Вставка/оборачивание ---
+    const newEl = cloneNodeFromTemplate(templateNode, tag);
+    // Собираем значения маркеров: спросим у пользователя только те маркеры, которые есть
+    const markerValues = {};
+    parsed.markers.forEach(m => {
+        if (m === 'ST') return; // ST обрабатываем отдельно
+        const val = askForMarkerValue(m);
+        if (val !== null) markerValues[m] = val;
+    });
 
-    if (tag === 'table') {
-        newEl.style.border = '1px solid #000000';
-        newEl.innerHTML = '<tr><td><br></td><td><br></td></tr><tr><td><br></td><td><br></td></tr>';
-        newEl.querySelectorAll('td, th').forEach(cell => { cell.style.border = '1px solid #000000'; });
-        range.insertNode(newEl);
-    } else if (tag === 'input') {
-        if (selectionHasContent) {
-            newEl.placeholder = sel.toString();
+    // Заменим маркеры в атрибутах
+    replaceMarkersInAttributes(newEl, markerValues);
+    // Заменим [ST] в атрибутах, если нет выделения
+    if (hasST && !selectionHasContent) {
+        replaceSTInAttributes(newEl, placeholderText);
+    }
+    // Заменим простые маркеры в текстовых узлах (кроме [ST])
+    replaceMarkersInTextNodes(newEl, markerValues);
+
+    // Если шаблон содержит [ST] - оборачиваем/подставляем выбранный текст в место маркера
+    // Внутри handleLoadedBlockView, вместо стандартной вставки [ST]
+    if (hasST) {
+        const stNode = findSTTextNode(newEl);
+        placeholderText = placeholderText.trim();
+
+        if (newEl.tagName.toLowerCase() === 'input' || newEl.tagName.toLowerCase() === 'textarea') {
+            // для input/textarea подставляем placeholder или текст
+            if (selectionHasContent) {
+                newEl.value = sel.toString();
+            } else {
+                newEl.placeholder = placeholderText;
+                if (newEl.tagName.toLowerCase() === 'textarea') newEl.textContent = placeholderText;
+            }
             range.deleteContents();
-        }
-        range.insertNode(newEl);
-    } else if (tag === 'block') {
-        newEl.style.border = '1px solid #000000';
-        newEl.style.padding = '3px';
-        newEl.style.margin = '3px';
-        newEl.style.display = 'inline-block';
-        if (selectionHasContent) {
-            newEl.appendChild(range.extractContents());
-        } else if (!newEl.innerHTML.trim()) {
-            newEl.textContent = "блок";
-        }
-        range.insertNode(newEl);
-    } else if (tag === 'button') {
-        if (selectionHasContent) {
-            newEl.appendChild(range.extractContents());
-        } else if (!newEl.innerHTML.trim()) {
-            newEl.textContent = "кнопка";
-        }
-        range.insertNode(newEl);
-    }  else if (tag === 'a') {
-        const url = prompt('Введите ссылку:', '');
-        newEl.href = url;
-        if (selectionHasContent) {
-            newEl.appendChild(range.extractContents());
-        } else if (!newEl.innerHTML.trim()) {
-            newEl.textContent = "ссылка";
-        }
-        range.insertNode(newEl);
-    } else if (tag === 'img') {
-        const url = prompt('Введите ссылку на изображение:', '');
-        if (url == "") {
-            newEl.src = '#';
+            range.insertNode(newEl);
         } else {
-            newEl.src = url;
+            // для обычных элементов с текстом
+            if (selectionHasContent) {
+                const frag = extractSelectionFragment(range);
+                if (stNode) stNode.parentNode.replaceChild(frag, stNode);
+                else newEl.appendChild(frag);
+                range.deleteContents();
+            } else {
+                if (stNode) stNode.parentNode.replaceChild(document.createTextNode(placeholderText), stNode);
+            }
+            range.insertNode(newEl);
         }
-        range.deleteContents();
-        range.insertNode(newEl);
-    } else if (tag === 'textarea') {
-        newEl.style.border = '1px solid #cccccc';
-        newEl.style.padding = '4px';
-        if (selectionHasContent) {
-            newEl.textContent = sel.toString();
-        } else {
-            newEl.textContent = 'текст...';
-        }
-        range.deleteContents();
-        range.insertNode(newEl);
-    } else if (tag === 'select') {
-        if (!newEl.querySelector('option')) {
-            const opt1 = document.createElement('option');
-            opt1.textContent = 'вариант 1';
-            const opt2 = document.createElement('option');
-            opt2.textContent = 'вариант 2';
-            newEl.appendChild(opt1);
-            newEl.appendChild(opt2);
-        }
-        range.deleteContents();
-        range.insertNode(newEl);
-    } else if (tag === 'form') {
-        newEl.style.border = '1px solid #999999';
-        newEl.style.padding = '8px';
-        if (selectionHasContent) {
-            newEl.appendChild(range.extractContents());
-        } else {
-            newEl.innerHTML = '<input type="text" placeholder="поле формы"><button type="submit">Отправить</button>';
-        }
-        range.insertNode(newEl);
-    } else if (tag === 'code') {
-        newEl.style.backgroundColor = '#f4f4f4';
-        newEl.style.padding = '2px 4px';
-        newEl.style.fontFamily = 'monospace';
-        newEl.style.borderRadius = '3px';
-        if (selectionHasContent) {
-            newEl.textContent = sel.toString();
-        } else {
-            newEl.textContent = 'код';
-        }
-        range.insertNode(newEl);
-    } else if (tag === 'hr') {
-        newEl.style.border = 'none';
-        newEl.style.borderTop = '2px solid #cccccc';
-        newEl.style.margin = '10px 0';
-        range.deleteContents();
-        range.insertNode(newEl);
     } else {
-        if (selectionHasContent) {
-            newEl.appendChild(range.extractContents());
-        } else if (!newEl.innerHTML.trim()) {
-            newEl.textContent = tag;
-        }
+        if (selectionHasContent) range.deleteContents();
         range.insertNode(newEl);
     }
 
-    // Сброс выделения и установка курсора после элемента
+    // Применить inline-стили, если в шаблоне их не было, сохранить совместимость:
+    // (в большинстве случаев новые стили уже в data-el как inline)
+    // Переместим курсор после вставленного узла
     sel.removeAllRanges();
     const afterRange = document.createRange();
     afterRange.setStartAfter(newEl);
@@ -1718,8 +1762,9 @@ function handleLoadedBlockView(dataEl) {
 
 /***********************************************************************
  * handlePreHtml — Вставка HTML кода в текстовый редактор (pre)
+ * Использует те же шаблоны, но вставляет текстовый snippet
  **********************************************************************/
-function handlePreHtml(dataEl) {
+function handlePreHtml(dataEl, placeholderText = "текст") {
     const pre = document.getElementById('center-tab-pre-html');
     if (!pre || pre.contentEditable !== "true") return;
 
@@ -1732,45 +1777,30 @@ function handlePreHtml(dataEl) {
     if (!pre.contains(commonAncestor)) return;
 
     const parsed = parseDataEl(dataEl);
-    const tag = parsed.tagName;
+    const templateHtml = parsed.templateHtml;
     const selectionHasContent = sel.toString().length > 0;
 
-    let selectedHtml = '';
-    if (selectionHasContent) {
-        const div = document.createElement('div');
-        div.appendChild(range.cloneContents());
-        selectedHtml = div.innerHTML;
-    }
+    // Спросим значения для маркеров (кроме ST)
+    const markerValues = {};
+    parsed.markers.forEach(m => {
+        if (m === 'ST') return;
+        const v = askForMarkerValue(m);
+        if (v !== null) markerValues[m] = escapeHtml(v);
+    });
 
-    let snippet = '';
-    if (tag === 'table') {
-        snippet = `<table><tr><td>${selectionHasContent ? selectedHtml : 'ячейка'}</td></tr></table>`;
-    } else if (tag === 'input') {
-        snippet = `<input placeholder="${selectionHasContent ? escapeHtml(sel.toString()) : ''}">`;
-    } else if (tag === 'textarea') {
-        snippet = `<textarea>${selectionHasContent ? escapeHtml(sel.toString()) : 'текст...'}</textarea>`;
-    } else if (tag === 'select') {
-        snippet = `<select><option>вариант 1</option><option>вариант 2</option></select>`;
-    } else if (tag === 'form') {
-        snippet = `<form><input type="text" placeholder="поле формы"><button type="submit">Отправить</button></form>`;
-    } else if (tag === 'code') {
-        snippet = `<code>${selectionHasContent ? escapeHtml(sel.toString()) : 'код'}</code>`;
-    } else if (tag === 'hr') {
-        snippet = `<hr style='height: 5px;'>`;
-    } else if (parsed.nodeTemplate) {
-        const tmp = parsed.nodeTemplate.cloneNode(true);
-        if (!isVoidTag(tag)) {
-            if (selectionHasContent) tmp.innerHTML = selectedHtml;
-            else if (!tmp.innerHTML.trim()) tmp.textContent = tag;
+    // Подготовим snippet: заменим все маркеры (включая [ST] на содержимое выделения или placeholder)
+    let snippet = templateHtml.replace(/\[([A-Z0-9:_-]+)\]/g, (m, name) => {
+        if (name === 'ST') {
+            if (selectionHasContent) {
+                // вставим выбранный HTML (чтобы не экранировать)
+                const div = document.createElement('div');
+                div.appendChild(range.cloneContents());
+                return div.innerHTML;
+            }
+            return escapeHtml(placeholderText); // без выделения - placeholder
         }
-        snippet = tmp.outerHTML;
-    } else {
-        if (isVoidTag(tag)) {
-            snippet = `<${tag}>`;
-        } else {
-            snippet = `<${tag}>${selectionHasContent ? selectedHtml : tag}</${tag}>`;
-        }
-    }
+        return (markerValues[name] !== undefined) ? markerValues[name] : m;
+    });
 
     if (selectionHasContent) range.deleteContents();
     const textNode = document.createTextNode(snippet);
@@ -1782,6 +1812,16 @@ function handlePreHtml(dataEl) {
     afterRange.collapse(true);
     sel.addRange(afterRange);
 }
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -2358,58 +2398,97 @@ const events = [
 ];
 
 /***********************************************************************
- * events group - Заполняет таблицу JS-событий:
- * - Создаёт строки для каждого события с редактируемым именем.
- * - Разделяет группы событий горизонтальной линией.
+ * Инициализация интерфейса событий:
+ * Создаем панель: слева список всех событий (select), справа кнопка (button)
  **********************************************************************/
-events.forEach((group, gi) => {
+const controlsDiv = document.createElement('div');
+controlsDiv.className = 'js-panel-controls';
+controlsDiv.style.display = 'flex';
+controlsDiv.style.gap = '10px';
+controlsDiv.style.marginBottom = '15px';
+
+const eventSelect = document.createElement('select');
+eventSelect.style.flexGrow = '1';
+eventSelect.style.width = '80px';
+
+// Заполняем выпадающий список всеми возможными событиями
+events.forEach((group) => {
+    const optgroup = document.createElement('optgroup');
+    optgroup.label = "Group"; // Можно стилизовать или убрать optgroup, если не нужно
     group.forEach(ev => {
-        const tr = document.createElement('tr');
-        const tdEvent = document.createElement('td');
-        const tdName = document.createElement('td');
-
-        tdEvent.textContent = ev;
-        tdEvent.contentEditable = 'false';
-
-        tdName.contentEditable = 'true';
-        tdName.dataset.placeholder = 'name';
-
-        tr.appendChild(tdEvent);
-        tr.appendChild(tdName);
-        jsTable.appendChild(tr);
+        const option = document.createElement('option');
+        option.value = ev;
+        option.textContent = ev;
+        optgroup.appendChild(option);
     });
+    eventSelect.appendChild(optgroup);
+});
 
-    if (gi < events.length - 1) {
-        const trHr = document.createElement('tr');
-        const tdHr = document.createElement('td');
-        tdHr.colSpan = 2;
-        tdHr.innerHTML = '<hr>';
-        trHr.appendChild(tdHr);
-        jsTable.appendChild(trHr);
+const addBtn = document.createElement('button');
+addBtn.textContent = 'Добавить';
+addBtn.type = 'button';
+addBtn.style.cursor = 'pointer';
+
+controlsDiv.appendChild(eventSelect);
+controlsDiv.appendChild(addBtn);
+
+// Вставляем элементы управления перед таблицей
+// Предполагается, что jsTable уже существует в DOM
+jsTable.parentNode.insertBefore(controlsDiv, jsTable);
+
+// Функция для создания одной строки таблицы
+function createEventRow(eventName, handlerName = '', rawStr = null, scriptTxt = '') {
+    const tr = document.createElement('tr');
+    const tdEvent = document.createElement('td');
+    const tdName = document.createElement('td');
+
+    tdEvent.textContent = eventName;
+    tdEvent.contentEditable = 'false';
+
+    // Если событие уже существует в коде (есть rawStr), делаем его кликабельным
+    if (rawStr) {
+        tdEvent.style.cursor = 'pointer';
+        tdEvent.onclick = () => {
+            const jsTab = document.querySelector('#center-tabs .center-tab[data-tab="js"]');
+            if (jsTab) jsTab.click();
+            if (handlerName) highlightInJsEditor('function ' + handlerName + '(', scriptTxt);
+            else highlightInJsEditor(rawStr, scriptTxt);
+        };
+    }
+
+    tdName.contentEditable = 'true';
+    tdName.dataset.placeholder = 'name';
+    tdName.textContent = handlerName;
+
+    tr.appendChild(tdEvent);
+    tr.appendChild(tdName);
+    return tr;
+}
+
+// Логика кнопки "Добавить"
+addBtn.addEventListener('click', () => {
+    const selectedEv = eventSelect.value;
+    
+    // Проверяем, есть ли уже такое событие в таблице, чтобы не дублировать
+    const existingRows = Array.from(jsTable.querySelectorAll('tr'));
+    const exists = existingRows.some(tr => tr.children[0] && tr.children[0].textContent === selectedEv);
+
+    if (!exists) {
+        const tr = createEventRow(selectedEv);
+        jsTable.appendChild(tr);
+        // Сразу фокусируемся на поле ввода имени, чтобы пользователю было удобно печатать
+        tr.children[1].focus();
     }
 });
 
 /***********************************************************************
  * updateJsPanel — обновляет панель JS-событий для выбранного элемента:
- * - Получает выбранный DOM-элемент (блок на странице).
- * - Очищает все строки таблицы и сбрасывает клики.
- * - Ищет все addEventListener и присваивания onX в скрипте.
- * - Фильтрует события, которые применимы к текущему элементу.
- * - Создаёт карту событий - селекторов.
- * - Заполняет имена обработчиков в таблице и делает кликабельными события.
- * - Присваивает обработчики для input и blur, передавая map, blockId и элемент.
+ * - Очищает таблицу, оставляя только верхнюю панель управления.
+ * - Отрисовывает ТОЛЬКО те события, которые уже назначены элементу.
  **********************************************************************/
 function updateJsPanel(el) {
-    const table = document.getElementById('editor-js-panel');
-    const rows = Array.from(table.querySelectorAll('tr'));
-
-    rows.forEach(tr => {
-        const tdName = tr.children[1];
-        if (tdName) tdName.textContent = '';
-        tr.onclick = null;
-        const tdEvent = tr.children[0];
-        if (tdEvent) tdEvent.onclick = null;
-    });
+    // Полностью очищаем таблицу перед обновлением
+    jsTable.innerHTML = '';
 
     const blockId = getBlockIdFromEl(el) || getActiveBlockId() || 'loadedBlock_1';
     const script = document.querySelector('script[data-dynamic="' + blockId + '_view"]');
@@ -2418,6 +2497,7 @@ function updateJsPanel(el) {
     const txt = script.textContent;
     const entries = [];
 
+    // Поиск addEventListener
     const addListenerRe = /([^\n;]+?)\.addEventListener\(\s*['"]([^'"]+)['"]\s*,\s*([A-Za-z0-9_$]+|function\b)/g;
     let m;
     while ((m = addListenerRe.exec(txt)) !== null) {
@@ -2430,6 +2510,7 @@ function updateJsPanel(el) {
         });
     }
 
+    // Поиск прямого присваивания (onX = ...)
     const onAssignRe = /([^\n;]+?)\.on([a-zA-Z]+)\s*=\s*([A-Za-z0-9_$]+|function\b)/g;
     while ((m = onAssignRe.exec(txt)) !== null) {
         const selector = resolveSelectorFromExpr(m[1].trim(), txt);
@@ -2441,6 +2522,7 @@ function updateJsPanel(el) {
         });
     }
 
+    // Фильтруем те, что относятся именно к выделенному DOM-элементу
     const matched = entries.filter(en => {
         if (!en.selector) return false;
         try {
@@ -2451,38 +2533,23 @@ function updateJsPanel(el) {
         }
     });
 
-    if (!matched.length) {
-        table.removeEventListener('blur', onJsTableBlur, true);
-        table.removeEventListener('input', onJsTableInput);
-        return;
+    const eventToSelector = new Map();
+
+    // Отрисовываем строки ТОЛЬКО для найденных событий
+    if (matched.length) {
+        matched.forEach(en => {
+            eventToSelector.set(en.event, en.selector);
+            const tr = createEventRow(en.event, en.handler || '', en.raw, txt);
+            jsTable.appendChild(tr);
+        });
     }
 
-    const eventToSelector = new Map();
-    matched.forEach(en => eventToSelector.set(en.event, en.selector));
-
-    rows.forEach(tr => {
-        const tdEvent = tr.children[0];
-        const tdName = tr.children[1];
-        if (!tdEvent || !tdName) return;
-
-        const evName = tdEvent.textContent.trim();
-        const found = matched.find(m => m.event === evName);
-        if (!found) return;
-
-        tdName.textContent = found.handler || '';
-
-        tdEvent.onclick = () => {
-            const jsTab = document.querySelector('#center-tabs .center-tab[data-tab="js"]');
-            if (jsTab) jsTab.click();
-            if (found.handler) highlightInJsEditor('function ' + found.handler + '(', txt);
-            else highlightInJsEditor(found.raw, txt);
-        };
-    });
-
-    table.removeEventListener('blur', onJsTableBlur, true);
-    table.addEventListener('blur', e => onJsTableBlur(e, eventToSelector, blockId, el), true);
-    table.removeEventListener('input', onJsTableInput);
-    table.addEventListener('input', e => onJsTableInput(e, eventToSelector, blockId, el));
+    // Всегда обновляем слушатели blur/input, так как пользователь может добавить новое событие кнопкой
+    jsTable.removeEventListener('blur', onJsTableBlur, true);
+    jsTable.addEventListener('blur', e => onJsTableBlur(e, eventToSelector, blockId, el), true);
+    
+    jsTable.removeEventListener('input', onJsTableInput);
+    jsTable.addEventListener('input', e => onJsTableInput(e, eventToSelector, blockId, el));
 }
 
 /***********************************************************************
@@ -2504,8 +2571,8 @@ function onJsTableInput(e, eventToSelectorMap, blockId, el) {
     if (td !== tdName) return;
     const ev = tdEvent.textContent.trim();
     const handler = tdName.textContent.trim();
-    const selector = eventToSelectorMap.get(ev);
-    if (!selector) return;
+    let selector = eventToSelectorMap.get(ev);
+    if (!selector) selector = buildSelector(el);
     updateScriptAssignment(blockId, selector, ev, handler, el);
 }
 
@@ -2528,8 +2595,8 @@ function onJsTableBlur(e, eventToSelectorMap, blockId, el) {
     if (td !== tdName) return;
     const ev = tdEvent.textContent.trim();
     const handler = tdName.textContent.trim();
-    const selector = eventToSelectorMap.get(ev);
-    if (!selector) return;
+    let selector = eventToSelectorMap.get(ev);
+    if (!selector) selector = buildSelector(el);
     updateScriptAssignment(blockId, selector, ev, handler, el);
 }
 

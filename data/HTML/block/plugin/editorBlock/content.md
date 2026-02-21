@@ -11,21 +11,52 @@
     <div class="elements-header">Html</div>
     <hr>
     <div id="elements-ul">
-        <div class="add-el" data-el="<block></block>">блок</div>
-        <div class="add-el" data-el="<img src='#'>">изображение</div>
-        <div class="add-el" data-el="<a href=''></a>">ссылка</div>
-        <div class="add-el" data-el="<table><tr><td></td></tr></table>">таблица</div>
-        <div class="add-el" data-el="<hr style='height: 5px;'>">линия</div>
+        <div>
+            <div>Базовые элементы</div>
+            <div style="display:block;">
+                <div class="add-el" data-el="<block style='border:1px solid #000;'>[ST]</block>">блок</div>
+                <div class="add-el" data-el="<img src='[LINK]'>">изображение</div>
+                <div class="add-el" data-el="<a href='[LINK]'>[ST]</a>">ссылка</div>
+                <div class="add-el" data-el="<table style='border:1px solid #000;'><tr><td style='border:1px solid #000;'>[ST]</td><td style='border:1px solid #000;'><br></td></tr><tr><td style='border:1px solid #000;'><br></td><td style='border:1px solid #000;'><br></td></tr></table>">таблица</div>
+                <div class="add-el" data-el="<hr style='height:2px;border:0;background:#000;'>">линия</div>
+            </div>
+        </div>
         <hr>
-        <div class="add-el" data-el="<textarea></textarea>">многострочное поле ввода</div>
-        <div class="add-el" data-el="<button></button>">кнопка</div>
-        <div class="add-el" data-el="<input placeholder=''>">однострочное поле ввода</div>
-        <div class="add-el" data-el="<select><option>вариант</option></select>">выпадающий список</div>
-        <div class="add-el" data-el="<form></form>">форма</div>
-        <div class="add-el" data-el="<code></code>">фрагмент кода</div>
+        <div>
+            <div>Формы</div>
+            <div style="display:block;">
+                <div class="add-el" data-el="<form style='border:1px solid #000;'>[ST]</form>">форма</div>
+                <div class="add-el" data-el="<textarea style='border:1px solid #000;'>[ST]</textarea>">многострочное поле ввода</div>
+                <div class="add-el" data-el="<input placeholder='[ST]'>">однострочное поле ввода</div>
+                <div class="add-el" data-el="<select><option>вариант 1</option><option>вариант 2</option></select>">выпадающий список</div>
+                <div class="add-el" data-el="<code style='border:1px solid #000;'>[ST]</code>">фрагмент кода</div>
+            </div>
+        </div>
+        <hr>
+        <div>
+            <div>Медиа</div>
+            <div style="display:none;">
+                <div class="add-el" data-el="<figure><img src='[LINK]'><figcaption>[ST]</figcaption></figure>">изображение с подписью</div>
+                <div class="add-el" data-el="<video src='[LINK]' controls style='max-width:100%;'>[ST]</video>">видео</div>
+                <div class="add-el" data-el="<audio src='[LINK]' controls>[ST]</audio>">аудио</div>
+                <div class="add-el" data-el="<iframe src='[LINK]' style='width:100%;height:160px;'></iframe>">веб-страница</div>
+            </div>
+        </div>
+        <hr>
+        <div>
+            <div>Интерактив</div>
+            <div style="display:none;">
+                <div class="add-el" data-el="<button style='border:1px solid #000;'>[ST]</button>">кнопка</div>
+                <div class="add-el" data-el="<details style='border:1px solid #000;width:160px;'><summary>[ST]</summary><block>контент</block></details>">сворачиваемый блок</div>
+                <div class="add-el" data-el="<input type='range' min='0' max='100' value='50' style='width:160px;'>">ползунок</div>
+                <div class="add-el" data-el="<progress value='50' max='100' style='width:160px;='></progress>">прогресс бар</div>
+                <div class="add-el" data-el="<meter value='0.6' min='0' max='1' style='width:160px;'></meter>">шкала значения</div>
+                <div class="add-el" data-el="<input type='file'>">поле для загрузки файла</div>
+            </div>
+        </div>
     </div>
 </div>
-    
+
 <div id="center-panel">
     <div id="loadedBlock" aria-label="loadedBlock">
         <div id="loadedBlockMain"></div>
