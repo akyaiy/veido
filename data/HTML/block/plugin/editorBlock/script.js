@@ -318,7 +318,7 @@ tabs.forEach(tab => {
 
 
 /***********************************************************************
- * Специальные свойства.
+ * Специальные свойства (рефакторинг: универсальная обработка).
  **********************************************************************/
 let selectedEl = null;
 const specRoot = document.getElementById('properties-panel-spec');
@@ -329,6 +329,7 @@ specRoot.style.display = 'none';
 
 // --- конфигурация: какие теги считаем "специальными" ---
 const EDITABLE_TAGS = new Set(['block', 'img', 'a', 'table', 'hr', 'textarea', 'button', 'input', 'select', 'form', 'code', 'video', 'audio', 'iframe', 'details']);
+
 // --- Утилиты -----------------------------------------------------------------
 
 // Проверка id контейнера view соответствует loadedBlock_<число>_view
@@ -370,17 +371,63 @@ function rgbToHex(rgb) {
 
 // Получить округлённое числовое значение CSS (без единицы)
 function getComputedNum(v) {
-    if (!v) return '';
+    if (!v && v !== 0) return '';
     const n = parseFloat(v);
     return isNaN(n) ? '' : Math.round(n);
 }
 
-// Показать controls, отфильтрованные по data-target
+function dashedToCamel(s) {
+    return s.replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
+}
+
+function isNumericString(s) {
+    return /^-?\d+(\.\d+)?$/.test(String(s).trim());
+}
+
+// --- Универсальная конфигурация маппинга свойств ---------------------------------
+const PROP_MAP = {
+    // общие стили
+    'width-value':     { type: 'style', cssName: 'width', numeric: true },
+    'height-value':    { type: 'style', cssName: 'height', numeric: true },
+    'background-color':{ type: 'style', cssName: 'backgroundColor', color: true },
+    'color':           { type: 'style', cssName: 'color', color: true },
+    'font-size':       { type: 'style', cssName: 'fontSize', numeric: true },
+    'text-align':      { type: 'style', cssName: 'textAlign' },
+    'padding-top':     { type: 'style', cssName: 'paddingTop', numeric: true },
+    'padding-right':   { type: 'style', cssName: 'paddingRight', numeric: true },
+    'padding-bottom':  { type: 'style', cssName: 'paddingBottom', numeric: true },
+    'padding-left':    { type: 'style', cssName: 'paddingLeft', numeric: true },
+    'margin-top':      { type: 'style', cssName: 'marginTop', numeric: true },
+    'margin-right':    { type: 'style', cssName: 'marginRight', numeric: true },
+    'margin-bottom':   { type: 'style', cssName: 'marginBottom', numeric: true },
+    'margin-left':     { type: 'style', cssName: 'marginLeft', numeric: true },
+    'opacity':         { type: 'style', cssName: 'opacity' },
+    'border-width':    { type: 'style', cssName: 'borderWidth', numeric: true },
+    'border-style':    { type: 'style', cssName: 'borderStyle' },
+    'border-color':    { type: 'style', cssName: 'borderColor', color: true },
+    'border-radius':   { type: 'style', cssName: 'borderRadius', numeric: true },
+    // специальные атрибуты
+    'img-src':         { type: 'attr', attrName: 'src', tag: 'img' },
+    'img-alt':         { type: 'attr', attrName: 'alt', tag: 'img' },
+    'link-href':       { type: 'attr', attrName: 'href', tag: 'a' },
+    'link-target':     { type: 'attr', attrName: 'target', tag: 'a' },
+    'input-placeholder':{ type: 'attr', attrName: 'placeholder', tag: 'input' },
+    'input-type':      { type: 'attr', attrName: 'type', tag: 'input' },
+    'input-required':  { type: 'attr', attrName: 'required', tag: 'input', booleanAttr: true },
+    'table-rows':      { type: 'special', special: 'table-dim' },
+    'table-cols':      { type: 'special', special: 'table-dim' },
+    'form-method':     { type: 'attr', attrName: 'method', tag: 'form' },
+    'form-action':     { type: 'attr', attrName: 'action', tag: 'form' },
+    'cursor':          { type: 'style', cssName: 'cursor' },
+    'z-index':         { type: 'style', cssName: 'zIndex' }
+};
+
+// --- Управление видимостью панели ----------------------------------------------
 function showSpecForTarget(target) {
     // скрыть обычную панель (если есть)
     if (normalPanel) normalPanel.style.display = 'none';
-    if (cssPanel) cssPanel.style.display = 'none';
-    if (jsPanel) jsPanel.style.display = 'none';
+    if (typeof cssPanel !== 'undefined' && cssPanel) cssPanel.style.display = 'none';
+    if (typeof jsPanel !== 'undefined' && jsPanel) jsPanel.style.display = 'none';
     // показать спец-панель
     specRoot.style.display = '';
     // фильтруем дочерние группы по attribute data-target
@@ -392,103 +439,140 @@ function showSpecForTarget(target) {
     });
 }
 
-// Заполнить controls значениями выбранного элемента
+// --- Чтение значений контролов из элемента (универсально) ----------------------
 function populateSpecialProps(el) {
     if (!el) return;
     const cs = window.getComputedStyle(el);
-    const set = (prop, val) => {
-        const inp = specRoot.querySelector('[data-prop="' + prop + '"]');
-        if (!inp) return;
-        if (inp.type === 'checkbox') inp.checked = Boolean(val);
-        else inp.value = val == null ? '' : String(val);
-    };
 
-    set('width-value', el.style.width || getComputedNum(cs.width));
-    set('height-value', el.style.height || getComputedNum(cs.height));
-    set('background-color', rgbToHex(cs.backgroundColor) || '');
-    set('border-width', getComputedNum(cs.borderWidth) || '');
-    set('border-style', cs.borderStyle || '');
-    set('border-color', rgbToHex(cs.borderColor) || '');
-    set('img-src', el.tagName === 'IMG' ? (el.getAttribute('src') || '') : '');
-    set('link-href', el.tagName === 'A' ? (el.getAttribute('href') || '') : '');
-    set('input-placeholder', el.tagName === 'INPUT' ? (el.getAttribute('placeholder') || '') : '');
-    if (el.tagName === 'TABLE') {
-        const rows = el.querySelectorAll('tr').length || 0;
-        const cols = el.querySelector('tr') ? el.querySelector('tr').children.length : 0;
-        set('table-rows', rows);
-        set('table-cols', cols);
-    } else {
-        set('table-rows', '');
-        set('table-cols', '');
-    }
-    set('margin-top', el.style.marginTop || getComputedNum(cs.marginTop));
-    set('margin-right', el.style.marginRight || getComputedNum(cs.marginRight));
-    set('margin-bottom', el.style.marginBottom || getComputedNum(cs.marginBottom));
-    set('margin-left', el.style.marginLeft || getComputedNum(cs.marginLeft));
+    const controls = Array.from(specRoot.querySelectorAll('[data-prop]'));
+    controls.forEach(ctrl => {
+        const prop = ctrl.getAttribute('data-prop');
+        const map = PROP_MAP[prop] || null;
+
+        // вспомог: установить значение в контрол
+        const setCtrl = (value) => {
+            if (ctrl.type === 'checkbox') ctrl.checked = Boolean(value);
+            else if (ctrl.type === 'color') ctrl.value = value || '#000000';
+            else ctrl.value = value == null ? '' : String(value);
+        };
+
+        if (map) {
+            if (map.type === 'style') {
+                const cssName = map.cssName || dashedToCamel(prop);
+                // сначала смотреть inline style, затем computed
+                let val = el.style[cssName];
+                if (!val) {
+                    val = cs[cssName] || '';
+                }
+                // для размеров убрать px
+                if (map.numeric) {
+                    setCtrl(getComputedNum(val));
+                } else if (map.color) {
+                    setCtrl(rgbToHex(val) || '');
+                } else {
+                    setCtrl(val || '');
+                }
+                return;
+            }
+
+            if (map.type === 'attr') {
+                // только если тег совпадает (если указано)
+                if (map.tag && el.tagName.toLowerCase() !== map.tag) {
+                    setCtrl('');
+                } else {
+                    if (map.booleanAttr) {
+                        setCtrl(el.hasAttribute(map.attrName));
+                    } else {
+                        setCtrl(el.getAttribute(map.attrName) || '');
+                    }
+                }
+                return;
+            }
+
+            if (map.type === 'special' && map.special === 'table-dim') {
+                if (el.tagName === 'TABLE') {
+                    const rows = el.querySelectorAll('tr').length || 0;
+                    const cols = el.querySelector('tr') ? el.querySelector('tr').children.length : 0;
+                    if (prop === 'table-rows') setCtrl(rows);
+                    if (prop === 'table-cols') setCtrl(cols);
+                } else {
+                    setCtrl('');
+                }
+                return;
+            }
+        }
+
+        // fallback: пробуем читать как инлайн-стиль или computed по имени свойства
+        const cssNameFallback = dashedToCamel(prop);
+        let fallbackVal = el.style[cssNameFallback] || cs[cssNameFallback] || '';
+        // попытка распознать цвет
+        if (ctrl.type === 'color') fallbackVal = rgbToHex(fallbackVal) || '';
+        // если значение like '10px' - вынести число
+        if (isNumericString(getComputedNum(fallbackVal))) setCtrl(getComputedNum(fallbackVal));
+        else setCtrl(fallbackVal);
+    });
 }
 
-// Применить отдельное свойство к элементу
+// --- Применение значения из контрола к элементу (универсально) ----------------
 function applyPropToElement(el, prop, rawValue) {
     if (!el) return;
     const val = rawValue == null ? '' : rawValue;
+    const map = PROP_MAP[prop] || null;
+
     const markDirty = () => {
         const view = el.closest('[id^="loadedBlock_"][id$="_view"]');
         if (view) view.dataset.dirty = 'true';
     };
 
-    switch (prop) {
-        case 'width-value':
-            el.style.width = val === '' ? '' : (isNaN(Number(val)) ? val : Number(val) + 'px');
-            break;
-        case 'height-value':
-            el.style.height = val === '' ? '' : (isNaN(Number(val)) ? val : Number(val) + 'px');
-            break;
-        case 'background-color':
-            el.style.backgroundColor = val || '';
-            break;
-        case 'border-width':
-            el.style.borderWidth = (val === '' || val === '-') ? '' : (isNaN(Number(val)) ? val : Number(val) + 'px');
-            break;
-        case 'border-style':
-            el.style.borderStyle = val || '';
-            break;
-        case 'border-color':
-            el.style.borderColor = val || '';
-            break;
-        case 'img-src':
-            if (el.tagName === 'IMG') el.setAttribute('src', val || '');
-            break;
-        case 'link-href':
-            if (el.tagName === 'A') el.setAttribute('href', val || '');
-            break;
-        case 'input-placeholder':
-            if (el.tagName === 'INPUT') {
-                if (val === '') el.removeAttribute('placeholder');
-                else el.setAttribute('placeholder', val);
+    if (map) {
+        if (map.type === 'style') {
+            const cssName = map.cssName || dashedToCamel(prop);
+            if (val === '' || val === null) {
+                el.style[cssName] = '';
+            } else if (map.color) {
+                el.style[cssName] = val || '';
+            } else if (map.numeric && isNumericString(String(val))) {
+                el.style[cssName] = String(Number(val)) + 'px';
+            } else {
+                el.style[cssName] = String(val);
             }
-            break;
-        case 'table-rows':
-        case 'table-cols':
+            markDirty();
+            return;
+        }
+
+        if (map.type === 'attr') {
+            if (map.tag && el.tagName.toLowerCase() !== map.tag) return;
+            if (map.booleanAttr) {
+                if (val) el.setAttribute(map.attrName, '');
+                else el.removeAttribute(map.attrName);
+            } else {
+                if (val === '') el.removeAttribute(map.attrName);
+                else el.setAttribute(map.attrName, String(val));
+            }
+            markDirty();
+            return;
+        }
+
+        if (map.type === 'special' && map.special === 'table-dim') {
             if (el.tagName === 'TABLE') {
                 const rows = parseInt(specRoot.querySelector('[data-prop="table-rows"]').value || '0', 10) || 0;
                 const cols = parseInt(specRoot.querySelector('[data-prop="table-cols"]').value || '0', 10) || 0;
                 rebuildTable(el, Math.max(1, rows), Math.max(1, cols));
+                markDirty();
             }
-            break;
-        case 'margin-top':
-            el.style.marginTop = val === '' ? '' : (isNaN(Number(val)) ? val : Number(val) + 'px');
-            break;
-        case 'margin-right':
-            el.style.marginRight = val === '' ? '' : (isNaN(Number(val)) ? val : Number(val) + 'px');
-            break;
-        case 'margin-bottom':
-            el.style.marginBottom = val === '' ? '' : (isNaN(Number(val)) ? val : Number(val) + 'px');
-            break;
-        case 'margin-left':
-            el.style.marginLeft = val === '' ? '' : (isNaN(Number(val)) ? val : Number(val) + 'px');
-            break;
+            return;
+        }
     }
 
+    // fallback: пытаться записать как стиль
+    const cssNameFallback = dashedToCamel(prop);
+    if (val === '' || val === null) {
+        el.style[cssNameFallback] = '';
+    } else if (isNumericString(String(val))) {
+        el.style[cssNameFallback] = String(Number(val)) + 'px';
+    } else {
+        el.style[cssNameFallback] = String(val);
+    }
     markDirty();
 }
 
@@ -521,7 +605,7 @@ function rebuildTable(table, rows, cols) {
 // Сброс выбора: скрыть specRoot, восстановить normalPanel
 function clearSelection() {
     selectedEl = null;
-    if (specRoot.style.display !== 'none') normalPanel.style.display = '';
+    if (specRoot.style.display !== 'none' && normalPanel) normalPanel.style.display = '';
     specRoot.style.display = 'none';
     // очистить значения контролов
     specRoot.querySelectorAll('[data-prop]').forEach(inp => {
@@ -533,7 +617,7 @@ function clearSelection() {
 
 // --- Слушатели для панели (делегированно) ------------------------------------
 
-// ввод в любом контроле применяет свойство немедленно
+// ввод/изменение в любом контроле применяет свойство немедленно
 specRoot.addEventListener('input', e => {
     if (!selectedEl) return;
     const ctrl = e.target.closest('[data-prop]');
@@ -550,6 +634,27 @@ specRoot.addEventListener('change', e => {
     const val = ctrl.type === 'checkbox' ? ctrl.checked : ctrl.value;
     applyPropToElement(selectedEl, prop, val);
 });
+
+// --- Внешние интерфейсы: выбор элемента и отображение панели ------------------
+// функция, которая вызывается извне при выборе элемента (оставлена простая)
+function selectElementForEditing(el) {
+    selectedEl = el;
+    if (!el) { clearSelection(); return; }
+    // показать подходящие контролы
+    showSpecForTarget(el.tagName.toLowerCase());
+    // заполнить контролы значениями элемента
+    populateSpecialProps(el);
+}
+
+// экспорт/назначение - если модульная среда не используется, оставить глобально
+window.BlockEditorSpec = {
+    select: selectElementForEditing,
+    clear: clearSelection,
+    findEditableElement: findEditableElement
+};
+
+
+
 
 // --- Взаимодействие с loadedBlock_*_view ------------------------------------
 

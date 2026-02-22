@@ -185,6 +185,9 @@ main.editor {
     background: rgba(255,255,255,0.98);
     box-sizing: border-box;
     width: 250px;
+    min-width: 250px;
+    height: 80vh;
+    overflow-y: auto;
 }
 
 /* вкладки css js */
@@ -259,7 +262,7 @@ main.editor {
 }
 
 /* отступы */
-.margin-grid {
+.margin-grid, .padding-grid {
     display: flex;
     gap: 5px; 
 }

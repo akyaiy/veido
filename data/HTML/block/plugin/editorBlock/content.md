@@ -89,13 +89,7 @@
     <div id="properties-panel-spec" style="display: none;">
         <div class="table-title" style="padding-bottom: 5px;">Свойства элементов</div>
         <label data-target="all">Ширина: <input data-prop="width-value"></label>
-        <label data-target="all">Высота: <input data-prop="height-value"></label>
-        <label data-target="all">Фон: <input type="color" data-prop="background-color"></label>
-        <label data-target="all">Граница: 
-            <select data-prop="border-width"><option value="">-</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option></select>
-            <select data-prop="border-style"><option value="">-</option><option value="solid">сплошная</option><option value="dashed">пунктирная</option><option value="dotted">точечная</option><option value="double">двойная</option></select>
-            <input type="color" data-prop="border-color">
-        </label>
+        <label data-target="all">Высота: <br><input data-prop="height-value"></label>
         <label data-target="all">Отступы:
             <div class="margin-grid">
                 <div class="col left">
@@ -110,11 +104,77 @@
                 </div>
             </div>
         </label>
+        <label data-target="all">Внутренние отступы:
+            <div class="padding-grid">
+                <div class="col left">
+                    <input data-prop="padding-left" placeholder="Слева">
+                </div>
+                <div class="col center">
+                    <input data-prop="padding-top" placeholder="Сверху">
+                    <input data-prop="padding-bottom" placeholder="Снизу">
+                </div>
+                <div class="col right">
+                    <input data-prop="padding-right" placeholder="Справа">
+                </div>
+            </div>
+        </label>
+        <label data-target="all">Фон: <br><input type="color" data-prop="background-color"></label>
+        <label data-target="all">Цвет текста: <input type="color" data-prop="color"></label>
+        <label data-target="all">Размер шрифта: <input data-prop="font-size"></label>
+        <label data-target="all">Выравнивание текста:
+            <select data-prop="text-align">
+                <option value="">-</option>
+                <option value="left">Слева</option>
+                <option value="center">По центру</option>
+                <option value="right">Справа</option>
+            </select>
+        </label>
+        <label data-target="all">Прозрачность: <input data-prop="opacity"></label>
+        <label data-target="all">Граница: 
+            <select data-prop="border-width">
+                <option value="">-</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+                <option value="9">9</option>
+                <option value="10">10</option>
+            </select>
+            <select data-prop="border-style">
+                <option value="">-</option>
+                <option value="solid">сплошной</option>
+                <option value="dashed">пунктирный</option>
+                <option value="dotted">точечный</option>
+                <option value="double">двойной</option>
+            </select>
+            <input type="color" data-prop="border-color">
+        </label>
+        <label data-target="all">Радиус скругления: <input data-prop="border-radius"></label>
         <label data-target="image">Ссылка: <input type="text" data-prop="img-src"></label>
         <label data-target="link">Ссылка: <input type="text" data-prop="link-href"></label>
         <label data-target="input">Подсказка (ввода): <input type="text" data-prop="input-placeholder"></label>
+        <label data-target="input">Тип:
+            <select data-prop="input-type">
+                <option value="text">текст</option>
+                <option value="email">почта</option>
+                <option value="password">пороль</option>
+                <option value="number">число</option>
+            </select>
+        </label>
         <label data-target="table">Строки: <input type="number" min="1" step="1" data-prop="table-rows" value="1"></label>
         <label data-target="table">Столбцы: <input type="number" min="1" step="1" data-prop="table-cols" value="1"></label>
+        <label data-target="form">Метод формы:
+            <select data-prop="form-method">
+                <option value="">-</option>
+                <option value="get">get</option>
+                <option value="post">post</option>
+            </select>
+        </label>
+        <label data-target="form">Действие: <input type="text" data-prop="form-action"></label>
     </div>
     <!--  -->
     <div id="properties-panel">
