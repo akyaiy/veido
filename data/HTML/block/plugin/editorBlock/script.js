@@ -42,7 +42,6 @@ newLoadedBlock();
 
 
 document.addEventListener('keydown', function(e) {
-    console.log('1');
     if (e.key !== 'Enter') return;
 
     const editable = e.target.closest('[contenteditable="true"]');
@@ -168,7 +167,7 @@ document.querySelector('#center-panel').addEventListener('click', (e) => {
 let selectedElBorder = null;
 let isResizing = false;
 let startX, startY, startWidth, startHeight;
-const margin = 5; // зона границы
+const margin = 2; // зона границы
 
 document.addEventListener('mousemove', e => {
     if (!selectedElBorder || isResizing) return;
@@ -328,7 +327,16 @@ const normalPanel = document.getElementById('properties-panel');
 specRoot.style.display = 'none';
 
 // --- конфигурация: какие теги считаем "специальными" ---
-const EDITABLE_TAGS = new Set(['block', 'img', 'a', 'table', 'hr', 'textarea', 'button', 'input', 'select', 'form', 'code', 'video', 'audio', 'iframe', 'details']);
+const EDITABLE_TAGS = new Set([
+    // Базовые и структурные
+    'block', 'div', 'a', 'table', 'hr', 'img', 'code',
+    // Формы
+    'form', 'textarea', 'input', 'select', 'option',
+    // Медиа
+    'figure', 'figcaption', 'video', 'audio', 'iframe',
+    // Интерактив
+    'button', 'details', 'summary', 'progress', 'meter'
+]);
 
 // --- Утилиты -----------------------------------------------------------------
 
@@ -338,26 +346,129 @@ function isValidViewContainer(view) {
     return /^loadedBlock_\d+_view$/.test(view.id);
 }
 
-// Рекурсивный поиск редактируемого элемента:
-// - поднимаемся от node вверх до контейнера view (исключая сам view)
-// - если встречаем элемент с тегом из EDITABLE_TAGS - возвращаем его
-// - иначе возвращаем null
-function findEditableElement(startNode) {
-    if (!startNode) return null;
-    const view = startNode.closest('[id^="loadedBlock_"][id$="_view"]');
-    if (!view || !isValidViewContainer(view)) return null;
-    // не допускаем выбор самого view
-    if (startNode === view) return null;
+// Переменная вне функции для хранения текущего подсвеченного элемента
+let lastHighlightedElement = null;
 
-    let node = startNode.nodeType === Node.TEXT_NODE ? startNode.parentElement : startNode;
-    while (node && node !== view) {
-        if (node.nodeType === 1) {
-            const tag = node.tagName.toLowerCase();
-            if (EDITABLE_TAGS.has(tag)) return node;
+// Список тегов, которые не могут содержать другие элементы или текст
+const ATOMIC_TAGS = new Set(['img', 'hr', 'input', 'progress', 'meter', 'video', 'audio', 'iframe', 'select']);
+
+function findEditableElement(startNode) {
+    // --- НОВАЯ ПРОВЕРКА ДЛЯ ATOMIC TAGS ---
+    // Если мы физически кликнули по картинке, линии или инпуту
+    if (startNode && startNode.nodeType === 1) {
+        const startTag = startNode.tagName.toLowerCase();
+        if (ATOMIC_TAGS.has(startTag) && EDITABLE_TAGS.has(startTag)) {
+            if (!startNode.closest('[contenteditable="true"]')) return updateOutline(null);
+            return updateOutline(startNode);
         }
-        node = node.parentElement;
+    }
+    // --------------------------------------
+
+    // 1. Инициализация таргета
+    let target = startNode;
+    const sel = window.getSelection();
+    
+    if (sel && sel.rangeCount > 0) {
+        target = sel.anchorNode;
+    }
+
+    if (!target) return updateOutline(null);
+
+    // 2. Поиск контейнера view
+    const view = (target.nodeType === 1 ? target : target.parentElement)?.closest?.('[id^="loadedBlock_"][id$="_view"]');
+    
+    if (!view) return updateOutline(null);
+
+    // 3. Определяем начальный элемент для обхода
+    let el = target.nodeType === Node.TEXT_NODE ? target.parentElement : target;
+
+    // Ссылка имеет высший приоритет
+    if (el.tagName.toLowerCase() === 'a' && EDITABLE_TAGS.has('a')) {
+        if (!el.closest('[contenteditable="true"]')) return updateOutline(null);
+        return updateOutline(el);
+    }
+
+    // 4. Поиск вверх по дереву
+    let foundUp = null;
+    let upNode = el;
+    while (upNode && upNode !== view) {
+        if (upNode.nodeType === 1) {
+            const tag = upNode.tagName.toLowerCase();
+            if (EDITABLE_TAGS.has(tag)) {
+                foundUp = upNode;
+                break;
+            }
+        }
+        upNode = upNode.parentElement;
+    }
+
+    // 5. Логика "провала" внутрь блока (если кликнули не по тексту)
+    if (foundUp && foundUp.tagName.toLowerCase() === 'block') {
+        if (target.nodeType !== Node.TEXT_NODE) {
+            const downNode = searchDownRecursive(foundUp);
+            if (downNode) {
+                if (!downNode.closest('[contenteditable="true"]')) return updateOutline(null);
+                return updateOutline(downNode);
+            }
+        }
+    }
+
+    if (foundUp && !foundUp.closest('[contenteditable="true"]')) {
+        return updateOutline(null);
+    }
+
+    return updateOutline(foundUp);
+}
+
+// Рекурсивный поиск (без изменений)
+function searchDownRecursive(element) {
+    if (!element || element.nodeType !== 1) return null;
+    for (let child of element.children) {
+        const tag = child.tagName.toLowerCase();
+        if (EDITABLE_TAGS.has(tag)) return child;
+        const deep = searchDownRecursive(child);
+        if (deep) return deep;
     }
     return null;
+}
+
+/**
+ * Вспомогательная функция для управления outline
+ */
+function updateOutline(element) {
+    // Убираем outline у старого элемента
+    const root = document.getElementById('loadedBlockMain');
+    if (root) {
+        root.querySelectorAll('*').forEach(el => {
+            el.style.outline = '';
+        });
+    }
+    // Если курсор или выделение внутри properties-panel-spec, не делаем ничего
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        const startContainer = range.startContainer;
+        const startElement = startContainer.nodeType === Node.TEXT_NODE ? startContainer.parentElement : startContainer;
+        if (startElement.closest('#properties-panel-spec')) {
+            return;
+        }
+    }
+
+    // Если элемент внутри properties-panel-spec, не делаем ничего
+    if (element && element.closest('#properties-panel-spec')) {
+        return;
+    }
+
+    // Если нашли новый и он внутри contenteditable, и нет текстового выделения
+    if (element && element.closest('[contenteditable="true"]') && window.getSelection().isCollapsed) {
+        element.style.outline = '1px solid #2196F3';
+        lastHighlightedElement = element;
+    } else {
+        lastHighlightedElement = null;
+        clearSelection();
+    }
+
+    return element;
 }
 
 // Преобразовать rgb(...) в hex
@@ -528,13 +639,29 @@ function applyPropToElement(el, prop, rawValue) {
         if (map.type === 'style') {
             const cssName = map.cssName || dashedToCamel(prop);
             if (val === '' || val === null) {
-                el.style[cssName] = '';
+                if (el.tagName.toLowerCase() === 'table' && cssName.startsWith('border')) {
+                    Array.from(el.querySelectorAll('td, th')).forEach(cell => cell.style[cssName] = '');
+                } else {
+                    el.style[cssName] = '';
+                }
             } else if (map.color) {
-                el.style[cssName] = val || '';
+                if (el.tagName.toLowerCase() === 'table' && cssName.startsWith('border')) {
+                    Array.from(el.querySelectorAll('td, th')).forEach(cell => cell.style[cssName] = val || '');
+                } else {
+                    el.style[cssName] = val || '';
+                }
             } else if (map.numeric && isNumericString(String(val))) {
-                el.style[cssName] = String(Number(val)) + 'px';
+                if (el.tagName.toLowerCase() === 'table' && cssName.startsWith('border')) {
+                    Array.from(el.querySelectorAll('td, th')).forEach(cell => cell.style[cssName] = String(Number(val)) + 'px');
+                } else {
+                    el.style[cssName] = String(Number(val)) + 'px';
+                }
             } else {
-                el.style[cssName] = String(val);
+                if (el.tagName.toLowerCase() === 'table' && cssName.startsWith('border')) {
+                    Array.from(el.querySelectorAll('td, th')).forEach(cell => cell.style[cssName] = String(val));
+                } else {
+                    el.style[cssName] = String(val);
+                }
             }
             markDirty();
             return;
@@ -619,20 +746,20 @@ function clearSelection() {
 
 // ввод/изменение в любом контроле применяет свойство немедленно
 specRoot.addEventListener('input', e => {
-    if (!selectedEl) return;
+    if (!lastHighlightedElement) return;
     const ctrl = e.target.closest('[data-prop]');
     if (!ctrl) return;
     const prop = ctrl.getAttribute('data-prop');
     const val = ctrl.type === 'checkbox' ? ctrl.checked : ctrl.value;
-    applyPropToElement(selectedEl, prop, val);
+    applyPropToElement(lastHighlightedElement, prop, val);
 });
 specRoot.addEventListener('change', e => {
-    if (!selectedEl) return;
+    if (!lastHighlightedElement) return;
     const ctrl = e.target.closest('[data-prop]');
     if (!ctrl) return;
     const prop = ctrl.getAttribute('data-prop');
     const val = ctrl.type === 'checkbox' ? ctrl.checked : ctrl.value;
-    applyPropToElement(selectedEl, prop, val);
+    applyPropToElement(lastHighlightedElement, prop, val);
 });
 
 // --- Внешние интерфейсы: выбор элемента и отображение панели ------------------
@@ -670,6 +797,8 @@ document.addEventListener('click', e => {
 document.addEventListener('click', e => {
     const inSpec = !!e.target.closest('#properties-panel-spec');
     if (inSpec) return;
+    const editableContainer = e.target.closest('[contenteditable="true"]');
+    if (!editableContainer) return;
 
     const el = findEditableElement(e.target);
     const selection = window.getSelection();
@@ -703,7 +832,7 @@ document.addEventListener('click', e => {
         return;
     }
 
-    clearSelection();
+    // clearSelection(); // убрано, чтобы selectedEl сохранялся
 });
 
 /* блок свойства */
@@ -999,9 +1128,14 @@ function switchTo(blockId, tabEl) {
     const scriptsDiv = document.createElement('div');
     scriptsDiv.id = blockId + '_scripts';
 
+    const jsDiv = document.createElement('div');
+    jsDiv.id = blockId + '_js';
+    jsDiv.style.display = 'none';
+
     block.appendChild(viewDiv);
     block.appendChild(htmlDiv);
     block.appendChild(scriptsDiv);
+    block.appendChild(jsDiv);
     container.appendChild(block);
 
     const tabEl = document.createElement('div');
@@ -1378,15 +1512,15 @@ function applyJs(blockId) {
     }
 
     const wrapped = `
-(() => {
-    try {
-${content}
-        if (typeof pageInit === "function") pageInit();
-    } catch (e) {
-        console.error("Block script error:", e);
-    }
-})();
-`;
+                (() => {
+                    try {
+                        ${content}
+                        if (typeof pageInit === "function") pageInit();
+                    } catch (e) {
+                        console.error("Block script error:", e);
+                    }
+                })();
+            `;
     scriptEl.textContent = wrapped;
 
     try {
@@ -1423,6 +1557,7 @@ function showView(blockId) {
         if (ch !== document.querySelector('.small-handle')) ch.style.display = ch.id === blockId ? '' : 'none';
     });
     document.getElementById('loadedBlock').style.display = '';
+    document.getElementById('properties-panel').style.display = '';
 }
 
 /***********************************************************************
@@ -1447,6 +1582,7 @@ function showHtml(blockId) {
 
     const htmlContainer = document.getElementById(blockId + '_html');
     centerPreHtml.textContent = htmlContainer.innerHTML;
+    document.getElementById('properties-panel').style.display = '';
 }
 
 /***********************************************************************
@@ -1505,6 +1641,7 @@ function showJs(blockId) {
         if (ch !== document.querySelector('.small-handle')) ch.style.display = 'none';
     });
     document.getElementById('loadedBlock').style.display = 'none';
+    document.getElementById('properties-panel').style.display = 'none';
 }
 
 /***********************************************************************
@@ -2650,11 +2787,13 @@ function updateJsPanel(el) {
     }
 
     // Всегда обновляем слушатели blur/input, так как пользователь может добавить новое событие кнопкой
-    jsTable.removeEventListener('blur', onJsTableBlur, true);
-    jsTable.addEventListener('blur', e => onJsTableBlur(e, eventToSelector, blockId, el), true);
+    if (jsTable.currentBlurHandler) jsTable.removeEventListener('blur', jsTable.currentBlurHandler, true);
+    jsTable.currentBlurHandler = e => onJsTableBlur(e, eventToSelector, blockId, el);
+    jsTable.addEventListener('blur', jsTable.currentBlurHandler, true);
     
-    jsTable.removeEventListener('input', onJsTableInput);
-    jsTable.addEventListener('input', e => onJsTableInput(e, eventToSelector, blockId, el));
+    if (jsTable.currentInputHandler) jsTable.removeEventListener('input', jsTable.currentInputHandler);
+    jsTable.currentInputHandler = e => onJsTableInput(e, eventToSelector, blockId, el);
+    jsTable.addEventListener('input', jsTable.currentInputHandler);
 }
 
 /***********************************************************************
@@ -2676,6 +2815,7 @@ function onJsTableInput(e, eventToSelectorMap, blockId, el) {
     if (td !== tdName) return;
     const ev = tdEvent.textContent.trim();
     const handler = tdName.textContent.trim();
+    if (!handler || !/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(handler)) return;
     let selector = eventToSelectorMap.get(ev);
     if (!selector) selector = buildSelector(el);
     updateScriptAssignment(blockId, selector, ev, handler, el);
@@ -2700,9 +2840,18 @@ function onJsTableBlur(e, eventToSelectorMap, blockId, el) {
     if (td !== tdName) return;
     const ev = tdEvent.textContent.trim();
     const handler = tdName.textContent.trim();
+    if (!handler || !/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(handler)) return;
     let selector = eventToSelectorMap.get(ev);
     if (!selector) selector = buildSelector(el);
     updateScriptAssignment(blockId, selector, ev, handler, el);
+}
+
+function findFreeElNumber() {
+    const els = document.querySelectorAll('[id^="el_"]');
+    const nums = Array.from(els).map(el => parseInt(el.id.slice(3))).filter(n => !isNaN(n));
+    let max = 0;
+    nums.forEach(n => { if (n > max) max = n; });
+    return max + 1;
 }
 
 /***********************************************************************
@@ -2720,25 +2869,36 @@ function updateScriptAssignment(blockId, selector, eventFull, handlerName, el) {
     let s = scriptEl.textContent;
     const ev = eventFull.replace(/^on/, '');
 
-    const lhsCandidates = buildLhsCandidates(selector, s);
-
-    lhsCandidates.forEach(lhs => {
-        const re = new RegExp('(^|\\n)\\s*' + escapeRegExp(lhs) + '\\.on' + ev + '\\s*=\\s*[^;\\n]*;?', 'g');
-        s = s.replace(re, '');
-    });
+    // Присвоить id элементу, если нет
+    if (!el.id) {
+        el.id = 'el_' + findFreeElNumber();
+    }
+    selector = '#' + el.id;
 
     if (handlerName) {
-        const preferredLhs = lhsCandidates[0] || (selector.startsWith('#') ? "document.getElementById('" + selector.slice(1) + "')" : "document.querySelector('" + selector.replace(/'/g, "\\'") + "')");
-        const line = preferredLhs + '.on' + ev + ' = ' + handlerName + ';';
-        const insertBeforeIdx = findInsertIndexBeforeClosingIIFE(s);
-        if (insertBeforeIdx !== -1) s = s.slice(0, insertBeforeIdx) + '\n' + line + '\n' + s.slice(insertBeforeIdx);
-        else s = s.trimEnd() + '\n' + line + '\n';
+        const line = 'document.getElementById(\'' + el.id + '\').on' + ev + ' = ' + handlerName + ';';
+        // Найти и заменить существующее присвоение для данного элемента и события
+        const re = new RegExp('(document\\.getElementById\\(\'' + el.id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\'\\)\\.on' + ev.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*=\\s*)([^;\\n]*);?', 'g');
+        let replaced = false;
+        s = s.replace(re, (match, p1) => {
+            replaced = true;
+            return p1 + handlerName + ';';
+        });
+        if (!replaced) {
+            // Добавить новое в конец
+            const insertIdx = findInsertIndexBeforeClosingIIFE(s);
+            if (insertIdx !== -1) s = s.slice(0, insertIdx) + line + s.slice(insertIdx);
+            else s = s.trimEnd() + line + '\n';
+        }
     }
 
     scriptEl.textContent = s;
     const blockPre = document.getElementById('center-tab-pre-js');
     const activeBlock = getActiveBlockId();
-    if (blockPre && (getBlockIdFromEl(el) || activeBlock) === blockId) blockPre.textContent = scriptEl.textContent;
+    if (blockPre && (getBlockIdFromEl(el) || activeBlock) === blockId) {
+        let cleanedCode = s.replace(/^\(function\(\) \{\s*try \{\s*/, '').replace(/\s*\} catch \(e\) \{\s*console\.error\("Block script error:", e\);\s*\}\s*\}\)\(\);$/, '');
+        blockPre.textContent = cleanedCode;
+    }
 }
 
 /***********************************************************************
@@ -2763,14 +2923,20 @@ function buildLhsCandidates(selector, scriptText) {
 /***********************************************************************
  * findInsertIndexBeforeClosingIIFE — находит место для вставки новой строки перед закрывающейся самовызывающейся функцией:
  * - Получает текст скрипта блока.
- * - Ищет последнюю строку с `})();`.
+ * - Ищет ' } catch (e) {' и вставляет перед ним.
+ * - Если не найдено, ищет `})();`.
  * - Если не найдено, ищет последний закрывающийся фигурный скобку `}`.
  * - Возвращает индекс для вставки новой строки кода.
  **********************************************************************/
 function findInsertIndexBeforeClosingIIFE(text) {
+    const catchPattern = '} catch (e) {';
+    const catchIdx = text.lastIndexOf(catchPattern);
+    if (catchIdx !== -1) return catchIdx;
+    
     const iife = '})();';
     const idx = text.lastIndexOf(iife);
     if (idx !== -1) return idx;
+    
     const lastClose = text.lastIndexOf('}');
     if (lastClose !== -1) return lastClose + 1;
     return -1;

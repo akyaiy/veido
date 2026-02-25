@@ -17,7 +17,7 @@
                 <div class="add-el" data-el="<block style='border:1px solid #000;'>[ST]</block>">блок</div>
                 <div class="add-el" data-el="<img src='[LINK]'>">изображение</div>
                 <div class="add-el" data-el="<a href='[LINK]'>[ST]</a>">ссылка</div>
-                <div class="add-el" data-el="<table style='border:1px solid #000;'><tr><td style='border:1px solid #000;'>[ST]</td><td style='border:1px solid #000;'><br></td></tr><tr><td style='border:1px solid #000;'><br></td><td style='border:1px solid #000;'><br></td></tr></table>">таблица</div>
+                <div class="add-el" data-el="<table><tr><td>[ST]</td><td><br></td></tr><tr><td><br></td><td><br></td></tr></table>">таблица</div>
                 <div class="add-el" data-el="<hr style='height:2px;border:0;background:#000;'>">линия</div>
             </div>
         </div>
@@ -88,6 +88,27 @@
     <!--  -->
     <div id="properties-panel-spec" style="display: none;">
         <div class="table-title" style="padding-bottom: 5px;">Свойства элементов</div>
+        <label data-target="image">Ссылка: <input type="text" data-prop="img-src"></label>
+        <label data-target="link">Ссылка: <input type="text" data-prop="link-href"></label>
+        <label data-target="input">Подсказка (ввода): <input type="text" data-prop="input-placeholder"></label>
+        <label data-target="input">Тип:
+            <select data-prop="input-type">
+                <option value="text">текст</option>
+                <option value="email">почта</option>
+                <option value="password">пороль</option>
+                <option value="number">число</option>
+            </select>
+        </label>
+        <label data-target="table">Строки: <input type="number" min="1" step="1" data-prop="table-rows" value="1"></label>
+        <label data-target="table">Столбцы: <input type="number" min="1" step="1" data-prop="table-cols" value="1"></label>
+        <label data-target="form">Метод формы:
+            <select data-prop="form-method">
+                <option value="">-</option>
+                <option value="get">get</option>
+                <option value="post">post</option>
+            </select>
+        </label>
+        <label data-target="form">Действие: <input type="text" data-prop="form-action"></label>
         <label data-target="all">Ширина: <input data-prop="width-value"></label>
         <label data-target="all">Высота: <br><input data-prop="height-value"></label>
         <label data-target="all">Отступы:
@@ -154,27 +175,6 @@
             <input type="color" data-prop="border-color">
         </label>
         <label data-target="all">Радиус скругления: <input data-prop="border-radius"></label>
-        <label data-target="image">Ссылка: <input type="text" data-prop="img-src"></label>
-        <label data-target="link">Ссылка: <input type="text" data-prop="link-href"></label>
-        <label data-target="input">Подсказка (ввода): <input type="text" data-prop="input-placeholder"></label>
-        <label data-target="input">Тип:
-            <select data-prop="input-type">
-                <option value="text">текст</option>
-                <option value="email">почта</option>
-                <option value="password">пороль</option>
-                <option value="number">число</option>
-            </select>
-        </label>
-        <label data-target="table">Строки: <input type="number" min="1" step="1" data-prop="table-rows" value="1"></label>
-        <label data-target="table">Столбцы: <input type="number" min="1" step="1" data-prop="table-cols" value="1"></label>
-        <label data-target="form">Метод формы:
-            <select data-prop="form-method">
-                <option value="">-</option>
-                <option value="get">get</option>
-                <option value="post">post</option>
-            </select>
-        </label>
-        <label data-target="form">Действие: <input type="text" data-prop="form-action"></label>
     </div>
     <!--  -->
     <div id="properties-panel">
