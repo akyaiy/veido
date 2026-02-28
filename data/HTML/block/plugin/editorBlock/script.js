@@ -1157,6 +1157,8 @@ function switchTo(blockId, tabEl) {
     switchTo(blockId, tabEl);
 
     await loadBlock(path, viewDiv.id, ["js", "html"]);
+    showJs(blockId);
+    showView(blockId);
 }
 window.newLoadedBlock = newLoadedBlock;
 
@@ -1620,7 +1622,44 @@ centerPreHtml.addEventListener('paste', e => {
  * - Извлекает JS-код блока и очищает его от служебной обёртки.
  * - Показывает JS-редактор и скрывает визуальное представление блока.
  **********************************************************************/
-function showJs(blockId) {
+function ensureHandlerFunctions(code) {
+    const handlerNames = new Set();
+    let m;
+
+    // find .onX = handler;
+    const onAssignRe = /\.on[a-zA-Z]+\s*=\s*([A-Za-z_$][A-Za-z0-9_$]*)/g;
+    while ((m = onAssignRe.exec(code)) !== null) {
+        handlerNames.add(m[1]);
+    }
+
+    // find addEventListener(..., handler)
+    const addListenerRe = /\.addEventListener\(\s*['"][^'"]+['"]\s*,\s*([A-Za-z_$][A-Za-z0-9_$]*)/g;
+    while ((m = addListenerRe.exec(code)) !== null) {
+        handlerNames.add(m[1]);
+    }
+
+    // gather already defined functions and variables assigned to functions/arrow functions
+    const defined = new Set();
+    const funcDefRe = /function\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*\(/g;
+    while ((m = funcDefRe.exec(code)) !== null) {
+        defined.add(m[1]);
+    }
+    // also catch `var foo = function` or `let foo = () =>` etc.
+    const varFuncRe = /(?:var|let|const)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*(?:function\b|\()/g;
+    while ((m = varFuncRe.exec(code)) !== null) {
+        defined.add(m[1]);
+    }
+
+    handlerNames.forEach(name => {
+        if (!defined.has(name)) {
+            code += `\nfunction ${name}() {\n    // автоматически сгенерированный функция\n}\n`;
+        }
+    });
+
+    return code;
+}
+
+function showJs(blockId, highlightSearch=null) {
     centerContent.style.display = '';
     centerPreHtml.style.display = 'none';
     centerPreJs.style.display = '';
@@ -1634,7 +1673,15 @@ function showJs(blockId) {
         .replace(/\s*if\s*\(\s*typeof pageInit[\s\S]*?\)\s*pageInit\(\);\s*/s, '')
         .replace(/\s*}\s*catch[\s\S]*?}\s*\}\)\s*\(\s*\)\s*;?\s*$/s, '');
 
+    code = ensureHandlerFunctions(code);
+
     centerPreJs.textContent = code;
+
+    if (highlightSearch) {
+        setTimeout(() => {
+            highlightInJsEditor(highlightSearch, code);
+        }, 0);
+    }
 
     const container = document.getElementById('loadedBlockMain');
     if (container) Array.from(container.children).forEach(ch => {
@@ -2089,7 +2136,6 @@ document.addEventListener('click', e => {
     const el = clicked.closest('[id^="loadedBlock_"][id$="_view"], [id^="loadedBlock_"][id$="_view"] *') || view;
 
     updateCssPanel(el);
-    updatePropertiesPanel(el);
     updateTagLabel(el);
     updateJsPanel(el);
     updatePropertiesPanel(el);
@@ -2119,13 +2165,12 @@ function updateTagLabel(el) {
  **********************************************************************/
 function updateCssPanel(el) {
     currentSelectedEl = el;
-    const idInput = document.getElementById('attr-id');
-    const classInput = document.getElementById('attr-class');
     const attrsTable = document.getElementById('attributes-table');
-    if (idInput) idInput.value = el.id || '';
-    if (classInput) classInput.value = el.className || '';
     if (!attrsTable) return;
     attrsTable.innerHTML = '';
+    // include id and class as ordinary attributes first
+    if (el.id) createAttrRow('id', el.id);
+    if (el.className) createAttrRow('class', el.className);
     const names = el.getAttributeNames().filter(n => n !== 'id' && n !== 'class');
     names.forEach(name => createAttrRow(name, el.getAttribute(name) || ''));
     ensureEmptyAttrRow();
@@ -2136,21 +2181,21 @@ function updateCssPanel(el) {
  * - Принимает событие ввода.
  * - Обновляет ID выбранного элемента или удаляет его, если пусто.
  **********************************************************************/
-document.getElementById('attr-id')?.addEventListener('input', e => {
+/* document.getElementById('attr-id')?.addEventListener('input', e => {
     if (!currentSelectedEl) return;
     const v = e.target.value.trim();
     v ? currentSelectedEl.id = v : currentSelectedEl.removeAttribute('id');
 });
-
+ */
 /***********************************************************************
  * attr-class input — Синхронизирует ввод класса с текущим элементом:
  * - Принимает событие ввода.
  * - Обновляет class выбранного элемента.
  **********************************************************************/
-document.getElementById('attr-class')?.addEventListener('input', e => {
+/* document.getElementById('attr-class')?.addEventListener('input', e => {
     if (!currentSelectedEl) return;
     currentSelectedEl.className = e.target.value;
-});
+}); */
 
 
 /***********************************************************************
@@ -2231,7 +2276,9 @@ function ensureEmptyAttrRow() {
  * - Добавляет кнопку удаления при появлении значения.
  * - Гарантирует наличие пустой строки в конце таблицы.
  **********************************************************************/
-document.getElementById('attributes-table')?.addEventListener('input', e => {
+const attrsTableElement = document.getElementById('attributes-table');
+
+attrsTableElement?.addEventListener('input', e => {
     const td = e.target.closest('td');
     if (!td) return;
 
@@ -2257,6 +2304,11 @@ document.getElementById('attributes-table')?.addEventListener('input', e => {
         }
     }
 
+    // update class autocomplete if we are editing value of class attribute
+    if (td === valTd && nameNow === 'class') {
+        updateClassAutocomplete(td);
+    }
+
     if ((nameNow || valNow) && tr.children.length === 2) {
         const td3 = document.createElement('td');
         td3.textContent = '×';
@@ -2267,6 +2319,17 @@ document.getElementById('attributes-table')?.addEventListener('input', e => {
 
     if (tr === tr.parentNode.lastElementChild && nameNow) {
         ensureEmptyAttrRow();
+    }
+});
+
+// show autocomplete when focusing value cell of class attribute
+attrsTableElement?.addEventListener('focusin', e => {
+    const td = e.target.closest('td');
+    if (!td) return;
+    const tr = td.parentNode;
+    const nameTd = tr.children[0];
+    if (td === tr.children[1] && nameTd && nameTd.textContent.trim() === 'class') {
+        prepareClassAutocomplete(td);
     }
 });
 
@@ -2687,25 +2750,254 @@ function createEventRow(eventName, handlerName = '', rawStr = null, scriptTxt = 
     tdEvent.textContent = eventName;
     tdEvent.contentEditable = 'false';
 
-    // Если событие уже существует в коде (есть rawStr), делаем его кликабельным
-    if (rawStr) {
-        tdEvent.style.cursor = 'pointer';
-        tdEvent.onclick = () => {
-            const jsTab = document.querySelector('#center-tabs .center-tab[data-tab="js"]');
-            if (jsTab) jsTab.click();
-            if (handlerName) highlightInJsEditor('function ' + handlerName + '(', scriptTxt);
-            else highlightInJsEditor(rawStr, scriptTxt);
-        };
-    }
+    // клик по событию — перейти в JS с подсветкой обработчика или строки
+    tdEvent.style.cursor = 'pointer';
+    tdEvent.onclick = () => {
+        const jsTab = document.querySelector('#center-tabs .center-tab[data-tab="js"]');
+        if (jsTab) jsTab.click();
+        const blockId = getActiveBlockId();
+        if (!blockId) return;
+        // выбираем, что подсвечивать
+        let search;
+        const name = tdName.textContent.trim();
+        if (name) search = 'function ' + name + '(';
+        else if (rawStr) search = rawStr;
+        if (search) showJs(blockId, search);
+    };
 
     tdName.contentEditable = 'true';
     tdName.dataset.placeholder = 'name';
     tdName.textContent = handlerName;
 
+    // гарантируем, что в ячейку попадёт только текст без HTML
+    tdName.addEventListener('input', () => {
+        const txt = tdName.textContent;
+        if (tdName.innerHTML !== txt) {
+            tdName.textContent = txt;
+        }
+        updateJsNameAutocomplete(tdName);
+    });
+    tdName.addEventListener('focus', () => {
+        prepareJsNameAutocomplete(tdName);
+    });
+
     tr.appendChild(tdEvent);
     tr.appendChild(tdName);
     return tr;
 }
+
+// Autocomplete support for handler names in JS panel -------------------
+const jsAutoBox = document.createElement('div');
+jsAutoBox.id = 'js-autocomplete';
+jsAutoBox.style.position = 'absolute';
+jsAutoBox.style.background = '#fff';
+jsAutoBox.style.border = '1px solid #ccc';
+jsAutoBox.style.zIndex = 10000;
+jsAutoBox.style.display = 'none';
+jsAutoBox.style.maxHeight = '200px';
+jsAutoBox.style.overflowY = 'auto';
+jsAutoBox.style.overflowX = 'hidden';
+jsAutoBox.style.maxWidth = '300px';
+jsAutoBox.style.wordBreak = 'break-word';
+jsAutoBox.style.fontSize = '12px'; // smaller text to fit viewport
+// ensure box doesn't affect layout (absolute already) and hide any overflow
+
+document.body.appendChild(jsAutoBox);
+
+// Autocomplete support for class names when editing class attribute --------
+const classAutoBox = document.createElement('div');
+classAutoBox.id = 'class-autocomplete';
+classAutoBox.style.position = 'absolute';
+classAutoBox.style.background = '#fff';
+classAutoBox.style.border = '1px solid #ccc';
+classAutoBox.style.zIndex = 10000;
+classAutoBox.style.display = 'none';
+classAutoBox.style.maxHeight = '200px';
+classAutoBox.style.overflowY = 'auto';
+classAutoBox.style.overflowX = 'hidden';
+classAutoBox.style.maxWidth = '300px';
+classAutoBox.style.wordBreak = 'break-word';
+classAutoBox.style.fontSize = '12px';
+
+document.body.appendChild(classAutoBox);
+
+function parseFunctionNames(code) {
+    const names = new Set();
+    let m;
+    const funcRe = /function\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*\(/g;
+    while ((m = funcRe.exec(code)) !== null) names.add(m[1]);
+    const varRe = /(?:var|let|const)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*(?:function\b|\()/g;
+    while ((m = varRe.exec(code)) !== null) names.add(m[1]);
+    return Array.from(names).sort();
+}
+
+// --- class name autocomplete helpers --------------------------------------
+function gatherClasses(blockId) {
+    const view = document.getElementById(blockId + '_view');
+    if (!view) return [];
+    const set = new Set();
+    view.querySelectorAll('[class]').forEach(el => {
+        el.classList.forEach(c => set.add(c));
+    });
+    return Array.from(set).sort();
+}
+
+let currentClassAutoTarget = null;
+function prepareClassAutocomplete(td) {
+    currentClassAutoTarget = td;
+    const blockId = getActiveBlockId();
+    const list = blockId ? gatherClasses(blockId) : [];
+    td.dataset.classNames = JSON.stringify(list);
+    showClassAutocomplete(td, '');
+}
+
+function updateClassAutocomplete(td) {
+    if (currentClassAutoTarget !== td) return;
+    const prefix = td.textContent.trim();
+    showClassAutocomplete(td, prefix);
+}
+
+function showClassAutocomplete(td, prefix) {
+    const list = JSON.parse(td.dataset.classNames || '[]');
+    const filtered = prefix ? list.filter(n => n.startsWith(prefix)) : list;
+    if (!filtered.length) {
+        hideClassAutocomplete();
+        return;
+    }
+    classAutoBox.innerHTML = '';
+    filtered.forEach(name => {
+        const div = document.createElement('div');
+        div.textContent = name;
+        div.style.padding = '2px 4px';
+        div.style.cursor = 'pointer';
+        div.addEventListener('mousedown', e => {
+            e.preventDefault();
+            if (currentClassAutoTarget) {
+                currentClassAutoTarget.textContent = name;
+                currentClassAutoTarget.focus();
+            }
+            hideClassAutocomplete();
+        });
+        classAutoBox.appendChild(div);
+    });
+    positionClassAutocomplete(td);
+    classAutoBox.style.display = '';
+}
+
+function positionClassAutocomplete(td) {
+    const rect = td.getBoundingClientRect();
+    let left = rect.left + window.scrollX;
+    const top = rect.bottom + window.scrollY;
+    const boxWidth = classAutoBox.offsetWidth || 0;
+    const avail = window.innerWidth - 10;
+    if (left + boxWidth > avail) {
+        left = Math.max(10, avail - boxWidth);
+    }
+    classAutoBox.style.top = top + 'px';
+    classAutoBox.style.left = left + 'px';
+    if (top + classAutoBox.offsetHeight > window.innerHeight + window.scrollY) {
+        classAutoBox.style.top = (rect.top + window.scrollY - classAutoBox.offsetHeight - 2) + 'px';
+    }
+}
+
+function hideClassAutocomplete() {
+    classAutoBox.style.display = 'none';
+    currentClassAutoTarget = null;
+}
+
+let currentAutocompleteTarget = null;
+
+function prepareJsNameAutocomplete(td) {
+    currentAutocompleteTarget = td;
+    const code = centerPreJs ? centerPreJs.textContent || '' : '';
+    td.dataset.jsNames = JSON.stringify(parseFunctionNames(code));
+    showJsAutocomplete(td, '');
+}
+
+function updateJsNameAutocomplete(td) {
+    if (currentAutocompleteTarget !== td) return;
+    const prefix = td.textContent.trim();
+    showJsAutocomplete(td, prefix);
+}
+
+function showJsAutocomplete(td, prefix) {
+    const list = JSON.parse(td.dataset.jsNames || '[]');
+    const filtered = prefix ? list.filter(n => n.startsWith(prefix)) : list;
+    if (!filtered.length) {
+        hideJsAutocomplete();
+        return;
+    }
+    jsAutoBox.innerHTML = '';
+    filtered.forEach(name => {
+        const div = document.createElement('div');
+        div.textContent = name;
+        div.style.padding = '2px 4px';
+        div.style.cursor = 'pointer';
+        div.addEventListener('mousedown', e => {
+            e.preventDefault();
+            if (currentAutocompleteTarget) {
+                currentAutocompleteTarget.textContent = name;
+                currentAutocompleteTarget.focus();
+            }
+            hideJsAutocomplete();
+        });
+        jsAutoBox.appendChild(div);
+    });
+    positionJsAutocomplete(td);
+    jsAutoBox.style.display = '';
+}
+
+function positionJsAutocomplete(td) {
+    const rect = td.getBoundingClientRect();
+    let left = rect.left + window.scrollX;
+    const top = rect.bottom + window.scrollY;
+    const boxWidth = jsAutoBox.offsetWidth || 0;
+    const avail = window.innerWidth - 10; // 10px margin
+    if (left + boxWidth > avail) {
+        left = Math.max(10, avail - boxWidth);
+    }
+    jsAutoBox.style.top = top + 'px';
+    jsAutoBox.style.left = left + 'px';
+    if (top + jsAutoBox.offsetHeight > window.innerHeight + window.scrollY) {
+        jsAutoBox.style.top = (rect.top + window.scrollY - jsAutoBox.offsetHeight - 2) + 'px';
+    }
+}
+
+// reposition when page moves
+window.addEventListener('scroll', () => {
+    if (currentAutocompleteTarget && jsAutoBox.style.display !== 'none') {
+        positionJsAutocomplete(currentAutocompleteTarget);
+    }
+});
+window.addEventListener('resize', () => {
+    if (currentAutocompleteTarget && jsAutoBox.style.display !== 'none') {
+        positionJsAutocomplete(currentAutocompleteTarget);
+    }
+    if (currentClassAutoTarget && classAutoBox.style.display !== 'none') {
+        positionClassAutocomplete(currentClassAutoTarget);
+    }
+});
+
+// hide when clicking outside
+document.addEventListener('mousedown', e => {
+    if (currentAutocompleteTarget && !jsAutoBox.contains(e.target) && e.target !== currentAutocompleteTarget) {
+        hideJsAutocomplete();
+    }
+    if (currentClassAutoTarget && !classAutoBox.contains(e.target) && e.target !== currentClassAutoTarget) {
+        hideClassAutocomplete();
+    }
+});
+
+function hideJsAutocomplete() {
+    jsAutoBox.style.display = 'none';
+    currentAutocompleteTarget = null;
+}
+
+function hideClassAutocomplete() {
+    classAutoBox.style.display = 'none';
+    currentClassAutoTarget = null;
+}
+
 
 // Логика кнопки "Добавить"
 addBtn.addEventListener('click', () => {

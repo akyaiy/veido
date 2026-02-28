@@ -255,10 +255,6 @@
     <!--  -->
     <div id="css-panel" style="display: none;">
         <div id="tag-label">TAG</div>
-        <div id="id-class-row">
-            <input class="code" id="attr-id" placeholder="id">
-            <input class="code" id="attr-class" placeholder="class">
-        </div>
         <div class="table-wrap">
             <div class="table-title">Атрибуты</div>
             <table id="attributes-table">
