@@ -139,8 +139,8 @@
                 </div>
             </div>
         </label>
-        <label data-target="all">Фон: <br><input type="color" data-prop="background-color"></label>
-        <label data-target="all">Цвет текста: <input type="color" data-prop="color"></label>
+        <label data-target="all">Фон: <input type="color" data-prop="background-color"><br></label>
+        <label data-target="all">Цвет текста: <input type="color" data-prop="color"><br></label>
         <label data-target="all">Размер шрифта: <input data-prop="font-size"></label>
         <label data-target="all">Выравнивание текста:
             <select data-prop="text-align">
@@ -152,6 +152,7 @@
         </label>
         <label data-target="all">Прозрачность: <input data-prop="opacity"></label>
         <label data-target="all">Граница: 
+            <input type="color" data-prop="border-color">
             <select data-prop="border-width">
                 <option value="">-</option>
                 <option value="1">1</option>
@@ -172,7 +173,6 @@
                 <option value="dotted">точечный</option>
                 <option value="double">двойной</option>
             </select>
-            <input type="color" data-prop="border-color">
         </label>
         <label data-target="all">Радиус скругления: <input data-prop="border-radius"></label>
     </div>
@@ -293,7 +293,8 @@
     </div>
     <div class="picker-row inputs">
         <input id="cp-hex" type="text" placeholder="#000000" maxlength="7" />
-        <button id="cp-close" type="button">&times;</button> </div>
+        <button id="cp-close" type="button">&times;</button> 
+    </div>
 </div>
 
 
@@ -304,6 +305,18 @@
     <div act="delete" class="elementProp">Удалить</div>
     <div act="deleteLine" class="elementTableProp">Удалить строку</div>
     <div act="deleteColumn" class="elementTableProp">Удалить столбец</div>
+</div>
+
+
+<div id="marker-modal-backdrop" style="display: none;">
+    <div id="marker-modal">
+        <div id="marker-name">Сообщение:</div>
+        <input id="marker-modal-input" type="text">
+        <div id="marker-modal-buttons">
+            <button id="marker-modal-cancel">Отмена</button>
+            <button id="marker-modal-ok">OK</button>
+        </div>
+    </div>
 </div>
 
 

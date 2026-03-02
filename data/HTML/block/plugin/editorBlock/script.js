@@ -455,7 +455,7 @@ function updateOutline(element) {
     }
 
     // Если элемент внутри properties-panel-spec, не делаем ничего
-    if (element && element.closest('#properties-panel-spec')) {
+    if (document.activeElement && document.activeElement.closest('#properties-panel-spec')) {
         return;
     }
 
@@ -745,10 +745,12 @@ function clearSelection() {
 // --- Слушатели для панели (делегированно) ------------------------------------
 
 // ввод/изменение в любом контроле применяет свойство немедленно
+// но для color-контролов мы управляем через собственный picker
 specRoot.addEventListener('input', e => {
     if (!lastHighlightedElement) return;
     const ctrl = e.target.closest('[data-prop]');
     if (!ctrl) return;
+    if (ctrl.type === 'color') return; // игнорируем, цвет устанавливается через picker
     const prop = ctrl.getAttribute('data-prop');
     const val = ctrl.type === 'checkbox' ? ctrl.checked : ctrl.value;
     applyPropToElement(lastHighlightedElement, prop, val);
@@ -757,6 +759,7 @@ specRoot.addEventListener('change', e => {
     if (!lastHighlightedElement) return;
     const ctrl = e.target.closest('[data-prop]');
     if (!ctrl) return;
+    if (ctrl.type === 'color') return; // игнорируем color
     const prop = ctrl.getAttribute('data-prop');
     const val = ctrl.type === 'checkbox' ? ctrl.checked : ctrl.value;
     applyPropToElement(lastHighlightedElement, prop, val);
@@ -1757,15 +1760,17 @@ btnApplyJs.onclick = () => {
 /***********************************************************************
  * Универсальный обработчик вставки элементов из панели
  **********************************************************************/
-document.getElementById('elements-ul').addEventListener('click', e => {
+document.getElementById('elements-ul').addEventListener('click', async e => {
     const el = e.target.closest('.add-el');
     if (!el) return;
 
     const dataEl = el.dataset.el;
     if (!dataEl) return;
 
-    handleLoadedBlockView(dataEl, el.textContent || "текст");
-    handlePreHtml(dataEl, el.textContent || "текст");
+    // wait for both insertion routines to complete so marker prompts finish before
+    // any subsequent sync operations are triggered
+    await handleLoadedBlockView(dataEl, el.textContent || "текст");
+    await handlePreHtml(dataEl, el.textContent || "текст");
     
     const blockId = getActiveBlockId();
     if (!blockId) return;
@@ -1838,16 +1843,11 @@ function escapeHtml(str) {
 /***********************************************************************
  * Helpers: маркеры, замена в узле, поиск места [ST]
  **********************************************************************/
-function askForMarkerValue(marker) {
-    // Простая политика: для LINK/URL/IMAGE/PATH запрашиваем URL, для COUNT - число, для прочих - строка
+async function askForMarkerValue(marker) {
     const lower = marker.toLowerCase();
-    if (lower === 'link' || lower === 'url' || lower === 'image' || lower === 'src') {
-        return prompt('Введите ссылку (URL):', '');
-    }
-    if (lower === 'count' || lower === 'number') {
-        return prompt('Введите число:', '0');
-    }
-    return prompt(`Введите значение для ${marker}:`, '');
+    if (lower === 'link' || lower === 'url' || lower === 'image' || lower === 'src') return await showMarkerModal('Введите ссылку (URL)');
+    if (lower === 'count' || lower === 'number') return await showMarkerModal('Введите число');
+    return await showMarkerModal(`Введите значение для ${marker}`);
 }
 
 function replaceMarkersInAttributes(el, markerValues) {
@@ -1926,7 +1926,7 @@ function performUnwrap(node, templateInfo) {
 /***********************************************************************
  * handleLoadedBlockView — Универсальная логика Toggle (Unwrap) и вставки
  **********************************************************************/
-function handleLoadedBlockView(dataEl, placeholderText="текст") {
+async function handleLoadedBlockView(dataEl, placeholderText="текст") {
     const sel = document.getSelection();
     if (!sel || !sel.rangeCount) return;
 
@@ -1991,11 +1991,11 @@ function handleLoadedBlockView(dataEl, placeholderText="текст") {
     const newEl = cloneNodeFromTemplate(templateNode, tag);
     // Собираем значения маркеров: спросим у пользователя только те маркеры, которые есть
     const markerValues = {};
-    parsed.markers.forEach(m => {
-        if (m === 'ST') return; // ST обрабатываем отдельно
-        const val = askForMarkerValue(m);
+    for (const m of parsed.markers) {
+        if (m === 'ST') continue; // ST обрабатываем отдельно
+        const val = await askForMarkerValue(m);
         if (val !== null) markerValues[m] = val;
-    });
+    }
 
     // Заменим маркеры в атрибутах
     replaceMarkersInAttributes(newEl, markerValues);
@@ -2053,7 +2053,7 @@ function handleLoadedBlockView(dataEl, placeholderText="текст") {
  * handlePreHtml — Вставка HTML кода в текстовый редактор (pre)
  * Использует те же шаблоны, но вставляет текстовый snippet
  **********************************************************************/
-function handlePreHtml(dataEl, placeholderText = "текст") {
+async function handlePreHtml(dataEl, placeholderText = "текст") {
     const pre = document.getElementById('center-tab-pre-html');
     if (!pre || pre.contentEditable !== "true") return;
 
@@ -2071,11 +2071,11 @@ function handlePreHtml(dataEl, placeholderText = "текст") {
 
     // Спросим значения для маркеров (кроме ST)
     const markerValues = {};
-    parsed.markers.forEach(m => {
-        if (m === 'ST') return;
-        const v = askForMarkerValue(m);
+    for (const m of parsed.markers) {
+        if (m === 'ST') continue;
+        const v = await askForMarkerValue(m);
         if (v !== null) markerValues[m] = escapeHtml(v);
-    });
+    }
 
     // Подготовим snippet: заменим все маркеры (включая [ST] на содержимое выделения или placeholder)
     let snippet = templateHtml.replace(/\[([A-Z0-9:_-]+)\]/g, (m, name) => {
@@ -4344,12 +4344,34 @@ function applyToSelection(hexValue) {
     let cssProp = activeContext.prop;
     if(cssProp === 'text-color') cssProp = 'color';
     if(cssProp === 'bg-color') cssProp = 'background-color';
-    
-    if (typeof applyInlineStyleToSelection === 'function') {
-        applyInlineStyleToSelection(cssProp, hexValue);
+
+    // если activeContext.ctrl привязан к полю из панели (data-prop),
+    // применяем значение не к выделению, а к элементу через applyPropToElement
+    if (activeContext.ctrl && activeContext.ctrl.getAttribute('data-prop')) {
+        const prop = activeContext.ctrl.getAttribute('data-prop');
+        const targetEl = lastHighlightedElement || activeContext.el;
+        if (targetEl) {
+            applyPropToElement(targetEl, prop, hexValue);
+        }
+    } else {
+        // обычное поведение для панели форматирования (toolbar)
+        if (typeof applyInlineStyleToSelection === 'function') {
+            applyInlineStyleToSelection(cssProp, hexValue);
+        }
+        if (typeof updateSimpleFormats === 'function') {
+            updateSimpleFormats(activeContext.el);
+        }
     }
-    if (typeof updateSimpleFormats === 'function') {
-        updateSimpleFormats(activeContext.el);
+
+    // если цвет выбирался через контрол, обновим его значение тоже
+    if (activeContext.ctrl && activeContext.ctrl.type === 'color') {
+        activeContext.ctrl.value = hexValue;
+        // обновить визуальный swatch если есть
+        if (activeContext.ctrl._swatch) {
+            activeContext.ctrl._swatch.style.backgroundColor = hexValue;
+        }
+        // сгенерируем событие, чтобы остальная логика панели сработала
+        activeContext.ctrl.dispatchEvent(new Event('input', { bubbles: true }));
     }
 }
 
@@ -4407,6 +4429,73 @@ hexInput.addEventListener('input', (e) => {
     }
 });
 
+// --- возможность открывать свой picker при клике на цветные контролы в панели ---
+// клик по input или по добавленному swatch запускает picker
+specRoot.addEventListener('click', e => {
+    let ctrl = e.target.closest('input[type="color"][data-prop]');
+    // если клик был по swatch, перенаправляем на связанный input
+    if (!ctrl) {
+        const sw = e.target.closest('.color-swatch');
+        if (sw && sw._input) ctrl = sw._input;
+    }
+    // если клик был по тексту в label, ищем вложенный input
+    if (!ctrl) {
+        const lbl = e.target.closest('label');
+        if (lbl) {
+            const inp = lbl.querySelector('input[type="color"][data-prop]');
+            if (inp) ctrl = inp;
+        }
+    }
+    if (!ctrl) return;
+    e.preventDefault();
+    const prop = ctrl.getAttribute('data-prop');
+    const currentHex = ctrl.value || '';
+    const targetEl = lastHighlightedElement || null;
+    if (!targetEl) return;
+    openColorPicker({ style:{ prop }, ctrl }, targetEl, currentHex, ctrl);
+});
+// блокируем также события mousedown на реальный input, чтобы не показывать native picker
+specRoot.addEventListener('mousedown', e => {
+    if (e.target.closest('input[type="color"][data-prop]')) {
+        e.preventDefault();
+    }
+});
+
+// --- визуальные swatch-элементы для цветовых контролов -----------------------
+function initColorSwatches() {
+    const inputs = specRoot.querySelectorAll('input[type="color"][data-prop]');
+    inputs.forEach(inp => {
+        // создать видимый квадратик
+        const sw = document.createElement('span');
+        sw.className = 'color-swatch';
+        sw.dataset.prop = inp.dataset.prop;
+        sw.style.display = 'inline-block';
+        sw.style.width = '1em';
+        sw.style.height = '1em';
+        sw.style.marginLeft = '0.4em';
+        sw.style.verticalAlign = 'middle';
+        sw.style.border = '1px solid #666';
+        sw.style.backgroundColor = inp.value || '#000000';
+        // скрыть сам input, но оставить для хранения значения
+        inp.style.position = 'absolute';
+        inp.style.opacity = '0';
+        inp.style.width = '0';
+        inp.style.height = '0';
+        inp.style.pointerEvents = 'none';
+        inp.parentNode.insertBefore(sw, inp.nextSibling);
+        // связываем друг с другом
+        sw._input = inp;
+        inp._swatch = sw;
+        // если значение input изменится программно, обновим swatch
+        const observer = new MutationObserver(() => {
+            sw.style.backgroundColor = inp.value || '#000000';
+        });
+        observer.observe(inp, { attributes: true, attributeFilter: ['value'] });
+    });
+}
+// вызвать инициализацию сразу
+if (specRoot) initColorSwatches();
+
 closeBtn.addEventListener('click', () => picker.style.display = 'none');
 document.addEventListener('mousedown', e => {
     if (picker.style.display === 'block' &&
@@ -4425,8 +4514,14 @@ document.addEventListener('mousedown', e => {
 
 
 // --- OPEN ---
-function openColorPicker(cfg, el, currentHex) {
-    activeContext = { prop: cfg.style.prop, el };
+// openColorPicker — открывает собственное окно выбора цвета
+// cfg: объект конфигурации, минимум { style:{ prop: 'css-property' } }
+// el: элемент, с которым связаны изменения (обычно выделенный элемент или null)
+// currentHex: стартовый цвет (строка '#rrggbb')
+// positionEl (опционально): элемент для позиционирования окна picker, по умолчанию используется el
+function openColorPicker(cfg, el, currentHex, positionEl) {
+    // activeContext хранит назначение: css-свойство, целевой элемент и возможно контрол
+    activeContext = { prop: cfg.style.prop, el, ctrl: cfg.ctrl || null };
     
     // Парсинг стартового цвета
     if (currentHex && /^#[0-9A-F]{6}$/i.test(currentHex)) {
@@ -4439,9 +4534,10 @@ function openColorPicker(cfg, el, currentHex) {
     drawHueBar();
     syncFromState();
 
-    // Positioning
-    if (el) {
-        const r = el.getBoundingClientRect();
+    // Positioning — элемент, по которому вычисляем координаты
+    const posEl = positionEl || el;
+    if (posEl) {
+        const r = posEl.getBoundingClientRect();
         let top = r.bottom + window.scrollY + 6;
         let left = r.left + window.scrollX;
         if (left + 300 > window.innerWidth) left = window.innerWidth - 310;
@@ -4457,8 +4553,7 @@ document.addEventListener('mousedown', e => {
     if(!btn) return;
     const type = btn.getAttribute('simpleformats-button');
     if(['text-color','bg-color','border-color'].includes(type)){
-        // Тут надо получить реальный цвет выделения, пока #000000
-        openColorPicker({ style:{ prop: type } }, btn, '#000000'); 
+        openColorPicker({ style:{ prop: type } }, btn, null);
     }
 });
 
@@ -4567,4 +4662,38 @@ if (editor && editor.parentNode) {
     });
     console.log('Наблюдаем за родителем block-editor-app');
     observer.observe(editor.parentNode, { childList: true });
+}
+
+
+
+// --- функция показа модального окна и ожидания ввода ---
+function showMarkerModal(marker) {
+    return new Promise(resolve => {
+        const backdrop = document.getElementById('marker-modal-backdrop');
+        const modalName = document.getElementById('marker-name');
+        const input = document.getElementById('marker-modal-input');
+        const okBtn = document.getElementById('marker-modal-ok');
+        const cancelBtn = document.getElementById('marker-modal-cancel');
+
+        modalName.textContent = `${marker}`;
+        input.value = '';
+        backdrop.style.display = 'flex';
+        input.focus();
+        input.select();
+
+        function closeModal(value) {
+            backdrop.style.display = 'none';
+            okBtn.onclick = null;
+            cancelBtn.onclick = null;
+            input.onkeydown = null;
+            resolve(value);
+        }
+
+        okBtn.onclick = () => closeModal(input.value);
+        cancelBtn.onclick = () => closeModal(null);
+        input.onkeydown = (e) => {
+            if (e.key === 'Enter') closeModal(input.value);
+            if (e.key === 'Escape') closeModal(null);
+        };
+    });
 }
