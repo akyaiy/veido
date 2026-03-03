@@ -81,13 +81,14 @@
 <div id="right-panel">
     <div id="css-js-tabs">
         <div class="tab active" data-tab="properties">Свойства</div>
-        <div class="tab" data-tab="css">CSS</div>
-        <div class="tab" data-tab="js">JS</div>
+        <!-- <div class="tab" data-tab="css">Свойства+</div> -->
+        <div class="tab" data-tab="js">Ивенты</div>
     </div>
     <hr>
     <!--  -->
     <div id="properties-panel-spec" style="display: none;">
         <div class="table-title" style="padding-bottom: 5px;">Свойства элементов</div>
+        <label data-target="all">ID: <input type="text" data-prop="id"><br></label>
         <label data-target="image">Ссылка: <input type="text" data-prop="img-src"></label>
         <label data-target="link">Ссылка: <input type="text" data-prop="link-href"></label>
         <label data-target="input">Подсказка (ввода): <input type="text" data-prop="input-placeholder"></label>
@@ -175,6 +176,22 @@
             </select>
         </label>
         <label data-target="all">Радиус скругления: <input data-prop="border-radius"></label>
+        <!--  -->
+        <div id="css-panel" style="display: flex">
+            <div id="tag-label">TAG</div>
+            <div class="table-wrap">
+                <div class="table-title">Атрибуты</div>
+                <table id="attributes-table">
+                    <tr><td contenteditable="true" data-placeholder="name"></td><td contenteditable="true" data-placeholder="value"></td></tr>
+                </table>
+            </div>
+            <div class="table-wrap">
+                <div class="table-title">Свойства</div>
+                <table id="properties-table">
+                   <tr><td contenteditable="true" data-placeholder="property"></td><td contenteditable="true" data-placeholder="value"></td></tr>
+                </table>
+            </div>
+        </div>
     </div>
     <!--  -->
     <div id="properties-panel">
@@ -250,22 +267,6 @@
                 <option value="8px">8px</option>
                 <option value="10px">10px</option>
             </select>
-        </div>
-    </div>
-    <!--  -->
-    <div id="css-panel" style="display: none;">
-        <div id="tag-label">TAG</div>
-        <div class="table-wrap">
-            <div class="table-title">Атрибуты</div>
-            <table id="attributes-table">
-                <tr><td contenteditable="true" data-placeholder="name"></td><td contenteditable="true" data-placeholder="value"></td></tr>
-            </table>
-        </div>
-        <div class="table-wrap">
-            <div class="table-title">Свойства</div>
-            <table id="properties-table">
-               <tr><td contenteditable="true" data-placeholder="property"></td><td contenteditable="true" data-placeholder="value"></td></tr>
-            </table>
         </div>
     </div>
     <div id="js-panel" style="display: none;">

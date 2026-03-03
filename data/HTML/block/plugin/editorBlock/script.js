@@ -286,15 +286,15 @@ const btnApplyJs = document.getElementById('btn-apply-js');
 function switchTabPanel(tabName) {
     if (tabName === 'properties') {
         propertiesPanel.style.display = '';
-        cssPanel.style.display = 'none';
+        /* cssPanel.style.display = 'none'; */
         jsPanel.style.display = 'none';
     } else if (tabName === 'css') {
         propertiesPanel.style.display = 'none';
-        cssPanel.style.display = 'flex';
+        /* cssPanel.style.display = 'flex'; */
         jsPanel.style.display = 'none';
     } else if (tabName === 'js') {
         propertiesPanel.style.display = 'none';
-        cssPanel.style.display = 'none';
+        /* cssPanel.style.display = 'none'; */
         jsPanel.style.display = 'flex';
     }
 }
@@ -339,12 +339,6 @@ const EDITABLE_TAGS = new Set([
 ]);
 
 // --- Утилиты -----------------------------------------------------------------
-
-// Проверка id контейнера view соответствует loadedBlock_<число>_view
-function isValidViewContainer(view) {
-    if (!view || !view.id) return false;
-    return /^loadedBlock_\d+_view$/.test(view.id);
-}
 
 // Переменная вне функции для хранения текущего подсвеченного элемента
 let lastHighlightedElement = null;
@@ -530,14 +524,15 @@ const PROP_MAP = {
     'form-method':     { type: 'attr', attrName: 'method', tag: 'form' },
     'form-action':     { type: 'attr', attrName: 'action', tag: 'form' },
     'cursor':          { type: 'style', cssName: 'cursor' },
-    'z-index':         { type: 'style', cssName: 'zIndex' }
+    'z-index':         { type: 'style', cssName: 'zIndex' },
+    'id':               { type: 'attr', attrName: 'id' }
 };
 
 // --- Управление видимостью панели ----------------------------------------------
 function showSpecForTarget(target) {
     // скрыть обычную панель (если есть)
     if (normalPanel) normalPanel.style.display = 'none';
-    if (typeof cssPanel !== 'undefined' && cssPanel) cssPanel.style.display = 'none';
+    /* if (typeof cssPanel !== 'undefined' && cssPanel) cssPanel.style.display = 'none'; */
     if (typeof jsPanel !== 'undefined' && jsPanel) jsPanel.style.display = 'none';
     // показать спец-панель
     specRoot.style.display = '';
@@ -669,6 +664,13 @@ function applyPropToElement(el, prop, rawValue) {
 
         if (map.type === 'attr') {
             if (map.tag && el.tagName.toLowerCase() !== map.tag) return;
+            if (map.attrName === 'id') {
+                // Ищем поле ввода id в панели свойств (обычно через data-prop)
+                const inputEl = document.querySelector('[data-prop="id"]');
+                const result = syncElementId(val, el, inputEl ? [inputEl] : []);
+                if (result.valid) markDirty();
+                return;
+            }
             if (map.booleanAttr) {
                 if (val) el.setAttribute(map.attrName, '');
                 else el.removeAttribute(map.attrName);
@@ -1464,7 +1466,7 @@ function closeBlock(e, block, tabEl) {
 
     const cssPanel = document.getElementById('css-panel');
     const jsPanel = document.getElementById('js-panel');
-    if (cssPanel) cssPanel.style.display = '';
+    /* if (cssPanel) cssPanel.style.display = ''; */
     if (jsPanel) jsPanel.style.display = 'none';
 }
 
@@ -2295,12 +2297,22 @@ attrsTableElement?.addEventListener('input', e => {
             currentSelectedEl.removeAttribute(prev);
         }
         if (nameNow && currentSelectedEl) {
-            currentSelectedEl.setAttribute(nameNow, valNow);
+            if (nameNow === 'id') {
+                const result = syncElementId(valNow, currentSelectedEl, [valTd]);
+                if (!result.valid) return;
+            } else {
+                currentSelectedEl.setAttribute(nameNow, valNow);
+            }
         }
         nameTd.dataset.prev = nameNow;
     } else {
         if (nameNow && currentSelectedEl) {
-            currentSelectedEl.setAttribute(nameNow, valNow);
+            if (nameNow === 'id') {
+                const result = syncElementId(valNow, currentSelectedEl, [valTd]);
+                if (!result.valid) return;
+            } else {
+                currentSelectedEl.setAttribute(nameNow, valNow);
+            }
         }
     }
 
@@ -4696,4 +4708,118 @@ function showMarkerModal(marker) {
             if (e.key === 'Escape') closeModal(null);
         };
     });
+}
+
+
+/* работа с id элементов: синхронизация и проверка уникальности */
+function syncElementId(newId, el, highlightElements) {
+    if (!el) return { valid: false };
+
+    const id = String(newId || '').trim();
+    const oldId = el.id || '';
+
+    const clearBg = () => {
+        (highlightElements || []).forEach(n => {
+            if (n) n.style.backgroundColor = '';
+        });
+    };
+
+    const setErrorBg = () => {
+        (highlightElements || []).forEach(n => {
+            if (!n) return;
+        
+            // Ставим красный фон
+            n.style.backgroundColor = '#fdd';
+        
+            // Добавляем разовый слушатель: как только пользователь уйдет из поля, цвет сбросится
+            n.addEventListener('focusout', () => {
+                n.style.backgroundColor = '';
+            }, { once: true }); 
+        });
+    };
+
+    // пустой id - просто удалить
+    if (!id) {
+        clearBg();
+        if (oldId) el.removeAttribute('id');
+        return { valid: true, reason: 'empty' };
+    }
+
+    // ИСПРАВЛЕНИЕ: проверка уникальности по всему document, игнорируя <style> и <script>
+    let isDuplicate = false;
+    try {
+        // Ищем все элементы с таким ID (CSS.escape защищает от ошибок парсинга)
+        const existingElements = document.querySelectorAll('[id="' + CSS.escape(id) + '"]');
+        // Проверяем, есть ли среди них "настоящие" элементы (не скрипты и не стили)
+        isDuplicate = Array.from(existingElements).some(
+            node => node !== el && node.tagName !== 'SCRIPT' && node.tagName !== 'STYLE'
+        );
+    } catch(e) {
+        // Запасной вариант на случай непредвиденных ошибок селектора
+        const fallback = document.getElementById(id);
+        isDuplicate = fallback && fallback !== el && fallback.tagName !== 'SCRIPT' && fallback.tagName !== 'STYLE';
+    }
+
+    if (isDuplicate) {
+        setErrorBg();
+        return { valid: false, reason: 'duplicate' };
+    }
+
+    clearBg();
+
+    if (oldId === id) return { valid: true, reason: 'same' };
+
+    const view = el.closest('[id^="loadedBlock_"][id$="_view"]');
+    const viewId = view ? view.id : null;
+
+    // обновить id элемента
+    el.id = id;
+
+    if (!oldId) return { valid: true, reason: 'updated' };
+    if (!view) return { valid: true };
+
+    const escOld = oldId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    // ИСПРАВЛЕНИЕ: Замена в скриптах ТОЛЬКО внутри кавычек ("oldId", 'oldId', `#oldId`)
+    // Группа $1 - это кавычка, группа $2 - возможный символ решетки '#'
+    const reScripts = new RegExp('([\'"`])(#?)' + escOld + '\\1', 'g');
+
+    const dynamicScript = document.querySelector('script[data-dynamic="' + viewId + '"]');
+    const scripts = [];
+    if (dynamicScript) scripts.push(dynamicScript);
+
+    view.querySelectorAll('script').forEach(s => {
+        if (!scripts.includes(s)) scripts.push(s);
+    });
+
+    scripts.forEach(s => {
+        try {
+            // Подменяем, сохраняя оригинальные кавычки и решетку (если она была)
+            s.textContent = s.textContent.replace(reScripts, '$1$2' + id + '$1');
+        } catch (e) {}
+    });
+
+    // ИСПРАВЛЕНИЕ: Обновление атрибутов (строгие совпадения)
+    // Группа $1 - начало строки или пробел, $2 - решетка, $3 - пробел или конец строки
+    const reAttr = new RegExp('(^|\\s)(#?)' + escOld + '(\\s|$)', 'g');
+
+    view.querySelectorAll('*').forEach(node => {
+        // Пропускаем скрипты и стили внутри view, чтобы не повредить их логику
+        if (node.tagName === 'SCRIPT' || node.tagName === 'STYLE') return;
+        if (!node.attributes) return;
+
+        Array.from(node.attributes).forEach(attr => {
+            if (!attr.value) return;
+            // Проверяем, есть ли точное совпадение слова oldId или #oldId
+            if (attr.value.match(reAttr)) {
+                // Заменяем, сохраняя пробелы или решетку
+                node.setAttribute(
+                    attr.name,
+                    attr.value.replace(reAttr, '$1$2' + id + '$3')
+                );
+            }
+        });
+    });
+
+    return { valid: true, reason: 'updated' };
 }
