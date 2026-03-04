@@ -297,6 +297,11 @@ function switchTabPanel(tabName) {
         /* cssPanel.style.display = 'none'; */
         jsPanel.style.display = 'flex';
     }
+
+    // если вкладка не properties, прячем панель спец‑свойств
+    if (tabName !== 'properties' && specRoot) {
+        specRoot.style.display = 'none';
+    }
 }
 
 /***********************************************************************
@@ -530,6 +535,16 @@ const PROP_MAP = {
 
 // --- Управление видимостью панели ----------------------------------------------
 function showSpecForTarget(target) {
+    // показать панель специальных свойств только если вкладка properties активна
+    const activeTab = document.querySelector('#css-js-tabs .tab.active');
+    if (!activeTab || activeTab.dataset.tab !== 'properties') {
+        // если мы пытаемся показать панель вне вкладки properties, убедимся, что она скрыта
+        if (specRoot && specRoot.style.display !== 'none') {
+            specRoot.style.display = 'none';
+            if (normalPanel) normalPanel.style.display = '';
+        }
+        return; // ничего не меняем дальше
+    }
     // скрыть обычную панель (если есть)
     if (normalPanel) normalPanel.style.display = 'none';
     /* if (typeof cssPanel !== 'undefined' && cssPanel) cssPanel.style.display = 'none'; */
@@ -1564,7 +1579,9 @@ function showView(blockId) {
         if (ch !== document.querySelector('.small-handle')) ch.style.display = ch.id === blockId ? '' : 'none';
     });
     document.getElementById('loadedBlock').style.display = '';
-    document.getElementById('properties-panel').style.display = '';
+    document.getElementById('left-panel').style.display = 'flex';
+    document.querySelector('#css-js-tabs .tab[data-tab="properties"]').style.display = '';
+    document.querySelector('#css-js-tabs .tab[data-tab="properties"]').click();
 }
 
 /***********************************************************************
@@ -1589,7 +1606,9 @@ function showHtml(blockId) {
 
     const htmlContainer = document.getElementById(blockId + '_html');
     centerPreHtml.textContent = htmlContainer.innerHTML;
-    document.getElementById('properties-panel').style.display = '';
+    document.getElementById('left-panel').style.display = 'none';
+    document.querySelector('#css-js-tabs .tab[data-tab="properties"]').style.display = 'none';
+    document.querySelector('#css-js-tabs .tab[data-tab="js"]').click();
 }
 
 /***********************************************************************
@@ -1693,7 +1712,9 @@ function showJs(blockId, highlightSearch=null) {
         if (ch !== document.querySelector('.small-handle')) ch.style.display = 'none';
     });
     document.getElementById('loadedBlock').style.display = 'none';
-    document.getElementById('properties-panel').style.display = 'none';
+    document.getElementById('left-panel').style.display = 'none';
+    document.querySelector('#css-js-tabs .tab[data-tab="properties"]').style.display = 'none';
+    document.querySelector('#css-js-tabs .tab[data-tab="js"]').click();
 }
 
 /***********************************************************************
@@ -3180,7 +3201,7 @@ function updateScriptAssignment(blockId, selector, eventFull, handlerName, el) {
     selector = '#' + el.id;
 
     if (handlerName) {
-        const line = 'document.getElementById(\'' + el.id + '\').on' + ev + ' = ' + handlerName + ';';
+        const line = '\ndocument.getElementById(\'' + el.id + '\').on' + ev + ' = ' + handlerName + ';';
         // Найти и заменить существующее присвоение для данного элемента и события
         const re = new RegExp('(document\\.getElementById\\(\'' + el.id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\'\\)\\.on' + ev.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*=\\s*)([^;\\n]*);?', 'g');
         let replaced = false;
@@ -3192,7 +3213,7 @@ function updateScriptAssignment(blockId, selector, eventFull, handlerName, el) {
             // Добавить новое в конец
             const insertIdx = findInsertIndexBeforeClosingIIFE(s);
             if (insertIdx !== -1) s = s.slice(0, insertIdx) + line + s.slice(insertIdx);
-            else s = s.trimEnd() + line + '\n';
+            else s = s.trimEnd() + '\n' + line + '\n';
         }
     }
 
