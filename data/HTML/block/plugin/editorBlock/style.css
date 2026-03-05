@@ -171,8 +171,15 @@ main.editor {
 #center-tab-pre-js, #center-tab-pre-html {
     margin: 1em;
     padding: 5px;
+    margin: 2px;
     height: 470px;
     overflow: auto;
+}
+#center-tab-pre-js {
+    height: 492px;
+}
+#center-tab-pre-html {
+    height: 546px;
 }
 
 /* правая панель css js */

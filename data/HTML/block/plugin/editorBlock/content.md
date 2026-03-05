@@ -73,8 +73,8 @@
         <button id="btn-apply-js" style="display:none">Применить JS</button>
     </div>
     <div id="center-tab-content">
-        <pre id="center-tab-pre-html" contenteditable="true" style="display:none"></pre>
-        <pre id="center-tab-pre-js" contenteditable="true" style="display:none"></pre>
+        <pre id="center-tab-pre-html" contenteditable="true" style="display:none;"></pre>
+        <pre id="center-tab-pre-js" contenteditable="true" style="display:none; "></pre>
     </div>
 </div>
 
@@ -271,6 +271,7 @@
     </div>
     <div id="js-panel" style="display: none;">
         <div class="table-title">События и функции</div>
+        <div id="editor-js-panel-name"></div>
         <table id="editor-js-panel">
         </table>
     </div>

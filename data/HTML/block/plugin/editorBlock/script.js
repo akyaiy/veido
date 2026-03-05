@@ -1012,11 +1012,16 @@ let active = false;
 let sx, sy, sw, sh;
 
 /***********************************************************************
- * handle mousedown — начало изменения размера блока:
- * - Активирует режим перетаскивания.
- * - Запоминает начальную позицию курсора.
- * - Сохраняет исходные размеры блока.
- * - Назначает обработчики движения и отпускания мыши.
+ * Обновление позиции handle при скролле или изменении размера блока
+ **********************************************************************/
+function updateHandlePosition() {
+    handle.style.display = '';
+    handle.style.top = loadedBlock.scrollTop + loadedBlock.clientHeight - handle.offsetHeight - 8 + 'px';
+    handle.style.left = loadedBlock.scrollLeft + loadedBlock.clientWidth - handle.offsetWidth - 8 + 'px';
+}
+
+/***********************************************************************
+ * handle mousedown — начало изменения размера блока
  **********************************************************************/
 handle.onmousedown = e => {
     e.preventDefault();
@@ -1030,30 +1035,37 @@ handle.onmousedown = e => {
     document.onmouseup = () => {
         active = false;
         document.onmousemove = null;
+        updateHandlePosition(); // после отпускания мыши корректируем позицию
     };
 };
 
 /***********************************************************************
- * move — обработчик движения мыши при изменении размеров блока:
- * - Принимает объект события мыши.
- * - Проверяет, активен ли режим изменения размера.
- * - Вычисляет смещение курсора от начальной позиции.
- * - Рассчитывает новую ширину и высоту блока.
- * - Применяет обновлённые размеры к элементу.
+ * move — обработчик изменения размеров блока
  **********************************************************************/
 function move(e) {
     if (!active) return;
 
-    let deltaX = (e.clientX - sx);
-    let deltaY = (e.clientY - sy);
+    let deltaX = e.clientX - sx;
+    let deltaY = e.clientY - sy;
 
-    let w = sw + deltaX;
-    let h = sh + deltaY;
+    loadedBlock.style.width = sw + deltaX + 'px';
+    loadedBlock.style.height = sh + deltaY + 'px';
 
-    loadedBlock.style.width = w + 'px';
-    loadedBlock.style.height = h + 'px';
+    updateHandlePosition(); // handle двигается вместе с прокруткой видимой области
 }
 
+/***********************************************************************
+ * Обновление позиции при скролле блока
+ **********************************************************************/
+loadedBlock.addEventListener('click', updateHandlePosition);
+loadedBlock.addEventListener('scroll', () => {
+    handle.style.display = 'none';
+});
+
+/***********************************************************************
+ * Инициализация позиции handle
+ **********************************************************************/
+updateHandlePosition();
 
 
 
@@ -1561,6 +1573,13 @@ function updateCenterControls(mode) {
     /* btnLoadFromView.style.display = mode === 'html' ? '' : 'none';
     btnApplyToView.style.display = mode === 'html' ? '' : 'none'; */
     btnApplyJs.style.display = mode === 'js' ? '' : 'none';
+
+    const panel = document.getElementById('center-tab-controls');
+
+    const buttons = panel.querySelectorAll('button');
+    const visible = Array.from(buttons).some(btn => btn.style.display !== 'none');
+
+    panel.style.display = visible ? 'flex' : 'none';
 }
 
 /***********************************************************************
@@ -3056,6 +3075,7 @@ addBtn.addEventListener('click', () => {
 function updateJsPanel(el) {
     // Полностью очищаем таблицу перед обновлением
     jsTable.innerHTML = '';
+    updateJsPanelName(el);
 
     const blockId = getBlockIdFromEl(el) || getActiveBlockId() || 'loadedBlock_1';
     const script = document.querySelector('script[data-dynamic="' + blockId + '_view"]');
@@ -3120,6 +3140,15 @@ function updateJsPanel(el) {
     jsTable.currentInputHandler = e => onJsTableInput(e, eventToSelector, blockId, el);
     jsTable.addEventListener('input', jsTable.currentInputHandler);
 }
+function updateJsPanelName(el) {
+    // Отображаем тег и id выбранного элемента
+    const panelNameDiv = document.getElementById('editor-js-panel-name');
+    if (panelNameDiv) {
+        const tagName = el.tagName.toLowerCase();
+        const id = el.id ? ` id="${el.id}"` : '';
+        panelNameDiv.textContent = `<${tagName}${id}>`;
+    }
+}
 
 /***********************************************************************
  * onJsTableInput — обновляет имя обработчика JS-события при редактировании:
@@ -3144,6 +3173,7 @@ function onJsTableInput(e, eventToSelectorMap, blockId, el) {
     let selector = eventToSelectorMap.get(ev);
     if (!selector) selector = buildSelector(el);
     updateScriptAssignment(blockId, selector, ev, handler, el);
+    updateJsPanelName(el) 
 }
 
 /***********************************************************************
