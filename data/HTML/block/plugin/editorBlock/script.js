@@ -2180,6 +2180,7 @@ document.addEventListener('click', e => {
     updateCssPanel(el);
     updateTagLabel(el);
     updateJsPanel(el);
+    updateJsPanelName(el);
     updatePropertiesPanel(el);
 });
 
@@ -2905,7 +2906,7 @@ function prepareClassAutocomplete(td) {
 
 function updateClassAutocomplete(td) {
     if (currentClassAutoTarget !== td) return;
-    const prefix = td.textContent.trim();
+    const prefix = td.value ? td.value.trim() : td.textContent.trim();
     showClassAutocomplete(td, prefix);
 }
 
@@ -2925,7 +2926,8 @@ function showClassAutocomplete(td, prefix) {
         div.addEventListener('mousedown', e => {
             e.preventDefault();
             if (currentClassAutoTarget) {
-                currentClassAutoTarget.textContent = name;
+                if (currentClassAutoTarget.value !== undefined) currentClassAutoTarget.value = name;
+                else currentClassAutoTarget.textContent = name;
                 currentClassAutoTarget.focus();
             }
             hideClassAutocomplete();
@@ -2968,7 +2970,7 @@ function prepareJsNameAutocomplete(td) {
 
 function updateJsNameAutocomplete(td) {
     if (currentAutocompleteTarget !== td) return;
-    const prefix = td.textContent.trim();
+    const prefix = td.value ? td.value.trim() : td.textContent.trim();
     showJsAutocomplete(td, prefix);
 }
 
@@ -3071,11 +3073,17 @@ addBtn.addEventListener('click', () => {
  * updateJsPanel — обновляет панель JS-событий для выбранного элемента:
  * - Очищает таблицу, оставляя только верхнюю панель управления.
  * - Отрисовывает ТОЛЬКО те события, которые уже назначены элементу.
+ * - Поддерживает как id так и class селекторы
  **********************************************************************/
-function updateJsPanel(el) {
+function updateJsPanel(el, updateJsPanelNameTrigger=true) {
+    // Инициализируем тип селектора при первом выборе элемента
+    if (!el.dataset.selectorType) {
+        el.dataset.selectorType = 'id';
+    }
+    
     // Полностью очищаем таблицу перед обновлением
     jsTable.innerHTML = '';
-    updateJsPanelName(el);
+    if (updateJsPanelNameTrigger) updateJsPanelName(el);
 
     const blockId = getBlockIdFromEl(el) || getActiveBlockId() || 'loadedBlock_1';
     const script = document.querySelector('script[data-dynamic="' + blockId + '_view"]');
@@ -3083,12 +3091,21 @@ function updateJsPanel(el) {
 
     const txt = script.textContent;
     const entries = [];
+    const selectorType = el.dataset.selectorType || 'id';
 
-    // Поиск addEventListener
+// Поиск addEventListener
     const addListenerRe = /([^\n;]+?)\.addEventListener\(\s*['"]([^'"]+)['"]\s*,\s*([A-Za-z0-9_$]+|function\b)/g;
     let m;
     while ((m = addListenerRe.exec(txt)) !== null) {
-        const selector = resolveSelectorFromExpr(m[1].trim(), txt);
+        const rawExpr = m[1].trim();
+        let selector = resolveSelectorFromExpr(rawExpr, txt);
+        
+        // --- ИСПРАВЛЕНИЕ: Вытаскиваем селектор, если это цепочка с querySelectorAll ---
+        if (!selector || selector === rawExpr || rawExpr.includes('querySelectorAll')) {
+            const qsaMatch = rawExpr.match(/querySelectorAll\(\s*['"]([^'"]+)['"]\s*\)/);
+            if (qsaMatch) selector = qsaMatch[1]; // Забираем '.xdfgb'
+        }
+
         entries.push({
             selector,
             event: 'on' + m[2].toLowerCase(),
@@ -3100,7 +3117,15 @@ function updateJsPanel(el) {
     // Поиск прямого присваивания (onX = ...)
     const onAssignRe = /([^\n;]+?)\.on([a-zA-Z]+)\s*=\s*([A-Za-z0-9_$]+|function\b)/g;
     while ((m = onAssignRe.exec(txt)) !== null) {
-        const selector = resolveSelectorFromExpr(m[1].trim(), txt);
+        const rawExpr = m[1].trim();
+        let selector = resolveSelectorFromExpr(rawExpr, txt);
+
+        // --- ИСПРАВЛЕНИЕ: То же самое для прямого присваивания ---
+        if (!selector || selector === rawExpr || rawExpr.includes('querySelectorAll')) {
+            const qsaMatch = rawExpr.match(/querySelectorAll\(\s*['"]([^'"]+)['"]\s*\)/);
+            if (qsaMatch) selector = qsaMatch[1]; // Забираем '.xdfgb'
+        }
+
         entries.push({
             selector,
             event: 'on' + m[2].toLowerCase(),
@@ -3112,6 +3137,19 @@ function updateJsPanel(el) {
     // Фильтруем те, что относятся именно к выделенному DOM-элементу
     const matched = entries.filter(en => {
         if (!en.selector) return false;
+        
+        // Если используем class селектор
+        if (selectorType === 'class') {
+            const classes = el.className.split(/\s+/).filter(c => c);
+            // Проверяем, содержится ли какой-то из классов элемента в селекторе
+            return classes.some(cls => {
+                const esc = escapeRegExp(cls);
+                const re = new RegExp('(^|[^a-zA-Z0-9_-])\\.' + esc + '($|[^a-zA-Z0-9_-])', 'i');
+                return re.test(en.selector);
+            });
+        }
+        
+        // Если используем id селектор
         try {
             return el.matches(en.selector);
         } catch {
@@ -3141,13 +3179,66 @@ function updateJsPanel(el) {
     jsTable.addEventListener('input', jsTable.currentInputHandler);
 }
 function updateJsPanelName(el) {
-    // Отображаем тег и id выбранного элемента
     const panelNameDiv = document.getElementById('editor-js-panel-name');
-    if (panelNameDiv) {
-        const tagName = el.tagName.toLowerCase();
-        const id = el.id ? ` id="${el.id}"` : '';
-        panelNameDiv.textContent = `<${tagName}${id}>`;
-    }
+    if (!panelNameDiv) return;
+
+    const selectorType = el.dataset.selectorType || 'id';
+    const tagName = el.tagName.toLowerCase();
+    
+    panelNameDiv.innerHTML = '';
+    panelNameDiv.style.cssText = 'display: flex; gap: 0;';
+    
+    // Левая половина: выпадающий список
+    const typeSelect = document.createElement('select');
+    typeSelect.style.cssText = 'flex: 0 0 35%; min-width: 0;';
+    
+    const optId = document.createElement('option');
+    optId.value = 'id';
+    optId.textContent = 'id'
+    optId.selected = selectorType === 'id';
+    
+    const optClass = document.createElement('option');
+    optClass.value = 'class';
+    optClass.textContent = 'class';
+    optClass.selected = selectorType === 'class';
+    
+    typeSelect.appendChild(optId);
+    typeSelect.appendChild(optClass);
+    panelNameDiv.appendChild(typeSelect);
+    
+    // Правая половина: поле ввода
+    const nameInput = document.createElement('input');
+    nameInput.style.cssText = 'flex: 1; min-width: 0;';
+    nameInput.type = 'text';
+    nameInput.value = selectorType === 'id' ? (el.id || '') : (el.className || '');
+    nameInput.placeholder = selectorType === 'id' ? 'id' : 'class';
+    
+    panelNameDiv.appendChild(nameInput);
+    
+    typeSelect.addEventListener('change', e => {
+        el.dataset.selectorType = e.target.value;
+        updateJsPanelName(el);
+        updateJsPanel(el);
+    });
+    
+    nameInput.addEventListener('input', () => {
+        const val = nameInput.value.trim();
+        if (selectorType === 'id') {
+            el.id = val;
+        } else {
+            el.className = val;
+        }
+        updateJsPanel(el, false);
+        if (selectorType == 'class') prepareClassAutocomplete(nameInput);
+    });
+    nameInput.addEventListener('click', () => {
+        if (selectorType == 'class') prepareClassAutocomplete(nameInput);
+    });
+    
+    nameInput.addEventListener('change', () => {
+        updateJsPanel(el);
+        updateJsPanelName(el);
+    });
 }
 
 /***********************************************************************
@@ -3155,7 +3246,7 @@ function updateJsPanelName(el) {
  * - Получает объект события, карту событий-селекторов, ID блока и элемент DOM.
  * - Проверяет, что редактируется именно имя обработчика.
  * - Берёт текст события и нового обработчика.
- * - Находит селектор для события через карту.
+ * - Находит селектор для события через карту или строит его.
  * - Вызывает updateScriptAssignment для сохранения изменений в скрипте.
  **********************************************************************/
 function onJsTableInput(e, eventToSelectorMap, blockId, el) {
@@ -3181,7 +3272,7 @@ function onJsTableInput(e, eventToSelectorMap, blockId, el) {
  * - Получает объект события, карту событий-селекторов, ID блока и элемент DOM.
  * - Проверяет, что редактируется именно имя обработчика.
  * - Берёт текст события и нового обработчика.
- * - Находит селектор для события через карту.
+ * - Находит селектор для события через карту или строит его.
  * - Вызывает updateScriptAssignment для сохранения изменений в скрипте.
  **********************************************************************/
 function onJsTableBlur(e, eventToSelectorMap, blockId, el) {
@@ -3213,7 +3304,8 @@ function findFreeElNumber() {
  * updateScriptAssignment — обновляет присвоение обработчика JS-события в скрипте:
  * - Получает ID блока, селектор элемента, полное имя события, имя обработчика и DOM-элемент.
  * - Находит скрипт блока и его текст.
- * - Определяет возможные варианты левой части присвоения (lhs) для селектора.
+ * - Для id селектора: document.getElementById('id').event = handler;
+ * - Для class селектора: document.querySelectorAll('.class').forEach(el => el.event = handler);
  * - Удаляет старые присвоения для данного события.
  * - Если указано имя обработчика, создаёт новое присвоение и вставляет его в скрипт.
  * - Обновляет содержимое блока pre-js в интерфейсе, если он открыт для текущего блока.
@@ -3223,22 +3315,45 @@ function updateScriptAssignment(blockId, selector, eventFull, handlerName, el) {
     if (!scriptEl) return;
     let s = scriptEl.textContent;
     const ev = eventFull.replace(/^on/, '');
+    const selectorType = el.dataset.selectorType || 'class';
 
-    // Присвоить id элементу, если нет
-    if (!el.id) {
-        el.id = 'el_' + findFreeElNumber();
+    let line = '';
+    let regexPattern = '';
+    let oldRegexId = '';
+
+    if (selectorType === 'id') {
+        // Для id селектора
+        if (!el.id) {
+            el.id = 'el_' + findFreeElNumber();
+        }
+        const idValue = el.id;
+        line = '\ndocument.getElementById(\'' + idValue + '\').on' + ev + ' = ' + handlerName + ';';
+        oldRegexId = idValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        regexPattern = '(document\\.getElementById\\(\'' + oldRegexId + '\'\\)\\.on' + ev.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*=\\s*)([^;\\n]*);?';
+    } else {
+        // Для class селектора
+        if (!el.className) {
+            el.className = 'el_' + findFreeElNumber();
+        }
+        const className = el.className.trim();
+        line = '\ndocument.querySelectorAll(\'.' + className + '\').forEach(el => el.on' + ev + ' = ' + handlerName + ');';
+        const escapedClass = className.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        regexPattern = '(document\\.querySelectorAll\\(\'\\.' + escapedClass + '\'\\)\\.forEach\\(el => el\\.on' + ev.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*=\\s*)([^;\\n]*)(\\);)';
     }
-    selector = '#' + el.id;
 
     if (handlerName) {
-        const line = '\ndocument.getElementById(\'' + el.id + '\').on' + ev + ' = ' + handlerName + ';';
-        // Найти и заменить существующее присвоение для данного элемента и события
-        const re = new RegExp('(document\\.getElementById\\(\'' + el.id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\'\\)\\.on' + ev.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*=\\s*)([^;\\n]*);?', 'g');
+        // Найти и заменить существующее присвоение для данного селектора и события
+        const re = new RegExp(regexPattern, 'g');
         let replaced = false;
-        s = s.replace(re, (match, p1) => {
+        s = s.replace(re, (match, p1, p2, p3) => {
             replaced = true;
-            return p1 + handlerName + ';';
+            if (selectorType === 'class') {
+                return p1 + handlerName + p3;
+            } else {
+                return p1 + handlerName + ';';
+            }
         });
+        
         if (!replaced) {
             // Добавить новое в конец
             const insertIdx = findInsertIndexBeforeClosingIIFE(s);
