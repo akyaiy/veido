@@ -1527,7 +1527,33 @@ function getActiveBlockId() {
  * - Оборачивает код в защитную IIFE с обработкой ошибок.
  * - Выполняет обновлённый скрипт для активного блока.
  **********************************************************************/
-function applyJs(blockId) {
+function runJs(blockId) {
+    const scriptEl = document.querySelector('script[data-dynamic="' + blockId + '_view"]');
+    if (!scriptEl) return;
+
+    const content = scriptEl.textContent || '';
+    if (!content.trim()) return;
+
+/*     const wrapped = `
+        (() => {
+            try {
+                ${content}
+                if (typeof pageInit === "function") pageInit();
+            } catch (e) {
+                console.error("Block script error:", e);
+            }
+        })();
+    `; */
+    const wrapped = content;
+
+    try {
+        eval(wrapped);
+        showMarkerModal('JS-код блока успешно применён!');
+    } catch (e) {
+        console.error(e);
+    }
+}
+function saveJsToScript(blockId) {
     const content = centerPreJs.textContent || '';
 
     let scriptEl = document.querySelector('script[data-dynamic="' + blockId + '_view"]');
@@ -1539,29 +1565,7 @@ function applyJs(blockId) {
     }
 
     scriptEl.type = '';
-
-    if (!content.trim()) {
-        scriptEl.textContent = '';
-        return;
-    }
-
-    const wrapped = `
-                (() => {
-                    try {
-                        ${content}
-                        if (typeof pageInit === "function") pageInit();
-                    } catch (e) {
-                        console.error("Block script error:", e);
-                    }
-                })();
-            `;
-    scriptEl.textContent = wrapped;
-
-    try {
-        eval(scriptEl.textContent);
-    } catch (e) {
-        console.error(e);
-    }
+    scriptEl.textContent = content;
 }
 
 /***********************************************************************
@@ -1787,11 +1791,64 @@ btnApplyToView.onclick = () => {
 btnApplyJs.onclick = () => {
     const blockId = getActiveBlockId();
     if (!blockId) return;
-    applyJs(blockId);
+    runJs(blockId);
 };
+[centerPreJs, centerPreHtml].forEach(el => {
+    el.addEventListener('keydown', (e) => {
+        const sel = window.getSelection();
+        if (!sel.rangeCount) return;
+        const range = sel.getRangeAt(0);
 
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            const tabNode = document.createTextNode('\t');
+            range.deleteContents();
+            range.insertNode(tabNode);
+            range.setStartAfter(tabNode);
+            range.setEndAfter(tabNode);
+            sel.removeAllRanges();
+            sel.addRange(range);
+        }
 
+        if (e.key === 'Enter') {
+            e.preventDefault();
 
+            // 1. Получаем ВЕСЬ текст от начала блока до курсора через Range
+            const preRange = document.createRange();
+            preRange.selectNodeContents(el);
+            preRange.setEnd(range.startContainer, range.startOffset);
+            const textBefore = preRange.toString();
+
+            // 2. Находим отступ последней строки (табы и пробелы)
+            const lines = textBefore.split('\n');
+            const currentLine = lines[lines.length - 1];
+            const indent = currentLine.match(/^[ \t]*/)[0];
+
+            // 3. Проверяем, есть ли текст ПОСЛЕ курсора
+            const afterRange = document.createRange();
+            afterRange.selectNodeContents(el);
+            afterRange.setStart(range.startContainer, range.startOffset);
+            const textAfter = afterRange.toString();
+
+            // Если после курсора ничего нет, нужен "добивочный" \n
+            const isAtEnd = textAfter.length === 0;
+            const insertText = '\n' + indent + (isAtEnd ? '\n' : '');
+
+            const newNode = document.createTextNode(insertText);
+            range.deleteContents();
+            range.insertNode(newNode);
+
+            // 4. Устанавливаем курсор строго после \n и indent
+            // Смещение = 1 (для \n) + длина отступа
+            const newOffset = 1 + indent.length;
+            range.setStart(newNode, newOffset);
+            range.setEnd(newNode, newOffset);
+
+            sel.removeAllRanges();
+            sel.addRange(range);
+        }
+    });
+});
 
 
 
@@ -1887,9 +1944,9 @@ function escapeHtml(str) {
  **********************************************************************/
 async function askForMarkerValue(marker) {
     const lower = marker.toLowerCase();
-    if (lower === 'link' || lower === 'url' || lower === 'image' || lower === 'src') return await showMarkerModal('Введите ссылку (URL)');
-    if (lower === 'count' || lower === 'number') return await showMarkerModal('Введите число');
-    return await showMarkerModal(`Введите значение для ${marker}`);
+    if (lower === 'link' || lower === 'url' || lower === 'image' || lower === 'src') return await showMarkerModal('Введите ссылку (URL)', 'input');
+    if (lower === 'count' || lower === 'number') return await showMarkerModal('Введите число', 'input');
+    return await showMarkerModal(`Введите значение для ${marker}`, 'input');
 }
 
 function replaceMarkersInAttributes(el, markerValues) {
@@ -2037,6 +2094,7 @@ async function handleLoadedBlockView(dataEl, placeholderText="текст") {
         if (m === 'ST') continue; // ST обрабатываем отдельно
         const val = await askForMarkerValue(m);
         if (val !== null) markerValues[m] = val;
+        else return
     }
 
     // Заменим маркеры в атрибутах
@@ -2117,6 +2175,7 @@ async function handlePreHtml(dataEl, placeholderText = "текст") {
         if (m === 'ST') continue;
         const v = await askForMarkerValue(m);
         if (v !== null) markerValues[m] = escapeHtml(v);
+        else return
     }
 
     // Подготовим snippet: заменим все маркеры (включая [ST] на содержимое выделения или placeholder)
@@ -2167,15 +2226,28 @@ let currentSelectedEl = null;
  * - Определяет выбранный HTML-элемент для редактирования.
  * - Обновляет связанные панели (CSS, свойства, JS).
  **********************************************************************/
+let lastSelectedEl = null;
+
 document.addEventListener('click', e => {
     const clicked = e.target;
 
     const view = clicked.closest('[id^="loadedBlock_"][id$="_view"]');
-    if (!view) return;
 
-    if (!view.contains(clicked)) return;
+    if (!view) {
+        if (lastSelectedEl) {
+            delete lastSelectedEl.dataset.selectorType;
+            lastSelectedEl = null;
+        }
+        return;
+    }
 
     const el = clicked.closest('[id^="loadedBlock_"][id$="_view"], [id^="loadedBlock_"][id$="_view"] *') || view;
+
+    if (lastSelectedEl && lastSelectedEl !== el) {
+        delete lastSelectedEl.dataset.selectorType;
+    }
+
+    lastSelectedEl = el;
 
     updateCssPanel(el);
     updateTagLabel(el);
@@ -3069,6 +3141,7 @@ addBtn.addEventListener('click', () => {
     }
 });
 
+
 /***********************************************************************
  * updateJsPanel — обновляет панель JS-событий для выбранного элемента:
  * - Очищает таблицу, оставляя только верхнюю панель управления.
@@ -3135,27 +3208,19 @@ function updateJsPanel(el, updateJsPanelNameTrigger=true) {
     }
 
     // Фильтруем те, что относятся именно к выделенному DOM-элементу
+    const activeValue = (selectorType === 'id' ? el.id : el.dataset.activeClass) || '';
+
     const matched = entries.filter(en => {
-        if (!en.selector) return false;
+        if (!en.selector || !activeValue) return false;
         
-        // Если используем class селектор
-        if (selectorType === 'class') {
-            const classes = el.className.split(/\s+/).filter(c => c);
-            // Проверяем, содержится ли какой-то из классов элемента в селекторе
-            return classes.some(cls => {
-                const esc = escapeRegExp(cls);
-                const re = new RegExp('(^|[^a-zA-Z0-9_-])\\.' + esc + '($|[^a-zA-Z0-9_-])', 'i');
-                return re.test(en.selector);
-            });
-        }
+        // Формируем паттерн для поиска конкретного селектора (#id или .class)
+        const pattern = selectorType === 'id' ? '#' + activeValue : '.' + activeValue;
         
-        // Если используем id селектор
-        try {
-            return el.matches(en.selector);
-        } catch {
-            const s = en.selector.replace(/::[a-zA-Z0-9\-\(\)]+/g, '').trim();
-            try { return s && el.matches(s); } catch { return false; }
-        }
+        // Экранируем для регулярки
+        const esc = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // Ищем вхождение именно этого класса/id (с границами слова для классов)
+        const re = new RegExp('(^|[^a-zA-Z0-9_-])' + esc + '($|[^a-zA-Z0-9_-])', 'i');
+        return re.test(en.selector);
     });
 
     const eventToSelector = new Map();
@@ -3179,66 +3244,83 @@ function updateJsPanel(el, updateJsPanelNameTrigger=true) {
     jsTable.addEventListener('input', jsTable.currentInputHandler);
 }
 function updateJsPanelName(el) {
-    const panelNameDiv = document.getElementById('editor-js-panel-name');
-    if (!panelNameDiv) return;
+    const typeSelect = document.getElementById('selector-type');
+    const nameInputId = document.getElementById('selector-name-id');
+    const nameInputClass = document.getElementById('selector-name-class');
+    const classSelect = document.getElementById('selector-class');
 
-    const selectorType = el.dataset.selectorType || 'id';
-    const tagName = el.tagName.toLowerCase();
-    
-    panelNameDiv.innerHTML = '';
-    panelNameDiv.style.cssText = 'display: flex; gap: 0;';
-    
-    // Левая половина: выпадающий список
-    const typeSelect = document.createElement('select');
-    typeSelect.style.cssText = 'flex: 0 0 35%; min-width: 0;';
-    
-    const optId = document.createElement('option');
-    optId.value = 'id';
-    optId.textContent = 'id'
-    optId.selected = selectorType === 'id';
-    
-    const optClass = document.createElement('option');
-    optClass.value = 'class';
-    optClass.textContent = 'class';
-    optClass.selected = selectorType === 'class';
-    
-    typeSelect.appendChild(optId);
-    typeSelect.appendChild(optClass);
-    panelNameDiv.appendChild(typeSelect);
-    
-    // Правая половина: поле ввода
-    const nameInput = document.createElement('input');
-    nameInput.style.cssText = 'flex: 1; min-width: 0;';
-    nameInput.type = 'text';
-    nameInput.value = selectorType === 'id' ? (el.id || '') : (el.className || '');
-    nameInput.placeholder = selectorType === 'id' ? 'id' : 'class';
-    
-    panelNameDiv.appendChild(nameInput);
-    
-    typeSelect.addEventListener('change', e => {
-        el.dataset.selectorType = e.target.value;
-        updateJsPanelName(el);
-        updateJsPanel(el);
-    });
-    
-    nameInput.addEventListener('input', () => {
-        const val = nameInput.value.trim();
-        if (selectorType === 'id') {
-            el.id = val;
+    // 1. Синхронизируем тип
+    const selectorType = el?.dataset?.selectorType || typeSelect.value || 'id';
+    typeSelect.value = selectorType;
+
+    // 2. Управляем видимостью полей
+    if (selectorType === 'id') {
+        nameInputId.style.display = 'block';
+        nameInputClass.style.display = 'none';
+        classSelect.style.display = 'none';
+        
+        // Если элемент нажат — берем его ID, иначе оставляем что ввели
+        if (el) nameInputId.value = el.id || '';
+    } else {
+        nameInputId.style.display = 'none';
+        nameInputClass.style.display = 'block';
+        
+        const classes = el?.className?.split(/\s+/).filter(c => c) || [];
+        
+        // Показываем селект классов ТОЛЬКО если у нажатого элемента их > 1
+        if (el && classes.length > 1) {
+            classSelect.style.display = 'block';
+            classSelect.innerHTML = '';
+            classes.forEach(cls => classSelect.add(new Option(cls, cls)));
+            
+            // Если в dataset нет активного класса, берем первый
+            if (!el.dataset.activeClass || !classes.includes(el.dataset.activeClass)) {
+                el.dataset.activeClass = classes[0];
+            }
+            classSelect.value = el.dataset.activeClass;
+            nameInputClass.value = el.dataset.activeClass;
         } else {
-            el.className = val;
+            classSelect.style.display = 'none';
+            if (el) {
+                const singleClass = classes[0] || '';
+                nameInputClass.value = singleClass;
+                el.dataset.activeClass = singleClass;
+            }
         }
-        updateJsPanel(el, false);
-        if (selectorType == 'class') prepareClassAutocomplete(nameInput);
-    });
-    nameInput.addEventListener('click', () => {
-        if (selectorType == 'class') prepareClassAutocomplete(nameInput);
-    });
-    
-    nameInput.addEventListener('change', () => {
-        updateJsPanel(el);
+    }
+
+    // --- ОБРАБОТЧИКИ СОБЫТИЙ ---
+
+    typeSelect.onchange = () => {
+        if (el) el.dataset.selectorType = typeSelect.value;
         updateJsPanelName(el);
-    });
+        updateJsPanel(el);
+    };
+
+    // Для ID
+    nameInputId.oninput = () => {
+        if (el) el.id = nameInputId.value.trim();
+        updateJsPanel(el, false);
+    };
+
+    // Для Class
+    nameInputClass.oninput = () => {
+        const val = nameInputClass.value.trim();
+        if (el) el.dataset.activeClass = val;
+        
+        // Если пользователь начал менять текст вручную — скрываем селект (логика из п.3)
+        classSelect.style.display = 'none';
+        
+        updateJsPanel(el, false);
+    };
+
+    // Переключение через селект
+    classSelect.onchange = () => {
+        const val = classSelect.value;
+        nameInputClass.value = val;
+        if (el) el.dataset.activeClass = val;
+        updateJsPanel(el, false);
+    };
 }
 
 /***********************************************************************
@@ -3251,20 +3333,22 @@ function updateJsPanelName(el) {
  **********************************************************************/
 function onJsTableInput(e, eventToSelectorMap, blockId, el) {
     const td = e.target.closest('td');
-    if (!td) return;
+    if (!td || td.cellIndex !== 1) return; // Редактируем только колонку с именем (индекс 1)
+
     const tr = td.parentNode;
-    if (!tr) return;
-    const tdEvent = tr.children[0];
-    const tdName = tr.children[1];
-    if (!tdEvent || !tdName) return;
-    if (td !== tdName) return;
-    const ev = tdEvent.textContent.trim();
-    const handler = tdName.textContent.trim();
-    if (!handler || !/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(handler)) return;
+    const ev = tr.children[0].textContent.trim();
+    const handler = td.textContent.trim();
+
+    // Валидация: разрешаем пустую строку (для удаления) или корректное имя функции
+    if (handler !== "" && !/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(handler)) return;
+
+    // Определяем селектор: либо из карты, либо текущий активный (ID или выбранный класс)
     let selector = eventToSelectorMap.get(ev);
-    if (!selector) selector = buildSelector(el);
+    if (!selector) {
+        selector = (el.dataset.selectorType === 'id' ? '#' + el.id : '.' + (el.dataset.activeClass || ''));
+    }
+
     updateScriptAssignment(blockId, selector, ev, handler, el);
-    updateJsPanelName(el) 
 }
 
 /***********************************************************************
@@ -3277,19 +3361,17 @@ function onJsTableInput(e, eventToSelectorMap, blockId, el) {
  **********************************************************************/
 function onJsTableBlur(e, eventToSelectorMap, blockId, el) {
     const td = e.target.closest('td');
-    if (!td) return;
-    const tr = td.parentNode;
-    if (!tr) return;
-    const tdEvent = tr.children[0];
-    const tdName = tr.children[1];
-    if (!tdEvent || !tdName) return;
-    if (td !== tdName) return;
-    const ev = tdEvent.textContent.trim();
-    const handler = tdName.textContent.trim();
-    if (!handler || !/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(handler)) return;
-    let selector = eventToSelectorMap.get(ev);
-    if (!selector) selector = buildSelector(el);
-    updateScriptAssignment(blockId, selector, ev, handler, el);
+    if (!td || td.cellIndex !== 1) return;
+
+    const handler = td.textContent.trim();
+
+    // Запускаем обновление (на случай если input не сработал)
+    onJsTableInput(e, eventToSelectorMap, blockId, el);
+
+    // Если значение было стерто, перерисовываем панель, чтобы пустая строка исчезла из таблицы
+    if (handler === "") {
+        updateJsPanel(el);
+    }
 }
 
 function findFreeElNumber() {
@@ -3314,58 +3396,49 @@ function updateScriptAssignment(blockId, selector, eventFull, handlerName, el) {
     const scriptEl = document.querySelector('script[data-dynamic="' + blockId + '_view"]');
     if (!scriptEl) return;
     let s = scriptEl.textContent;
+    
     const ev = eventFull.replace(/^on/, '');
-    const selectorType = el.dataset.selectorType || 'class';
+    const selectorType = el.dataset.selectorType || 'id';
+    const activeVal = selectorType === 'id' ? el.id : el.dataset.activeClass;
+    if (!activeVal) return;
 
-    let line = '';
-    let regexPattern = '';
-    let oldRegexId = '';
+    let regex;
+    let newLine = '';
 
     if (selectorType === 'id') {
-        // Для id селектора
-        if (!el.id) {
-            el.id = 'el_' + findFreeElNumber();
-        }
-        const idValue = el.id;
-        line = '\ndocument.getElementById(\'' + idValue + '\').on' + ev + ' = ' + handlerName + ';';
-        oldRegexId = idValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        regexPattern = '(document\\.getElementById\\(\'' + oldRegexId + '\'\\)\\.on' + ev.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*=\\s*)([^;\\n]*);?';
+        // Ищем конструкцию document.getElementById('...').onсобытие = ...;
+        const escapedId = activeVal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        regex = new RegExp(`document\\.getElementById\\(['"]${escapedId}['"]\\)\\.on${ev}\\s*=\\s*[^;\\n]+;?`, 'g');
+        newLine = `document.getElementById('${activeVal}').on${ev} = ${handlerName};`;
     } else {
-        // Для class селектора
-        if (!el.className) {
-            el.className = 'el_' + findFreeElNumber();
-        }
-        const className = el.className.trim();
-        line = '\ndocument.querySelectorAll(\'.' + className + '\').forEach(el => el.on' + ev + ' = ' + handlerName + ');';
-        const escapedClass = className.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        regexPattern = '(document\\.querySelectorAll\\(\'\\.' + escapedClass + '\'\\)\\.forEach\\(el => el\\.on' + ev.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*=\\s*)([^;\\n]*)(\\);)';
+        // Ищем конструкцию document.querySelectorAll('....').forEach(...)
+        const escapedClass = activeVal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        regex = new RegExp(`document\\.querySelectorAll\\(['"]\\.${escapedClass}['"]\\)\\.forEach\\(el\\s*=>\\s*el\\.on${ev}\\s*=\\s*[^)]+\\);?`, 'g');
+        newLine = `document.querySelectorAll('.${activeVal}').forEach(el => el.on${ev} = ${handlerName});`;
     }
 
-    if (handlerName) {
-        // Найти и заменить существующее присвоение для данного селектора и события
-        const re = new RegExp(regexPattern, 'g');
-        let replaced = false;
-        s = s.replace(re, (match, p1, p2, p3) => {
-            replaced = true;
-            if (selectorType === 'class') {
-                return p1 + handlerName + p3;
-            } else {
-                return p1 + handlerName + ';';
-            }
-        });
-        
-        if (!replaced) {
-            // Добавить новое в конец
+    const exists = regex.test(s);
+
+    if (handlerName === "") {
+        // УДАЛЕНИЕ: если имя пустое, просто вырезаем найденную регулярку
+        s = s.replace(regex, '').replace(/\n\s*\n/g, '\n'); 
+    } else {
+        if (exists) {
+            // ЗАМЕНА: если нашли старое, меняем на новое
+            s = s.replace(regex, newLine);
+        } else {
+            // ДОБАВЛЕНИЕ: если не нашли, вставляем в конец IIFE
             const insertIdx = findInsertIndexBeforeClosingIIFE(s);
-            if (insertIdx !== -1) s = s.slice(0, insertIdx) + line + s.slice(insertIdx);
-            else s = s.trimEnd() + '\n' + line + '\n';
+            const formattedLine = "\n" + newLine;
+            if (insertIdx !== -1) s = s.slice(0, insertIdx) + formattedLine + s.slice(insertIdx);
+            else s = s.trimEnd() + formattedLine + "\n";
         }
     }
 
+    // Сохранение и обновление интерфейса
     scriptEl.textContent = s;
     const blockPre = document.getElementById('center-tab-pre-js');
-    const activeBlock = getActiveBlockId();
-    if (blockPre && (getBlockIdFromEl(el) || activeBlock) === blockId) {
+    if (blockPre && (getActiveBlockId() === blockId)) {
         let cleanedCode = s.replace(/^\(function\(\) \{\s*try \{\s*/, '').replace(/\s*\} catch \(e\) \{\s*console\.error\("Block script error:", e\);\s*\}\s*\}\)\(\);$/, '');
         blockPre.textContent = cleanedCode;
     }
@@ -4845,34 +4918,62 @@ if (editor && editor.parentNode) {
 
 
 // --- функция показа модального окна и ожидания ввода ---
-function showMarkerModal(marker) {
+function showMarkerModal(marker, type = 'message') {
     return new Promise(resolve => {
-        const backdrop = document.getElementById('marker-modal-backdrop');
-        const modalName = document.getElementById('marker-name');
-        const input = document.getElementById('marker-modal-input');
-        const okBtn = document.getElementById('marker-modal-ok');
-        const cancelBtn = document.getElementById('marker-modal-cancel');
+        const template = document.querySelector('.marker-modal-backdrop');
+        if (!template) { console.error('Шаблон .marker-modal-backdrop не найден'); resolve(null); return; }
 
-        modalName.textContent = `${marker}`;
-        input.value = '';
-        backdrop.style.display = 'flex';
-        input.focus();
-        input.select();
+        const clone = template.cloneNode(true);
+        document.body.appendChild(clone);
 
-        function closeModal(value) {
-            backdrop.style.display = 'none';
-            okBtn.onclick = null;
-            cancelBtn.onclick = null;
-            input.onkeydown = null;
-            resolve(value);
+        const modal = clone.querySelector('.marker-modal');
+        const nameEl = clone.querySelector('.marker-name');
+        const textEl = clone.querySelector('.marker-text');
+        const input = clone.querySelector('.marker-input');
+        const okBtn = clone.querySelector('.marker-ok');
+        const cancelBtn = clone.querySelector('.marker-cancel');
+
+        okBtn.onclick = cancelBtn.onclick = input.onkeydown = null;
+        clone.classList.remove('toast');
+        modal.classList.remove('message');
+        textEl.style.display = input.style.display = 'none';
+        cancelBtn.style.display = '';
+
+        if (type === 'input') {
+            clone.style.display = 'flex';
+            nameEl.textContent = 'Введите значение:';
+            input.style.display = '';
+            input.value = '';
+            input.placeholder = marker || '';
+            setTimeout(() => input.focus(), 0);
+
+            okBtn.onclick = () => closeModal(input.value);
+            cancelBtn.onclick = () => closeModal(null);
+            input.onkeydown = e => { if (e.key==='Enter') closeModal(input.value); if (e.key==='Escape') closeModal(null); };
+        } else {
+            clone.classList.add('toast');
+            clone.style.display = 'block';
+            modal.classList.add('message');
+            nameEl.textContent = 'Сообщение:';
+            textEl.style.display = 'block';
+            textEl.innerHTML = '<hr>' + marker || '';
+            cancelBtn.style.display = 'none';
+
+            okBtn.onclick = () => closeModal(true);
+            const t = setTimeout(() => closeModal(true), 3000);
+
+            function closeModal(value) {
+                clearTimeout(t);
+                if (clone.parentNode) document.body.removeChild(clone);
+                resolve(value);
+            }
+            return;
         }
 
-        okBtn.onclick = () => closeModal(input.value);
-        cancelBtn.onclick = () => closeModal(null);
-        input.onkeydown = (e) => {
-            if (e.key === 'Enter') closeModal(input.value);
-            if (e.key === 'Escape') closeModal(null);
-        };
+        function closeModal(value) {
+            if (clone.parentNode) document.body.removeChild(clone);
+            resolve(value);
+        }
     });
 }
 

@@ -271,7 +271,16 @@
     </div>
     <div id="js-panel" style="display: none;">
         <div class="table-title">События и функции</div>
-        <div id="editor-js-panel-name"></div>
+        <div id="editor-js-panel-name">
+            <select id="selector-type" style="flex: 0 0 35%; min-width: 0;">
+                <option value="id">id</option>
+                <option value="class">class</option>
+            </select>
+            <input id="selector-name-id" type="text" style="flex:1; min-width:0;">
+            <input id="selector-name-class" type="text" style="flex:1; min-width:0; display: none;">
+            <select id="selector-class" style="flex: 0 0 5%; min-width: 0; display: none;">
+            </select>
+        </div>
         <table id="editor-js-panel">
         </table>
     </div>
@@ -310,13 +319,14 @@
 </div>
 
 
-<div id="marker-modal-backdrop" style="display: none;">
-    <div id="marker-modal">
-        <div id="marker-name">Сообщение:</div>
-        <input id="marker-modal-input" type="text">
-        <div id="marker-modal-buttons">
-            <button id="marker-modal-cancel">Отмена</button>
-            <button id="marker-modal-ok">OK</button>
+<div class="marker-modal-backdrop" style="display: none;">
+    <div class="marker-modal">
+        <div class="marker-name"></div>
+        <div class="marker-text" style="display: none;"></div>
+        <input class="marker-input" type="text" style="display: none;">
+        <div class="marker-modal-buttons">
+            <button class="marker-cancel">Отмена</button>
+            <button class="marker-ok">OK</button>
         </div>
     </div>
 </div>

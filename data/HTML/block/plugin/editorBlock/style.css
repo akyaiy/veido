@@ -157,6 +157,13 @@ main.editor {
     font-size: 13px;
 }
 
+#center-tab-pre-js {
+    white-space: pre;
+    tab-size: 4;
+    -moz-tab-size: 4;
+    -o-tab-size: 4;
+}
+
 .center-tab.active {
     background: #fff;
     font-weight: bold;
@@ -289,6 +296,15 @@ main.editor {
     gap: 4px;
 }
 
+#editor-js-panel-name {
+    display: flex;
+    gap: 0;
+}
+#editor-js-panel-name select,
+#editor-js-panel-name input {
+    box-sizing: border-box;
+}
+
 /* плейсхолдеры для editable */
 td[contenteditable][data-placeholder]:empty:before {
     content: attr(data-placeholder);
@@ -383,40 +399,66 @@ block {
     background: #e0e0e0;
 }
 
-/* вызов окна */
-#marker-modal-backdrop {
+/* --- input с затемнением --- */
+.marker-modal-backdrop {
     display: none;
     position: fixed;
     inset: 0;
     background: rgba(0,0,0,0.3);
-    display: flex;
     align-items: flex-start;
     justify-content: center;
     z-index: 9999;
 }
 
-#marker-modal {
+.marker-modal {
     background: #fff;
     padding: 10px;
     width: 350px;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+    box-shadow: 0 3px 10px rgba(0,0,0,0.4);
     border-radius: 4px;
     font-family: sans-serif;
-    margin-top: 40px;
+    text-align: left;
+    top: 20px;
 }
 
-#marker-modal input {
+.marker-input {
     width: 100%;
     margin-top: 5px;
     padding: 4px;
     box-sizing: border-box;
 }
 
-#marker-modal-buttons {
+.marker-modal-buttons {
     margin-top: 8px;
     text-align: right;
 }
+.marker-modal-buttons button { margin-left: 5px; }
 
-#marker-modal-buttons button {
-    margin-left: 5px;
+/* --- message --- */
+.marker-modal.message {
+    position: fixed;
+    right: 20px;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.marker-modal.message .marker-text {
+    display: block;
+    margin-top: 5px;
+}
+
+.marker-modal.message .marker-input,
+.marker-modal.message .marker-cancel { display: none; }
+
+/* backdrop для message не закрывает экран */
+.marker-modal-backdrop.toast {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: none;
+    pointer-events: none;
+}
+
+.marker-modal-backdrop.toast .marker-modal {
+    pointer-events: auto;
 }
