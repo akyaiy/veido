@@ -462,3 +462,11 @@ block {
 .marker-modal-backdrop.toast .marker-modal {
     pointer-events: auto;
 }
+
+/* панель истогрии */
+.history-actions {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    z-index: 10;
+}

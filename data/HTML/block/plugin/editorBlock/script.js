@@ -5090,3 +5090,224 @@ function syncElementId(newId, el, highlightElements) {
 
     return { valid: true, reason: 'updated' };
 }
+
+/* отмена и повтор действий для блоков */
+const historyPanel = document.querySelector('.history-actions');
+const centerPanel = document.getElementById('center-panel');
+const undoBtn = historyPanel?.querySelector('[data-act="undo"]');
+const redoBtn = historyPanel?.querySelector('[data-act="redo"]');
+
+let historyData = {}; 
+let currentEditor = null;
+let isInternalChange = false;
+
+if (historyPanel) {
+    Object.assign(historyPanel.style, {
+        position: 'absolute',
+        top: '5px',
+        right: '5px',
+        display: 'none',
+        zIndex: '100'
+    });
+}
+
+// Компактный логгер
+function logStatus(id, action) {
+    const data = historyData[id];
+    if (!data) return;
+    console.log(`[%c${action.toUpperCase()}%c] Запись: %c${data.index + 1}%c из %c${data.stack.length}%c | ID: ${id}`, 
+        'color: #00ff00; font-weight: bold', '', 
+        'color: #ffeb3b; font-weight: bold', '', 
+        'color: #ffeb3b; font-weight: bold', ''
+    );
+}
+
+// Если внутреннее изменение - блокируем сохранение
+function saveState(editor) {
+    if (!editor) return;
+    if (isInternalChange) return; // предотвращаем автосохранение при внутренних операциях
+
+    const id = editor.id;
+    if (!id) return;
+    if (!historyData[id]) historyData[id] = { stack: [], index: -1 };
+    
+    const data = historyData[id];
+    const currentState = editor.innerHTML;
+
+    if (data.stack[data.index] === currentState) return;
+
+    // обрезаем redo-ветку, если нужно
+    data.stack = data.stack.slice(0, data.index + 1);
+    data.stack.push(currentState);
+    data.index++;
+    
+    if (data.stack.length > 50) {
+        data.stack.shift();
+        data.index--;
+    }
+    
+    logStatus(id, "Save");
+}
+
+// Обёртка для безопасной записи "снимка" (используется перед Undo если есть несохранённые изменения)
+function pushSnapshot(editor) {
+    if (!editor) return;
+    // ставим флаг чтобы любые события, которые могли вызывать save, были игнорированы
+    isInternalChange = true;
+    try {
+        saveState(editor);
+    } finally {
+        // снимаем флаг после следующего рендера (чтобы избежать синхронных событий)
+        requestAnimationFrame(() => { requestAnimationFrame(() => { isInternalChange = false; }); });
+    }
+}
+
+// Удаляет ветку redo при наборе после undo
+function clearRedoIfNeeded(editor) {
+    if (!editor) return;
+    const id = editor.id;
+    const data = historyData[id];
+    if (!data) return;
+    if (data.index < data.stack.length - 1) {
+        data.stack = data.stack.slice(0, data.index + 1);
+        logStatus(id, "New Branch");
+    }
+}
+
+function showHistoryPanel(editor) {
+    const id = editor.id || "";
+    const isValidEditor = (id.startsWith('loadedBlock_') && id.endsWith('_view')) || 
+                         ['center-tab-pre-html', 'center-tab-pre-js'].includes(id);
+
+    if (!isValidEditor || !historyPanel || !centerPanel) return;
+    
+    currentEditor = editor;
+    if (historyPanel.parentNode !== centerPanel) centerPanel.appendChild(historyPanel);
+    historyPanel.style.display = 'flex';
+
+    if (!historyData[id]) {
+        historyData[id] = { stack: [editor.innerHTML], index: 0 };
+        logStatus(id, "Init");
+    }
+}
+
+undoBtn?.addEventListener('click', () => {
+    if (!currentEditor) return;
+    const id = currentEditor.id;
+    const data = historyData[id];
+    if (!data) return;
+
+    // Если текущее состояние отличается от последней сохранённой, сохраняем его как снимок
+    if (currentEditor.innerHTML !== data.stack[data.index]) {
+        pushSnapshot(currentEditor);
+    }
+
+    // Выполняем обычный шаг назад (если можно)
+    if (data.index > 0) {
+        // пометим внутреннюю операцию, чтобы её не трекали
+        isInternalChange = true;
+        try {
+            data.index--;
+            currentEditor.innerHTML = data.stack[data.index];
+            logStatus(id, "Undo");
+        } finally {
+            // снимаем флаг после следующего рендера
+            requestAnimationFrame(() => { requestAnimationFrame(() => { isInternalChange = false; }); });
+        }
+    }
+});
+
+redoBtn?.addEventListener('click', () => {
+    if (!currentEditor) return;
+    const id = currentEditor.id;
+    const data = historyData[id];
+    if (!data) return;
+
+    if (data.index < data.stack.length - 1) {
+        isInternalChange = true;
+        try {
+            data.index++;
+            currentEditor.innerHTML = data.stack[data.index];
+            logStatus(id, "Redo");
+        } finally {
+            requestAnimationFrame(() => { requestAnimationFrame(() => { isInternalChange = false; }); });
+        }
+    }
+});
+
+// При штатном вводе: если печатаем поверх отменённых записей — удаляем redo
+document.addEventListener('input', (e) => {
+    if (e.target !== currentEditor || isInternalChange) return;
+
+    clearRedoIfNeeded(currentEditor);
+    saveState(currentEditor);
+});
+
+// Горячие клавиши и авто-сохранение на "ключевых" символах
+document.addEventListener('keydown', (e) => {
+    // Горячие: Ctrl/Cmd+Z, Ctrl/Cmd+Y, Ctrl/Cmd+Shift+Z
+    const isMod = e.ctrlKey || e.metaKey;
+    if (isMod && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) {
+            redoBtn?.click();
+        } else {
+            undoBtn?.click();
+        }
+        return;
+    }
+    if (isMod && e.key.toLowerCase() === 'y') {
+        e.preventDefault();
+        redoBtn?.click();
+        return;
+    }
+
+    if (!currentEditor) return;
+
+    // печатные клавиши и backspace/delete — удаляем redo ветку (пользователь изменил содержимое)
+    const printable = (e.key.length === 1) || e.key === 'Backspace' || e.key === 'Delete' || e.key === 'Enter';
+    const controlKey = e.ctrlKey || e.metaKey || e.altKey;
+    if (printable && !controlKey) {
+        clearRedoIfNeeded(currentEditor);
+    }
+});
+
+document.addEventListener('paste', () => {
+    if (!currentEditor) return;
+    clearRedoIfNeeded(currentEditor);
+    setTimeout(() => saveState(currentEditor), 0);
+});
+
+document.addEventListener('mousedown', (e) => {
+    const target = e.target.closest('[contenteditable="true"]');
+    if (target) showHistoryPanel(target);
+}, true);
+
+document.addEventListener('focusin', (e) => {
+    if (e.target.contentEditable === "true") showHistoryPanel(e.target);
+}, true);
+
+const globalHistoryObserver = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+        if (mutation.attributeName === 'style') {
+            const target = mutation.target;
+            try {
+                const disp = window.getComputedStyle(target).display;
+                if (disp === 'none' && currentEditor) {
+                    if (target === currentEditor || target.contains(currentEditor) || currentEditor.contains(target)) {
+                        if (historyPanel) historyPanel.style.display = 'none';
+                        currentEditor = null;
+                    }
+                }
+            } catch (err) {
+                // игнор
+            }
+        }
+    }
+});
+
+globalHistoryObserver.observe(document.body, {
+    attributes: true,
+    subtree: true,
+    attributeFilter: ['style']
+});

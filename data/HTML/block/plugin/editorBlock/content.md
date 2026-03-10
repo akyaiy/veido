@@ -49,7 +49,7 @@
                 <div class="add-el" data-el="<button style='border:1px solid #000;'>[ST]</button>">кнопка</div>
                 <div class="add-el" data-el="<details style='border:1px solid #000;width:160px;'><summary>[ST]</summary><block>контент</block></details>">сворачиваемый блок</div>
                 <div class="add-el" data-el="<input type='range' min='0' max='100' value='50' style='width:160px;'>">ползунок</div>
-                <div class="add-el" data-el="<progress value='50' max='100' style='width:160px;='></progress>">прогресс бар</div>
+                <div class="add-el" data-el="<progress value='50' max='100' style='width:160px;'></progress>">прогресс бар</div>
                 <div class="add-el" data-el="<meter value='0.6' min='0' max='1' style='width:160px;'></meter>">шкала значения</div>
                 <div class="add-el" data-el="<input type='file'>">поле для загрузки файла</div>
             </div>
@@ -329,6 +329,11 @@
             <button class="marker-ok">OK</button>
         </div>
     </div>
+</div>
+
+<div class="history-actions" style="display: none;">
+    <button class="add-el" data-act="undo"><</button>
+    <button class="add-el" data-act="redo">></button>
 </div>
 
 
