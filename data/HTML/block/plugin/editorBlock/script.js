@@ -296,6 +296,8 @@ function switchTabPanel(tabName) {
         propertiesPanel.style.display = 'none';
         /* cssPanel.style.display = 'none'; */
         jsPanel.style.display = 'flex';
+        const blockId = getActiveBlockId();
+        if (blockId) ensureJsPanelSelection(blockId);
     }
 
     // если вкладка не properties, прячем панель спец‑свойств
@@ -1534,7 +1536,7 @@ function runJs(blockId) {
     const content = scriptEl.textContent || '';
     if (!content.trim()) return;
 
-/*     const wrapped = `
+    const wrapped = `
         (() => {
             try {
                 ${content}
@@ -1543,8 +1545,7 @@ function runJs(blockId) {
                 console.error("Block script error:", e);
             }
         })();
-    `; */
-    const wrapped = content;
+    `;
 
     try {
         eval(wrapped);
@@ -1605,6 +1606,7 @@ function showView(blockId) {
     document.getElementById('left-panel').style.display = 'flex';
     document.querySelector('#css-js-tabs .tab[data-tab="properties"]').style.display = '';
     document.querySelector('#css-js-tabs .tab[data-tab="properties"]').click();
+    ensureJsPanelSelection(blockId);
 }
 
 /***********************************************************************
@@ -1691,7 +1693,6 @@ function ensureHandlerFunctions(code) {
     while ((m = funcDefRe.exec(code)) !== null) {
         defined.add(m[1]);
     }
-    // also catch `var foo = function` or `let foo = () =>` etc.
     const varFuncRe = /(?:var|let|const)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*(?:function\b|\()/g;
     while ((m = varFuncRe.exec(code)) !== null) {
         defined.add(m[1]);
@@ -1706,6 +1707,21 @@ function ensureHandlerFunctions(code) {
     return code;
 }
 
+function stripJsWrapper(code) {
+    // Arrow IIFE with try/catch + optional pageInit
+    let out = code
+        .replace(/^\s*\(\(\)\s*=>\s*{\s*try\s*{\s*/s, '')
+        .replace(/\s*if\s*\(\s*typeof pageInit[\s\S]*?\)\s*pageInit\(\);\s*/s, '')
+        .replace(/\s*}\s*catch[\s\S]*?}\s*\}\)\s*\(\s*\)\s*;?\s*$/s, '');
+
+    // Legacy function IIFE wrapper (fallback)
+    out = out
+        .replace(/^\s*\(function\(\)\s*{\s*try\s*{\s*/s, '')
+        .replace(/\s*}\s*catch\s*\(e\)\s*{\s*console\.error\(\"Block script error:\",\s*e\);\s*}\s*}\)\(\);?\s*$/s, '');
+
+    return out;
+}
+
 function showJs(blockId, highlightSearch=null) {
     centerContent.style.display = '';
     centerPreHtml.style.display = 'none';
@@ -1715,10 +1731,7 @@ function showJs(blockId, highlightSearch=null) {
     const scriptEl = document.querySelector('script[data-dynamic="' + blockId + '_view"]');
     let code = scriptEl ? scriptEl.textContent : '';
 
-    code = code
-        .replace(/^\s*\(\(\)\s*=>\s*{\s*try\s*{\s*/s, '')
-        .replace(/\s*if\s*\(\s*typeof pageInit[\s\S]*?\)\s*pageInit\(\);\s*/s, '')
-        .replace(/\s*}\s*catch[\s\S]*?}\s*\}\)\s*\(\s*\)\s*;?\s*$/s, '');
+    code = stripJsWrapper(code);
 
     code = ensureHandlerFunctions(code);
 
@@ -2228,6 +2241,46 @@ let currentSelectedEl = null;
  **********************************************************************/
 let lastSelectedEl = null;
 
+function getDefaultJsPanelElement(view) {
+    if (!view) return null;
+    const all = view.querySelectorAll('*');
+    for (const el of all) {
+        const tag = el.tagName.toLowerCase();
+        if (tag === 'script' || tag === 'style') continue;
+        return el;
+    }
+    return view;
+}
+
+function selectElementForPanels(el, resetPrevious = true) {
+    if (!el) return;
+    if (resetPrevious && lastSelectedEl && lastSelectedEl !== el) {
+        delete lastSelectedEl.dataset.selectorType;
+    }
+
+    lastSelectedEl = el;
+    selectedElBorder = el;
+
+    updateCssPanel(el);
+    updateTagLabel(el);
+    updateJsPanel(el);
+    updateJsPanelName(el);
+    updatePropertiesPanel(el);
+}
+
+function ensureJsPanelSelection(blockId) {
+    const view = document.getElementById(blockId + '_view');
+    if (!view) return;
+
+    if (lastSelectedEl && view.contains(lastSelectedEl)) {
+        selectElementForPanels(lastSelectedEl, false);
+        return;
+    }
+
+    const el = getDefaultJsPanelElement(view);
+    if (el) selectElementForPanels(el);
+}
+
 document.addEventListener('click', e => {
     const clicked = e.target;
 
@@ -2242,18 +2295,7 @@ document.addEventListener('click', e => {
     }
 
     const el = clicked.closest('[id^="loadedBlock_"][id$="_view"], [id^="loadedBlock_"][id$="_view"] *') || view;
-
-    if (lastSelectedEl && lastSelectedEl !== el) {
-        delete lastSelectedEl.dataset.selectorType;
-    }
-
-    lastSelectedEl = el;
-
-    updateCssPanel(el);
-    updateTagLabel(el);
-    updateJsPanel(el);
-    updateJsPanelName(el);
-    updatePropertiesPanel(el);
+    selectElementForPanels(el);
 });
 
 /***********************************************************************
@@ -3141,6 +3183,20 @@ addBtn.addEventListener('click', () => {
     }
 });
 
+// Храним введенный id без data-атрибутов на элементе
+const activeIdByEl = new WeakMap();
+
+function getActiveId(el) {
+    if (!el) return '';
+    if (activeIdByEl.has(el)) return activeIdByEl.get(el) || '';
+    return el.id || '';
+}
+
+function setActiveId(el, val) {
+    if (!el) return;
+    activeIdByEl.set(el, val);
+}
+
 
 /***********************************************************************
  * updateJsPanel — обновляет панель JS-событий для выбранного элемента:
@@ -3208,7 +3264,7 @@ function updateJsPanel(el, updateJsPanelNameTrigger=true) {
     }
 
     // Фильтруем те, что относятся именно к выделенному DOM-элементу
-    const activeValue = (selectorType === 'id' ? el.id : el.dataset.activeClass) || '';
+    const activeValue = (selectorType === 'id' ? getActiveId(el) : el.dataset.activeClass) || '';
 
     const matched = entries.filter(en => {
         if (!en.selector || !activeValue) return false;
@@ -3259,8 +3315,8 @@ function updateJsPanelName(el) {
         nameInputClass.style.display = 'none';
         classSelect.style.display = 'none';
         
-        // Если элемент нажат — берем его ID, иначе оставляем что ввели
-        if (el) nameInputId.value = el.id || '';
+        // Если элемент нажат — берем сохраненный ID или его текущий ID
+        if (el) nameInputId.value = getActiveId(el) || '';
     } else {
         nameInputId.style.display = 'none';
         nameInputClass.style.display = 'block';
@@ -3299,7 +3355,8 @@ function updateJsPanelName(el) {
 
     // Для ID
     nameInputId.oninput = () => {
-        if (el) el.id = nameInputId.value.trim();
+        const val = nameInputId.value.trim();
+        setActiveId(el, val);
         updateJsPanel(el, false);
     };
 
@@ -3345,7 +3402,9 @@ function onJsTableInput(e, eventToSelectorMap, blockId, el) {
     // Определяем селектор: либо из карты, либо текущий активный (ID или выбранный класс)
     let selector = eventToSelectorMap.get(ev);
     if (!selector) {
-        selector = (el.dataset.selectorType === 'id' ? '#' + el.id : '.' + (el.dataset.activeClass || ''));
+        selector = (el.dataset.selectorType === 'id'
+            ? '#' + (getActiveId(el) || '')
+            : '.' + (el.dataset.activeClass || ''));
     }
 
     updateScriptAssignment(blockId, selector, ev, handler, el);
@@ -3399,7 +3458,7 @@ function updateScriptAssignment(blockId, selector, eventFull, handlerName, el) {
     
     const ev = eventFull.replace(/^on/, '');
     const selectorType = el.dataset.selectorType || 'id';
-    const activeVal = selectorType === 'id' ? el.id : el.dataset.activeClass;
+    const activeVal = selectorType === 'id' ? getActiveId(el) : el.dataset.activeClass;
     if (!activeVal) return;
 
     let regex;
@@ -3439,7 +3498,7 @@ function updateScriptAssignment(blockId, selector, eventFull, handlerName, el) {
     scriptEl.textContent = s;
     const blockPre = document.getElementById('center-tab-pre-js');
     if (blockPre && (getActiveBlockId() === blockId)) {
-        let cleanedCode = s.replace(/^\(function\(\) \{\s*try \{\s*/, '').replace(/\s*\} catch \(e\) \{\s*console\.error\("Block script error:", e\);\s*\}\s*\}\)\(\);$/, '');
+        let cleanedCode = stripJsWrapper(s);
         blockPre.textContent = cleanedCode;
     }
 }
@@ -5091,6 +5150,9 @@ function syncElementId(newId, el, highlightElements) {
     return { valid: true, reason: 'updated' };
 }
 
+
+
+
 /* отмена и повтор действий для блоков */
 const historyPanel = document.querySelector('.history-actions');
 const centerPanel = document.getElementById('center-panel');
@@ -5100,43 +5162,30 @@ const redoBtn = historyPanel?.querySelector('[data-act="redo"]');
 let historyData = {}; 
 let currentEditor = null;
 let isInternalChange = false;
+let editorObserver = null;
 
-if (historyPanel) {
-    Object.assign(historyPanel.style, {
-        position: 'absolute',
-        top: '5px',
-        right: '5px',
-        display: 'none',
-        zIndex: '100'
-    });
-}
-
-// Компактный логгер
 function logStatus(id, action) {
     const data = historyData[id];
     if (!data) return;
-    console.log(`[%c${action.toUpperCase()}%c] Запись: %c${data.index + 1}%c из %c${data.stack.length}%c | ID: ${id}`, 
-        'color: #00ff00; font-weight: bold', '', 
-        'color: #ffeb3b; font-weight: bold', '', 
-        'color: #ffeb3b; font-weight: bold', ''
-    );
+    console.log(`[%c${action.toUpperCase()}%c] Шаг: ${data.index + 1}/${data.stack.length} | ID: ${id}`, 
+        'color: #00ff00; font-weight: bold', '');
 }
 
-// Если внутреннее изменение - блокируем сохранение
 function saveState(editor) {
-    if (!editor) return;
-    if (isInternalChange) return; // предотвращаем автосохранение при внутренних операциях
+    if (!editor || isInternalChange) return;
 
     const id = editor.id;
     if (!id) return;
     if (!historyData[id]) historyData[id] = { stack: [], index: -1 };
     
     const data = historyData[id];
-    const currentState = editor.innerHTML;
+    
+    // ВАЖНО: Сохраняем в стек только чистый HTML
+    const currentState = getPureHTML(editor.innerHTML);
 
+    // Если после чистки контент совпадает с верхушкой стека — ничего не делаем
     if (data.stack[data.index] === currentState) return;
 
-    // обрезаем redo-ветку, если нужно
     data.stack = data.stack.slice(0, data.index + 1);
     data.stack.push(currentState);
     data.index++;
@@ -5145,137 +5194,149 @@ function saveState(editor) {
         data.stack.shift();
         data.index--;
     }
+    /* logStatus(id, "Save"); */
+}
+
+// Фильтрация изменений: игнорируем только текст и outline
+function setupEditorObserver(editor) {
+    if (editorObserver) editorObserver.disconnect();
     
-    logStatus(id, "Save");
-}
+    editorObserver = new MutationObserver((mutations) => {
+        if (isInternalChange) return;
+        
+        let shouldSave = false;
+        for (const m of mutations) {
+            // Если изменился атрибут style, проверяем, не outline ли это
+            if (m.type === 'attributes' && m.attributeName === 'style') {
+                // Если в стилях изменился только outline — игнорируем
+                const oldStyle = m.oldValue || "";
+                const newStyle = editor.getAttribute('style') || "";
+                if (oldStyle.replace(/outline:[^;]+;?/, '') !== newStyle.replace(/outline:[^;]+;?/, '')) {
+                    shouldSave = true;
+                    break;
+                }
+            } 
+            // Если добавились/удалились теги (<b>, <i>, <div> и т.д.)
+            else if (m.type === 'childList') {
+                shouldSave = true;
+                break;
+            }
+        }
+        
+        if (shouldSave) {
+            saveState(editor);
+        }
+    });
 
-// Обёртка для безопасной записи "снимка" (используется перед Undo если есть несохранённые изменения)
-function pushSnapshot(editor) {
-    if (!editor) return;
-    // ставим флаг чтобы любые события, которые могли вызывать save, были игнорированы
-    isInternalChange = true;
-    try {
-        saveState(editor);
-    } finally {
-        // снимаем флаг после следующего рендера (чтобы избежать синхронных событий)
-        requestAnimationFrame(() => { requestAnimationFrame(() => { isInternalChange = false; }); });
-    }
-}
-
-// Удаляет ветку redo при наборе после undo
-function clearRedoIfNeeded(editor) {
-    if (!editor) return;
-    const id = editor.id;
-    const data = historyData[id];
-    if (!data) return;
-    if (data.index < data.stack.length - 1) {
-        data.stack = data.stack.slice(0, data.index + 1);
-        logStatus(id, "New Branch");
-    }
+    editorObserver.observe(editor, {
+        childList: true, subtree: true, attributes: true, attributeOldValue: true, characterData: false 
+    });
 }
 
 function showHistoryPanel(editor) {
     const id = editor.id || "";
-    const isValidEditor = (id.startsWith('loadedBlock_') && id.endsWith('_view')) || 
-                         ['center-tab-pre-html', 'center-tab-pre-js'].includes(id);
+    const isValid = (id.startsWith('loadedBlock_') && id.endsWith('_view')) || 
+                    ['center-tab-pre-html', 'center-tab-pre-js'].includes(id);
 
-    if (!isValidEditor || !historyPanel || !centerPanel) return;
+    if (!isValid || !historyPanel || !centerPanel) return;
     
-    currentEditor = editor;
+    if (currentEditor !== editor) {
+        currentEditor = editor;
+        setupEditorObserver(editor);
+    }
+
     if (historyPanel.parentNode !== centerPanel) centerPanel.appendChild(historyPanel);
     historyPanel.style.display = 'flex';
 
     if (!historyData[id]) {
         historyData[id] = { stack: [editor.innerHTML], index: 0 };
-        logStatus(id, "Init");
     }
 }
 
 undoBtn?.addEventListener('click', () => {
-    if (!currentEditor) return;
+    if (!currentEditor || isInternalChange) return;
     const id = currentEditor.id;
     const data = historyData[id];
-    if (!data) return;
+    
+    if (!data || data.index <= 0) return;
 
-    // Если текущее состояние отличается от последней сохранённой, сохраняем его как снимок
-    if (currentEditor.innerHTML !== data.stack[data.index]) {
-        pushSnapshot(currentEditor);
+    const currentHTML = getPureHTML(currentEditor.innerHTML);
+    const lastSavedHTML = getPureHTML(data.stack[data.index]);
+
+    if (currentHTML !== lastSavedHTML) {
+        saveState(currentEditor);
     }
 
-    // Выполняем обычный шаг назад (если можно)
+    // Теперь делаем шаг назад
     if (data.index > 0) {
-        // пометим внутреннюю операцию, чтобы её не трекали
         isInternalChange = true;
-        try {
-            data.index--;
-            currentEditor.innerHTML = data.stack[data.index];
-            logStatus(id, "Undo");
-        } finally {
-            // снимаем флаг после следующего рендера
-            requestAnimationFrame(() => { requestAnimationFrame(() => { isInternalChange = false; }); });
-        }
+        data.index--;
+        currentEditor.innerHTML = data.stack[data.index];
+        /* logStatus(id, "Undo"); */
+        
+        // Увеличиваем таймаут, чтобы MutationObserver успел "пропустить" это изменение
+        setTimeout(() => { isInternalChange = false; }, 50);
     }
 });
+const getPureHTML = (html) => {
+    return html
+        .replace(/&nbsp;/g, ' ') 
+        // 1. Убираем только outline, не трогая остальные стили
+        .replace(/outline:[^;]+;?/g, '')
+        // 2. Убираем пробел перед закрывающей кавычкой стиля: "width: 10px; " -> "width: 10px;"
+        .replace(/;\s+"/g, ';"')
+        // 3. Убираем лишние пробелы ТОЛЬКО внутри тегов (между атрибутами)
+        // Ищет пробелы, за которыми следует символ, но всё это внутри <>
+        .replace(/(<[^>]+)\s{2,}([^>]*>)/g, '$1 $2')
+        // 4. Убираем пробелы перед закрытием тега: <div > -> <div>
+        .replace(/\s+>/g, '>')
+        .trim();
+};
 
 redoBtn?.addEventListener('click', () => {
     if (!currentEditor) return;
-    const id = currentEditor.id;
-    const data = historyData[id];
-    if (!data) return;
+    const data = historyData[currentEditor.id];
+    if (!data || data.index >= data.stack.length - 1) return;
 
-    if (data.index < data.stack.length - 1) {
-        isInternalChange = true;
-        try {
-            data.index++;
-            currentEditor.innerHTML = data.stack[data.index];
-            logStatus(id, "Redo");
-        } finally {
-            requestAnimationFrame(() => { requestAnimationFrame(() => { isInternalChange = false; }); });
-        }
-    }
+    isInternalChange = true;
+    data.index++;
+    currentEditor.innerHTML = data.stack[data.index];
+    /* logStatus(currentEditor.id, "Redo"); */
+    setTimeout(() => isInternalChange = false, 10);
 });
 
-// При штатном вводе: если печатаем поверх отменённых записей — удаляем redo
+// Логика записи текста: только по спецсимволам
 document.addEventListener('input', (e) => {
     if (e.target !== currentEditor || isInternalChange) return;
 
-    clearRedoIfNeeded(currentEditor);
-    saveState(currentEditor);
+    const data = historyData[currentEditor.id];
+    if (data && data.index < data.stack.length - 1) {
+        data.stack = data.stack.slice(0, data.index + 1);
+    }
+
+    const triggers = [' ', '.', ',', '!', '?', ';', ':', '(', ')', '"', "'", '/', '\\'];
+    const isTrigger = e.data && triggers.includes(e.data);
+    const isSpecialKey = e.inputType === 'insertParagraph' || e.inputType === 'insertLineBreak';
+
+    if (isTrigger || isSpecialKey) {
+        saveState(currentEditor);
+    }
 });
 
-// Горячие клавиши и авто-сохранение на "ключевых" символах
 document.addEventListener('keydown', (e) => {
-    // Горячие: Ctrl/Cmd+Z, Ctrl/Cmd+Y, Ctrl/Cmd+Shift+Z
+    if (e.key === 'Enter' && currentEditor && !isInternalChange) {
+        saveState(currentEditor);
+    }
+
     const isMod = e.ctrlKey || e.metaKey;
     if (isMod && e.key.toLowerCase() === 'z') {
         e.preventDefault();
-        if (e.shiftKey) {
-            redoBtn?.click();
-        } else {
-            undoBtn?.click();
-        }
-        return;
+        e.shiftKey ? redoBtn?.click() : undoBtn?.click();
     }
     if (isMod && e.key.toLowerCase() === 'y') {
         e.preventDefault();
         redoBtn?.click();
-        return;
     }
-
-    if (!currentEditor) return;
-
-    // печатные клавиши и backspace/delete — удаляем redo ветку (пользователь изменил содержимое)
-    const printable = (e.key.length === 1) || e.key === 'Backspace' || e.key === 'Delete' || e.key === 'Enter';
-    const controlKey = e.ctrlKey || e.metaKey || e.altKey;
-    if (printable && !controlKey) {
-        clearRedoIfNeeded(currentEditor);
-    }
-});
-
-document.addEventListener('paste', () => {
-    if (!currentEditor) return;
-    clearRedoIfNeeded(currentEditor);
-    setTimeout(() => saveState(currentEditor), 0);
 });
 
 document.addEventListener('mousedown', (e) => {
@@ -5287,27 +5348,46 @@ document.addEventListener('focusin', (e) => {
     if (e.target.contentEditable === "true") showHistoryPanel(e.target);
 }, true);
 
-const globalHistoryObserver = new MutationObserver((mutations) => {
-    for (const mutation of mutations) {
-        if (mutation.attributeName === 'style') {
-            const target = mutation.target;
-            try {
-                const disp = window.getComputedStyle(target).display;
-                if (disp === 'none' && currentEditor) {
-                    if (target === currentEditor || target.contains(currentEditor) || currentEditor.contains(target)) {
-                        if (historyPanel) historyPanel.style.display = 'none';
-                        currentEditor = null;
-                    }
+let lastCursorOffset = 0; 
+let lastContentLen = 0;
+
+document.addEventListener('selectionchange', () => {
+    if (!currentEditor || isInternalChange) return;
+
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        const container = range.commonAncestorContainer;
+        
+        // Проверяем, что работаем внутри активного редактора
+        if (currentEditor.contains(container)) {
+            const id = currentEditor.id;
+            const data = historyData[id];
+            if (!data || !data.stack) return;
+
+            const currentHTML = getPureHTML(currentEditor.innerHTML);
+            const lastSavedHTML = data.stack[data.index] || "";
+            
+            // Считаем длину чистого текста (без тегов) и берем позицию курсора
+            const currentLen = currentHTML.replace(/<[^>]*>/g, '').length;
+            const currentOffset = range.startOffset;
+
+            // 1. Если текущий контент реально отличается от последней записи в истории
+            if (currentHTML !== lastSavedHTML) {
+                
+                // 2. Проверяем на "нормальный набор": 
+                // Длина строки выросла на 1 И курсор сместился ровно на 1 вперед
+                const isNormalTyping = (currentLen === lastContentLen + 1) && (currentOffset === lastCursorOffset + 1);
+                
+                // Если это прыжок курсора, вставка или удаление — сохраняем "хвост"
+                if (!isNormalTyping) {
+                    saveState(currentEditor);
                 }
-            } catch (err) {
-                // игнор
             }
+
+            // Обновляем метки для следующей проверки
+            lastContentLen = currentLen;
+            lastCursorOffset = currentOffset;
         }
     }
-});
-
-globalHistoryObserver.observe(document.body, {
-    attributes: true,
-    subtree: true,
-    attributeFilter: ['style']
 });
