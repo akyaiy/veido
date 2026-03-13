@@ -62,7 +62,8 @@ main.editor {
 
 /* левая панель элементов */
 #left-panel {
-    width: 100px;
+    width: 80px;
+    font-size: 12px;
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -85,11 +86,8 @@ main.editor {
 }
 
 .add-el {
-    padding: 4px;
+    padding: 2px 4px !important;
     margin: 2px;
-    font-size: 12px;
-    border-radius: 3px;
-    background: #f4f4f4;
     cursor: pointer;
 }
 
@@ -324,7 +322,7 @@ td[contenteditable][data-placeholder]:empty:before {
 
 /* редактор свойств */
 #properties-simpleFormats [simpleformats-button] {
-    padding: 3px;
+    /* padding: 3px; */
     cursor: pointer;
     display: inline-block;
     user-select: none; 
@@ -470,4 +468,10 @@ block {
     top: 5px;
     right: 5px;
     z-index: 10;
+}
+
+/* иконки */
+.svg-icon {
+    width: 20px;
+    height: 20px;
 }

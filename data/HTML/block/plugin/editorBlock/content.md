@@ -14,44 +14,44 @@
         <div>
             <div>Базовые элементы</div>
             <div style="display:block;">
-                <div class="add-el" data-el="<block style='border:1px solid #000;'>[ST]</block>">блок</div>
-                <div class="add-el" data-el="<img src='[LINK]'>">изображение</div>
-                <div class="add-el" data-el="<a href='[LINK]'>[ST]</a>">ссылка</div>
-                <div class="add-el" data-el="<table><tr><td>[ST]</td><td><br></td></tr><tr><td><br></td><td><br></td></tr></table>">таблица</div>
-                <div class="add-el" data-el="<hr style='height:2px;border:0;background:#000;'>">линия</div>
+                <div class="add-el" data-el="<block style='border:1px solid #000;'>[ST]</block>" title="блок"><svg class="svg-icon" use="4x19"></svg></div>
+                <div class="add-el" data-el="<img src='[LINK]'>" title="изображение"><svg class="svg-icon" use="9x13"></svg></div>
+                <div class="add-el" data-el="<a href='[LINK]'>[ST]</a>" title="ссылка"><svg class="svg-icon" use="14x23"></svg></div>
+                <div class="add-el" data-el="<table><tr><td>[ST]</td><td><br></td></tr><tr><td><br></td><td><br></td></tr></table>" title="таблица"><svg class="svg-icon" use="19x6"></svg></div>
+                <div class="add-el" data-el="<hr style='height:2px;border:0;background:#000;'>" title="линия"><svg class="svg-icon" use="4x7"></svg></div>
             </div>
         </div>
         <hr>
         <div>
             <div>Формы</div>
             <div style="display:block;">
-                <div class="add-el" data-el="<form style='border:1px solid #000;'>[ST]</form>">форма</div>
-                <div class="add-el" data-el="<textarea style='border:1px solid #000;'>[ST]</textarea>">многострочное поле ввода</div>
-                <div class="add-el" data-el="<input placeholder='[ST]'>">однострочное поле ввода</div>
-                <div class="add-el" data-el="<select><option>вариант 1</option><option>вариант 2</option></select>">выпадающий список</div>
-                <div class="add-el" data-el="<code style='border:1px solid #000;'>[ST]</code>">фрагмент кода</div>
+                <div class="add-el" data-el="<form style='border:1px solid #000;'>[ST]</form>" title="форма"><svg class="svg-icon" use="4x19"></svg></div>
+                <div class="add-el" data-el="<textarea style='border:1px solid #000;'>[ST]</textarea>" title="многострочное поле ввода"><svg class="svg-icon" use="4x19"></svg></div>
+                <div class="add-el" data-el="<input placeholder='[ST]'>" title="однострочное поле ввода"><svg class="svg-icon" use="4x19"></svg></div>
+                <div class="add-el" data-el="<select><option>вариант 1</option><option>вариант 2</option></select>" title="выпадающий список"><svg class="svg-icon" use="10x16"></svg></div>
+                <div class="add-el" data-el="<code style='border:1px solid #000;'>[ST]</code>" title="фрагмент кода"><svg class="svg-icon" use="15x9"></svg></div>
             </div>
         </div>
         <hr>
         <div>
             <div>Медиа</div>
             <div style="display:none;">
-                <div class="add-el" data-el="<figure><img src='[LINK]'><figcaption>[ST]</figcaption></figure>">изображение с подписью</div>
-                <div class="add-el" data-el="<video src='[LINK]' controls style='max-width:100%;'>[ST]</video>">видео</div>
-                <div class="add-el" data-el="<audio src='[LINK]' controls>[ST]</audio>">аудио</div>
-                <div class="add-el" data-el="<iframe src='[LINK]' style='width:100%;height:160px;'></iframe>">веб-страница</div>
+                <div class="add-el" data-el="<figure><img src='[LINK]'><figcaption>[ST]</figcaption></figure>" title="изображение с подписью"><svg class="svg-icon" use="9x13"></svg></div>
+                <div class="add-el" data-el="<video src='[LINK]' controls style='max-width:100%;'>[ST]</video>" title="видео"><svg class="svg-icon" use="15x4"></svg></div>
+                <div class="add-el" data-el="<audio src='[LINK]' controls>[ST]</audio>" title="аудио"><svg class="svg-icon" use="15x3"></svg></div>
+                <div class="add-el" data-el="<iframe src='[LINK]' style='width:100%;height:160px;'></iframe>" title="веб-страница"><svg class="svg-icon" use="15x6"></svg></div>
             </div>
         </div>
         <hr>
         <div>
             <div>Интерактив</div>
             <div style="display:none;">
-                <div class="add-el" data-el="<button style='border:1px solid #000;'>[ST]</button>">кнопка</div>
-                <div class="add-el" data-el="<details style='border:1px solid #000;width:160px;'><summary>[ST]</summary><block>контент</block></details>">сворачиваемый блок</div>
-                <div class="add-el" data-el="<input type='range' min='0' max='100' value='50' style='width:160px;'>">ползунок</div>
-                <div class="add-el" data-el="<progress value='50' max='100' style='width:160px;'></progress>">прогресс бар</div>
-                <div class="add-el" data-el="<meter value='0.6' min='0' max='1' style='width:160px;'></meter>">шкала значения</div>
-                <div class="add-el" data-el="<input type='file'>">поле для загрузки файла</div>
+                <div class="add-el" data-el="<button style='border:1px solid #000;'>[ST]</button>" title="кнопка"><svg class="svg-icon" use="4x19"></svg></div>
+                <div class="add-el" data-el="<details style='border:1px solid #000;width:160px;'><summary>[ST]</summary><block>контент</block></details>" title="сворачиваемый блок"><svg class="svg-icon" use="10x16"></svg></div>
+                <div class="add-el" data-el="<input type='range' min='0' max='100' value='50' style='width:160px;'>" title="ползунок"><svg class="svg-icon" use="6x11"></svg></div>
+                <div class="add-el" data-el="<progress value='50' max='100' style='width:160px;'></progress>" title="прогресс бар"><svg class="svg-icon" use="6x11"></svg></div>
+                <div class="add-el" data-el="<meter value='0.6' min='0' max='1' style='width:160px;'></meter>" title="шкала значения"><svg class="svg-icon" use="6x11"></svg></div>
+                <div class="add-el" data-el="<input type='file'>" title="поле для загрузки файла"><svg class="svg-icon" use="15x6"></svg></div>
             </div>
         </div>
     </div>
@@ -197,16 +197,16 @@
     <div id="properties-panel">
         <div class="table-title">Свойства текста</div>
         <div id="properties-simpleFormats">
-            <div simpleformats-button="bold" style="font-weight:bold;">B</div>
-            <div simpleformats-button="italic" style="font-style:italic;">I</div>
-            <div simpleformats-button="underline" style="text-decoration:underline;">U</div>
-            <div simpleformats-button="strike" style="text-decoration:line-through;">S</div>
-            <div simpleformats-button="text-color" style="color:blue;">T</div>
-            <div simpleformats-button="bg-color" style="background-color:blue;color:white;">T</div>
-            <div simpleformats-button="sup">T<span style="font-size:0.7em; vertical-align:super;">x</span></div>
-            <div simpleformats-button="sub">T<span style="font-size:0.7em; vertical-align:sub;">x</span></div>
-            <div simpleformats-button="border-color" style="border: 2px solid blue;">T</div>
-            <div simpleformats-button="delete">-</div>
+            <div simpleformats-button="bold"><svg class="svg-icon" use="8x4"></svg></div>
+            <div simpleformats-button="italic"><svg class="svg-icon" use="8x5"></svg></div>
+            <div simpleformats-button="underline"><svg class="svg-icon" use="8x6"></svg></div>
+            <div simpleformats-button="strike"><svg class="svg-icon" use="8x7"></svg></div>
+            <div simpleformats-button="text-color"><svg class="svg-icon" use="8x4" use-color="#516ed7"></svg></div>
+            <div simpleformats-button="bg-color"><svg class="svg-icon" use="8x4" use-background="#516ed7"></svg></div>
+            <div simpleformats-button="sup"><svg class="svg-icon" use="8x8"></svg></div>
+            <div simpleformats-button="sub"><svg class="svg-icon" use="8x9"></svg></div>
+            <div simpleformats-button="border-color"><svg class="svg-icon" use="8x4" style="border: 1px solid #516ed7;"></svg></div>
+            <div simpleformats-button="delete"><svg class="svg-icon" use="1x28"></svg></div>
         </div>
         <div id="properties-list">
             Размер текста:
@@ -332,8 +332,8 @@
 </div>
 
 <div class="history-actions" style="display: none;">
-    <button class="add-el" data-act="undo"><</button>
-    <button class="add-el" data-act="redo">></button>
+    <button class="add-el" data-act="undo"><svg class="svg-icon" use="3x13"></svg></button>
+    <button class="add-el" data-act="redo"><svg class="svg-icon" use="3x14"></svg></button>
 </div>
 
 
