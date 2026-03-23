@@ -1071,6 +1071,20 @@ updateHandlePosition();
 
 
 
+/* меню действий */
+const menuBtn = document.getElementById('tabs-menu-btn');
+const tabsMenu = document.getElementById('tabs-menu');
+
+menuBtn.addEventListener('click', () => {
+    tabsMenu.style.display = tabsMenu.style.display === 'none' ? 'flex' : 'none';
+});
+
+document.addEventListener('click', (e) => {
+    if (!tabsMenu.contains(e.target) && !menuBtn.contains(e.target)) {
+        tabsMenu.style.display = 'none';
+    }
+});
+
 /***********************************************************************
  * Кнопка вкладки "Открыть" и контейнер содержимого.
  **********************************************************************/
@@ -5245,8 +5259,8 @@ function showHistoryPanel(editor) {
         setupEditorObserver(editor);
     }
 
-    if (historyPanel.parentNode !== centerPanel) centerPanel.appendChild(historyPanel);
-    historyPanel.style.display = 'flex';
+    /* if (historyPanel.parentNode !== centerPanel) centerPanel.appendChild(historyPanel);
+    historyPanel.style.display = 'flex'; */
 
     if (!historyData[id]) {
         historyData[id] = { stack: [editor.innerHTML], index: 0 };

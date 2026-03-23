@@ -1,7 +1,21 @@
 <div id="block-editor-app">
 <div class="blocks-tabs">
+    <div class="tab-menu-wrapper" style="position: relative;">
+        <div id="tabs-menu-btn">
+            <svg class="tabs-svg-icon" class="svg-icon" use="1x1"></svg>
+        </div>
+        <div id="tabs-menu" style="display:none;">
+            <div id="tab-open" class="tab">Открыть</div>
+            <div class="tab">Заглушка</div>
+            <div class="tab">Заглушка</div>
+            <div class="tab">Заглушка</div>
+        </div>
+    </div>
     <div id="blocks-tabs">
-        <div id="tab-open" class="tab active">Открыть</div>
+    </div>
+    <div class="history-actions" style="display: flex;">
+        <div data-act="undo"><svg class="tabs-svg-icon" use="3x13"></svg></div>
+        <div data-act="redo"><svg class="tabs-svg-icon" use="3x14"></svg></div>
     </div>
     <div class="tab" id="previewPage">Предпросмотр</div>
 </div>
@@ -329,11 +343,6 @@
             <button class="marker-ok">OK</button>
         </div>
     </div>
-</div>
-
-<div class="history-actions" style="display: none;">
-    <button class="add-el" data-act="undo"><svg class="svg-icon" use="3x13"></svg></button>
-    <button class="add-el" data-act="redo"><svg class="svg-icon" use="3x14"></svg></button>
 </div>
 
 

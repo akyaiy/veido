@@ -27,7 +27,7 @@ main.editor {
     border-bottom: 1px solid rgba(0,0,0,0.06);
 }
 .blocks-tabs > :first-child {
-    flex: 1 1 auto;
+    flex: 0 0 auto;
 }
 .blocks-tabs > :nth-child(2) {
     flex: 0 0 auto; 
@@ -35,9 +35,15 @@ main.editor {
 
 #blocks-tabs {
     display: flex;
+    position: relative;
+}
+#blocks-tabs {
+    flex: 1 1 auto;
 }
 
 .blocks-tabs .tab {
+    display: flex;
+    align-items: center;
     padding: 2px 4px;
     border-radius: 3px;
     user-select: none;
@@ -48,6 +54,33 @@ main.editor {
 .blocks-tabs .tab.active {
     background: #fff;
     border-color: rgba(0,0,0,0.06);
+}
+
+/* меню действий */
+#tabs-menu-btn {
+    display: flex;
+    flex: 0 0 auto;
+    padding: 2px 4px;
+}
+.tabs-svg-icon {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+#tabs-menu {
+    top: 100%;
+    left: 0;
+    background: #fff;
+    border: 1px solid rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+    z-index: 10;
+    position: absolute;
+}
+
+#tabs-menu .tab {
+    white-space: nowrap;
 }
 
 /* основная рабочая зона */
@@ -463,15 +496,23 @@ block {
 }
 
 /* панель истогрии */
-.history-actions {
+/* .history-actions {
     position: absolute;
     top: 5px;
     right: 5px;
     z-index: 10;
+} */
+.history-actions * {
+    display: flex;
+    align-items: center;
+    margin: 0px 2px;
 }
 
 /* иконки */
 .svg-icon {
     width: 20px;
     height: 20px;
+}
+.svg-icon:hover, .tabs-svg-icon:hover {
+    opacity: 0.6;
 }
