@@ -336,7 +336,7 @@ specRoot.style.display = 'none';
 // --- конфигурация: какие теги считаем "специальными" ---
 const EDITABLE_TAGS = new Set([
     // Базовые и структурные
-    'block', 'div', 'a', 'table', 'hr', 'img', 'code',
+    'block', /* 'div', */ 'a', 'table', 'hr', 'img', 'code',
     // Формы
     'form', 'textarea', 'input', 'select', 'option',
     // Медиа
@@ -1108,6 +1108,19 @@ tabOpen.onclick = async() => {
 };
 
 /***********************************************************************
+ * Кнопка вкладки "Новая" и контейнер содержимого.
+ **********************************************************************/
+const tabNew = document.getElementById('tab-new');
+
+/***********************************************************************
+ * tabNew onclick — обработчик клика по вкладке "Новая":
+ **********************************************************************/
+tabNew.onclick = async() => {
+    window.tempStore.getByRecipient = async () => [{ path: "" }];
+    newLoadedBlock("");
+};
+
+/***********************************************************************
  * newLoadedBlock — загрузка и регистрация нового блока:
  * - Принимает путь к блоку.
  * - Проверяет, открыт ли блок с указанным путём, и активирует его при наличии.
@@ -1119,7 +1132,7 @@ async function newLoadedBlock() {
     const viewTab = document.querySelector('#center-tabs .center-tab[data-tab="view"]');
     viewTab.click();
 
-    const path = (await tempStore.getByRecipient("editorBlock"))?.[0]?.path;
+    const path = (await tempStore.getByRecipient("editorBlock"))?.[0]?.path || "";
     let tabs = document.getElementById('blocks-tabs');
     let container = document.getElementById('loadedBlockMain');
     if (!container) {
@@ -1129,9 +1142,11 @@ async function newLoadedBlock() {
     }
 
     let existingTab;
-    tabs.querySelectorAll('.tab').forEach(t => {
-        if (t.dataset.path === path) existingTab = t;
-    });
+    if (path) {
+        tabs.querySelectorAll('.tab').forEach(t => {
+            if (t.dataset.path === path) existingTab = t;
+        });
+    }
     
 function switchTo(blockId, tabEl) {
     tabs.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -1188,9 +1203,9 @@ function switchTo(blockId, tabEl) {
 
     const tabEl = document.createElement('div');
     tabEl.className = 'tab';
-    tabEl.dataset.path = path;
+    tabEl.dataset.path = path || blockId;
     tabEl.dataset.blockId = blockId;
-    tabEl.textContent = path.split('/').filter(Boolean).pop() || path;
+    tabEl.textContent = path ? (path.split('/').filter(Boolean).pop() || path) : "*new";
     tabEl.onclick = () => switchTo(blockId, tabEl);
     tabs.appendChild(tabEl);
 
@@ -1204,7 +1219,7 @@ function switchTo(blockId, tabEl) {
 
     switchTo(blockId, tabEl);
 
-    await loadBlock(path, viewDiv.id, ["js", "html"]);
+    if (path) await loadBlock(path, viewDiv.id, ["js", "html"]);
     showJs(blockId);
     showView(blockId);
 }

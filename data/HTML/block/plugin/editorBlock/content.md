@@ -6,7 +6,7 @@
         </div>
         <div id="tabs-menu" style="display:none;">
             <div id="tab-open" class="tab">Открыть</div>
-            <div class="tab">Заглушка</div>
+            <div  id="tab-new" class="tab">Новый</div>
             <div class="tab">Заглушка</div>
             <div class="tab">Заглушка</div>
         </div>
@@ -105,69 +105,44 @@
         <label data-target="all">ID: <input type="text" data-prop="id"><br></label>
         <label data-target="image">Ссылка: <input type="text" data-prop="img-src"></label>
         <label data-target="link">Ссылка: <input type="text" data-prop="link-href"></label>
-        <label data-target="input">Подсказка (ввода): <input type="text" data-prop="input-placeholder"></label>
-        <label data-target="input">Тип:
-            <select data-prop="input-type">
-                <option value="text">текст</option>
-                <option value="email">почта</option>
-                <option value="password">пороль</option>
-                <option value="number">число</option>
-            </select>
-        </label>
+        <label data-target="input textarea select">Подсказка (ввода): <input type="text" data-prop="input-placeholder"></label>
+        <label data-target="input textarea select">Тип: <select data-prop="input-type">
+            <option value="text">текст</option>
+            <option value="email">почта</option>
+            <option value="password">пороль</option>
+            <option value="number">число</option>
+        </select></label>
         <label data-target="table">Строки: <input type="number" min="1" step="1" data-prop="table-rows" value="1"></label>
         <label data-target="table">Столбцы: <input type="number" min="1" step="1" data-prop="table-cols" value="1"></label>
-        <label data-target="form">Метод формы:
-            <select data-prop="form-method">
-                <option value="">-</option>
-                <option value="get">get</option>
-                <option value="post">post</option>
-            </select>
-        </label>
+        <label data-target="form">Метод формы: <select data-prop="form-method">
+            <option value="">-</option>
+            <option value="get">get</option>
+            <option value="post">post</option>
+        </select></label>
         <label data-target="form">Действие: <input type="text" data-prop="form-action"></label>
         <label data-target="all">Ширина: <input data-prop="width-value"></label>
         <label data-target="all">Высота: <br><input data-prop="height-value"></label>
-        <label data-target="all">Отступы:
-            <div class="margin-grid">
-                <div class="col left">
-                    <input data-prop="margin-left" placeholder="Слева">
-                </div>
-                <div class="col center">
-                    <input data-prop="margin-top" placeholder="Сверху">
-                    <input data-prop="margin-bottom" placeholder="Снизу">
-                </div>
-                <div class="col right">
-                    <input data-prop="margin-right" placeholder="Справа">
-                </div>
-            </div>
-        </label>
-        <label data-target="all">Внутренние отступы:
-            <div class="padding-grid">
-                <div class="col left">
-                    <input data-prop="padding-left" placeholder="Слева">
-                </div>
-                <div class="col center">
-                    <input data-prop="padding-top" placeholder="Сверху">
-                    <input data-prop="padding-bottom" placeholder="Снизу">
-                </div>
-                <div class="col right">
-                    <input data-prop="padding-right" placeholder="Справа">
-                </div>
-            </div>
-        </label>
+        <label data-target="all">Отступы: <div class="margin-grid">
+            <div class="col left"><input data-prop="margin-left" placeholder="Слева"></div>
+            <div class="col center"><input data-prop="margin-top" placeholder="Сверху"><input data-prop="margin-bottom" placeholder="Снизу"></div>
+            <div class="col right"><input data-prop="margin-right" placeholder="Справа"></div>
+        </div></label>
+        <label data-target="all">Внутренние отступы: <div class="padding-grid">
+            <div class="col left"><input data-prop="padding-left" placeholder="Слева"></div>
+            <div class="col center"><input data-prop="padding-top" placeholder="Сверху"><input data-prop="padding-bottom" placeholder="Снизу"></div>
+            <div class="col right"><input data-prop="padding-right" placeholder="Справа"></div>
+        </div></label>
         <label data-target="all">Фон: <input type="color" data-prop="background-color"><br></label>
-        <label data-target="all">Цвет текста: <input type="color" data-prop="color"><br></label>
-        <label data-target="all">Размер шрифта: <input data-prop="font-size"></label>
-        <label data-target="all">Выравнивание текста:
-            <select data-prop="text-align">
-                <option value="">-</option>
-                <option value="left">Слева</option>
-                <option value="center">По центру</option>
-                <option value="right">Справа</option>
-            </select>
-        </label>
+        <label data-target="text link input textarea select button code">Цвет текста: <input type="color" data-prop="color"><br></label>
+        <label data-target="text link input textarea select button code">Размер шрифта: <input data-prop="font-size"></label>
+        <label data-target="text link input textarea select button code">Выравнивание текста: <select data-prop="text-align">
+            <option value="">-</option>
+            <option value="left">Слева</option>
+            <option value="center">По центру</option>
+            <option value="right">Справа</option>
+        </select></label>
         <label data-target="all">Прозрачность: <input data-prop="opacity"></label>
-        <label data-target="all">Граница: 
-            <input type="color" data-prop="border-color">
+        <label data-target="all">Граница: <input type="color" data-prop="border-color">
             <select data-prop="border-width">
                 <option value="">-</option>
                 <option value="1">1</option>
@@ -190,20 +165,15 @@
             </select>
         </label>
         <label data-target="all">Радиус скругления: <input data-prop="border-radius"></label>
-        <!--  -->
         <div id="css-panel" style="display: flex">
             <div id="tag-label">TAG</div>
             <div class="table-wrap">
                 <div class="table-title">Атрибуты</div>
-                <table id="attributes-table">
-                    <tr><td contenteditable="true" data-placeholder="name"></td><td contenteditable="true" data-placeholder="value"></td></tr>
-                </table>
+                <table id="attributes-table"><tr><td contenteditable="true" data-placeholder="name"></td><td contenteditable="true" data-placeholder="value"></td></tr></table>
             </div>
             <div class="table-wrap">
                 <div class="table-title">Свойства</div>
-                <table id="properties-table">
-                   <tr><td contenteditable="true" data-placeholder="property"></td><td contenteditable="true" data-placeholder="value"></td></tr>
-                </table>
+                <table id="properties-table"><tr><td contenteditable="true" data-placeholder="property"></td><td contenteditable="true" data-placeholder="value"></td></tr></table>
             </div>
         </div>
     </div>
