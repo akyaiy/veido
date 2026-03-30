@@ -103,8 +103,8 @@
     <div id="properties-panel-spec" style="display: none;">
         <div class="table-title" style="padding-bottom: 5px;">Свойства элементов</div>
         <label data-target="all">ID: <input type="text" data-prop="id"><br></label>
-        <label data-target="image">Ссылка: <input type="text" data-prop="img-src"></label>
-        <label data-target="link">Ссылка: <input type="text" data-prop="link-href"></label>
+        <label data-target="img">Ссылка: <input type="text" data-prop="img-src"></label>
+        <label data-target="a">Ссылка: <input type="text" data-prop="link-href"></label>
         <label data-target="input textarea select">Подсказка (ввода): <input type="text" data-prop="input-placeholder"></label>
         <label data-target="input textarea select">Тип: <select data-prop="input-type">
             <option value="text">текст</option>

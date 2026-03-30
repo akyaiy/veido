@@ -221,7 +221,7 @@ document.addEventListener('mouseup', () => {
     document.body.style.cursor = '';
 });
 
-document.addEventListener('click', e => {
+document.addEventListener('dblclick', e => {
     const el = findEditableElement(e.target); // вызываем только на клике
     if (!el) {
         selectedElBorder = null;
@@ -229,6 +229,9 @@ document.addEventListener('click', e => {
     }
 
     selectedElBorder = el;
+});
+document.addEventListener('click', e => {
+    updateOutline(null);
 });
 
 
@@ -336,7 +339,7 @@ specRoot.style.display = 'none';
 // --- конфигурация: какие теги считаем "специальными" ---
 const EDITABLE_TAGS = new Set([
     // Базовые и структурные
-    'block', /* 'div', */ 'a', 'table', 'hr', 'img', 'code',
+    'block', 'div', 'a', 'table', 'hr', 'img', 'code',
     // Формы
     'form', 'textarea', 'input', 'select', 'option',
     // Медиа
@@ -355,7 +358,6 @@ const ATOMIC_TAGS = new Set(['img', 'hr', 'input', 'progress', 'meter', 'video',
 
 function findEditableElement(startNode) {
     // --- НОВАЯ ПРОВЕРКА ДЛЯ ATOMIC TAGS ---
-    // Если мы физически кликнули по картинке, линии или инпуту
     if (startNode && startNode.nodeType === 1) {
         const startTag = startNode.tagName.toLowerCase();
         if (ATOMIC_TAGS.has(startTag) && EDITABLE_TAGS.has(startTag)) {
@@ -363,13 +365,14 @@ function findEditableElement(startNode) {
             return updateOutline(startNode);
         }
     }
-    // --------------------------------------
 
     // 1. Инициализация таргета
     let target = startNode;
     const sel = window.getSelection();
     
-    if (sel && sel.rangeCount > 0) {
+    // Если кликнули по тексту, берем текстовую ноду, 
+    // если по пустому месту в блоке — оставляем startNode
+    if (sel && sel.rangeCount > 0 && target.nodeType !== 1) {
         target = sel.anchorNode;
     }
 
@@ -377,13 +380,12 @@ function findEditableElement(startNode) {
 
     // 2. Поиск контейнера view
     const view = (target.nodeType === 1 ? target : target.parentElement)?.closest?.('[id^="loadedBlock_"][id$="_view"]');
-    
     if (!view) return updateOutline(null);
 
     // 3. Определяем начальный элемент для обхода
     let el = target.nodeType === Node.TEXT_NODE ? target.parentElement : target;
 
-    // Ссылка имеет высший приоритет
+    // Ссылка имеет приоритет
     if (el.tagName.toLowerCase() === 'a' && EDITABLE_TAGS.has('a')) {
         if (!el.closest('[contenteditable="true"]')) return updateOutline(null);
         return updateOutline(el);
@@ -397,21 +399,10 @@ function findEditableElement(startNode) {
             const tag = upNode.tagName.toLowerCase();
             if (EDITABLE_TAGS.has(tag)) {
                 foundUp = upNode;
-                break;
+                break; // Мы нашли ближайший редактируемый элемент — это и есть наша цель
             }
         }
         upNode = upNode.parentElement;
-    }
-
-    // 5. Логика "провала" внутрь блока (если кликнули не по тексту)
-    if (foundUp && foundUp.tagName.toLowerCase() === 'block') {
-        if (target.nodeType !== Node.TEXT_NODE) {
-            const downNode = searchDownRecursive(foundUp);
-            if (downNode) {
-                if (!downNode.closest('[contenteditable="true"]')) return updateOutline(null);
-                return updateOutline(downNode);
-            }
-        }
     }
 
     if (foundUp && !foundUp.closest('[contenteditable="true"]')) {
@@ -437,36 +428,60 @@ function searchDownRecursive(element) {
  * Вспомогательная функция для управления outline
  */
 function updateOutline(element) {
-    // Убираем outline у старого элемента
+    const specRoot = document.getElementById('properties-panel-spec');
+    const normalPanel = document.getElementById('properties-panel');
     const root = document.getElementById('loadedBlockMain');
+
+    // 1. Очистка старой обводки у всех элементов в рабочей области
     if (root) {
-        root.querySelectorAll('*').forEach(el => {
+        const allWithOutline = root.querySelectorAll('[style*="outline"]');
+        allWithOutline.forEach(el => {
             el.style.outline = '';
         });
     }
-    // Если курсор или выделение внутри properties-panel-spec, не делаем ничего
-    const selection = window.getSelection();
-    if (selection.rangeCount > 0) {
-        const range = selection.getRangeAt(0);
-        const startContainer = range.startContainer;
-        const startElement = startContainer.nodeType === Node.TEXT_NODE ? startContainer.parentElement : startContainer;
-        if (startElement.closest('#properties-panel-spec')) {
-            return;
-        }
-    }
 
-    // Если элемент внутри properties-panel-spec, не делаем ничего
+    // 2. Если фокус или клик внутри самой панели свойств — игнорируем, чтобы не сбросить выбор
     if (document.activeElement && document.activeElement.closest('#properties-panel-spec')) {
-        return;
+        return lastHighlightedElement;
     }
 
-    // Если нашли новый и он внутри contenteditable, и нет текстового выделения
-    if (element && element.closest('[contenteditable="true"]') && window.getSelection().isCollapsed) {
+    // 3. Если элемент найден и он находится внутри редактируемого контейнера
+    if (element && element.closest('[contenteditable="true"]')) {
+        const tagName = element.tagName.toLowerCase();
+        
+        // Визуально выделяем элемент
         element.style.outline = '1px solid #2196F3';
         lastHighlightedElement = element;
+        selectedEl = element;
+
+        // Показываем спец-панель и скрываем стандартную
+        if (specRoot) specRoot.style.display = 'block';
+        if (normalPanel) normalPanel.style.display = 'none';
+
+        if (specRoot) {
+            const allFields = specRoot.querySelectorAll('[data-target]');
+            
+            allFields.forEach(field => {
+                const targetAttr = field.getAttribute('data-target') || '';
+                const targets = targetAttr.toLowerCase().split(',').map(t => t.trim());
+
+                // Проверяем: подходит ли поле под текущий тег
+                if (targets.includes(tagName) || targets.includes('all')) {
+                    // Используем !important через setProperty, чтобы перебить любые другие стили
+                    field.style.setProperty('display', 'block', 'important');
+                } else {
+                    field.style.setProperty('display', 'none', 'important');
+                }
+            });
+        }
+
     } else {
+        // Если кликнули в пустое место (не по редактируемому тегу)
         lastHighlightedElement = null;
-        clearSelection();
+        selectedEl = null;
+        
+        if (specRoot) specRoot.style.display = 'none';
+        if (normalPanel) normalPanel.style.display = 'block';
     }
 
     return element;
@@ -808,7 +823,7 @@ window.BlockEditorSpec = {
 // --- Взаимодействие с loadedBlock_*_view ------------------------------------
 
 // Левый клик - выбрать элемент (только специальные элементы), не открываем панель
-document.addEventListener('click', e => {
+document.addEventListener('dblclick', e => {
     const el = findEditableElement(e.target);
     if (!el) return; // игнорируем клики по тексту и обычным контейнерам
     selectedEl = el;
@@ -816,7 +831,7 @@ document.addEventListener('click', e => {
 }, true);
 
 // левый клик - открыть properties-panel-spec (скрыть обычную), показать только нужные контролы
-document.addEventListener('click', e => {
+document.addEventListener('dblclick', e => {
     const inSpec = !!e.target.closest('#properties-panel-spec');
     if (inSpec) return;
     const editableContainer = e.target.closest('[contenteditable="true"]');
@@ -832,8 +847,8 @@ document.addEventListener('click', e => {
         let target = 'all';
 
         // Расширяем поддержку новых тегов
-        if (tag === 'img') target = 'image';
-        else if (tag === 'a') target = 'link';
+        if (tag === 'img') target = 'img';
+        else if (tag === 'a') target = 'a';
         else if (tag === 'input') target = 'input';
         else if (tag === 'table') target = 'table';
         else if (tag === 'block') target = 'block';
@@ -4095,84 +4110,134 @@ function getBlockContainersForRange(range) {
     return Array.from(containers);
 }
 
-/* Основная: применять/удалять inline-стиль к выделению (span) */
 function applyInlineStyleToSelection(styleProp, styleValue) {
     const sel = window.getSelection();
     if (!sel || !sel.rangeCount) return;
     const range = sel.getRangeAt(0);
     if (range.collapsed) return;
+
     const root = getRangeRootElement(range);
-    const textNodes = getTextNodesInRange(range);
+    
+    // 1. изолируем текстовые узлы в выделении
+    const textNodes = isolateTextNodes(range);
     if (!textNodes.length) return;
-    const selectedNodes = [];
+
+    // 2. режем родительские span перед первым и после последнего текста
+    splitParentsAtNode(textNodes[0], true);  
+    splitParentsAtNode(textNodes[textNodes.length - 1], false);
+
+    // 3. применяем стиль к изолированным текстовым узлам
     for (const tn of textNodes) {
-        try {
-            const selNode = splitTextNodeByRange(tn, range);
-            if (selNode && range.intersectsNode(selNode)) selectedNodes.push(selNode);
-        } catch (e) {
-            console.warn('splitTextNodeByRange failed', e);
+        if (!tn.textContent.trim() && tn.parentNode.tagName !== 'SPAN') continue;
+
+        let parent = tn.parentNode;
+        if (!parent || parent.tagName !== 'SPAN') {
+            parent = ensureWrapperSpanForTextNode(tn);
         }
-    }
-    if (!selectedNodes.length) return;
-    const selectedSet = new Set(selectedNodes);
-    for (const sNode of selectedNodes) {
-        const parent = sNode.parentNode;
-        if (parent && parent.nodeType === 1 && parent.tagName === 'SPAN') {
-            const allText = getTextNodesUnder(parent);
-            let allInside = true;
-            for (const t of allText) { if (!selectedSet.has(t)) { allInside = false; break; } }
-            if (allInside) {
-                const isTextDecoration = styleProp === 'textDecoration';
-                const current = parent.style.textDecoration || '';
-                const parts = current.split(/\s+/).filter(Boolean);
-                            
-                if (isTextDecoration) {
-                    if (!styleValue) {
-                        parent.style.textDecoration = '';
-                        cleanupSpanIfEmpty(parent);
-                    } else {
-                        if (parts.includes(styleValue)) {
-                            const newParts = parts.filter(v => v !== styleValue);
-                            parent.style.textDecoration = newParts.join(' ');
-                            cleanupSpanIfEmpty(parent);
-                        } else {
-                            parts.push(styleValue);
-                            parent.style.textDecoration = parts.join(' ');
-                        }
-                    }
+
+        const isTextDecoration = styleProp === 'textDecoration';
+        const currentTd = parent.style.textDecoration || '';
+        const parts = currentTd.split(/\s+/).filter(Boolean);
+                    
+        if (isTextDecoration) {
+            if (!styleValue) {
+                parent.style.textDecoration = '';
+            } else {
+                if (parts.includes(styleValue)) {
+                    parent.style.textDecoration = parts.filter(v => v !== styleValue).join(' ');
                 } else {
-                    if (!styleValue) {
-                        parent.style[styleProp] = '';
-                        cleanupSpanIfEmpty(parent);
-                    } else {
-                        parent.style[styleProp] = styleValue;
-                    }
+                    parts.push(styleValue);
+                    parent.style.textDecoration = parts.join(' ');
                 }
-                continue;
             }
-        }
-        if (!styleValue) {
-            const wrapper = ensureWrapperSpanForTextNode(sNode);
-            wrapper.style[styleProp] = '';
-            cleanupSpanIfEmpty(wrapper);
         } else {
-            if (parent && parent.nodeType === 1 && parent.tagName === 'SPAN' && parent.style[styleProp] === styleValue) continue;
-            const wrapper = ensureWrapperSpanForTextNode(sNode);
-            wrapper.style[styleProp] = styleValue;
+            parent.style[styleProp] = styleValue || '';
         }
+
+        cleanupSpanIfEmpty(parent);
     }
+
+    // 4. склеиваем соседние span с одинаковыми стилями
     mergeAdjacentSpans(root);
     const spans = root.querySelectorAll('span');
     spans.forEach(s => cleanupSpanIfEmpty(s));
+
+    // 5. восстанавливаем выделение
     try {
         const newRange = document.createRange();
-        const first = selectedNodes[0];
-        const last = selectedNodes[selectedNodes.length - 1];
-        newRange.setStartBefore(first);
-        newRange.setEndAfter(last);
+        newRange.setStartBefore(textNodes[0]);
+        newRange.setEndAfter(textNodes[textNodes.length - 1]);
         sel.removeAllRanges();
         sel.addRange(newRange);
     } catch (e) {}
+}
+
+// --- вспомогательные функции ---
+
+// изолирует текстовые узлы в выделении
+function isolateTextNodes(range) {
+    let startNode = range.startContainer;
+    let startOffset = range.startOffset;
+    let endNode = range.endContainer;
+    let endOffset = range.endOffset;
+
+    if (endNode.nodeType === Node.TEXT_NODE && endOffset < endNode.length) {
+        endNode.splitText(endOffset);
+    }
+
+    if (startNode.nodeType === Node.TEXT_NODE && startOffset > 0) {
+        const newNode = startNode.splitText(startOffset);
+        if (startNode === endNode) {
+            endNode = newNode;
+        }
+        startNode = newNode;
+    }
+
+    const newRange = document.createRange();
+    if (startNode.nodeType === Node.TEXT_NODE) newRange.setStart(startNode, 0);
+    else newRange.setStart(startNode, startOffset);
+    
+    if (endNode.nodeType === Node.TEXT_NODE) newRange.setEnd(endNode, endNode.length);
+    else newRange.setEnd(endNode, endOffset);
+
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+
+    return getTextNodesInRange(newRange);
+}
+
+// рекурсивно режет родительские span до contenteditable
+function splitParentsAtNode(textNode, isBefore) {
+    let current = textNode;
+    
+    while (current.parentNode && current.parentNode.tagName === 'SPAN') {
+        const parent = current.parentNode;
+        const clone = parent.cloneNode(false);
+        
+        if (isBefore) {
+            let sibling = parent.firstChild;
+            while (sibling !== current) {
+                let next = sibling.nextSibling;
+                clone.appendChild(sibling);
+                sibling = next;
+            }
+            if (clone.childNodes.length > 0) {
+                parent.parentNode.insertBefore(clone, parent);
+            }
+        } else {
+            let sibling = current.nextSibling;
+            while (sibling) {
+                let next = sibling.nextSibling;
+                clone.appendChild(sibling);
+                sibling = next;
+            }
+            if (clone.childNodes.length > 0) {
+                parent.parentNode.insertBefore(clone, parent.nextSibling);
+            }
+        }
+        current = parent;
+    }
 }
 
 /* Основная: применять/удалять блочный стиль к ближайшим блочным контейнерам */
