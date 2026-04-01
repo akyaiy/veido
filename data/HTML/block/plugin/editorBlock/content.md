@@ -2,7 +2,7 @@
 <div class="blocks-tabs">
     <div class="tab-menu-wrapper" style="position: relative;">
         <div id="tabs-menu-btn">
-            <svg class="tabs-svg-icon" class="svg-icon" use="1x1"></svg>
+            <svg class="tabs-svg-icon" class="svg-icon" use="8x13"></svg>
         </div>
         <div id="tabs-menu" style="display:none;">
             <div id="tab-open" class="tab">Открыть</div>
@@ -29,7 +29,7 @@
             <div>Базовые элементы</div>
             <div style="display:block;">
                 <div class="add-el" data-el="<block style='border:1px solid #000;'>[ST]</block>" title="блок"><svg class="svg-icon" use="4x19"></svg></div>
-                <div class="add-el" data-el="<img src='[LINK]'>" title="изображение"><svg class="svg-icon" use="9x13"></svg></div>
+                <div class="add-el" data-el="<img src='[LINK]'>" title="изображение"><svg class="svg-icon" use="19x19"></svg></div>
                 <div class="add-el" data-el="<a href='[LINK]'>[ST]</a>" title="ссылка"><svg class="svg-icon" use="14x23"></svg></div>
                 <div class="add-el" data-el="<table><tr><td>[ST]</td><td><br></td></tr><tr><td><br></td><td><br></td></tr></table>" title="таблица"><svg class="svg-icon" use="19x6"></svg></div>
                 <div class="add-el" data-el="<hr style='height:2px;border:0;background:#000;'>" title="линия"><svg class="svg-icon" use="4x7"></svg></div>
@@ -39,9 +39,9 @@
         <div>
             <div>Формы</div>
             <div style="display:block;">
-                <div class="add-el" data-el="<form style='border:1px solid #000;'>[ST]</form>" title="форма"><svg class="svg-icon" use="4x19"></svg></div>
-                <div class="add-el" data-el="<textarea style='border:1px solid #000;'>[ST]</textarea>" title="многострочное поле ввода"><svg class="svg-icon" use="4x19"></svg></div>
-                <div class="add-el" data-el="<input placeholder='[ST]'>" title="однострочное поле ввода"><svg class="svg-icon" use="4x19"></svg></div>
+                <div class="add-el" data-el="<form style='border:1px solid #000;'>[ST]</form>" title="форма"><svg class="svg-icon" use="12x18"></svg></div>
+                <div class="add-el" data-el="<input placeholder='[ST]'>" title="однострочное поле ввода"><svg class="svg-icon" use="19x17"></svg></div>
+                <div class="add-el" data-el="<textarea style='border:1px solid #000;'>[ST]</textarea>" title="многострочное поле ввода"><svg class="svg-icon" use="19x18"></svg></div>
                 <div class="add-el" data-el="<select><option>вариант 1</option><option>вариант 2</option></select>" title="выпадающий список"><svg class="svg-icon" use="10x16"></svg></div>
                 <div class="add-el" data-el="<code style='border:1px solid #000;'>[ST]</code>" title="фрагмент кода"><svg class="svg-icon" use="15x9"></svg></div>
             </div>
@@ -53,19 +53,18 @@
                 <div class="add-el" data-el="<figure><img src='[LINK]'><figcaption>[ST]</figcaption></figure>" title="изображение с подписью"><svg class="svg-icon" use="9x13"></svg></div>
                 <div class="add-el" data-el="<video src='[LINK]' controls style='max-width:100%;'>[ST]</video>" title="видео"><svg class="svg-icon" use="15x4"></svg></div>
                 <div class="add-el" data-el="<audio src='[LINK]' controls>[ST]</audio>" title="аудио"><svg class="svg-icon" use="15x3"></svg></div>
-                <div class="add-el" data-el="<iframe src='[LINK]' style='width:100%;height:160px;'></iframe>" title="веб-страница"><svg class="svg-icon" use="15x6"></svg></div>
+                <div class="add-el" data-el="<iframe src='[LINK]' style='width:100%;height:160px;'></iframe>" title="веб-страница"><svg class="svg-icon" use="15x5"></svg></div>
             </div>
         </div>
         <hr>
         <div>
             <div>Интерактив</div>
             <div style="display:none;">
-                <div class="add-el" data-el="<button style='border:1px solid #000;'>[ST]</button>" title="кнопка"><svg class="svg-icon" use="4x19"></svg></div>
-                <div class="add-el" data-el="<details style='border:1px solid #000;width:160px;'><summary>[ST]</summary><block>контент</block></details>" title="сворачиваемый блок"><svg class="svg-icon" use="10x16"></svg></div>
-                <div class="add-el" data-el="<input type='range' min='0' max='100' value='50' style='width:160px;'>" title="ползунок"><svg class="svg-icon" use="6x11"></svg></div>
-                <div class="add-el" data-el="<progress value='50' max='100' style='width:160px;'></progress>" title="прогресс бар"><svg class="svg-icon" use="6x11"></svg></div>
-                <div class="add-el" data-el="<meter value='0.6' min='0' max='1' style='width:160px;'></meter>" title="шкала значения"><svg class="svg-icon" use="6x11"></svg></div>
-                <div class="add-el" data-el="<input type='file'>" title="поле для загрузки файла"><svg class="svg-icon" use="15x6"></svg></div>
+                <div class="add-el" data-el="<button style='border:1px solid #000;'>[ST]</button>" title="кнопка"><svg class="svg-icon" use="14x27"></svg></div>
+                <div class="add-el" data-el="<details style='border:1px solid #000;width:160px;'><summary>[ST]</summary><block>контент</block></details>" title="сворачиваемый блок"><svg class="svg-icon" use="19x20"></svg></div>
+                <div class="add-el" data-el="<input type='range' min='0' max='100' value='50' style='width:160px;'>" title="ползунок"><svg class="svg-icon" use="19x22"></svg></div>
+                <div class="add-el" data-el="<progress value='50' max='100' style='width:160px;'></progress>" title="прогресс бар"><svg class="svg-icon" use="19x21"></svg></div>
+                <div class="add-el" data-el="<input type='file'>" title="поле для загрузки файла"><svg class="svg-icon" use="1x19"></svg></div>
             </div>
         </div>
     </div>
@@ -115,11 +114,26 @@
         <label data-target="table">Строки: <input type="number" min="1" step="1" data-prop="table-rows" value="1"></label>
         <label data-target="table">Столбцы: <input type="number" min="1" step="1" data-prop="table-cols" value="1"></label>
         <label data-target="form">Метод формы: <select data-prop="form-method">
-            <option value="">-</option>
+            <option value="">По умолчанию</option>
             <option value="get">get</option>
             <option value="post">post</option>
         </select></label>
-        <label data-target="form">Действие: <input type="text" data-prop="form-action"></label>
+        <label data-target="form">Действие формы: <input type="text" data-prop="form-action"></label>
+        <label data-target="video">Заставка" <input type="text" data-prop="video-poster"></label>
+        <label data-target="iframe">Ссылка: <input type="text" data-prop="iframe-src"></label>
+        <label data-target="button">Nип действия: <select data-prop="button-type">
+            <option value="">По умолчанию</option>
+            <option value="button">button</option>
+            <option value="submit">submit</option>
+            <option value="reset">reset</option>
+        </select></label>
+        <label data-target="details">Открыть по умолчанию: <input type="checkbox" data-prop="details-open"></label>
+        <label data-target="input:range">Мин значение: <input type="number" step="any" data-prop="range-min"></label>
+        <label data-target="input:range">Макс значение: <input type="number" step="any" data-prop="range-max"></label>
+        <label data-target="input:range">Текущее значение: <input type="number" step="any" data-prop="range-value"></label>
+        <label data-target="progress">Текущее значение: <input type="number" step="any" data-prop="progress-value"></label>
+        <label data-target="input:file">Допустимые типы: <input type="text" data-prop="file-accept"></label>
+        <label data-target="input:file">Несколько файлов: <input type="checkbox" data-prop="file-multiple"></label>
         <label data-target="all">Ширина: <input data-prop="width-value"></label>
         <label data-target="all">Высота: <br><input data-prop="height-value"></label>
         <label data-target="all">Отступы: <div class="margin-grid">
@@ -133,10 +147,18 @@
             <div class="col right"><input data-prop="padding-right" placeholder="Справа"></div>
         </div></label>
         <label data-target="all">Фон: <input type="color" data-prop="background-color"><br></label>
+        <label data-target="all">Курсор: <select data-prop="cursor">
+            <option value="">По умолчанию</option>
+            <option value="pointer">Указатель</option>
+            <option value="text">Текст</option>
+            <option value="wait">Ожидание</option>
+            <option value="not-allowed">Запрещено</option>
+            <option value="help">Помощь</option>
+        </select></label>
         <label data-target="text link input textarea select button code">Цвет текста: <input type="color" data-prop="color"><br></label>
         <label data-target="text link input textarea select button code">Размер шрифта: <input data-prop="font-size"></label>
         <label data-target="text link input textarea select button code">Выравнивание текста: <select data-prop="text-align">
-            <option value="">-</option>
+            <option value="">По умолчанию</option>
             <option value="left">Слева</option>
             <option value="center">По центру</option>
             <option value="right">Справа</option>
@@ -144,7 +166,7 @@
         <label data-target="all">Прозрачность: <input data-prop="opacity"></label>
         <label data-target="all">Граница: <input type="color" data-prop="border-color">
             <select data-prop="border-width">
-                <option value="">-</option>
+                <option value="">По умолчанию</option>
                 <option value="1">1</option>
                 <option value="2">2</option>
                 <option value="3">3</option>
@@ -157,7 +179,7 @@
                 <option value="10">10</option>
             </select>
             <select data-prop="border-style">
-                <option value="">-</option>
+                <option value="">По умолчанию</option>
                 <option value="solid">сплошной</option>
                 <option value="dashed">пунктирный</option>
                 <option value="dotted">точечный</option>
@@ -165,6 +187,22 @@
             </select>
         </label>
         <label data-target="all">Радиус скругления: <input data-prop="border-radius"></label>
+        <label data-target="block">Отображение элемента (display): <select data-prop="display">
+            <option value="">По умолчанию</option>
+            <option value="block">Блочный</option>
+            <option value="inline">Строчный</option>
+            <option value="inline-block">Инлайн блок</option>
+            <option value="flex">Flex</option>
+            <option value="none">Не отображать</option>
+        </select></label>
+        <label data-target="input textarea select">Изменение размера (resize): <select data-prop="resize">
+            <option value="">По умолчанию</option>
+            <option value="none">Запретить изменение размера</option>
+            <option value="both">Обе стороны</option>
+            <option value="horizontal">По горизонтали</option>
+            <option value="vertical">По вертикали</option>
+            <option value="auto">Авто</option>
+        </select></label>
         <div id="css-panel" style="display: flex">
             <div id="tag-label">TAG</div>
             <div class="table-wrap">
@@ -189,42 +227,34 @@
             <div simpleformats-button="bg-color"><svg class="svg-icon" use="8x4" use-background="#516ed7"></svg></div>
             <div simpleformats-button="sup"><svg class="svg-icon" use="8x8"></svg></div>
             <div simpleformats-button="sub"><svg class="svg-icon" use="8x9"></svg></div>
-            <div simpleformats-button="border-color"><svg class="svg-icon" use="8x4" style="border: 1px solid #516ed7;"></svg></div>
             <div simpleformats-button="delete"><svg class="svg-icon" use="1x28"></svg></div>
+            <br>
+            <div simpleformats-button="text-align-left" title="Слева"><svg class="svg-icon" use="8x10"></svg></div>
+            <div simpleformats-button="text-align-center" title="По центру"><svg class="svg-icon" use="8x11"></svg></div>
+            <div simpleformats-button="text-align-right" title="Справа"><svg class="svg-icon" use="8x12"></svg></div>
+            <div simpleformats-button="text-align-justify" title="По ширине"><svg class="svg-icon" use="8x13"></svg></div>
+            <div simpleformats-button="list-disc" title="Точка"><svg class="svg-icon" use="19x23"></svg></div>
+            <div simpleformats-button="list-circle" title="Кружок"><svg class="svg-icon" use="10x10"></svg></div>
+            <div simpleformats-button="list-square" title="Квадрат"><svg class="svg-icon" use="19x24"></svg></div>
+            <div simpleformats-button="list-decimal" title="Нумерованный"><svg class="svg-icon" use="10x11"></svg></div>
         </div>
         <div id="properties-list">
             Размер текста:
             <select property-item="font-size">
-                <option value="">-</option><option value="8px">8</option><option value="10px">10</option><option value="12px">12</option><option value="14px">14</option><option value="16px">16</option><option value="18px">18</option><option value="20px">20</option><option value="22px">22</option><option value="24px">24</option><option value="26px">26</option><option value="28px">28</option><option value="30px">30</option><option value="32px">32</option><option value="36px">36</option><option value="40px">40</option><option value="48px">48</option><option value="56px">56</option><option value="64px">64</option><option value="72px">72</option>
+                <option value="">По умолчанию</option><option value="8px">8</option><option value="10px">10</option><option value="12px">12</option><option value="14px">14</option><option value="16px">16</option><option value="18px">18</option><option value="20px">20</option><option value="22px">22</option><option value="24px">24</option><option value="26px">26</option><option value="28px">28</option><option value="30px">30</option><option value="32px">32</option><option value="36px">36</option><option value="40px">40</option><option value="48px">48</option><option value="56px">56</option><option value="64px">64</option><option value="72px">72</option>
             </select>
             Шрифт:
             <select property-item="font-family">
-                <option value="">-</option>
+                <option value="">По умолчанию</option>
                 <option value="Arial, sans-serif">Arial</option>
                 <option value="'Times New Roman', serif">Times New Roman</option>
                 <option value="Verdana, sans-serif">Verdana</option>
                 <option value="'Courier New', monospace">Courier New</option>
                 <option value="Georgia, serif">Georgia</option>
             </select>
-            Выравнивание:
-            <select property-item="text-align">
-                <option value="">-</option>
-                <option value="left">Слева</option>
-                <option value="center">По центру</option>
-                <option value="right">Справа</option>
-                <option value="justify">По ширине</option>
-            </select>
-            Список:
-            <select property-item="list">
-                <option value="">-</option>
-                <option value="disc">Точка</option>
-                <option value="circle">Кружок</option>
-                <option value="square">Квадрат</option>
-                <option value="decimal">Нумерованный</option>
-            </select>
             Межстрочный интервал:
             <select property-item="line-height">
-                <option value="">-</option>
+                <option value="">По умолчанию</option>
                 <option value="1">1</option>
                 <option value="1.2">1.2</option>
                 <option value="1.4">1.4</option>
@@ -233,18 +263,9 @@
                 <option value="1.8">1.8</option>
                 <option value="2">2</option>
             </select>
-            Ширина границ:
-            <select property-item="border-width">
-                <option value="">-</option>
-                <option value="1px">1px</option>
-                <option value="2px">2px</option>
-                <option value="3px">3px</option>
-                <option value="4px">4px</option>
-                <option value="5px">5px</option>
-            </select>
             Отступ:
             <select property-item="padding">
-                <option value="">-</option>
+                <option value="">По умолчанию</option>
                 <option value="2px">2px</option>
                 <option value="4px">4px</option>
                 <option value="6px">6px</option>

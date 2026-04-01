@@ -533,7 +533,6 @@ const PROP_MAP = {
     'border-style':    { type: 'style', cssName: 'borderStyle' },
     'border-color':    { type: 'style', cssName: 'borderColor', color: true },
     'border-radius':   { type: 'style', cssName: 'borderRadius', numeric: true },
-    // специальные атрибуты
     'img-src':         { type: 'attr', attrName: 'src', tag: 'img' },
     'img-alt':         { type: 'attr', attrName: 'alt', tag: 'img' },
     'link-href':       { type: 'attr', attrName: 'href', tag: 'a' },
@@ -547,33 +546,62 @@ const PROP_MAP = {
     'form-action':     { type: 'attr', attrName: 'action', tag: 'form' },
     'cursor':          { type: 'style', cssName: 'cursor' },
     'z-index':         { type: 'style', cssName: 'zIndex' },
-    'id':               { type: 'attr', attrName: 'id' }
+    'id':               { type: 'attr', attrName: 'id' },
+    'video-poster':    { type: 'attr', attrName: 'poster', tag: 'video' },
+    'iframe-src':      { type: 'attr', attrName: 'src', tag: 'iframe' },
+    'button-type':     { type: 'attr', attrName: 'type', tag: 'button' },
+    'details-open':    { type: 'attr', attrName: 'open', tag: 'details', booleanAttr: true },
+    'range-min':       { type: 'attr', attrName: 'min', tag: 'input' },
+    'range-max':       { type: 'attr', attrName: 'max', tag: 'input' },
+    'range-value':     { type: 'attr', attrName: 'value', tag: 'input' },
+    'progress-value':  { type: 'attr', attrName: 'value', tag: 'progress' },
+    'file-accept':     { type: 'attr', attrName: 'accept', tag: 'input' },
+    'file-multiple':   { type: 'attr', attrName: 'multiple', tag: 'input', booleanAttr: true },
+    'display':         { type: 'style', cssName: 'display' },
+    'resize':          { type: 'style', cssName: 'resize' }
 };
 
 // --- Управление видимостью панели ----------------------------------------------
-function showSpecForTarget(target) {
+function showSpecForTarget(targetOrEl) {
     // показать панель специальных свойств только если вкладка properties активна
     const activeTab = document.querySelector('#css-js-tabs .tab.active');
     if (!activeTab || activeTab.dataset.tab !== 'properties') {
-        // если мы пытаемся показать панель вне вкладки properties, убедимся, что она скрыта
         if (specRoot && specRoot.style.display !== 'none') {
             specRoot.style.display = 'none';
             if (normalPanel) normalPanel.style.display = '';
         }
-        return; // ничего не меняем дальше
+        return;
     }
-    // скрыть обычную панель (если есть)
+
     if (normalPanel) normalPanel.style.display = 'none';
-    /* if (typeof cssPanel !== 'undefined' && cssPanel) cssPanel.style.display = 'none'; */
     if (typeof jsPanel !== 'undefined' && jsPanel) jsPanel.style.display = 'none';
-    // показать спец-панель
     specRoot.style.display = '';
-    // фильтруем дочерние группы по attribute data-target
+
+    // вычисляем тег и, при необходимости, квалификатор (например input:range или input:file)
+    let tag = null, qual = null;
+    if (typeof targetOrEl === 'string') {
+        const parts = targetOrEl.split(':');
+        tag = parts[0];
+        qual = parts[1] || null;
+    } else if (targetOrEl && targetOrEl.tagName) {
+        tag = targetOrEl.tagName.toLowerCase();
+        if (tag === 'input') qual = (targetOrEl.getAttribute('type') || '').toLowerCase();
+    }
+
     Array.from(specRoot.querySelectorAll('[data-target]')).forEach(node => {
         const t = node.getAttribute('data-target');
         if (!t) { node.style.display = ''; return; }
         const allowed = t.split(/\s+/);
-        node.style.display = (allowed.includes('all') || allowed.includes(target)) ? '' : 'none';
+        let show = false;
+        for (const token of allowed) {
+            if (token === 'all') { show = true; break; }
+            if (tag && token === tag) { show = true; break; }
+            if (token.includes(':')) {
+                const [aTag, aQual] = token.split(':');
+                if (tag === aTag && qual === aQual) { show = true; break; }
+            }
+        }
+        node.style.display = show ? '' : 'none';
     });
 }
 
@@ -620,6 +648,9 @@ function populateSpecialProps(el) {
                 } else {
                     if (map.booleanAttr) {
                         setCtrl(el.hasAttribute(map.attrName));
+                    } else if (map.attrName === 'value') {
+                        // для текущих значений value используем свойство, а не только атрибут
+                        setCtrl(el.value != null ? el.value : (el.getAttribute('value') || ''));
                     } else {
                         setCtrl(el.getAttribute(map.attrName) || '');
                     }
@@ -706,6 +737,9 @@ function applyPropToElement(el, prop, rawValue) {
             if (map.booleanAttr) {
                 if (val) el.setAttribute(map.attrName, '');
                 else el.removeAttribute(map.attrName);
+            } else if (map.attrName === 'value') {
+                // для value — менять свойство value, чтобы отразить текущее состояние
+                try { el.value = val; } catch (e) { el.setAttribute(map.attrName, String(val)); }
             } else {
                 if (val === '') el.removeAttribute(map.attrName);
                 else el.setAttribute(map.attrName, String(val));
@@ -804,8 +838,8 @@ specRoot.addEventListener('change', e => {
 function selectElementForEditing(el) {
     selectedEl = el;
     if (!el) { clearSelection(); return; }
-    // показать подходящие контролы
-    showSpecForTarget(el.tagName.toLowerCase());
+    // показать подходящие контролы (передаём сам элемент — функция учтёт тип input)
+    showSpecForTarget(el);
     // заполнить контролы значениями элемента
     populateSpecialProps(el);
 }
@@ -864,7 +898,7 @@ document.addEventListener('dblclick', e => {
         else if (tag === 'hr') target = 'hr';
         // можно добавить другие, если появятся
 
-        showSpecForTarget(target);
+        showSpecForTarget(el);
         populateSpecialProps(selectedEl);
         return;
     }
@@ -1078,11 +1112,6 @@ loadedBlock.addEventListener('click', updateHandlePosition);
 loadedBlock.addEventListener('scroll', () => {
     handle.style.display = 'none';
 });
-
-/***********************************************************************
- * Инициализация позиции handle
- **********************************************************************/
-updateHandlePosition();
 
 
 
@@ -3775,6 +3804,30 @@ function updateButtonActive(button, el, key) {
         case 'sub':
             if (getComputedProp(el, 'verticalAlign') === 'sub') button.classList.add('active');
             break;
+        case 'text-align-left':
+            if (getComputedProp(el, 'textAlign') === 'left') button.classList.add('active');
+            break;
+        case 'text-align-center':
+            if (getComputedProp(el, 'textAlign') === 'center') button.classList.add('active');
+            break;
+        case 'text-align-right':
+            if (getComputedProp(el, 'textAlign') === 'right') button.classList.add('active');
+            break;
+        case 'text-align-justify':
+            if (getComputedProp(el, 'textAlign') === 'justify') button.classList.add('active');
+            break;
+        case 'list-disc':
+            if (getSelectValue(el, 'list') === 'disc') button.classList.add('active');
+            break;
+        case 'list-circle':
+            if (getSelectValue(el, 'list') === 'circle') button.classList.add('active');
+            break;
+        case 'list-square':
+            if (getSelectValue(el, 'list') === 'square') button.classList.add('active');
+            break;
+        case 'list-decimal':
+            if (getSelectValue(el, 'list') === 'decimal') button.classList.add('active');
+            break;
     }
 }
 
@@ -3785,7 +3838,6 @@ function getSelectValue(el, prop) {
         case 'font-family': return getComputedProp(el, 'fontFamily');
         case 'text-align': return getComputedProp(el, 'textAlign');
         case 'line-height': return getComputedProp(el, 'lineHeight');
-        case 'border-width': return getComputedProp(el, 'borderWidth');
         case 'padding': return getComputedProp(el, 'padding');
         case 'list': {
             const li = el.closest && el.closest('li');
@@ -3953,7 +4005,6 @@ const FORMAT_BUTTONS = [
     { key: 'sub', type: 'toggle', target: 'inline', style: { prop: 'verticalAlign', value: 'sub' } },
     { key: 'text-color', type: 'color', target: 'inline', style: { prop: 'color' } },
     { key: 'bg-color', type: 'color', target: 'inline', style: { prop: 'backgroundColor' } },
-    { key: 'border-color', type: 'color', target: 'inline', style: { prop: 'border', wrap: v => `1px solid ${v}` } },
     { key: 'delete', type: 'action', target: 'any', action: 'remove-all' }
 ];
 
@@ -3963,7 +4014,6 @@ const FORMAT_SELECTS = [
     { key: 'font-family', css: 'fontFamily', target: 'inline' },
     { key: 'text-align', css: 'textAlign', target: 'block' },
     { key: 'line-height', css: 'lineHeight', target: 'block' },
-    { key: 'border-width', css: 'borderWidth', target: 'block' },
     { key: 'padding', css: 'padding', target: 'block' },
     { key: 'list', css: 'listStyleType', target: 'block' }
 ];
@@ -4434,6 +4484,23 @@ function toggleInlineFormatting(key) {
 /* Обработчик кнопок: использует конфиг FORMAT_BUTTONS */
 function handleSimpleFormatClick(button, el, key) {
     if (document.activeElement !== el) { /* el.focus(); */ }
+
+    if (key.startsWith('text-align-')) {
+        const value = key.slice('text-align-'.length);
+        const current = getSelectValue(el, 'text-align');
+        applyBlockStyleToSelection('textAlign', current === value ? '' : value);
+        if (typeof updateSimpleFormats === 'function') updateSimpleFormats(el);
+        return;
+    }
+    if (key.startsWith('list-')) {
+        const listType = key.slice('list-'.length);
+        const current = getSelectValue(el, 'list');
+        if (current === listType) toggleListForSelection('none');
+        else toggleListForSelection(listType);
+        if (typeof updateSimpleFormats === 'function') updateSimpleFormats(el);
+        return;
+    }
+
     const cfg = FORMAT_BUTTONS.find(x => x.key === key);
     if (!cfg) return;
     if (cfg.type === 'toggle' && cfg.target === 'inline') {
@@ -4956,7 +5023,7 @@ document.addEventListener('mousedown', e => {
     const btn = e.target.closest('[simpleformats-button]');
     if(!btn) return;
     const type = btn.getAttribute('simpleformats-button');
-    if(['text-color','bg-color','border-color'].includes(type)){
+    if(['text-color','bg-color'].includes(type)){
         openColorPicker({ style:{ prop: type } }, btn, null);
     }
 });

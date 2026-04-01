@@ -22,9 +22,9 @@
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
      showgrid="false"
-     inkscape:zoom="7.5520001"
-     inkscape:cx="152.93962"
-     inkscape:cy="173.72881"
+     inkscape:zoom="10.680141"
+     inkscape:cx="336.69968"
+     inkscape:cy="190.0724"
      inkscape:window-width="1920"
      inkscape:window-height="968"
      inkscape:window-x="0"
@@ -7383,38 +7383,38 @@
          fill="black"
          id="text91794">8x3</text>
     </symbol>
-<symbol
-   id="symbol167"
-   viewBox="0 0 20 20"
-   stroke="currentColor"
-   stroke-linecap="round"
-   stroke-linejoin="round">
-  <g
-     id="g166"
-     style="stroke:currentColor;stroke-opacity:1"
-     transform="matrix(3.7795275,0,0,3.7795275,-520.12833,0.03234022)" />
-  <g
-     id="8x4"
-     style="stroke:currentColor;stroke-opacity:1"
-     transform="matrix(3.7795275,0,0,3.7795275,-119.93775,-279.46511)">
-    <text
-       xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:600;font-stretch:normal;font-size:5.60565px;font-family:'NotoSerif Nerd Font';-inkscape-font-specification:'NotoSerif Nerd Font Semi-Bold';fill:currentColor;fill-opacity:1;stroke:currentColor;stroke-width:0.264497;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
-       x="32.559883"
-       y="78.70488"
-       id="text104-6"><tspan
-         sodipodi:role="line"
-         id="tspan104-4"
-         style="font-style:normal;font-variant:normal;font-weight:600;font-stretch:normal;font-size:5.60565px;font-family:'NotoSerif Nerd Font';-inkscape-font-specification:'NotoSerif Nerd Font Semi-Bold';fill:currentColor;fill-opacity:1;stroke:currentColor;stroke-width:0.264497;stroke-dasharray:none;stroke-opacity:1"
-         x="32.559883"
-         y="78.70488">B</tspan></text>
-  </g>
-  <path
-     style="fill:none;stroke:currentColor;stroke-width:0.1;stroke-linecap:square;stroke-dasharray:none;stroke-opacity:1"
-     d="M 6.078585,3.7919733 6.0252379,17.27968 c 3.050759,-0.104168 6.1465411,0.639172 7.7363751,-0.800633 0.573685,-0.519548 0.809952,-1.212877 1.075205,-2.443356 C 14.654675,12.991798 14.360524,11.623792 13.667276,11.10726 12.005451,9.869048 8.441766,10.460076 6.0031408,10.182138 9.4750313,10.657856 12.174962,9.9153191 13.397439,8.8724811 14.062249,8.3053632 14.110515,7.4916519 14.393306,6.6120559 14.109053,5.644918 13.614587,5.047197 12.803836,4.5046032 11.253049,3.4667407 8.8021614,3.3290871 6.078585,3.7919733 Z"
-     id="path167"
-     sodipodi:nodetypes="ccscscscsc" />
-</symbol>
+    <symbol
+       id="symbol167"
+       viewBox="0 0 20 20"
+       stroke="currentColor"
+       stroke-linecap="round"
+       stroke-linejoin="round">
+      <g
+         id="g166"
+         style="stroke:currentColor;stroke-opacity:1"
+         transform="matrix(3.7795275,0,0,3.7795275,-520.12833,0.03234022)" />
+      <g
+         id="8x4"
+         style="stroke:currentColor;stroke-opacity:1"
+         transform="matrix(3.7795275,0,0,3.7795275,-119.93775,-279.46511)">
+        <text
+           xml:space="preserve"
+           style="font-style:normal;font-variant:normal;font-weight:600;font-stretch:normal;font-size:5.60565px;font-family:'NotoSerif Nerd Font';-inkscape-font-specification:'NotoSerif Nerd Font Semi-Bold';fill:currentColor;fill-opacity:1;stroke:currentColor;stroke-width:0.264497;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+           x="32.559883"
+           y="78.70488"
+           id="text104-6"><tspan
+             sodipodi:role="line"
+             id="tspan104-4"
+             style="font-style:normal;font-variant:normal;font-weight:600;font-stretch:normal;font-size:5.60565px;font-family:'NotoSerif Nerd Font';-inkscape-font-specification:'NotoSerif Nerd Font Semi-Bold';fill:currentColor;fill-opacity:1;stroke:currentColor;stroke-width:0.264497;stroke-dasharray:none;stroke-opacity:1"
+             x="32.559883"
+             y="78.70488">B</tspan></text>
+      </g>
+      <path
+         style="fill:none;stroke:currentColor;stroke-width:0.1;stroke-linecap:square;stroke-dasharray:none;stroke-opacity:1"
+         d="M 6.078585,3.7919733 6.0252379,17.27968 c 3.050759,-0.104168 6.1465411,0.639172 7.7363751,-0.800633 0.573685,-0.519548 0.809952,-1.212877 1.075205,-2.443356 C 14.654675,12.991798 14.360524,11.623792 13.667276,11.10726 12.005451,9.869048 8.441766,10.460076 6.0031408,10.182138 9.4750313,10.657856 12.174962,9.9153191 13.397439,8.8724811 14.062249,8.3053632 14.110515,7.4916519 14.393306,6.6120559 14.109053,5.644918 13.614587,5.047197 12.803836,4.5046032 11.253049,3.4667407 8.8021614,3.3290871 6.078585,3.7919733 Z"
+         id="path167"
+         sodipodi:nodetypes="ccscscscsc" />
+    </symbol>
     <symbol
        id="symbol168"
        viewBox="0 0 20 20"
@@ -7829,35 +7829,33 @@
        stroke="currentColor"
        stroke-linecap="round"
        stroke-linejoin="round">
-      <rect
-         x="0"
-         y="0"
-         width="20"
-         height="20"
-         fill="none"
-         stroke="black"
-         id="rect91878" />
-      <line
-         x1="0"
-         y1="0"
-         x2="20"
-         y2="20"
-         stroke="black"
-         id="line91880" />
-      <line
-         x1="20"
-         y1="0"
-         x2="0"
-         y2="20"
-         stroke="black"
-         id="line91882" />
-      <text
-         x="10"
-         y="12"
-         font-size="5"
-         text-anchor="middle"
-         fill="black"
-         id="text91884">8x13</text>
+    <g
+       id="8x13"
+       style="stroke:#000000;stroke-opacity:1"
+       transform="matrix(3.7795275,0,0,3.7795275,-480.25259,-279.98412)">
+      <path
+         style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.264497;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+         d="m 127.53967,75.086983 h 4.26994"
+         id="path111-9" />
+      <path
+         style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.264497;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+         d="m 127.54679,76.729253 h 4.26993"
+         id="path112-42" />
+      <path
+         style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.264497;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+         d="m 127.53968,78.371533 4.26993,1e-5"
+         id="path113-0" />
+      <path
+         style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.264497;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+         d="m 127.53967,75.908113 h 4.26995"
+         id="path114-6"
+         sodipodi:nodetypes="cc" />
+      <path
+         style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.264497;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+         d="m 127.53968,77.550413 h 4.26994"
+         id="path115-5"
+         sodipodi:nodetypes="cc" />
+    </g>
     </symbol>
     <symbol
        id="symbol209"
@@ -12375,35 +12373,60 @@
        stroke="currentColor"
        stroke-linecap="round"
        stroke-linejoin="round">
-      <rect
-         x="0"
-         y="0"
-         width="20"
-         height="20"
-         fill="none"
-         stroke="black"
-         id="rect92931" />
-      <line
-         x1="0"
-         y1="0"
-         x2="20"
-         y2="20"
-         stroke="black"
-         id="line92933" />
-      <line
-         x1="20"
-         y1="0"
-         x2="0"
-         y2="20"
-         stroke="black"
-         id="line92935" />
-      <text
-         x="10"
-         y="12"
-         font-size="5"
-         text-anchor="middle"
-         fill="black"
-         id="text92937">12x18</text>
+    <g
+       id="19x8"
+       style="stroke:#000000;stroke-opacity:1"
+       transform="matrix(3.7795275,0,0,3.7795275,-280.02831,-719.73152)">
+      <g
+         id="8x13"
+         style="stroke:#000000;stroke-opacity:1"
+         transform="translate(-52.029912,116.63941)">
+        <g
+           id="g2"
+           transform="matrix(0.90115931,0,0,0.90115931,14.019589,7.3150337)">
+          <g
+             id="12x18"
+             style="stroke:#000000;stroke-opacity:1"
+             transform="matrix(1.1096817,0,0,1.1096817,-75.238372,-55.450331)">
+            <ellipse
+               style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.264583;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+               id="path443-4"
+               cx="181.62344"
+               cy="118.48302"
+               rx="0.40551108"
+               ry="0.36078611" />
+            <path
+               id="path444-3"
+               style="fill:none;stroke:#000000;stroke-width:0.264583;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1"
+               d="m 182.3971,119.92243 c 0,-0.44736 -0.34497,-0.81001 -0.77052,-0.81001 -0.42555,0 -0.77052,0.36265 -0.77052,0.81001 h 1.54104"
+               sodipodi:nodetypes="cscc" />
+            <rect
+               style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.264583;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+               id="rect444"
+               width="4.960937"
+               height="3.6380208"
+               x="180.08197"
+               y="117.2766" />
+            <path
+               style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.264583;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+               d="m 182.89318,118.26879 h 1.48828"
+               id="path445" />
+            <path
+               style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.264583;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+               d="m 182.89318,118.76488 h 1.32291"
+               id="path446" />
+            <path
+               style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.264583;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+               d="m 182.89318,119.42634 h 1.15755"
+               id="path447" />
+            <path
+               style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.264583;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+               d="m 182.89318,119.92244 h 1.48828"
+               id="path448" />
+          </g>
+        </g>
+      </g>
+    </g>
     </symbol>
     <symbol
        id="12x19"
@@ -14766,35 +14789,40 @@
        stroke="currentColor"
        stroke-linecap="round"
        stroke-linejoin="round">
-      <rect
-         x="0"
-         y="0"
-         width="20"
-         height="20"
-         fill="none"
-         stroke="black"
-         id="rect93516" />
-      <line
-         x1="0"
-         y1="0"
-         x2="20"
-         y2="20"
-         stroke="black"
-         id="line93518" />
-      <line
-         x1="20"
-         y1="0"
-         x2="0"
-         y2="20"
-         stroke="black"
-         id="line93520" />
-      <text
-         x="10"
-         y="12"
-         font-size="5"
-         text-anchor="middle"
-         fill="black"
-         id="text93522">14x27</text>
+    <g
+       id="19x8"
+       style="stroke:#000000;stroke-opacity:1"
+       transform="matrix(3.7795275,0,0,3.7795275,-280.02831,-719.73152)">
+      <g
+         id="8x13"
+         style="stroke:#000000;stroke-opacity:1"
+         transform="translate(-52.029912,116.63941)">
+        <g
+           id="g2"
+           transform="matrix(0.90115931,0,0,0.90115931,14.019589,7.3150337)">
+          <g
+             id="9x13"
+             style="stroke:#000000;stroke-opacity:1"
+             transform="matrix(1.1096817,0,0,1.1096817,-16.532982,-20.18749)">
+            <g
+               id="14x27"
+               style="stroke:#000000;stroke-opacity:1"
+               transform="translate(-148.1739,-52.9642)">
+              <path
+                 id="path554"
+                 style="fill:none;stroke:#000000;stroke-width:0.264583;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1"
+                 d="m 275.95797,140.3963 c 0,-0.8509 0.5739,-1.5679 1.35576,-1.7848 m 0.96319,-0.01 c 0.79687,0.2069 1.38522,0.9311 1.38522,1.7927 0,1.0229 -0.82921,1.8521 -1.85208,1.8521 -1.02288,0 -1.85209,-0.8292 -1.85209,-1.8521"
+                 sodipodi:nodetypes="cccssc" />
+              <path
+                 style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.264583;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+                 d="m 277.81252,140.0054 v -1.68"
+                 id="path555"
+                 sodipodi:nodetypes="cc" />
+            </g>
+          </g>
+        </g>
+      </g>
+    </g>
     </symbol>
     <symbol
        id="14x28"
@@ -15029,35 +15057,57 @@
        stroke="currentColor"
        stroke-linecap="round"
        stroke-linejoin="round">
-      <rect
-         x="0"
-         y="0"
-         width="20"
-         height="20"
-         fill="none"
-         stroke="black"
-         id="rect93570" />
-      <line
-         x1="0"
-         y1="0"
-         x2="20"
-         y2="20"
-         stroke="black"
-         id="line93572" />
-      <line
-         x1="20"
-         y1="0"
-         x2="0"
-         y2="20"
-         stroke="black"
-         id="line93574" />
-      <text
-         x="10"
-         y="12"
-         font-size="5"
-         text-anchor="middle"
-         fill="black"
-         id="text93576">15x5</text>
+    <g
+       id="19x8"
+       style="stroke:#000000;stroke-opacity:1"
+       transform="matrix(3.7795275,0,0,3.7795275,-280.02831,-719.73152)">
+      <g
+         id="8x13"
+         style="stroke:#000000;stroke-opacity:1"
+         transform="translate(-52.029912,116.63941)">
+        <g
+           id="g2"
+           transform="matrix(0.90115931,0,0,0.90115931,14.019589,7.3150337)">
+          <g
+             id="9x13"
+             style="stroke:#000000;stroke-opacity:1"
+             transform="matrix(1.1096817,0,0,1.1096817,-16.532982,-20.18749)">
+            <g
+               id="15x5"
+               style="stroke:#000000;stroke-opacity:1"
+               transform="translate(84.635555,-63.430961)">
+              <path
+                 id="rect229-0"
+                 style="fill:none;stroke:#000000;stroke-width:0.264575;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+                 d="m 43.022921,148.4945 h 2.760326 l 0.01104,1.1412 1.141149,-0.001 v 3.4244 h -3.912517 z"
+                 sodipodi:nodetypes="ccccccc" />
+              <path
+                 style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.264575;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+                 d="m 45.794299,148.4945 1.141149,1.1412"
+                 id="path231-7" />
+              <path
+                 id="path242"
+                 style="fill:none;stroke:#000000;stroke-width:0.264575;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+                 d="m 46.609383,151.5104 c -0.326043,0.4076 -0.798965,0.8966 -1.630218,0.8966 -0.831243,0 -1.304165,-0.489 -1.630208,-0.8966 0.326043,-0.4075 0.754089,-0.8966 1.630208,-0.8966 0.831253,0 1.304175,0.4891 1.630218,0.8966 z"
+                 sodipodi:nodetypes="cscsc" />
+              <path
+                 style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.264575;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+                 id="path243"
+                 sodipodi:type="arc"
+                 sodipodi:cx="44.979164"
+                 sodipodi:cy="151.32117"
+                 sodipodi:rx="0.81510627"
+                 sodipodi:ry="0.7335965"
+                 sodipodi:start="4.6929209"
+                 sodipodi:end="4.6761958"
+                 sodipodi:open="true"
+                 sodipodi:arc-type="arc"
+                 d="m 44.963297,150.58771 a 0.81510627,0.7335965 0 0 1 0.830745,0.71611 0.81510627,0.7335965 0 0 1 -0.792196,0.75066 0.81510627,0.7335965 0 0 1 -0.837371,-0.70983 0.81510627,0.7335965 0 0 1 0.785194,-0.7566" />
+            </g>
+          </g>
+        </g>
+      </g>
+    </g>
     </symbol>
     <symbol
        id="symbol302"
@@ -19564,35 +19614,30 @@
        stroke="currentColor"
        stroke-linecap="round"
        stroke-linejoin="round">
+    <g
+       id="19x8"
+       style="stroke:#000000;stroke-opacity:1"
+       transform="matrix(3.7795275,0,0,3.7795275,-280.02831,-719.73152)">
       <rect
-         x="0"
-         y="0"
-         width="20"
-         height="20"
-         fill="none"
-         stroke="black"
-         id="rect94684" />
-      <line
-         x1="0"
-         y1="0"
-         x2="20"
-         y2="20"
-         stroke="black"
-         id="line94686" />
-      <line
-         x1="20"
-         y1="0"
-         x2="0"
-         y2="20"
-         stroke="black"
-         id="line94688" />
+         style="fill:none;stroke:#000000;stroke-width:0.264497;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+         id="rect90-5-2-3-1-10-0-8-5-2-6-7"
+         width="4.2777691"
+         height="4.2638836"
+         x="190.99117"
+         y="-78.875565"
+         transform="rotate(90)" />
       <text
-         x="10"
-         y="12"
-         font-size="5"
-         text-anchor="middle"
-         fill="black"
-         id="text94690">19x17</text>
+         xml:space="preserve"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:4.20424px;font-family:Bahnschrift;-inkscape-font-specification:Bahnschrift;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.264497;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+         x="75.545464"
+         y="194.60399"
+         id="text39-9-1-9"><tspan
+           sodipodi:role="line"
+           id="tspan39-2-8-2"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:4.20424px;font-family:Bahnschrift;-inkscape-font-specification:Bahnschrift;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.264497;stroke-dasharray:none;stroke-opacity:1"
+           x="75.545464"
+           y="194.60399">T</tspan></text>
+    </g>
     </symbol>
     <symbol
        id="19x18"
@@ -19600,35 +19645,64 @@
        stroke="currentColor"
        stroke-linecap="round"
        stroke-linejoin="round">
+    <g
+       id="19x8"
+       style="stroke:#000000;stroke-opacity:1"
+       transform="matrix(3.7795275,0,0,3.7795275,-280.02831,-719.73152)">
       <rect
-         x="0"
-         y="0"
-         width="20"
-         height="20"
-         fill="none"
-         stroke="black"
-         id="rect94693" />
-      <line
-         x1="0"
-         y1="0"
-         x2="20"
-         y2="20"
-         stroke="black"
-         id="line94695" />
-      <line
-         x1="20"
-         y1="0"
-         x2="0"
-         y2="20"
-         stroke="black"
-         id="line94697" />
+         style="fill:none;stroke:#000000;stroke-width:0.264497;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+         id="rect90-5-2-3-1-10-0-8-5-2-6-7"
+         width="4.2777691"
+         height="4.2638836"
+         x="190.99117"
+         y="-78.875565"
+         transform="rotate(90)" />
       <text
-         x="10"
-         y="12"
-         font-size="5"
-         text-anchor="middle"
-         fill="black"
-         id="text94699">19x18</text>
+         xml:space="preserve"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:2.57814px;font-family:Bahnschrift;-inkscape-font-specification:Bahnschrift;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.162196;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+         x="75.089622"
+         y="193.3918"
+         id="text39-9-1-9"><tspan
+           sodipodi:role="line"
+           id="tspan39-2-8-2"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:2.57814px;font-family:Bahnschrift;-inkscape-font-specification:Bahnschrift;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.162196;stroke-dasharray:none;stroke-opacity:1"
+           x="75.089622"
+           y="193.3918">T</tspan></text>
+      <g
+         id="8x13"
+         style="stroke:#000000;stroke-opacity:1"
+         transform="translate(-52.029912,116.63941)">
+        <g
+           id="g2"
+           transform="matrix(0.90115931,0,0,0.90115931,14.019589,7.3150337)">
+          <path
+             style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.264497;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+             d="m 127.53967,75.086983 h 1.60346"
+             id="path111-9"
+             sodipodi:nodetypes="cc" />
+          <path
+             style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.264497;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+             d="m 127.54679,76.729253 h 1.58399"
+             id="path112-42"
+             sodipodi:nodetypes="cc" />
+          <path
+             style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.264494;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+             d="m 125.57286,78.371531 3.55809,1.4e-5"
+             id="path113-0"
+             sodipodi:nodetypes="cc" />
+          <path
+             style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.264497;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+             d="m 127.53967,75.908113 h 1.5905"
+             id="path114-6"
+             sodipodi:nodetypes="cc" />
+          <path
+             style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.264497;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+             d="m 125.5674,77.550413 h 3.56926"
+             id="path115-5"
+             sodipodi:nodetypes="cc" />
+        </g>
+      </g>
+    </g>
     </symbol>
     <symbol
        id="19x19"
@@ -19636,35 +19710,52 @@
        stroke="currentColor"
        stroke-linecap="round"
        stroke-linejoin="round">
-      <rect
-         x="0"
-         y="0"
-         width="20"
-         height="20"
-         fill="none"
-         stroke="black"
-         id="rect94702" />
-      <line
-         x1="0"
-         y1="0"
-         x2="20"
-         y2="20"
-         stroke="black"
-         id="line94704" />
-      <line
-         x1="20"
-         y1="0"
-         x2="0"
-         y2="20"
-         stroke="black"
-         id="line94706" />
-      <text
-         x="10"
-         y="12"
-         font-size="5"
-         text-anchor="middle"
-         fill="black"
-         id="text94708">19x19</text>
+    <g
+       id="19x8"
+       style="stroke:#000000;stroke-opacity:1"
+       transform="matrix(3.7795275,0,0,3.7795275,-280.02831,-719.73152)">
+      <g
+         id="8x13"
+         style="stroke:#000000;stroke-opacity:1"
+         transform="translate(-52.029912,116.63941)">
+        <g
+           id="g2"
+           transform="matrix(0.90115931,0,0,0.90115931,14.019589,7.3150337)">
+          <g
+             id="9x13"
+             style="stroke:#000000;stroke-opacity:1"
+             transform="matrix(1.1096817,0,0,1.1096817,-16.532982,-20.18749)">
+            <rect
+               style="fill:none;stroke:#000000;stroke-width:0.264497;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+               id="rect90-5-2-3-1-7-0-2-1-0-3-06-4"
+               width="5.0271702"
+               height="5.0271702"
+               x="-89.826088"
+               y="127.13225"
+               transform="rotate(-90)" />
+            <rect
+               style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.264583;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+               id="rect419"
+               width="3.90009"
+               height="3.152595"
+               x="127.66139"
+               y="85.719734" />
+            <path
+               style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.264583;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+               d="m 127.6614,88.099275 c 0,-0.14269 1.0527,-1.07273 1.0527,-1.07273 l 1.73153,1.84576"
+               id="path420"
+               sodipodi:nodetypes="ccc" />
+            <ellipse
+               style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.264583;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+               id="path421"
+               cx="130.38991"
+               cy="86.943855"
+               rx="0.41341141"
+               ry="0.41341144" />
+          </g>
+        </g>
+      </g>
+    </g>
     </symbol>
     <symbol
        id="19x20"
@@ -19672,35 +19763,64 @@
        stroke="currentColor"
        stroke-linecap="round"
        stroke-linejoin="round">
-      <rect
-         x="0"
-         y="0"
-         width="20"
-         height="20"
-         fill="none"
-         stroke="black"
-         id="rect94711" />
-      <line
-         x1="0"
-         y1="0"
-         x2="20"
-         y2="20"
-         stroke="black"
-         id="line94713" />
-      <line
-         x1="20"
-         y1="0"
-         x2="0"
-         y2="20"
-         stroke="black"
-         id="line94715" />
-      <text
-         x="10"
-         y="12"
-         font-size="5"
-         text-anchor="middle"
-         fill="black"
-         id="text94717">19x20</text>
+    <g
+       id="19x8"
+       style="stroke:#000000;stroke-opacity:1"
+       transform="matrix(3.7795275,0,0,3.7795275,-280.02831,-719.73152)">
+      <g
+         id="8x13"
+         style="stroke:#000000;stroke-opacity:1"
+         transform="translate(-52.029912,116.63941)">
+        <g
+           id="g2"
+           transform="matrix(0.90115931,0,0,0.90115931,14.019589,7.3150337)">
+          <g
+             id="9x13"
+             style="stroke:#000000;stroke-opacity:1"
+             transform="matrix(1.1096817,0,0,1.1096817,-16.532982,-20.18749)">
+            <g
+               id="use95580"
+               style="stroke:#000000;stroke-opacity:1"
+               transform="translate(-31.785919,-10.600703)">
+              <path
+                 style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.264497;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+                 d="m 162.25287,96.106672 0.4927,0.49269 0.49269,-0.49269"
+                 id="path7"
+                 sodipodi:nodetypes="ccc" />
+              <rect
+                 style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.264497;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+                 id="rect7"
+                 width="4.9770007"
+                 height="1.762239"
+                 x="158.91817"
+                 y="95.39962" />
+              <rect
+                 style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.264497;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+                 id="rect8"
+                 width="3.9414787"
+                 height="3.2024598"
+                 x="159.95369"
+                 y="97.174217" />
+              <path
+                 style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.264497;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+                 d="m 160.61048,97.913205 2.62785,0"
+                 id="path8"
+                 sodipodi:nodetypes="cc" />
+              <path
+                 style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.264497;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+                 d="m 160.61048,99.555474 0.001,-1.642269 m 2.62685,0 v 1.642269"
+                 id="path9"
+                 sodipodi:nodetypes="cccc" />
+              <path
+                 style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.264497;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+                 d="m 160.61048,99.555474 2.62785,0"
+                 id="path10"
+                 sodipodi:nodetypes="cc" />
+            </g>
+          </g>
+        </g>
+      </g>
+    </g>
     </symbol>
     <symbol
        id="19x21"
@@ -19708,35 +19828,47 @@
        stroke="currentColor"
        stroke-linecap="round"
        stroke-linejoin="round">
-      <rect
-         x="0"
-         y="0"
-         width="20"
-         height="20"
-         fill="none"
-         stroke="black"
-         id="rect94720" />
-      <line
-         x1="0"
-         y1="0"
-         x2="20"
-         y2="20"
-         stroke="black"
-         id="line94722" />
-      <line
-         x1="20"
-         y1="0"
-         x2="0"
-         y2="20"
-         stroke="black"
-         id="line94724" />
-      <text
-         x="10"
-         y="12"
-         font-size="5"
-         text-anchor="middle"
-         fill="black"
-         id="text94726">19x21</text>
+    <g
+       id="19x8"
+       style="stroke:#000000;stroke-opacity:1"
+       transform="matrix(3.7795275,0,0,3.7795275,-280.02831,-719.73152)">
+      <g
+         id="8x13"
+         style="stroke:#000000;stroke-opacity:1"
+         transform="translate(-52.029912,116.63941)">
+        <g
+           id="g2"
+           transform="matrix(0.90115931,0,0,0.90115931,14.019589,7.3150337)">
+          <g
+             id="9x13"
+             style="stroke:#000000;stroke-opacity:1"
+             transform="matrix(1.1096817,0,0,1.1096817,-16.532982,-20.18749)">
+            <g
+               id="use95580"
+               style="stroke:#000000;stroke-opacity:1"
+               transform="translate(-31.785919,-10.600703)">
+              <rect
+                 style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.146724;stroke-linecap:square;stroke-dasharray:none;stroke-opacity:1"
+                 id="rect12"
+                 width="2.0912023"
+                 height="0.69893992"
+                 x="159.04034"
+                 y="97.594269" />
+              <g
+                 id="6x11"
+                 style="stroke:#000000;stroke-opacity:1"
+                 transform="translate(52.932771,42.375317)">
+                <path
+                   id="rect77-6"
+                   style="fill:none;stroke:#000000;stroke-width:0.264497;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+                   d="m 106.01955,55.064048 4.95895,-0.0336 v 0.98537 h -4.95895 z"
+                   sodipodi:nodetypes="ccccc" />
+              </g>
+            </g>
+          </g>
+        </g>
+      </g>
+    </g>
     </symbol>
     <symbol
        id="19x22"
@@ -19744,35 +19876,41 @@
        stroke="currentColor"
        stroke-linecap="round"
        stroke-linejoin="round">
-      <rect
-         x="0"
-         y="0"
-         width="20"
-         height="20"
-         fill="none"
-         stroke="black"
-         id="rect94729" />
-      <line
-         x1="0"
-         y1="0"
-         x2="20"
-         y2="20"
-         stroke="black"
-         id="line94731" />
-      <line
-         x1="20"
-         y1="0"
-         x2="0"
-         y2="20"
-         stroke="black"
-         id="line94733" />
-      <text
-         x="10"
-         y="12"
-         font-size="5"
-         text-anchor="middle"
-         fill="black"
-         id="text94735">19x22</text>
+    <g
+       id="19x8"
+       style="stroke:#000000;stroke-opacity:1"
+       transform="matrix(3.7795275,0,0,3.7795275,-280.02831,-719.73152)">
+      <g
+         id="8x13"
+         style="stroke:#000000;stroke-opacity:1"
+         transform="translate(-52.029912,116.63941)">
+        <g
+           id="g2"
+           transform="matrix(0.90115931,0,0,0.90115931,14.019589,7.3150337)">
+          <g
+             id="9x13"
+             style="stroke:#000000;stroke-opacity:1"
+             transform="matrix(1.1096817,0,0,1.1096817,-16.532982,-20.18749)">
+            <g
+               id="use95580"
+               style="stroke:#000000;stroke-opacity:1"
+               transform="translate(-31.785919,-10.600703)">
+              <path
+                 style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.260212;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+                 d="m 158.97364,97.915273 h 4.92063"
+                 id="path12" />
+              <ellipse
+                 style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.351289;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+                 id="path13"
+                 cx="160.89215"
+                 cy="97.917336"
+                 rx="0.22123049"
+                 ry="0.22123063" />
+            </g>
+          </g>
+        </g>
+      </g>
+    </g>
     </symbol>
     <symbol
        id="19x23"
@@ -19780,35 +19918,67 @@
        stroke="currentColor"
        stroke-linecap="round"
        stroke-linejoin="round">
-      <rect
-         x="0"
-         y="0"
-         width="20"
-         height="20"
-         fill="none"
-         stroke="black"
-         id="rect94738" />
-      <line
-         x1="0"
-         y1="0"
-         x2="20"
-         y2="20"
-         stroke="black"
-         id="line94740" />
-      <line
-         x1="20"
-         y1="0"
-         x2="0"
-         y2="20"
-         stroke="black"
-         id="line94742" />
-      <text
-         x="10"
-         y="12"
-         font-size="5"
-         text-anchor="middle"
-         fill="black"
-         id="text94744">19x23</text>
+    <g
+       id="19x8"
+       style="stroke:#000000;stroke-opacity:1"
+       transform="matrix(3.7795275,0,0,3.7795275,-280.02831,-719.73152)">
+      <g
+         id="8x13"
+         style="stroke:#000000;stroke-opacity:1"
+         transform="translate(-52.029912,116.63941)">
+        <g
+           id="g2"
+           transform="matrix(0.90115931,0,0,0.90115931,14.019589,7.3150337)">
+          <g
+             id="9x13"
+             style="stroke:#000000;stroke-opacity:1"
+             transform="matrix(1.1096817,0,0,1.1096817,-16.532982,-20.18749)">
+            <g
+               id="use95580"
+               style="stroke:#000000;stroke-opacity:1"
+               transform="translate(-31.785919,-10.600703)">
+              <g
+                 id="use95568"
+                 style="stroke:#000000;stroke-opacity:1"
+                 transform="translate(63.404304,0.0023626)">
+                <path
+                   style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.264497;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+                   d="m 96.782115,97.913142 h 3.613005"
+                   id="path1" />
+                <path
+                   style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.264497;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+                   d="m 96.782115,96.106622 h 3.613005"
+                   id="path2" />
+                <path
+                   style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.264497;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+                   d="m 96.782115,99.719642 h 3.613005"
+                   id="path3" />
+                <ellipse
+                   style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.174962;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+                   id="ellipse3"
+                   cx="95.966911"
+                   cy="97.913139"
+                   rx="0.16295266"
+                   ry="0.16295268" />
+                <circle
+                   style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.174962;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+                   id="ellipse4"
+                   cx="95.977257"
+                   cy="99.719688"
+                   r="0.16295266" />
+                <ellipse
+                   style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.174962;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+                   id="ellipse5"
+                   cx="95.966911"
+                   cy="96.106621"
+                   rx="0.16295266"
+                   ry="0.16295268" />
+              </g>
+            </g>
+          </g>
+        </g>
+      </g>
+    </g>
     </symbol>
     <symbol
        id="19x24"
@@ -19816,35 +19986,68 @@
        stroke="currentColor"
        stroke-linecap="round"
        stroke-linejoin="round">
-      <rect
-         x="0"
-         y="0"
-         width="20"
-         height="20"
-         fill="none"
-         stroke="black"
-         id="rect94747" />
-      <line
-         x1="0"
-         y1="0"
-         x2="20"
-         y2="20"
-         stroke="black"
-         id="line94749" />
-      <line
-         x1="20"
-         y1="0"
-         x2="0"
-         y2="20"
-         stroke="black"
-         id="line94751" />
-      <text
-         x="10"
-         y="12"
-         font-size="5"
-         text-anchor="middle"
-         fill="black"
-         id="text94753">19x24</text>
+    <g
+       id="19x8"
+       style="stroke:#000000;stroke-opacity:1"
+       transform="matrix(3.7795275,0,0,3.7795275,-280.02831,-719.73152)">
+      <g
+         id="8x13"
+         style="stroke:#000000;stroke-opacity:1"
+         transform="translate(-52.029912,116.63941)">
+        <g
+           id="g2"
+           transform="matrix(0.90115931,0,0,0.90115931,14.019589,7.3150337)">
+          <g
+             id="9x13"
+             style="stroke:#000000;stroke-opacity:1"
+             transform="matrix(1.1096817,0,0,1.1096817,-16.532982,-20.18749)">
+            <g
+               id="use95580"
+               style="stroke:#000000;stroke-opacity:1"
+               transform="translate(-31.785919,-10.600703)">
+              <g
+                 id="use95568"
+                 style="stroke:#000000;stroke-opacity:1"
+                 transform="translate(63.404304,0.0023626)">
+                <path
+                   style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.264497;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+                   d="m 96.782115,97.913142 h 3.613005"
+                   id="path1" />
+                <path
+                   style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.264497;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+                   d="m 96.782115,96.106622 h 3.613005"
+                   id="path2" />
+                <path
+                   style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.264497;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+                   d="m 96.782115,99.719642 h 3.613005"
+                   id="path3" />
+                <rect
+                   style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.115388;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:1.8;stroke-dasharray:none;stroke-opacity:1"
+                   id="rect5"
+                   width="0.64184904"
+                   height="0.64184904"
+                   x="95.64595"
+                   y="95.785721" />
+                <rect
+                   style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.115388;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:1.8;stroke-dasharray:none;stroke-opacity:1"
+                   id="rect5-6"
+                   width="0.64184904"
+                   height="0.64184904"
+                   x="95.64595"
+                   y="99.398872" />
+                <rect
+                   style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.115388;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:1.8;stroke-dasharray:none;stroke-opacity:1"
+                   id="rect5-3"
+                   width="0.64184904"
+                   height="0.64184904"
+                   x="95.64595"
+                   y="97.5923" />
+              </g>
+            </g>
+          </g>
+        </g>
+      </g>
+    </g>
     </symbol>
     <symbol
        id="19x25"
