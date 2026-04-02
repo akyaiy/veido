@@ -370,7 +370,11 @@ async function apiProtected(path, options = {}) {
 
     await waitTokenWrite();
     //console.log("send"+path+"\n");
-    //refreshingToken = true;
+
+    if (tokenWriting) {
+        await tokenWriting;
+    }
+
     // Базовые настройки
     const defaultOptions = {
         //method: "GET",
@@ -417,13 +421,13 @@ async function apiProtected(path, options = {}) {
     let { res, data } = await send();
     // Если 401 — обновляем токен и повторяем
     if (res && res.status === 401) {
-        //await refreshAccessSafe();
-        // 🔒 блокировка записи токена
-        tokenWriting = refreshAccess(); // возвращает промис
-            //console.log("await tokenWriting\n");
-        await tokenWriting;             // ждём завершения записи токена
-        tokenWriting = null;
-    ({ res, data } = await send()); // повторный запрос
+        if (!tokenWriting) {
+            tokenWriting = refreshAccess().finally(() => {
+                tokenWriting = null;
+            });
+        }
+        await tokenWriting;
+        ({ res, data } = await send());
     }
     // Если всё равно ошибка — кидаем
     if (!res || !res.ok) {
