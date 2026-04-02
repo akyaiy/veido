@@ -203,6 +203,7 @@
             <option value="vertical">По вертикали</option>
             <option value="auto">Авто</option>
         </select></label>
+        <hr style="margin: 6px 0px;">
         <div id="css-panel" style="display: flex">
             <div id="tag-label">TAG</div>
             <div class="table-wrap">
@@ -238,6 +239,7 @@
             <div simpleformats-button="list-square" title="Квадрат"><svg class="svg-icon" use="19x24"></svg></div>
             <div simpleformats-button="list-decimal" title="Нумерованный"><svg class="svg-icon" use="10x11"></svg></div>
         </div>
+        <hr style="margin: 6px 0px;">
         <div id="properties-list">
             Размер текста:
             <select property-item="font-size">

@@ -480,8 +480,10 @@ function updateOutline(element) {
         lastHighlightedElement = null;
         selectedEl = null;
         
+        // Показать обычную панель только если вкладка properties активна
+        const cssActive = document.querySelector('#css-js-tabs .tab.active');
         if (specRoot) specRoot.style.display = 'none';
-        if (normalPanel) normalPanel.style.display = 'block';
+        if (normalPanel) normalPanel.style.display = (cssActive && cssActive.dataset.tab === 'properties') ? 'block' : 'none';
     }
 
     return element;
@@ -568,8 +570,8 @@ function showSpecForTarget(targetOrEl) {
     if (!activeTab || activeTab.dataset.tab !== 'properties') {
         if (specRoot && specRoot.style.display !== 'none') {
             specRoot.style.display = 'none';
-            if (normalPanel) normalPanel.style.display = '';
         }
+        if (normalPanel) normalPanel.style.display = 'none';
         return;
     }
 
@@ -800,7 +802,10 @@ function rebuildTable(table, rows, cols) {
 // Сброс выбора: скрыть specRoot, восстановить normalPanel
 function clearSelection() {
     selectedEl = null;
-    if (specRoot.style.display !== 'none' && normalPanel) normalPanel.style.display = '';
+    const cssActiveTab = document.querySelector('#css-js-tabs .tab.active');
+    if (specRoot.style.display !== 'none' && normalPanel) {
+        normalPanel.style.display = (cssActiveTab && cssActiveTab.dataset.tab === 'properties') ? '' : 'none';
+    }
     specRoot.style.display = 'none';
     // очистить значения контролов
     specRoot.querySelectorAll('[data-prop]').forEach(inp => {
@@ -1306,30 +1311,50 @@ centerEditor.addEventListener('keydown', e =>
 
 /***********************************************************************
  * CenterEditor keydown — Вставка переноса строки при Enter:
- * - Получает объект события клавиатуры.
- * - Предотвращает стандартное действие Enter.
- * - Вставляет текстовый узел с новой строкой.
- * - Перемещает курсор после вставки.
  **********************************************************************/
 centerEditor.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
+    if (e.key !== 'Enter') return;
+
+    // работаем только если включён contenteditable
+    if (!centerEditor.isContentEditable) return;
+
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+
+    if (!e.shiftKey) {
         e.preventDefault();
 
-        const sel = window.getSelection();
-        if (!sel.rangeCount) return;
-
-        const range = sel.getRangeAt(0);
-
+        // обычный enter - вставка \n
         const textNode = document.createTextNode('\n');
-
         range.deleteContents();
         range.insertNode(textNode);
 
+        // перенос курсора после \n
         range.setStartAfter(textNode);
         range.collapse(true);
-
         sel.removeAllRanges();
         sel.addRange(range);
+    } else {
+        let container = range.commonAncestorContainer;
+        if (container.nodeType === Node.TEXT_NODE) {
+            container = container.parentElement;
+        }
+
+        if (container !== centerEditor) {
+            e.preventDefault();
+
+            // вставка узла вне текущего тега
+            const exitNode = document.createTextNode('\u00A0');
+            container.after(exitNode);
+
+            // перенос курсора
+            const newRange = document.createRange();
+            newRange.setStart(exitNode, 0);
+            newRange.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(newRange);
+        }
     }
 });
 
@@ -2671,6 +2696,9 @@ function updatePropertiesPanel(el) {
         });
         createAddPropRow();
     });
+
+    updateSimpleFormats(el);
+    updateSelectProperties(el);
 }
 
 /***********************************************************************
@@ -3716,15 +3744,6 @@ function resolveSelectorFromExpr(expr, scriptText) {
 
 
 
-
-
-function updatePropertiesPanel(el) {
-    updateSimpleFormats(el);
-    updateSelectProperties(el);
-}
-
-
-
 function updateSimpleFormats(el) {
     if (!el) return;
     const simple = document.getElementById('properties-simpleFormats');
@@ -3785,6 +3804,8 @@ function updateSelectProperties(el) {
 function updateButtonActive(button, el, key) {
     button.classList.remove('active');
 
+    const textAlign = getComputedProp(el, 'textAlign') || 'left';
+
     switch (key) {
         case 'bold':
             if (getComputedProp(el, 'fontWeight') === 'bold') button.classList.add('active');
@@ -3805,16 +3826,16 @@ function updateButtonActive(button, el, key) {
             if (getComputedProp(el, 'verticalAlign') === 'sub') button.classList.add('active');
             break;
         case 'text-align-left':
-            if (getComputedProp(el, 'textAlign') === 'left') button.classList.add('active');
+            if (textAlign === 'left' || textAlign === 'start') button.classList.add('active');
             break;
         case 'text-align-center':
-            if (getComputedProp(el, 'textAlign') === 'center') button.classList.add('active');
+            if (textAlign === 'center') button.classList.add('active');
             break;
         case 'text-align-right':
-            if (getComputedProp(el, 'textAlign') === 'right') button.classList.add('active');
+            if (textAlign === 'right' || textAlign === 'end') button.classList.add('active');
             break;
         case 'text-align-justify':
-            if (getComputedProp(el, 'textAlign') === 'justify') button.classList.add('active');
+            if (textAlign === 'justify') button.classList.add('active');
             break;
         case 'list-disc':
             if (getSelectValue(el, 'list') === 'disc') button.classList.add('active');
@@ -4623,14 +4644,22 @@ function toggleListForSelection(listType) {
             if (listType === 'decimal') {
                 if (parentList.tagName !== 'OL') {
                     const ol = document.createElement('ol');
-                    ol.innerHTML = parentList.innerHTML;
-                    parentList.parentNode.replaceChild(ol, parentList);
+                    if (parentList.parentNode) {
+                        while (parentList.firstChild) {
+                            ol.appendChild(parentList.firstChild);
+                        }
+                        parentList.parentNode.replaceChild(ol, parentList);
+                    }
                 }
             } else {
                 if (parentList.tagName !== 'UL') {
                     const ul = document.createElement('ul');
-                    ul.innerHTML = parentList.innerHTML;
-                    parentList.parentNode.replaceChild(ul, parentList);
+                    if (parentList.parentNode) {
+                        while (parentList.firstChild) {
+                            ul.appendChild(parentList.firstChild);
+                        } 
+                        parentList.parentNode.replaceChild(ul, parentList);
+                    }
                 }
                 parentList.style.listStyleType = listType;
             }
