@@ -76,6 +76,8 @@ document.addEventListener('keydown', function(e) {
     sel.addRange(range);
 });
 
+
+
 document.querySelector('#center-panel').addEventListener('click', (e) => {
     const link = e.target.closest('a');
     if (link) {
@@ -279,6 +281,15 @@ const centerPreJs = document.getElementById('center-tab-pre-js');
 /* const btnLoadFromView = document.getElementById('btn-load-from-view');
 const btnApplyToView = document.getElementById('btn-apply-to-view'); */
 const btnApplyJs = document.getElementById('btn-apply-js');
+
+// Сохранение текста JavaScript в блок памяти происходит немедленно при редактировании пользователем JS-редактора (без выполнения).
+if (centerPreJs) {
+    centerPreJs.addEventListener('input', () => {
+        const blockId = getActiveBlockId();
+        if (!blockId) return;
+        saveJsToScript(blockId);
+    });
+}
 
 /***********************************************************************
  * switchTabPanel — переключение видимости панелей (properties, css, js):
@@ -1237,8 +1248,17 @@ function switchTo(blockId, tabEl) {
     htmlDiv.id = blockId + '_html';
     htmlDiv.style.display = 'none';
 
+    const cssDiv = document.createElement('div');
+    cssDiv.id = blockId + '_css';
+    cssDiv.style.display = 'none';
+
     const scriptsDiv = document.createElement('div');
     scriptsDiv.id = blockId + '_scripts';
+
+    const scriptText = document.createElement('script');
+    scriptText.setAttribute('data-dynamic-text', blockId + '_view');
+    scriptText.type = 'text/plain';
+    scriptsDiv.appendChild(scriptText);
 
     const jsDiv = document.createElement('div');
     jsDiv.id = blockId + '_js';
@@ -1246,9 +1266,33 @@ function switchTo(blockId, tabEl) {
 
     block.appendChild(viewDiv);
     block.appendChild(htmlDiv);
+    block.appendChild(cssDiv);
     block.appendChild(scriptsDiv);
     block.appendChild(jsDiv);
     container.appendChild(block);
+
+    // Наблюдатель: если загрузчик вставит <script> в scriptsDiv позже,
+    try {
+        const observer = new MutationObserver(mutations => {
+            mutations.forEach(m => {
+                m.addedNodes.forEach(n => {
+                    if (!n || n.nodeType !== 1) return;
+                    if (n.tagName !== 'SCRIPT') return;
+                    const s = n;
+                    // пропускаем служебные скрипты
+                    if (s.getAttribute('data-dynamic-text') === blockId + '_view' || s.getAttribute('data-dynamic') === blockId + '_view') return;
+                    try {
+                        let txt = s.textContent || '';
+                        if (!txt && s.src) txt = `// external: ${s.src}`;
+                        scriptText.textContent = (scriptText.textContent || '') + '\n' + txt;
+                    } catch (e) {}
+                    try { s.parentNode && s.parentNode.removeChild(s); } catch (e) {}
+                });
+            });
+        });
+        observer.observe(scriptsDiv, { childList: true });
+        scriptsDiv._beObserver = observer;
+    } catch (e) {}
 
     const tabEl = document.createElement('div');
     tabEl.className = 'tab';
@@ -1269,6 +1313,11 @@ function switchTo(blockId, tabEl) {
     switchTo(blockId, tabEl);
 
     if (path) await loadBlock(path, viewDiv.id, ["js", "html"]);
+    const loadedScript = document.querySelector('script[data-dynamic="' + blockId + '_view"]');
+    if (loadedScript) {
+        scriptText.textContent = loadedScript.textContent || '';
+    }
+    if (path) extractContentParts(blockId);
     showJs(blockId);
     showView(blockId);
 }
@@ -1406,37 +1455,33 @@ function syncViewFromHtml(blockId) {
 
     if (canRender) {
         let content = htmlElPre.textContent.trim();
+        if (!content) content = '<div><br></div>';
 
-        if (!content) {
-            content = '<div><br></div>';
-        } else {
-            const tmp = document.createElement('div');
-            tmp.innerHTML = content;
+        const markdownBlocks = [
+            /^\s*#/,               // заголовки
+            /^\s*\*\*\*.*\*\*\*/, // жирный курсив
+            /^\s*\*\*.*\*\*/,     // жирный
+            /^\s*\*.*\*/,         // курсив
+            /^\s*-/ ,             // маркированный список
+            /^\s*\d+\./,          // нумерованный список
+            /^\s*>/,              // блок цитаты
+            /^\s*```/,            // блок кода
+            /^\s*<s>/,            // зачеркнутый
+        ];
 
-            const result = document.createElement('div');
-            let buffer = [];
+        const lines = content.split('\n');
+        let prevIsMd = false;
 
-            const flush = () => {
-                if (buffer.length) {
-                    const d = document.createElement('div');
-                    buffer.forEach(n => d.appendChild(n));
-                    result.appendChild(d);
-                    buffer = [];
-                }
-            };
-
-            [...tmp.childNodes].forEach(node => {
-                if (node.nodeType === 1 && node.tagName === 'DIV') {
-                    flush();
-                    result.appendChild(node);
-                } else {
-                    buffer.push(node);
-                }
-            });
-
-            flush();
-            content = result.innerHTML;
+        for (let i = 0; i < lines.length; i++) {
+            const isMd = markdownBlocks.some(re => re.test(lines[i]));
+            if (isMd && !prevIsMd) {
+                // добавляем перенос только если предыдущий не Markdown
+                lines[i] = '\n' + lines[i];
+            }
+            prevIsMd = isMd;
         }
+
+        content = lines.join('\n');
 
         htmlEl.innerHTML = content;
         viewEl.innerHTML = md.render(content);
@@ -1463,6 +1508,12 @@ function syncHtmlFromView(blockId) {
     if (canRender) {
         let mdText = htmlToMixed(viewEl.innerHTML);
         htmlEl.innerHTML = mdText;
+        // also reflect changes immediately in the central HTML editor
+        const centerPre = document.getElementById('center-tab-pre-html');
+        if (centerPre) {
+            centerPre.textContent = mdText;
+            centerPre.dataset.userEdited = '0';
+        }
     }
 }
 
@@ -1546,6 +1597,73 @@ function htmlToMixed(html) {
     return out;
 }
 
+/**
+* extractContentParts — Перемещает встроенные теги <style> и <script> из представления в блочные контейнеры
+* — Сохраняет CSS в <style data-dynamic="blockId_view"> и JS в <script data-dynamic-text="blockId_view"> (только текст)
+* — Удаляет исходные встроенные теги из представления, чтобы избежать автоматического выполнения
+*/
+function extractContentParts(blockId) {
+    const viewEl = document.getElementById(blockId + '_view');
+    if (!viewEl) return;
+
+    const scriptsDiv = document.getElementById(blockId + '_scripts') || document.getElementById('loadedBlockMain');
+    const cssDiv = document.getElementById(blockId + '_css');
+    const htmlDiv = document.getElementById(blockId + '_html');
+
+   // собирать стили
+    viewEl.querySelectorAll('style').forEach(st => {
+        try {
+            let styleEl = document.querySelector('style[data-dynamic="' + blockId + '_view"]');
+            if (!styleEl) {
+                styleEl = document.createElement('style');
+                styleEl.setAttribute('data-dynamic', blockId + '_view');
+                (scriptsDiv || document.head).appendChild(styleEl);
+            }
+            styleEl.textContent = (styleEl.textContent || '') + '\n' + (st.textContent || '');
+        } catch (e) {}
+        st.parentNode && st.parentNode.removeChild(st);
+    });
+
+    // готовим контейнер для скриптов 
+    let textEl = document.querySelector('script[data-dynamic-text="' + blockId + '_view"]');
+    if (!textEl && scriptsDiv) {
+        textEl = document.createElement('script');
+        textEl.setAttribute('data-dynamic-text', blockId + '_view');
+        textEl.type = 'text/plain';
+        scriptsDiv.appendChild(textEl);
+    }
+
+    // также нормализуем любые скрипты, которые были помещены в scriptsDiv загрузчиком: преобразуем их в хранилище текста
+    if (scriptsDiv) {
+        scriptsDiv.querySelectorAll('script').forEach(s => {
+            if (s.getAttribute('data-dynamic-text') === blockId + '_view' || s.getAttribute('data-dynamic') === blockId + '_view') return;
+            try {
+                textEl.textContent = (textEl.textContent || '') + '\n' + (s.textContent || '');
+            } catch (e) {}
+            s.parentNode && s.parentNode.removeChild(s);
+        });
+    }
+
+    // собирать скрипты из представления
+    viewEl.querySelectorAll('script').forEach(sc => {
+        // пропускаем служебные скрипты
+        if (sc.getAttribute('data-dynamic-text') === blockId + '_view' || sc.getAttribute('data-dynamic') === blockId + '_view') return;
+        try {
+            textEl.textContent = (textEl.textContent || '') + '\n' + (sc.textContent || '');
+        } catch (e) {}
+        sc.parentNode && sc.parentNode.removeChild(sc);
+    });
+
+    // обновляем HTML-контейнер, удаляя встроенные стили и скрипты из представления
+    if (htmlDiv) htmlDiv.innerHTML = viewEl.innerHTML;
+
+    // обновляем центральные редакторы
+    const centerPre = document.getElementById('center-tab-pre-html');
+    if (centerPre) centerPre.textContent = htmlToMixed(viewEl.innerHTML);
+    const centerJs = document.getElementById('center-tab-pre-js');
+    if (centerJs && textEl) centerJs.textContent = textEl.textContent || '';
+}
+
 
 
 
@@ -1558,6 +1676,13 @@ function htmlToMixed(html) {
  **********************************************************************/
 function closeBlock(e, block, tabEl) {
     e.stopPropagation();
+    try {
+        const scriptsDiv = block ? block.querySelector('#' + block.id + '_scripts') : null;
+        if (scriptsDiv && scriptsDiv._beObserver) {
+            try { scriptsDiv._beObserver.disconnect(); } catch (e) {}
+            scriptsDiv._beObserver = null;
+        }
+    } catch (e) {}
 
     const container = document.getElementById('loadedBlockMain');
     if (container && block) container.removeChild(block);
@@ -1628,43 +1753,33 @@ function getActiveBlockId() {
  * - Выполняет обновлённый скрипт для активного блока.
  **********************************************************************/
 function runJs(blockId) {
-    const scriptEl = document.querySelector('script[data-dynamic="' + blockId + '_view"]');
-    if (!scriptEl) return;
-
-    const content = scriptEl.textContent || '';
+    const textEl = document.querySelector('script[data-dynamic-text="' + blockId + '_view"]');
+    if (!textEl) return;
+    const content = textEl.textContent || '';
     if (!content.trim()) return;
 
-    const wrapped = `
-        (() => {
-            try {
-                ${content}
-                if (typeof pageInit === "function") pageInit();
-            } catch (e) {
-                console.error("Block script error:", e);
-            }
-        })();
-    `;
+    const prev = document.querySelector('script[data-dynamic="' + blockId + '_view"]');
+    if (prev && prev.parentNode) prev.parentNode.removeChild(prev);
 
-    try {
-        eval(wrapped);
-        showMarkerModal('JS-код блока успешно применён!');
-    } catch (e) {
-        console.error(e);
-    }
+    const exec = document.createElement('script');
+    exec.setAttribute('data-dynamic', blockId + '_view');
+    exec.type = '';
+    exec.textContent = `(function(){try{${content}\nif(typeof pageInit==='function')pageInit();}catch(e){console.error('Block script error:',e);}})();`;
+    const wrap = document.getElementById(blockId + '_scripts') || document.getElementById('loadedBlockMain') || document.body;
+    wrap.appendChild(exec);
+    showMarkerModal('JS-код блока успешно применён!');
 }
 function saveJsToScript(blockId) {
     const content = centerPreJs.textContent || '';
-
-    let scriptEl = document.querySelector('script[data-dynamic="' + blockId + '_view"]');
-    if (!scriptEl) {
+    let textEl = document.querySelector('script[data-dynamic-text="' + blockId + '_view"]');
+    if (!textEl) {
         const wrap = document.getElementById(blockId + '_scripts') || document.getElementById('loadedBlockMain');
-        scriptEl = document.createElement('script');
-        scriptEl.setAttribute('data-dynamic', blockId + '_view');
-        wrap.appendChild(scriptEl);
+        textEl = document.createElement('script');
+        textEl.setAttribute('data-dynamic-text', blockId + '_view');
+        textEl.type = 'text/plain';
+        wrap.appendChild(textEl);
     }
-
-    scriptEl.type = '';
-    scriptEl.textContent = content;
+    textEl.textContent = content;
 }
 
 /***********************************************************************
@@ -1785,7 +1900,7 @@ function ensureHandlerFunctions(code) {
         handlerNames.add(m[1]);
     }
 
-    // gather already defined functions and variables assigned to functions/arrow functions
+    // собрать уже определенные функции и переменные, присвоенные функциям/стрелочным функциям
     const defined = new Set();
     const funcDefRe = /function\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*\(/g;
     while ((m = funcDefRe.exec(code)) !== null) {
@@ -1826,7 +1941,7 @@ function showJs(blockId, highlightSearch=null) {
     centerPreJs.style.display = '';
     updateCenterControls('js');
 
-    const scriptEl = document.querySelector('script[data-dynamic="' + blockId + '_view"]');
+    const scriptEl = document.querySelector('script[data-dynamic-text="' + blockId + '_view"]');
     let code = scriptEl ? scriptEl.textContent : '';
 
     code = stripJsWrapper(code);
@@ -3316,7 +3431,7 @@ function updateJsPanel(el, updateJsPanelNameTrigger=true) {
     if (updateJsPanelNameTrigger) updateJsPanelName(el);
 
     const blockId = getBlockIdFromEl(el) || getActiveBlockId() || 'loadedBlock_1';
-    const script = document.querySelector('script[data-dynamic="' + blockId + '_view"]');
+    const script = document.querySelector('script[data-dynamic-text="' + blockId + '_view"]');
     if (!script) return;
 
     const txt = script.textContent;
@@ -3553,7 +3668,7 @@ function findFreeElNumber() {
  * - Обновляет содержимое блока pre-js в интерфейсе, если он открыт для текущего блока.
  **********************************************************************/
 function updateScriptAssignment(blockId, selector, eventFull, handlerName, el) {
-    const scriptEl = document.querySelector('script[data-dynamic="' + blockId + '_view"]');
+    const scriptEl = document.querySelector('script[data-dynamic-text="' + blockId + '_view"]');
     if (!scriptEl) return;
     let s = scriptEl.textContent;
     
@@ -5300,7 +5415,7 @@ function syncElementId(newId, el, highlightElements) {
     // Группа $1 - это кавычка, группа $2 - возможный символ решетки '#'
     const reScripts = new RegExp('([\'"`])(#?)' + escOld + '\\1', 'g');
 
-    const dynamicScript = document.querySelector('script[data-dynamic="' + viewId + '"]');
+    const dynamicScript = document.querySelector('script[data-dynamic-text="' + viewId + '"]');
     const scripts = [];
     if (dynamicScript) scripts.push(dynamicScript);
 
