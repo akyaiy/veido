@@ -7,8 +7,6 @@
         <div id="tabs-menu" style="display:none;">
             <div id="tab-open" class="tab">Открыть</div>
             <div  id="tab-new" class="tab">Новый</div>
-            <div class="tab">Заглушка</div>
-            <div class="tab">Заглушка</div>
         </div>
     </div>
     <div id="blocks-tabs">
@@ -121,7 +119,7 @@
         <label data-target="form">Действие формы: <input type="text" data-prop="form-action"></label>
         <label data-target="video">Заставка" <input type="text" data-prop="video-poster"></label>
         <label data-target="iframe">Ссылка: <input type="text" data-prop="iframe-src"></label>
-        <label data-target="button">Nип действия: <select data-prop="button-type">
+        <label data-target="button">Тип действия: <select data-prop="button-type">
             <option value="">По умолчанию</option>
             <option value="button">button</option>
             <option value="submit">submit</option>
@@ -136,12 +134,12 @@
         <label data-target="input:file">Несколько файлов: <input type="checkbox" data-prop="file-multiple"></label>
         <label data-target="all">Ширина: <input data-prop="width-value"></label>
         <label data-target="all">Высота: <br><input data-prop="height-value"></label>
-        <label data-target="all">Отступы: <div class="margin-grid">
+        <label data-target="all">Внешние отступы: <div class="margin-grid">
             <div class="col left"><input data-prop="margin-left" placeholder="Слева"></div>
             <div class="col center"><input data-prop="margin-top" placeholder="Сверху"><input data-prop="margin-bottom" placeholder="Снизу"></div>
             <div class="col right"><input data-prop="margin-right" placeholder="Справа"></div>
         </div></label>
-        <label data-target="all">Внутренние отступы: <div class="padding-grid">
+        <label data-target="all">Отступы от границ: <div class="padding-grid">
             <div class="col left"><input data-prop="padding-left" placeholder="Слева"></div>
             <div class="col center"><input data-prop="padding-top" placeholder="Сверху"><input data-prop="padding-bottom" placeholder="Снизу"></div>
             <div class="col right"><input data-prop="padding-right" placeholder="Справа"></div>
@@ -265,7 +263,7 @@
                 <option value="1.8">1.8</option>
                 <option value="2">2</option>
             </select>
-            Отступ:
+            Внешние отступы:
             <select property-item="padding">
                 <option value="">По умолчанию</option>
                 <option value="2px">2px</option>

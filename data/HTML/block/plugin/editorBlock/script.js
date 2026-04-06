@@ -172,16 +172,27 @@ let startX, startY, startWidth, startHeight;
 const margin = 2; // зона границы
 
 document.addEventListener('mousemove', e => {
-    if (!selectedElBorder || isResizing) return;
+    if (!selectedElBorder) return;
 
     const rect = selectedElBorder.getBoundingClientRect();
 
-    // правая граница
+    if (isResizing) {
+        // изменение размеров
+        if (isResizing === 'width') {
+            selectedElBorder.style.width = startWidth + (e.clientX - startX) + 'px';
+        } else if (isResizing === 'height') {
+            selectedElBorder.style.height = startHeight + (e.clientY - startY) + 'px';
+        }
+
+        // обновляем рамку на текущие размеры
+        updateOutline(selectedElBorder);
+        return;
+    }
+
+    // курсор на границах
     if (e.clientX >= rect.right - margin && e.clientX <= rect.right + margin) {
         document.body.style.cursor = 'e-resize';
-    }
-    // нижняя граница
-    else if (e.clientY >= rect.bottom - margin && e.clientY <= rect.bottom + margin) {
+    } else if (e.clientY >= rect.bottom - margin && e.clientY <= rect.bottom + margin) {
         document.body.style.cursor = 's-resize';
     } else {
         document.body.style.cursor = '';
@@ -223,7 +234,7 @@ document.addEventListener('mouseup', () => {
     document.body.style.cursor = '';
 });
 
-document.addEventListener('dblclick', e => {
+/* document.addEventListener('dblclick', e => {
     const el = findEditableElement(e.target); // вызываем только на клике
     if (!el) {
         selectedElBorder = null;
@@ -231,10 +242,7 @@ document.addEventListener('dblclick', e => {
     }
 
     selectedElBorder = el;
-});
-document.addEventListener('click', e => {
-    updateOutline(null);
-});
+}); */
 
 
 
@@ -873,15 +881,15 @@ window.BlockEditorSpec = {
 // --- Взаимодействие с loadedBlock_*_view ------------------------------------
 
 // Левый клик - выбрать элемент (только специальные элементы), не открываем панель
-document.addEventListener('dblclick', e => {
+/* document.addEventListener('dblclick', e => {
     const el = findEditableElement(e.target);
     if (!el) return; // игнорируем клики по тексту и обычным контейнерам
     selectedEl = el;
     populateSpecialProps(selectedEl);
-}, true);
+}, true); */
 
 // левый клик - открыть properties-panel-spec (скрыть обычную), показать только нужные контролы
-document.addEventListener('dblclick', e => {
+/* document.addEventListener('dblclick', e => {
     const inSpec = !!e.target.closest('#properties-panel-spec');
     if (inSpec) return;
     const editableContainer = e.target.closest('[contenteditable="true"]');
@@ -920,15 +928,44 @@ document.addEventListener('dblclick', e => {
     }
 
     // clearSelection(); // убрано, чтобы selectedEl сохранялся
-});
+}); */
 
 /* блок свойства */
 const menu = document.getElementById('ed-properties');
 let clipboard = null;
 let tableContext = null; // { table: Element, cell: Element|null }
+let lastElement = null;
+let menuVisible = false;
 
 document.addEventListener('contextmenu', e => {
-    e.preventDefault();
+    const el = findEditableElement(e.target);
+    if (!el) return; // клик вне редактируемого — ничего не делаем
+
+    // всегда показываем меню, если оно скрыто
+    if (menu.style.display === 'none' || !menu.style.display) {
+        menuVisible = true;
+        lastElement = el;   // сохраняем текущий элемент
+        selectedEl = el;
+    } else if (el === lastElement) {
+        // чередуем меню при ПКМ по тому же элементу
+        menuVisible = !menuVisible;
+    } else {
+        // новый элемент — показываем меню
+        menuVisible = true;
+        lastElement = el;
+        selectedEl = el;
+    }
+
+    // позиция меню
+    if (menuVisible) {
+        menu.style.display = 'block';
+        menu.style.top = e.pageY + 5 + 'px';
+        menu.style.left = e.pageX + 5 + 'px';
+        e.preventDefault(); // блокируем системное меню
+    } else {
+        menu.style.display = 'none';
+    }
+
     const editableArea = e.target.closest('[contenteditable="true"]');
     if (!editableArea) {
         menu.style.display = 'none';
@@ -936,32 +973,30 @@ document.addEventListener('contextmenu', e => {
         return;
     }
 
-    const el = findEditableElement(e.target);
     const selection = window.getSelection();
     const hasTextSelection = selection && !selection.isCollapsed;
 
-    // Контекст таблицы - если кликнут по таблице/ячейке
     const clickedTable = e.target.closest('table');
     const clickedCell = e.target.closest('td,th');
     tableContext = clickedTable ? { table: clickedTable, cell: clickedCell } : null;
 
-    // Скрыть или показать paste (paste отдельно)
+    // Paste
     const pasteItem = menu.querySelector('[act="paste"]');
     if (pasteItem) pasteItem.style.display = clipboard ? '' : 'none';
 
-    // Остальные общие пункты меню (для элементов)
+    // Элементы
     const elementItems = menu.querySelectorAll('.elementProp');
     elementItems.forEach(item => {
         item.style.display = (el && !hasTextSelection) ? '' : 'none';
     });
 
-    // Пункты, специфичные для таблицы
+    // Таблица
     const tableItems = menu.querySelectorAll('.elementTableProp');
     tableItems.forEach(item => {
         item.style.display = (tableContext && !hasTextSelection) ? '' : 'none';
     });
 
-    // если все пункты (включая paste) скрыты — не показывать меню
+    // Если все скрыто
     const anyVisible = Array.from(menu.children).some(i => i.style.display !== 'none');
     if (!anyVisible) {
         menu.style.display = 'none';
@@ -969,12 +1004,21 @@ document.addEventListener('contextmenu', e => {
         return;
     }
 
-    menu.style.display = 'block';
-    menu.style.top = e.pageY + 2 + 'px';
-    menu.style.left = e.pageX + 2 + 'px';
-
     if (el && !hasTextSelection) selectedEl = el;
     else clearSelection();
+});
+
+// Click — только для рамки, без добавления нового элемента
+document.addEventListener('click', e => {
+    if (selectedEl === findEditableElement(e.target)) {
+        // тот же элемент — сохраняем рамку
+        updateOutline(selectedEl);
+    } else {
+        // другой элемент или пустое место — сброс
+        selectedEl = null;
+        updateOutline(null);
+        menu.style.display = 'none';
+    }
 });
 
 document.addEventListener('click', () => { menu.style.display = 'none'; tableContext = null; });
@@ -1354,7 +1398,7 @@ centerEditor.addEventListener('paste', () => {
     setTimeout(syncActiveBlock, 0);
 });
 centerEditor.addEventListener('keydown', e =>
-    (e.key === 'Enter' || (e.ctrlKey && (e.key === 'z' || e.key === 'y'))) &&
+    (e.key === 'Enter') &&
     queueMicrotask(syncActiveBlock)
 );
 
@@ -4096,8 +4140,12 @@ function getComputedProp(el, prop) {
 
     // Если есть активное выделение и оно не пустое, используем его (обычно это то, что нужно при кликах на панели)
     const sel = window.getSelection && window.getSelection();
+    let selRoot = null;
     if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
         const range = sel.getRangeAt(0);
+        selRoot = range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+            ? range.commonAncestorContainer
+            : range.commonAncestorContainer.parentElement || document.body;
         nodes = textNodesInRange(range);
     }
 
@@ -4115,15 +4163,95 @@ function getComputedProp(el, prop) {
         return computeForElement(el, prop);
     }
 
-    const values = [];
-    for (const tn of nodes) {
-        const parent = tn.parentElement || tn.parentNode;
-        values.push(computeForElement(parent, prop));
+    // helper: map JS prop to property-item attribute in selects
+    function propToSelectAttr(p) {
+        switch (p) {
+            case 'fontSize': return 'font-size';
+            case 'fontFamily': return 'font-family';
+            case 'lineHeight': return 'line-height';
+            case 'padding': return 'padding';
+            default: return '';
+        }
     }
 
-    const uniq = Array.from(new Set(values.map(v => (v === null || v === undefined) ? '' : String(v).trim())));
-    if (uniq.length === 1) return uniq[0];
+    // Для специальных свойств будем искать применимое значение, начиная с самого близкого к текстовому узлу
+    const specialProps = new Set(['fontSize', 'fontFamily', 'lineHeight', 'padding']);
 
+    const values = [];
+    for (const tn of nodes) {
+        let applied = '';
+        const parent = tn.parentElement || tn.parentNode;
+
+        if (specialProps.has(prop)) {
+            // Идём по цепочке предков, начиная с ближайшего, и возвращаем первое найденное значение
+            let cur = parent;
+            while (cur) {
+                try {
+                    // сначала - inline стиль
+                    if (cur.style) {
+                        const v = cur.style[prop];
+                        if (v && String(v).trim()) {
+                            applied = String(v).trim();
+                            break;
+                        }
+                    }
+
+                    // затем - вычисленное значение для текущего элемента (это позволит учитывать классы и CSS)
+                    const cs = window.getComputedStyle(cur);
+                    const cv = cs && cs[prop];
+                    if (cv && String(cv).trim() && String(cv).trim() !== 'normal') {
+                        applied = String(cv).trim();
+                        break;
+                    }
+                } catch (e) {
+                }
+
+                // не выходить за пределы выделения (если есть)
+                if (selRoot && cur === selRoot) break;
+                cur = cur.parentElement;
+            }
+
+            // fallback — как раньше для ближайшего элемента
+            if (!applied) applied = computeForElement(parent, prop);
+        } else {
+            applied = computeForElement(parent, prop);
+        }
+
+        values.push((applied === null || applied === undefined) ? '' : String(applied).trim());
+    }
+
+    // Нормализуем набор значений: игнорируем пустые значения, если есть хотя бы одно непустое
+    const all = values.map(v => (v === null || v === undefined) ? '' : String(v).trim());
+    const nonEmpty = Array.from(new Set(all.filter(v => v !== '')));
+
+    if (nonEmpty.length === 1) {
+        const val = nonEmpty[0];
+        // попытаться найти соответствующий select и добавить опцию, если нужно
+        const attr = propToSelectAttr(prop);
+        if (attr && typeof document !== 'undefined') {
+            try {
+                const selEl = document.querySelector('[property-item="' + attr + '"]');
+                if (selEl && selEl.tagName === 'SELECT') {
+                    let found = false;
+                    for (let i = 0; i < selEl.options.length; i++) {
+                        if (selEl.options[i].value === val) { found = true; break; }
+                    }
+                    if (!found) {
+                        const opt = document.createElement('option');
+                        opt.value = val;
+                        opt.textContent = val;
+                        selEl.appendChild(opt);
+                    }
+                    selEl.value = val;
+                }
+            } catch (e) {}
+        }
+        return val;
+    }
+
+    if (nonEmpty.length > 1) return '-';
+
+    // Всё пусто — возвращаем пустую строку (По умолчанию)
     return '';
 }
 
@@ -5469,6 +5597,46 @@ let currentEditor = null;
 let isInternalChange = false;
 let editorObserver = null;
 
+/* Функции отмены действий */
+function doUndo() {
+    if (!currentEditor || isInternalChange) return;
+    const id = currentEditor.id;
+    const data = historyData[id];
+    
+    if (!data || data.index <= 0) return;
+
+    const currentHTML = getPureHTML(currentEditor.innerHTML);
+    const lastSavedHTML = getPureHTML(data.stack[data.index]);
+
+    if (currentHTML !== lastSavedHTML) {
+        saveState(currentEditor);
+    }
+
+    if (data.index > 0) {
+        isInternalChange = true;
+        data.index--;
+        currentEditor.innerHTML = data.stack[data.index];
+        setTimeout(() => { isInternalChange = false; }, 50);
+    }
+}
+
+/* Функции повтора действий */
+function doRedo() {
+    if (!currentEditor) return;
+    const data = historyData[currentEditor.id];
+    if (!data || data.index >= data.stack.length - 1) return;
+
+    isInternalChange = true;
+    data.index++;
+    currentEditor.innerHTML = data.stack[data.index];
+    setTimeout(() => isInternalChange = false, 10);
+}
+
+/* Присвоение обработчиков событий */
+undoBtn?.addEventListener('click', doUndo);
+redoBtn?.addEventListener('click', doRedo);
+
+
 function logStatus(id, action) {
     const data = historyData[id];
     if (!data) return;
@@ -5558,31 +5726,6 @@ function showHistoryPanel(editor) {
     }
 }
 
-undoBtn?.addEventListener('click', () => {
-    if (!currentEditor || isInternalChange) return;
-    const id = currentEditor.id;
-    const data = historyData[id];
-    
-    if (!data || data.index <= 0) return;
-
-    const currentHTML = getPureHTML(currentEditor.innerHTML);
-    const lastSavedHTML = getPureHTML(data.stack[data.index]);
-
-    if (currentHTML !== lastSavedHTML) {
-        saveState(currentEditor);
-    }
-
-    // Теперь делаем шаг назад
-    if (data.index > 0) {
-        isInternalChange = true;
-        data.index--;
-        currentEditor.innerHTML = data.stack[data.index];
-        /* logStatus(id, "Undo"); */
-        
-        // Увеличиваем таймаут, чтобы MutationObserver успел "пропустить" это изменение
-        setTimeout(() => { isInternalChange = false; }, 50);
-    }
-});
 const getPureHTML = (html) => {
     return html
         .replace(/&nbsp;/g, ' ') 
@@ -5597,18 +5740,6 @@ const getPureHTML = (html) => {
         .replace(/\s+>/g, '>')
         .trim();
 };
-
-redoBtn?.addEventListener('click', () => {
-    if (!currentEditor) return;
-    const data = historyData[currentEditor.id];
-    if (!data || data.index >= data.stack.length - 1) return;
-
-    isInternalChange = true;
-    data.index++;
-    currentEditor.innerHTML = data.stack[data.index];
-    /* logStatus(currentEditor.id, "Redo"); */
-    setTimeout(() => isInternalChange = false, 10);
-});
 
 // Логика записи текста: только по спецсимволам
 document.addEventListener('input', (e) => {
@@ -5636,11 +5767,11 @@ document.addEventListener('keydown', (e) => {
     const isMod = e.ctrlKey || e.metaKey;
     if (isMod && e.key.toLowerCase() === 'z') {
         e.preventDefault();
-        e.shiftKey ? redoBtn?.click() : undoBtn?.click();
+        e.shiftKey ? doRedo() : doUndo();
     }
     if (isMod && e.key.toLowerCase() === 'y') {
         e.preventDefault();
-        redoBtn?.click();
+        doRedo();
     }
 });
 
