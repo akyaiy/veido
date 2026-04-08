@@ -26,7 +26,7 @@
         <div>
             <div>Базовые элементы</div>
             <div style="display:block;">
-                <div class="add-el" data-el="<block style='border:1px solid #000;'>[ST]</block>" title="блок"><svg class="svg-icon" use="4x19"></svg></div>
+                <div class="add-el" data-el="<div style='border:1px solid #000; display: inline-block;'>[ST]</div>" title="блок"><svg class="svg-icon" use="4x19"></svg></div>
                 <div class="add-el" data-el="<img src='[LINK]'>" title="изображение"><svg class="svg-icon" use="19x19"></svg></div>
                 <div class="add-el" data-el="<a href='[LINK]'>[ST]</a>" title="ссылка"><svg class="svg-icon" use="14x23"></svg></div>
                 <div class="add-el" data-el="<table><tr><td>[ST]</td><td><br></td></tr><tr><td><br></td><td><br></td></tr></table>" title="таблица"><svg class="svg-icon" use="19x6"></svg></div>
@@ -59,7 +59,7 @@
             <div>Интерактив</div>
             <div style="display:none;">
                 <div class="add-el" data-el="<button style='border:1px solid #000;'>[ST]</button>" title="кнопка"><svg class="svg-icon" use="14x27"></svg></div>
-                <div class="add-el" data-el="<details style='border:1px solid #000;width:160px;'><summary>[ST]</summary><block>контент</block></details>" title="сворачиваемый блок"><svg class="svg-icon" use="19x20"></svg></div>
+                <div class="add-el" data-el="<details style='border:1px solid #000;width:160px;'><summary>[ST]</summary><div>контент</div></details>" title="сворачиваемый блок"><svg class="svg-icon" use="19x20"></svg></div>
                 <div class="add-el" data-el="<input type='range' min='0' max='100' value='50' style='width:160px;'>" title="ползунок"><svg class="svg-icon" use="19x22"></svg></div>
                 <div class="add-el" data-el="<progress value='50' max='100' style='width:160px;'></progress>" title="прогресс бар"><svg class="svg-icon" use="19x21"></svg></div>
                 <div class="add-el" data-el="<input type='file'>" title="поле для загрузки файла"><svg class="svg-icon" use="1x19"></svg></div>
@@ -100,8 +100,9 @@
     <div id="properties-panel-spec" style="display: none;">
         <div class="table-title" style="padding-bottom: 5px;">Свойства элементов</div>
         <label data-target="all">ID: <input type="text" data-prop="id"><br></label>
-        <label data-target="img">Ссылка: <input type="text" data-prop="img-src"></label>
-        <label data-target="a">Ссылка: <input type="text" data-prop="link-href"></label>
+        <label data-target="img a figure video audio iframe">Ссылка: <input type="text" data-prop="link"></label>
+        <label data-target="">Ссылка: <input type="text" data-prop="link-href"></label>
+        <label data-target="">Ссылка: <input type="text" data-prop="iframe-src"></label>
         <label data-target="input textarea select">Подсказка (ввода): <input type="text" data-prop="input-placeholder"></label>
         <label data-target="input textarea select">Тип: <select data-prop="input-type">
             <option value="text">текст</option>
@@ -118,7 +119,6 @@
         </select></label>
         <label data-target="form">Действие формы: <input type="text" data-prop="form-action"></label>
         <label data-target="video">Заставка" <input type="text" data-prop="video-poster"></label>
-        <label data-target="iframe">Ссылка: <input type="text" data-prop="iframe-src"></label>
         <label data-target="button">Тип действия: <select data-prop="button-type">
             <option value="">По умолчанию</option>
             <option value="button">button</option>

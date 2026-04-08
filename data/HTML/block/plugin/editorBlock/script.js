@@ -1,3 +1,4 @@
+/* !!! хранение кода !!! */
 // Патчируем addEventListener заранее
 window.__BE_listeners = window.__BE_listeners || [];
 if (!window.__BE_add_patched) {
@@ -30,7 +31,11 @@ window.BlockEditorApp = (function() {
             delete window.BlockEditorApp;
         }
     };
-/* хранение кода */
+/* !!! хранение кода !!! */
+
+
+
+
 
 
 
@@ -60,7 +65,7 @@ document.addEventListener('keydown', function(e) {
     if (node.closest('li')) return;
 
     // ищем block, span не учитывается
-    const block = node.closest('block');
+    const block = node.closest('div');
     if (!block || !editable.contains(block)) return;
 
     e.preventDefault();
@@ -554,9 +559,7 @@ const PROP_MAP = {
     'border-style':    { type: 'style', cssName: 'borderStyle' },
     'border-color':    { type: 'style', cssName: 'borderColor', color: true },
     'border-radius':   { type: 'style', cssName: 'borderRadius', numeric: true },
-    'img-src':         { type: 'attr', attrName: 'src', tag: 'img' },
     'img-alt':         { type: 'attr', attrName: 'alt', tag: 'img' },
-    'link-href':       { type: 'attr', attrName: 'href', tag: 'a' },
     'link-target':     { type: 'attr', attrName: 'target', tag: 'a' },
     'input-placeholder':{ type: 'attr', attrName: 'placeholder', tag: 'input' },
     'input-type':      { type: 'attr', attrName: 'type', tag: 'input' },
@@ -569,7 +572,6 @@ const PROP_MAP = {
     'z-index':         { type: 'style', cssName: 'zIndex' },
     'id':               { type: 'attr', attrName: 'id' },
     'video-poster':    { type: 'attr', attrName: 'poster', tag: 'video' },
-    'iframe-src':      { type: 'attr', attrName: 'src', tag: 'iframe' },
     'button-type':     { type: 'attr', attrName: 'type', tag: 'button' },
     'details-open':    { type: 'attr', attrName: 'open', tag: 'details', booleanAttr: true },
     'range-min':       { type: 'attr', attrName: 'min', tag: 'input' },
@@ -579,7 +581,8 @@ const PROP_MAP = {
     'file-accept':     { type: 'attr', attrName: 'accept', tag: 'input' },
     'file-multiple':   { type: 'attr', attrName: 'multiple', tag: 'input', booleanAttr: true },
     'display':         { type: 'style', cssName: 'display' },
-    'resize':          { type: 'style', cssName: 'resize' }
+    'resize':          { type: 'style', cssName: 'resize' },
+    'link':            { type: 'attr', attrName: 'universal-link' },
 };
 
 // --- Управление видимостью панели ----------------------------------------------
@@ -663,17 +666,24 @@ function populateSpecialProps(el) {
             }
 
             if (map.type === 'attr') {
+                /* если ссылка */
+                let attrName = map.attrName;
+                if (prop === 'link') {
+                    const tagName = el.tagName.toLowerCase();
+                    if (['img', 'iframe', 'video', 'audio'].includes(tagName)) attrName = 'src';
+                    else if (tagName === 'a' || tagName === 'figure') attrName = 'href';
+                    else attrName = 'href';
+                }
                 // только если тег совпадает (если указано)
                 if (map.tag && el.tagName.toLowerCase() !== map.tag) {
                     setCtrl('');
                 } else {
                     if (map.booleanAttr) {
-                        setCtrl(el.hasAttribute(map.attrName));
-                    } else if (map.attrName === 'value') {
-                        // для текущих значений value используем свойство, а не только атрибут
+                        setCtrl(el.hasAttribute(attrName));
+                    } else if (attrName === 'value') {
                         setCtrl(el.value != null ? el.value : (el.getAttribute('value') || ''));
                     } else {
-                        setCtrl(el.getAttribute(map.attrName) || '');
+                        setCtrl(el.getAttribute(attrName) || '');
                     }
                 }
                 return;
@@ -748,6 +758,14 @@ function applyPropToElement(el, prop, rawValue) {
 
         if (map.type === 'attr') {
             if (map.tag && el.tagName.toLowerCase() !== map.tag) return;
+
+            /* если ссылка */
+            let attrName = map.attrName;
+            if (prop === 'link') {
+                const tagName = el.tagName.toLowerCase();
+                attrName = (tagName === 'img' || tagName === 'iframe' || tagName === 'video') ? 'src' : 'href';
+            }
+
             if (map.attrName === 'id') {
                 // Ищем поле ввода id в панели свойств (обычно через data-prop)
                 const inputEl = document.querySelector('[data-prop="id"]');
@@ -755,16 +773,18 @@ function applyPropToElement(el, prop, rawValue) {
                 if (result.valid) markDirty();
                 return;
             }
+            
             if (map.booleanAttr) {
-                if (val) el.setAttribute(map.attrName, '');
-                else el.removeAttribute(map.attrName);
-            } else if (map.attrName === 'value') {
-                // для value — менять свойство value, чтобы отразить текущее состояние
-                try { el.value = val; } catch (e) { el.setAttribute(map.attrName, String(val)); }
+                if (val) el.setAttribute(attrName, '');
+                else el.removeAttribute(attrName);
+            } else if (attrName === 'value') {
+                try { el.value = val; } catch (e) { el.setAttribute(attrName, String(val)); }
             } else {
-                if (val === '') el.removeAttribute(map.attrName);
-                else el.setAttribute(map.attrName, String(val));
+                if (val === '') el.removeAttribute(attrName);
+                else el.setAttribute(attrName, String(val));
             }
+            markDirty();
+            return;
             markDirty();
             return;
         }
@@ -910,6 +930,7 @@ window.BlockEditorSpec = {
         else if (tag === 'input') target = 'input';
         else if (tag === 'table') target = 'table';
         else if (tag === 'block') target = 'block';
+        else if (tag === 'div') target = 'div';
         else if (tag === 'video') target = 'video';
         else if (tag === 'audio') target = 'audio';
         else if (tag === 'iframe') target = 'iframe';
@@ -934,37 +955,21 @@ window.BlockEditorSpec = {
 const menu = document.getElementById('ed-properties');
 let clipboard = null;
 let tableContext = null; // { table: Element, cell: Element|null }
-let lastElement = null;
-let menuVisible = false;
 
 document.addEventListener('contextmenu', e => {
     const el = findEditableElement(e.target);
-    if (!el) return; // клик вне редактируемого — ничего не делаем
+    if (!el) return;
 
-    // всегда показываем меню, если оно скрыто
-    if (menu.style.display === 'none' || !menu.style.display) {
-        menuVisible = true;
-        lastElement = el;   // сохраняем текущий элемент
-        selectedEl = el;
-    } else if (el === lastElement) {
-        // чередуем меню при ПКМ по тому же элементу
-        menuVisible = !menuVisible;
-    } else {
-        // новый элемент — показываем меню
-        menuVisible = true;
-        lastElement = el;
-        selectedEl = el;
+    // если есть выделение, показываем обычное контекстное меню
+    const selection = window.getSelection();
+    if (selection && !selection.isCollapsed) {
+        return;
     }
+    e.preventDefault(); // блокируем системное меню
 
-    // позиция меню
-    if (menuVisible) {
-        menu.style.display = 'block';
-        menu.style.top = e.pageY + 5 + 'px';
-        menu.style.left = e.pageX + 5 + 'px';
-        e.preventDefault(); // блокируем системное меню
-    } else {
-        menu.style.display = 'none';
-    }
+    menu.style.display = 'block';
+    menu.style.top = e.pageY + 5 + 'px';
+    menu.style.left = e.pageX + 5 + 'px';
 
     const editableArea = e.target.closest('[contenteditable="true"]');
     if (!editableArea) {
@@ -973,7 +978,6 @@ document.addEventListener('contextmenu', e => {
         return;
     }
 
-    const selection = window.getSelection();
     const hasTextSelection = selection && !selection.isCollapsed;
 
     const clickedTable = e.target.closest('table');
@@ -982,7 +986,7 @@ document.addEventListener('contextmenu', e => {
 
     // Paste
     const pasteItem = menu.querySelector('[act="paste"]');
-    if (pasteItem) pasteItem.style.display = clipboard ? '' : 'none';
+    if (pasteItem) pasteItem.style.display = navigator.clipboard?.readText ? '' : 'none';
 
     // Элементы
     const elementItems = menu.querySelectorAll('.elementProp');
@@ -1026,32 +1030,55 @@ document.addEventListener('input', () => { menu.style.display = 'none'; tableCon
 document.addEventListener('paste', () => { menu.style.display = 'none'; tableContext = null; });
 
 // Обработка нажатий по пунктам меню
-menu.addEventListener('click', e => {
+menu.addEventListener('click', async e => {
     const act = e.target.getAttribute('act');
 
     switch(act) {
         case 'copy':
-            if (!selectedEl) break;
-            clipboard = selectedEl.cloneNode(true);
+            if (!selectedEl || !navigator.clipboard?.writeText) break;
+            await navigator.clipboard.writeText(selectedEl.outerHTML);
             break;
         case 'cut':
-            if (!selectedEl) break;
-            clipboard = selectedEl.cloneNode(true);
+            if (!selectedEl || !navigator.clipboard?.writeText) break;
+            await navigator.clipboard.writeText(selectedEl.outerHTML);
             selectedEl.remove();
             selectedEl = null;
             break;
         case 'paste':
-            if (clipboard) {
-                const sel = window.getSelection();
-                if (!sel.rangeCount) break;
-                const range = sel.getRangeAt(0);
-                const clone = clipboard.cloneNode(true);
-                range.deleteContents();
-                range.insertNode(clone);
-                range.setStartAfter(clone);
-                range.collapse(true);
-                sel.removeAllRanges();
-                sel.addRange(range);
+            if (navigator.clipboard?.read) {
+                try {
+                    const items = await navigator.clipboard.read();
+                    if (!items.length) break;
+                    const sel = window.getSelection();
+                    if (!sel.rangeCount) break;
+                    const range = sel.getRangeAt(0);
+
+                    for (const item of items) {
+                        for (const type of item.types) {
+                            const blob = await item.getType(type);
+                            let node;
+                            if (type.startsWith('image/')) {
+                                const url = URL.createObjectURL(blob);
+                                node = document.createElement('img');
+                                node.src = url;
+                            } else if (type === 'text/plain') {
+                                const text = await blob.text();
+                                node = document.createTextNode(text);
+                            }
+                            if (node) {
+                                range.deleteContents();
+                                range.insertNode(node);
+                                range.setStartAfter(node);
+                                range.collapse(true);
+                            }
+                        }
+                    }
+
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+                } catch (err) {
+                    console.error('Clipboard paste failed', err);
+                }
             }
             break;
         case 'delete':
@@ -2136,8 +2163,8 @@ document.getElementById('elements-ul').addEventListener('click', async e => {
     const dataEl = el.dataset.el;
     if (!dataEl) return;
 
-    // wait for both insertion routines to complete so marker prompts finish before
-    // any subsequent sync operations are triggered
+    restoreSelection(); 
+
     await handleLoadedBlockView(dataEl, el.textContent || "текст");
     await handlePreHtml(dataEl, el.textContent || "текст");
     
@@ -2315,9 +2342,14 @@ async function handleLoadedBlockView(dataEl, placeholderText="текст") {
 
     // --- 1. Toggle / Unwrap: найдем существующий похожий узел ---
     let targetNode = null;
-    if (tag) {
+    const isDivWithST = tag === 'div' && hasST;
+    if (!range.collapsed && isDivWithST) {
+        targetNode = document.createElement(tag || 'div');
+        const fragment = range.cloneContents();
+        targetNode.appendChild(fragment);
+    } else if (tag) {
         // closest по тегу
-        targetNode = (tag === 'span') ? null : commonAncestor.closest(tag);
+        targetNode = (tag === 'div') ? null : commonAncestor.closest(tag);
     }
 
     // Если не нашли и шаблон - input-like (нет внутренних текстовых нод), попробуем найти input рядом
@@ -5383,12 +5415,6 @@ document.getElementById('previewPage').addEventListener('click', () => {
 });
 
 
-
-
-/* хранение кода */
-    return api;
-})();
-
 // Наблюдаем за блоком и удаляем BlockEditorApp при его удалении
 const editor = document.getElementById('block-editor-app');
 if (editor && editor.parentNode) {
@@ -5846,3 +5872,15 @@ document.querySelectorAll('svg[use]').forEach(svg => {
 
     svg.appendChild(use);
 });
+
+
+
+
+
+
+
+
+/* !!! хранение кода !!! */
+    return api;
+})();
+/* !!! хранение кода !!! */
