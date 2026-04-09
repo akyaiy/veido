@@ -79,6 +79,18 @@ document.addEventListener('keydown', function(e) {
 
     sel.removeAllRanges();
     sel.addRange(range);
+
+    // проверяем последний узел в блоке
+    const last = block.lastChild;
+    if (last && last.nodeType === 3) { // текстовый узел
+        block.appendChild(document.createElement('br'));
+    }
+
+    range.setStartAfter(br);
+    range.collapse(true);
+
+    sel.removeAllRanges();
+    sel.addRange(range);
 });
 
 
@@ -381,7 +393,7 @@ let lastHighlightedElement = null;
 const ATOMIC_TAGS = new Set(['img', 'hr', 'input', 'progress', 'meter', 'video', 'audio', 'iframe', 'select']);
 
 function findEditableElement(startNode) {
-    // --- НОВАЯ ПРОВЕРКА ДЛЯ ATOMIC TAGS ---
+    // --- ПРОВЕРКА ДЛЯ ATOMIC TAGS (оставлена без изменений) ---
     if (startNode && startNode.nodeType === 1) {
         const startTag = startNode.tagName.toLowerCase();
         if (ATOMIC_TAGS.has(startTag) && EDITABLE_TAGS.has(startTag)) {
@@ -390,32 +402,35 @@ function findEditableElement(startNode) {
         }
     }
 
-    // 1. Инициализация таргета
+    if (!startNode) return updateOutline(null);
+
+    // 1. Инициализация таргета (сразу берем родителя, если это текст)
     let target = startNode;
-    const sel = window.getSelection();
-    
-    // Если кликнули по тексту, берем текстовую ноду, 
-    // если по пустому месту в блоке — оставляем startNode
-    if (sel && sel.rangeCount > 0 && target.nodeType !== 1) {
-        target = sel.anchorNode;
-    }
-
-    if (!target) return updateOutline(null);
-
-    // 2. Поиск контейнера view
-    const view = (target.nodeType === 1 ? target : target.parentElement)?.closest?.('[id^="loadedBlock_"][id$="_view"]');
-    if (!view) return updateOutline(null);
-
-    // 3. Определяем начальный элемент для обхода
     let el = target.nodeType === Node.TEXT_NODE ? target.parentElement : target;
 
-    // Ссылка имеет приоритет
-    if (el.tagName.toLowerCase() === 'a' && EDITABLE_TAGS.has('a')) {
-        if (!el.closest('[contenteditable="true"]')) return updateOutline(null);
-        return updateOutline(el);
+    // 2. Поиск контейнера view
+    const view = el.closest('[id^="loadedBlock_"][id$="_view"]');
+    if (!view) return updateOutline(null);
+
+    // 3. --- ГИБРИДНАЯ ПРОВЕРКА ССЫЛКИ (интегрирована из contextmenu) ---
+    let closestLink = el.closest('a');
+
+    if (!closestLink) {
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0 && sel.anchorNode) {
+            const nodeInside = sel.anchorNode;
+            const parentInside = nodeInside.nodeType === Node.TEXT_NODE ? nodeInside.parentElement : nodeInside;
+            closestLink = parentInside.closest('a');
+        }
     }
 
-    // 4. Поиск вверх по дереву
+    // Если ссылка найдена (любым способом) - проверяем, что она в нашем view и редактируема
+    if (closestLink && view.contains(closestLink) && EDITABLE_TAGS.has('a')) {
+        if (!closestLink.closest('[contenteditable="true"]')) return updateOutline(null);
+        return updateOutline(closestLink);
+    }
+
+    // 4. Поиск вверх по дереву (оставлен без изменений)
     let foundUp = null;
     let upNode = el;
     while (upNode && upNode !== view) {
@@ -423,7 +438,7 @@ function findEditableElement(startNode) {
             const tag = upNode.tagName.toLowerCase();
             if (EDITABLE_TAGS.has(tag)) {
                 foundUp = upNode;
-                break; // Мы нашли ближайший редактируемый элемент — это и есть наша цель
+                break; // Мы нашли ближайший редактируемый элемент
             }
         }
         upNode = upNode.parentElement;
@@ -854,6 +869,18 @@ function clearSelection() {
     });
 }
 
+function shouldKeepSpecPanelVisible(target) {
+    return Boolean(
+        target &&
+        target.closest &&
+        (
+            target.closest('#properties-panel-spec') ||
+            target.closest('#rgb-picker') ||
+            target.closest('.color-swatch')
+        )
+    );
+}
+
 // --- Слушатели для панели (делегированно) ------------------------------------
 
 // ввод/изменение в любом контроле применяет свойство немедленно
@@ -1014,6 +1041,9 @@ document.addEventListener('contextmenu', e => {
 
 // Click — только для рамки, без добавления нового элемента
 document.addEventListener('click', e => {
+    if (shouldKeepSpecPanelVisible(e.target)) {
+        return;
+    }
     if (selectedEl === findEditableElement(e.target)) {
         // тот же элемент — сохраняем рамку
         updateOutline(selectedEl);
@@ -1064,6 +1094,10 @@ menu.addEventListener('click', async e => {
                             } else if (type === 'text/plain') {
                                 const text = await blob.text();
                                 node = document.createTextNode(text);
+                            } else if (type === 'text/html') {
+                                const html = await blob.text();
+                                const frag = document.createRange().createContextualFragment(html);
+                                node = frag;
                             }
                             if (node) {
                                 range.deleteContents();
@@ -2389,7 +2423,7 @@ async function handleLoadedBlockView(dataEl, placeholderText="текст") {
     }
 
     // --- 2. Вставка/оборачивание ---
-    const newEl = cloneNodeFromTemplate(templateNode, tag);
+    let newEl = cloneNodeFromTemplate(templateNode, tag);
     // Собираем значения маркеров: спросим у пользователя только те маркеры, которые есть
     const markerValues = {};
     for (const m of parsed.markers) {
@@ -2410,6 +2444,7 @@ async function handleLoadedBlockView(dataEl, placeholderText="текст") {
 
     // Если шаблон содержит [ST] - оборачиваем/подставляем выбранный текст в место маркера
     // Внутри handleLoadedBlockView, вместо стандартной вставки [ST]
+    if(!newEl.tagName.toLowerCase() === 'a') newEl = wrapIfMultiLine(range, newEl);
     if (hasST) {
         const stNode = findSTTextNode(newEl);
         placeholderText = placeholderText.trim();
@@ -2424,7 +2459,42 @@ async function handleLoadedBlockView(dataEl, placeholderText="текст") {
             }
             range.deleteContents();
             range.insertNode(newEl);
-        } else {
+            } else if (selectionHasContent && newEl.tagName.toLowerCase() === 'a') {
+                const frag = range.cloneContents();
+                const out = document.createDocumentFragment();
+                
+                [...frag.childNodes].forEach(node => {
+                    // Пропускаем пустые текстовые узлы (пробелы/переносы)
+                    if (node.nodeType === Node.TEXT_NODE && !node.textContent.trim()) {
+                        out.appendChild(node); // Сохраняем пробел как есть
+                        return;
+                    }
+
+                    const a = newEl.cloneNode(true);
+                    const st = findSTTextNode(a);
+
+                    if (node.nodeType === Node.TEXT_NODE) {
+                        // --- СЛУЧАЙ 1: Просто текст (внутри строки) ---
+                        if (st) st.parentNode.replaceChild(node, st);
+                        else a.appendChild(node);
+                        out.appendChild(a);
+
+                    } else if (node.nodeType === Node.ELEMENT_NODE) {
+                        // --- СЛУЧАЙ 2: Тег (b, i, span и т.д.) ---
+                        const content = document.createDocumentFragment();
+                        while (node.firstChild) content.appendChild(node.firstChild);
+
+                        if (st) st.parentNode.replaceChild(content, st);
+                        else a.appendChild(content);
+
+                        node.appendChild(a);
+                        out.appendChild(node);
+                    }
+                });
+
+                range.deleteContents();
+                range.insertNode(out);
+            } else {
             // для обычных элементов с текстом
             if (selectionHasContent) {
                 const frag = extractSelectionFragment(range);
@@ -2441,14 +2511,18 @@ async function handleLoadedBlockView(dataEl, placeholderText="текст") {
         range.insertNode(newEl);
     }
 
-    // Применить inline-стили, если в шаблоне их не было, сохранить совместимость:
-    // (в большинстве случаев новые стили уже в data-el как inline)
-    // Переместим курсор после вставленного узла
-    sel.removeAllRanges();
-    const afterRange = document.createRange();
-    afterRange.setStartAfter(newEl);
-    afterRange.collapse(true);
-    sel.addRange(afterRange);
+    // Перемещаем курсор только если элемент успешно добавлен в DOM
+    if (newEl && newEl.parentNode) {
+        try {
+            sel.removeAllRanges();
+            const afterRange = document.createRange();
+            afterRange.setStartAfter(newEl);
+            afterRange.collapse(true);
+            sel.addRange(afterRange);
+        } catch (e) {
+            console.warn("Не удалось переместить курсор:", e);
+        }
+    }
 }
 
 /***********************************************************************
@@ -2503,6 +2577,24 @@ async function handlePreHtml(dataEl, placeholderText = "текст") {
     afterRange.setStartAfter(textNode);
     afterRange.collapse(true);
     sel.addRange(afterRange);
+}
+
+/* вставка div, чтобы обернуть элементы */
+function wrapIfMultiLine(range, node) {
+    const fragment = range.cloneContents();
+    const div = document.createElement('div');
+    div.appendChild(fragment);
+
+    // если есть блочные элементы или переносы → считаем многострочным
+    const isMulti =
+        div.querySelector('div, p, br, table, ul, ol, li') ||
+        div.innerHTML.includes('\n');
+
+    if (!isMulti) return node;
+
+    const wrapper = document.createElement('div');
+    wrapper.appendChild(node);
+    return wrapper;
 }
 
 
