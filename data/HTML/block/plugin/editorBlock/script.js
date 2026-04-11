@@ -295,6 +295,7 @@ const tabs = document.querySelectorAll('#css-js-tabs .tab');
 const propertiesPanel = document.getElementById('properties-panel');
 const cssPanel = document.getElementById('css-panel');
 const jsPanel = document.getElementById('js-panel');
+const toggleCssPanel = document.getElementById('toggle-css-panel');
 
 /***********************************************************************
  * Элементы вкладок view / html / js центрального редактора.
@@ -325,15 +326,15 @@ if (centerPreJs) {
 function switchTabPanel(tabName) {
     if (tabName === 'properties') {
         propertiesPanel.style.display = '';
-        /* cssPanel.style.display = 'none'; */
         jsPanel.style.display = 'none';
+        syncCssPanelVisibility();
     } else if (tabName === 'css') {
         propertiesPanel.style.display = 'none';
-        /* cssPanel.style.display = 'flex'; */
+        if (cssPanel) cssPanel.style.display = 'flex';
         jsPanel.style.display = 'none';
     } else if (tabName === 'js') {
         propertiesPanel.style.display = 'none';
-        /* cssPanel.style.display = 'none'; */
+        if (cssPanel) cssPanel.style.display = 'none';
         jsPanel.style.display = 'flex';
         const blockId = getActiveBlockId();
         if (blockId) ensureJsPanelSelection(blockId);
@@ -344,6 +345,22 @@ function switchTabPanel(tabName) {
         specRoot.style.display = 'none';
     }
 }
+
+function syncCssPanelVisibility() {
+    if (!cssPanel || !toggleCssPanel) return;
+    cssPanel.style.display = toggleCssPanel.checked ? 'flex' : 'none';
+}
+
+/* скрытие и показ css меню */
+toggleCssPanel?.addEventListener('change', () => {
+    syncCssPanelVisibility();
+    if (!toggleCssPanel.checked || !currentSelectedEl) return;
+    updateTagLabel(currentSelectedEl);
+    updateCssPanel(currentSelectedEl);
+    updatePropertiesPanel(currentSelectedEl);
+});
+
+syncCssPanelVisibility();
 
 /***********************************************************************
  * tabs tab click — переключение вкладок CSS и JS:
@@ -502,7 +519,7 @@ function updateOutline(element) {
             
             allFields.forEach(field => {
                 const targetAttr = field.getAttribute('data-target') || '';
-                const targets = targetAttr.toLowerCase().split(',').map(t => t.trim());
+                const targets = targetAttr.toLowerCase().split(/\s+/).map(t => t.trim());
 
                 // Проверяем: подходит ли поле под текущий тег
                 if (targets.includes(tagName) || targets.includes('all')) {
@@ -778,7 +795,7 @@ function applyPropToElement(el, prop, rawValue) {
             let attrName = map.attrName;
             if (prop === 'link') {
                 const tagName = el.tagName.toLowerCase();
-                attrName = (tagName === 'img' || tagName === 'iframe' || tagName === 'video') ? 'src' : 'href';
+                attrName = (tagName === 'img' || tagName === 'iframe' || tagName === 'video' || tagName === 'audio') ? 'src' : 'href';
             }
 
             if (map.attrName === 'id') {
@@ -798,8 +815,6 @@ function applyPropToElement(el, prop, rawValue) {
                 if (val === '') el.removeAttribute(attrName);
                 else el.setAttribute(attrName, String(val));
             }
-            markDirty();
-            return;
             markDirty();
             return;
         }
@@ -909,10 +924,12 @@ specRoot.addEventListener('change', e => {
 function selectElementForEditing(el) {
     selectedEl = el;
     if (!el) { clearSelection(); return; }
+    selectElementForPanels(el);
     // показать подходящие контролы (передаём сам элемент — функция учтёт тип input)
     showSpecForTarget(el);
     // заполнить контролы значениями элемента
     populateSpecialProps(el);
+    syncCssPanelVisibility();
 }
 
 // экспорт/назначение - если модульная среда не используется, оставить глобально
@@ -1035,8 +1052,15 @@ document.addEventListener('contextmenu', e => {
         return;
     }
 
-    if (el && !hasTextSelection) selectedEl = el;
-    else clearSelection();
+    if (el && !hasTextSelection) {
+        selectedEl = el;
+        selectElementForPanels(el);
+        showSpecForTarget(el);
+        populateSpecialProps(el);
+        syncCssPanelVisibility();
+    } else {
+        clearSelection();
+    }
 });
 
 // Click — только для рамки, без добавления нового элемента
@@ -2675,7 +2699,10 @@ document.addEventListener('click', e => {
         return;
     }
 
-    const el = clicked.closest('[id^="loadedBlock_"][id$="_view"], [id^="loadedBlock_"][id$="_view"] *') || view;
+    const el =
+        (lastHighlightedElement && view.contains(lastHighlightedElement) && lastHighlightedElement) ||
+        findEditableElement(clicked) ||
+        view;
     selectElementForPanels(el);
 });
 
@@ -4121,16 +4148,16 @@ function updateButtonActive(button, el, key) {
             if (textAlign === 'justify') button.classList.add('active');
             break;
         case 'list-disc':
-            if (getSelectValue(el, 'list') === 'disc') button.classList.add('active');
+            if (getSelectionListType() === 'disc') button.classList.add('active');
             break;
         case 'list-circle':
-            if (getSelectValue(el, 'list') === 'circle') button.classList.add('active');
+            if (getSelectionListType() === 'circle') button.classList.add('active');
             break;
         case 'list-square':
-            if (getSelectValue(el, 'list') === 'square') button.classList.add('active');
+            if (getSelectionListType() === 'square') button.classList.add('active');
             break;
         case 'list-decimal':
-            if (getSelectValue(el, 'list') === 'decimal') button.classList.add('active');
+            if (getSelectionListType() === 'decimal') button.classList.add('active');
             break;
     }
 }
@@ -4882,7 +4909,7 @@ function handleSimpleFormatClick(button, el, key) {
     }
     if (key.startsWith('list-')) {
         const listType = key.slice('list-'.length);
-        const current = getSelectValue(el, 'list');
+        const current = getSelectionListType() || getSelectValue(el, 'list');
         if (current === listType) toggleListForSelection('none');
         else toggleListForSelection(listType);
         if (typeof updateSimpleFormats === 'function') updateSimpleFormats(el);
@@ -4906,6 +4933,51 @@ function handleSimpleFormatClick(button, el, key) {
         if (typeof updateSimpleFormats === 'function') updateSimpleFormats(el);
         return;
     }
+}
+
+/* определние стиля списка у текста */
+function getSelectionListType() {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return '';
+
+    const range = sel.getRangeAt(0);
+
+    // --- fallback: если курсор/выделение внутри одного li ---
+    let node = range.commonAncestorContainer;
+    if (node.nodeType === 3) node = node.parentElement;
+    const singleLi = node.closest && node.closest('li');
+    if (singleLi) {
+        const list = singleLi.closest('ul,ol');
+        if (list) {
+            const type = (list.style.listStyleType || getComputedStyle(list).listStyleType || '').trim();
+            if (type) return type;
+            if (list.tagName === 'OL') return 'decimal';
+            return 'disc';
+        }
+    }
+
+    const root = getRangeRootElement(range);
+    if (!root) return '';
+
+    const lists = new Set();
+
+    root.querySelectorAll('li').forEach(li => {
+        try {
+            if (range.intersectsNode(li)) {
+                const list = li.closest('ul,ol');
+                if (list) lists.add(list);
+            }
+        } catch (e) {}
+    });
+
+    if (!lists.size || lists.size > 1) return '';
+
+    const list = [...lists][0];
+    const type = (list.style.listStyleType || getComputedStyle(list).listStyleType || '').trim();
+
+    if (type) return type;
+    if (list.tagName === 'OL') return 'decimal';
+    return 'disc';
 }
 
 /* Обработчик select: возвращает onchange-функцию (использует FORMAT_SELECTS) */

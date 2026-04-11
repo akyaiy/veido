@@ -101,9 +101,7 @@
         <div class="table-title" style="padding-bottom: 5px;">Свойства элементов</div>
         <label data-target="all">ID: <input type="text" data-prop="id"><br></label>
         <label data-target="img a figure video audio iframe">Ссылка: <input type="text" data-prop="link"></label>
-        <label data-target="">Ссылка: <input type="text" data-prop="link-href"></label>
-        <label data-target="">Ссылка: <input type="text" data-prop="iframe-src"></label>
-        <label data-target="input textarea select">Подсказка (ввода): <input type="text" data-prop="input-placeholder"></label>
+        <label data-target="input textarea select">Подсказка: <input type="text" data-prop="input-placeholder"></label>
         <label data-target="input textarea select">Тип: <select data-prop="input-type">
             <option value="text">текст</option>
             <option value="email">почта</option>
@@ -185,7 +183,7 @@
             </select>
         </label>
         <label data-target="all">Радиус скругления: <input data-prop="border-radius"></label>
-        <label data-target="block">Отображение элемента (display): <select data-prop="display">
+        <label data-target="block">Отображение элемента: <select data-prop="display">
             <option value="">По умолчанию</option>
             <option value="block">Блочный</option>
             <option value="inline">Строчный</option>
@@ -193,7 +191,7 @@
             <option value="flex">Flex</option>
             <option value="none">Не отображать</option>
         </select></label>
-        <label data-target="input textarea select">Изменение размера (resize): <select data-prop="resize">
+        <label data-target="input textarea select">Изменение размера: <select data-prop="resize">
             <option value="">По умолчанию</option>
             <option value="none">Запретить изменение размера</option>
             <option value="both">Обе стороны</option>
@@ -202,7 +200,11 @@
             <option value="auto">Авто</option>
         </select></label>
         <hr style="margin: 6px 0px;">
-        <div id="css-panel" style="display: flex">
+        <label>
+            Показать CSS
+            <input type="checkbox" id="toggle-css-panel" style="width: auto;">
+        </label>
+        <div id="css-panel" style="display: none">
             <div id="tag-label">TAG</div>
             <div class="table-wrap">
                 <div class="table-title">Атрибуты</div>
