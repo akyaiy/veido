@@ -102,7 +102,7 @@ document.querySelector('#center-panel').addEventListener('click', (e) => {
     }
 });
 
-document.querySelector('#center-panel').addEventListener('click', (e) => {
+/* document.querySelector('#center-panel').addEventListener('click', (e) => {
     const table = e.target.closest('table');
 
     // удалить старые кнопки, если клик вне таблицы
@@ -180,7 +180,7 @@ document.querySelector('#center-panel').addEventListener('click', (e) => {
         }
     };
     document.addEventListener('click', onDocClick, true);
-});
+}); */
 
 
 let selectedElBorder = null;
@@ -1180,6 +1180,56 @@ menu.addEventListener('click', async e => {
                     Array.from(tableContext.table.querySelectorAll('tr')).forEach(tr => {
                         const cells = tr.children;
                         if (cells[colIndex]) cells[colIndex].remove();
+                    });
+                }
+            }
+            break;
+
+        // таблица - добавить строку
+        case 'addLine':
+            if (!tableContext || !tableContext.table) break;
+            {
+                const cell = tableContext.cell;
+                const tr = cell ? cell.closest('tr') : null;
+
+                if (tr) {
+                    const newTr = tr.cloneNode(true);
+                    Array.from(newTr.children).forEach(td => td.innerHTML = '<br>');
+                    tr.after(newTr);
+                } else {
+                    const rows = tableContext.table.querySelectorAll('tr');
+                    if (rows.length) {
+                        const newTr = rows[rows.length - 1].cloneNode(true);
+                        Array.from(newTr.children).forEach(td => td.innerHTML = '<br>');
+                        rows[rows.length - 1].after(newTr);
+                    }
+                }
+            }
+            break;
+
+        // таблица - добавить столбец
+        case 'addColumn':
+            if (!tableContext || !tableContext.table) break;
+            {
+                const cell = tableContext.cell;
+                let colIndex = null;
+
+                if (cell) {
+                    colIndex = cell.cellIndex;
+                } else {
+                    const firstRow = tableContext.table.querySelector('tr');
+                    if (firstRow && firstRow.children.length) colIndex = firstRow.children.length - 1;
+                }
+
+                if (colIndex != null) {
+                    Array.from(tableContext.table.querySelectorAll('tr')).forEach(tr => {
+                        const cells = tr.children;
+                        const refCell = cells[colIndex];
+                        if (!refCell) return;
+
+                        const newCell = refCell.cloneNode(true);
+                        newCell.innerHTML = '<br>';
+                        refCell.after(newCell);
                     });
                 }
             }
@@ -2621,14 +2671,177 @@ function wrapIfMultiLine(range, node) {
     return wrapper;
 }
 
+/* вставка таблицы */
+const tableInsertBtn = document.querySelector('.table-insert-btn');
+const tableSizeMenu = document.getElementById('table-size-menu');
+const tableSizeGrid = document.getElementById('table-size-grid');
+const tableSizeLabel = document.getElementById('table-size-label');
 
+let tableHoverCols = 0;
+let tableHoverRows = 0;
 
+for (let r = 1; r <= 10; r++) {
+    for (let c = 1; c <= 10; c++) {
+        const cell = document.createElement('div');
+        cell.dataset.rows = r;
+        cell.dataset.cols = c;
+        tableSizeGrid.appendChild(cell);
+    }
+}
 
+function buildTableDataEl(rows, cols) {
+    let html = '<table>';
+    for (let r = 0; r < rows; r++) {
+        html += '<tr>';
+        for (let c = 0; c < cols; c++) {
+            html += '<td><br></td>';
+        }
+        html += '</tr>';
+    }
+    html += '</table>';
+    return html;
+}
 
+function hideTableMenu() {
+    tableSizeMenu.style.display = 'none';
+    tableHoverCols = 0;
+    tableHoverRows = 0;
+    tableSizeLabel.textContent = '0 × 0';
+    Array.from(tableSizeGrid.children).forEach(cell => {
+        cell.style.background = '#fff';
+    });
+}
 
+function paintTableGrid(rows, cols) {
+    Array.from(tableSizeGrid.children).forEach(cell => {
+        const r = Number(cell.dataset.rows);
+        const c = Number(cell.dataset.cols);
+        cell.style.background = (r <= rows && c <= cols) ? '#bcdcff' : '#fff';
+    });
+    tableSizeLabel.textContent = `${cols} × ${rows}`;
+}
 
+if (tableInsertBtn) {
+    tableInsertBtn.addEventListener('click', e => {
+        e.stopPropagation();
 
+        const rect = tableInsertBtn.getBoundingClientRect();
+        tableSizeMenu.style.left = `${rect.left + window.scrollX}px`;
+        tableSizeMenu.style.top = `${rect.bottom + window.scrollY + 4}px`;
+        tableSizeMenu.style.display = 'block';
+    });
+}
 
+tableSizeGrid.addEventListener('mouseover', e => {
+    const cell = e.target.closest('[data-rows][data-cols]');
+    if (!cell) return;
+
+    tableHoverRows = Number(cell.dataset.rows);
+    tableHoverCols = Number(cell.dataset.cols);
+    paintTableGrid(tableHoverRows, tableHoverCols);
+});
+
+tableSizeGrid.addEventListener('click', async e => {
+    const cell = e.target.closest('[data-rows][data-cols]');
+    if (!cell) return;
+
+    const rows = Number(cell.dataset.rows);
+    const cols = Number(cell.dataset.cols);
+    const dataEl = buildTableDataEl(rows, cols);
+
+    hideTableMenu();
+    restoreSelection();
+
+    await handleLoadedBlockView(dataEl, 'таблица');
+    await handlePreHtml(dataEl, 'таблица');
+
+    const blockId = getActiveBlockId();
+    if (!blockId) return;
+
+    const activeCenterTab = document.querySelector('#center-tabs .center-tab.active');
+    const mode = activeCenterTab ? activeCenterTab.dataset.tab : 'view';
+
+    if (mode === 'view') syncHtmlFromView(blockId);
+    else if (mode === 'html') syncActiveBlock();
+});
+
+document.addEventListener('click', e => {
+    if (!tableSizeMenu.contains(e.target) && e.target !== tableInsertBtn) {
+        hideTableMenu();
+    }
+});
+
+/* вставка картинки */
+const imgBtn = document.querySelector('.image-insert-btn');
+const imgMenu = document.querySelector('.image-insert-dropdown');
+
+imgBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+
+    const rect = imgBtn.getBoundingClientRect();
+
+    imgMenu.style.display = 'block';
+    imgMenu.style.left = rect.left + window.scrollX + 'px';
+    imgMenu.style.top = rect.bottom + window.scrollY + 'px';
+});
+
+document.addEventListener('click', () => {
+    imgMenu.style.display = 'none';
+});
+
+document.querySelectorAll('.image-insert-item').forEach(item => {
+    item.addEventListener('click', async (e) => {
+        e.stopPropagation();
+
+        const action = item.dataset.action;
+
+        if (action === 'url') {
+            const url = await showMarkerModal('Введите URL изображения', 'input');
+            if (!url) return;
+            insertImage(url);
+        }
+
+        if (action === 'file') {
+            const inp = document.createElement('input');
+            inp.type = 'file';
+            inp.accept = 'image/*';
+
+            inp.onchange = () => {
+                const file = inp.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = () => {
+                    insertImage(reader.result);
+                };
+                reader.readAsDataURL(file);
+            };
+
+            inp.click();
+        }
+
+        imgMenu.style.display = 'none';
+    });
+});
+
+function insertImage(src) {
+    restoreSelection();
+
+    const img = document.createElement('img');
+    img.src = src;
+
+    const sel = document.getSelection();
+    if (!sel || !sel.rangeCount) return;
+
+    const range = sel.getRangeAt(0);
+    range.deleteContents();
+    range.insertNode(img);
+
+    range.setStartAfter(img);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+}
 
 
 
@@ -2701,7 +2914,7 @@ document.addEventListener('click', e => {
 
     const el =
         (lastHighlightedElement && view.contains(lastHighlightedElement) && lastHighlightedElement) ||
-        findEditableElement(clicked) ||
+        /* findEditableElement(clicked) || */
         view;
     selectElementForPanels(el);
 });
@@ -5449,6 +5662,58 @@ document.addEventListener('mousedown', e => {
             applyToSelection(hex);
         }
     }
+});
+
+/* стандартнй выбор цвета */
+const presetsWrap = document.getElementById('color-presets');
+
+const presetColors = [
+    [
+        ['#660000','#990000','#ff0000','#ff6666','#ff9999'],
+        ['#663300','#994d00','#ff8000','#ffb366','#ffd699'],
+        ['#666600','#999900','#ffff00','#ffff66','#ffff99'],
+        ['#336600','#4d9900','#80ff00','#b3ff66','#d9ff99'],
+        ['#006666','#009999','#00ffff','#66ffff','#99ffff'],
+        ['#003366','#004d99','#0080ff','#66b3ff','#99d6ff'],
+        ['#330066','#4d0099','#8000ff','#b366ff','#d9b3ff'],
+        ['#660033','#99004d','#ff0080','#ff66b3','#ff99cc'],
+        ['#000000','#444444','#888888','#cccccc','#ffffff']
+    ],
+    [
+        ['#0f0f0f','#3a0ca3','#ff006e','#2ec4b6','#ffd60a'],
+        ['#001219','#005f73','#0a9396','#94d2bd','#e9d8a6'],
+        ['#1b4332','#2d6a4f','#40916c','#74c69d','#b7e4c7'],
+        ['#2b2d42','#8d99ae','#ef233c','#fca311','#06d6a0']
+    ],
+];
+
+const presetGroupsWrap = document.createElement('div');
+presetGroupsWrap.id = 'color-presets-groups';
+presetsWrap.appendChild(presetGroupsWrap);
+
+presetColors.forEach(group => {
+    const groupWrap = document.createElement('div');
+    groupWrap.className = 'color-preset-group';
+
+    group.forEach(col => {
+        col.forEach(color => {
+            const el = document.createElement('div');
+            el.style.backgroundColor = color;
+
+            el.addEventListener('click', () => {
+                const hsl = hexToHsl(color);
+                colorState.h = hsl.h;
+                colorState.s = hsl.s;
+                colorState.l = hsl.l;
+
+                syncFromState(true);
+            });
+
+            groupWrap.appendChild(el);
+        });
+    });
+
+    presetGroupsWrap.appendChild(groupWrap);
 });
 
 

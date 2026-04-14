@@ -27,9 +27,24 @@
             <div>Базовые элементы</div>
             <div style="display:block;">
                 <div class="add-el" data-el="<div style='border:1px solid #000; display: inline-block;'>[ST]</div>" title="блок"><svg class="svg-icon" use="4x19"></svg></div>
-                <div class="add-el" data-el="<img src='[LINK]'>" title="изображение"><svg class="svg-icon" use="19x19"></svg></div>
+                <!--  -->
+                <div class="image-insert-btn">
+                    <svg class="svg-icon" use="19x19"></svg>
+                </div>
+                <div class="image-insert-dropdown" style="display:none;">
+                    <div class="image-insert-item" data-action="url" data-el="<img src='[LINK]'>">Ссылка</div>
+                    <div class="image-insert-item" data-action="file" data-el="<img src='[LINK]'>">С ПК</div>
+                </div>
+                <!--  -->
                 <div class="add-el" data-el="<a href='[LINK]'>[ST]</a>" title="ссылка"><svg class="svg-icon" use="14x23"></svg></div>
-                <div class="add-el" data-el="<table><tr><td>[ST]</td><td><br></td></tr><tr><td><br></td><td><br></td></tr></table>" title="таблица"><svg class="svg-icon" use="19x6"></svg></div>
+                <div class="table-insert-btn" title="таблица">
+                    <svg class="svg-icon" use="19x6"></svg>
+                </div>
+                <div id="table-size-menu">
+                    <div id="table-size-grid"></div>
+                    <div id="table-size-label">0 × 0</div>
+                </div>
+                <!--  -->
                 <div class="add-el" data-el="<hr style='height:2px;border:0;background:#000;'>" title="линия"><svg class="svg-icon" use="4x7"></svg></div>
             </div>
         </div>
@@ -309,6 +324,9 @@
             <div id="light-thumb" class="picker-thumb"></div>
         </div>
     </div>
+    <div class="picker-row">
+        <div id="color-presets"></div>
+    </div>
     <div class="picker-row inputs">
         <input id="cp-hex" type="text" placeholder="#000000" maxlength="7" />
         <button id="cp-close" type="button">&times;</button> 
@@ -321,6 +339,8 @@
     <div act="copy" class="elementProp">Копировать</div>
     <div act="cut" class="elementProp">Вырезать</div>
     <div act="delete" class="elementProp">Удалить</div>
+    <div act="addLine" class="elementTableProp">Добавить строку</div>
+    <div act="addColumn" class="elementTableProp">Добавить столбец</div>
     <div act="deleteLine" class="elementTableProp">Удалить строку</div>
     <div act="deleteColumn" class="elementTableProp">Удалить столбец</div>
 </div>
