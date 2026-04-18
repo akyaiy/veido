@@ -26,7 +26,7 @@ if (!window.__BE_add_patched) {
 window.BlockEditorApp = (function() {
     const api = {
         destroy() {
-            console.log('Удаляем BlockEditorApp и все слушатели');
+            /* console.log('Удаляем BlockEditorApp и все слушатели'); */
             window.__BE_remove_all();
             delete window.BlockEditorApp;
         }
@@ -5851,14 +5851,14 @@ if (editor && editor.parentNode) {
         mutations.forEach(m => {
             m.removedNodes.forEach(node => {
                 if (node === editor) {
-                    console.log('block-editor-app удалён, вызываем destroy');
+                    /* console.log('block-editor-app удалён, вызываем destroy'); */
                     window.BlockEditorApp.destroy();
                     observer.disconnect();
                 }
             });
         });
     });
-    console.log('Наблюдаем за родителем block-editor-app');
+    /* console.log('Наблюдаем за родителем block-editor-app'); */
     observer.observe(editor.parentNode, { childList: true });
 }
 

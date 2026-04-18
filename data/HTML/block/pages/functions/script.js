@@ -103,7 +103,7 @@ async function loadSource(name) {
 }
 
 async function loadFunctions() {
-    const list = await apiProtected('/api/functions/list');
+    const list = await apiProtected('/api/functions/list') || [];
     functionList.innerHTML = '<option value="">— select —</option>';
     list.forEach(name => {
         const opt = document.createElement('option');

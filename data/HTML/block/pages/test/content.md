@@ -65,8 +65,6 @@ _Курсив_
 [Ссылка](https://example.com)
 <https://example.com>
 
-![Изображение](image.png)
-
 `Встроенный код`
 
 ```js

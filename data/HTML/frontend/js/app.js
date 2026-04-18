@@ -431,7 +431,7 @@ async function apiProtected(path, options = {}) {
     }
     // Если всё равно ошибка — кидаем
     if (!res || !res.ok) {
-        throw { status: res ? res.status : 0, data };
+        return null; /* throw { status: res ? res.status : 0, data }; */
     }
     //console.log(accessToken);
     return data; // возвращаем распарсенный JSON или текст
@@ -456,7 +456,7 @@ async function refreshAccess (){
     if (!rr.ok) {
         emitAuthEvent(false); // Пользователь вышел из системы ❌
         //console.log("---")
-        throw "refresh failed";
+        return null; /* throw "refresh failed"; */
     }
     // Получение нового токена
     const j = await rr.json();
@@ -471,6 +471,8 @@ async function refreshAccess (){
     user.id = payload.user_id;
     //user.name = (await getUserDataByID(user.id)).name;
     //lngEdit();
+
+    return accessToken;
 }
 
 // async function refreshAccess() {
@@ -508,7 +510,11 @@ async function refreshAccess (){
 // }
 
 PageReady.add(async () => {
-    await refreshAccess();
+    try {
+        await refreshAccess();
+    } catch (e) {
+        /* console.error("refreshAccess failed:", e); */
+    }
 });
 
 /********************************************************************************
@@ -1094,13 +1100,10 @@ window.onload = async function ()  {
 // проверка токена при загрузке
 async function initAuth() {
     try {
-        const rr = await fetch("/api/users/refresh", {
-            method: "POST",
-            credentials: "include"
-        });
-        if (!rr.ok) throw "refresh failed";
+        const token = await refreshAccess();
+        if (!token) return null; /* throw "refresh failed"; */
 
-        const j = await rr.json();
+        const j = { access_token: token };
         accessToken = j.access_token;
         emitAuthEvent(true); // событие выбрасывается
         //console.log("--- refresh ок ---");

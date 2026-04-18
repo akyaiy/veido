@@ -21,7 +21,7 @@
     </block>
     <block style="width:200px;height:400px;float:left;background-color:#fafafa;border:1px dashed #999;padding:8px;margin-left:8px;">
         <span>Изображение:</span><br>
-        <img src="https://via.placeholder.com/120"><br>
+        <img src="https://upload.wikimedia.org/wikipedia/commons/a/a6/Pink_lady_and_cross_section.jpg" style="width: 180px;"><br>
         <input type="text" placeholder="Поле ввода"><br>
         <button>Кнопка</button><br>
         <table style="width:100%;border:1px solid #000;border-collapse:collapse;">

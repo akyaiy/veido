@@ -39,7 +39,7 @@ let selectedPermId = null;
 
 // Загрузка ролей
 async function loadRoles() {
-  const roles = await apiProtected('/api/acl-admin/roles', { method: 'GET' });
+  const roles = await apiProtected('/api/acl-admin/roles', { method: 'GET' }) || [];
   roleSelect.innerHTML = '';
   roles.forEach(r => {
     const opt = document.createElement('option');
@@ -57,7 +57,7 @@ async function loadRoles() {
 
 // Загрузка пользователей
 async function loadUsers() {
-    const users = await apiProtected("/api/users/getUsersNames");
+    const users = await apiProtected("/api/users/getUsersNames") || [];
     userSelect.innerHTML = '';
     users.forEach(r => {
     const opt = document.createElement('option');
