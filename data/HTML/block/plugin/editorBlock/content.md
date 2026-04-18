@@ -311,52 +311,9 @@
 </div>
 
 
-<div id="rgb-picker" class="rgb-picker">
-    <div class="picker-row">
-        <div class="canvas-wrap">
-            <canvas id="cp-hue" width="280" height="20"></canvas>
-            <div id="hue-thumb" class="picker-thumb"></div>
-        </div>
-    </div>
-    <div class="picker-row">
-        <div class="canvas-wrap">
-            <canvas id="cp-light" width="280" height="20"></canvas>
-            <div id="light-thumb" class="picker-thumb"></div>
-        </div>
-    </div>
-    <div class="picker-row">
-        <div id="color-presets"></div>
-    </div>
-    <div class="picker-row inputs">
-        <input id="cp-hex" type="text" placeholder="#000000" maxlength="7" />
-        <button id="cp-close" type="button">&times;</button> 
-    </div>
-</div>
-
-
-<div id="ed-properties">
-    <div act="paste">Вставить</div>
-    <div act="copy" class="elementProp">Копировать</div>
-    <div act="cut" class="elementProp">Вырезать</div>
-    <div act="delete" class="elementProp">Удалить</div>
-    <div act="addLine" class="elementTableProp">Добавить строку</div>
-    <div act="addColumn" class="elementTableProp">Добавить столбец</div>
-    <div act="deleteLine" class="elementTableProp">Удалить строку</div>
-    <div act="deleteColumn" class="elementTableProp">Удалить столбец</div>
-</div>
-
-
-<div class="marker-modal-backdrop" style="display: none;">
-    <div class="marker-modal">
-        <div class="marker-name"></div>
-        <div class="marker-text" style="display: none;"></div>
-        <input class="marker-input" type="text" style="display: none;">
-        <div class="marker-modal-buttons">
-            <button class="marker-cancel">Отмена</button>
-            <button class="marker-ok">OK</button>
-        </div>
-    </div>
-</div>
+<div id="rgb-picker-container"></div>
+<div id="ed-properties-container"></div>
+<div id="marker-modal-container"></div>
 
 
 </div>
