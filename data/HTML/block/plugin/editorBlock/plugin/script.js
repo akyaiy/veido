@@ -70,13 +70,12 @@ async function initBlocks() {
     await loadBlockWindow("plugin/editorBlock", "content");
 
     // Загружаем остальные блоки параллельно
-    await Promise.allSettled([
-        loadBlockWindow("plugin/editorBlock/plugin/properties-simpleFormats", "properties-simpleFormats"),
-        loadBlockWindow("plugin/editorBlock/plugin/rgb-picker", "rgb-picker-container"),
-        loadBlockWindow("plugin/editorBlock/plugin/ed-properties", "ed-properties-container"),
-        loadBlockWindow("plugin/editorBlock/plugin/marker-modal", "marker-modal-container"),
-        loadBlockWindow("plugin/editorBlock/plugin/global", "global-editorBlock-container"),
-    ]);
+    await loadBlockWindow("plugin/editorBlock/plugin/properties-simpleFormats", "properties-simpleFormats")
+    await loadBlockWindow("plugin/editorBlock/plugin/elements-ul", "elements-ul")
+    await loadBlockWindow("plugin/editorBlock/plugin/rgb-picker", "rgb-picker-container")
+    await loadBlockWindow("plugin/editorBlock/plugin/ed-properties", "ed-properties-container")
+    await loadBlockWindow("plugin/editorBlock/plugin/marker-modal", "marker-modal-container")
+    await loadBlockWindow("plugin/editorBlock/plugin/global", "global-editorBlock-container")
 }
 
 async function loadBlockWindow(path, block_Name, itemsHowText = null) {
