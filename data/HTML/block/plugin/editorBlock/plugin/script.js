@@ -72,6 +72,8 @@ async function initBlocks() {
     // Загружаем остальные блоки параллельно
     await loadBlockWindow("plugin/editorBlock/plugin/properties-simpleFormats", "properties-simpleFormats")
     await loadBlockWindow("plugin/editorBlock/plugin/elements-ul", "elements-ul")
+    await loadBlockWindow("plugin/editorBlock/plugin/properties-list", "properties-list")
+    await loadBlockWindow("plugin/editorBlock/plugin/properties-panel-spec", "properties-panel-spec")
     await loadBlockWindow("plugin/editorBlock/plugin/rgb-picker", "rgb-picker-container")
     await loadBlockWindow("plugin/editorBlock/plugin/ed-properties", "ed-properties-container")
     await loadBlockWindow("plugin/editorBlock/plugin/marker-modal", "marker-modal-container")
