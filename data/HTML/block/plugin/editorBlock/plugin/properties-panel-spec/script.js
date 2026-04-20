@@ -324,3 +324,14 @@ function rebuildTable(table, rows, cols) {
     table.appendChild(tbody);
 }
 
+
+
+const toggleCssPanel = document.getElementById('toggle-css-panel');
+/* скрытие и показ css меню */
+toggleCssPanel.addEventListener('change', () => {
+    syncCssPanelVisibility();
+    if (!toggleCssPanel.checked || !currentSelectedEl) return;
+    updateTagLabel(currentSelectedEl);
+    updateCssPanel(currentSelectedEl);
+    updatePropertiesPanel(currentSelectedEl);
+});

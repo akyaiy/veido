@@ -140,8 +140,18 @@ document.querySelector('#center-panel').addEventListener('click', (e) => {
     document.addEventListener('click', onDocClick, true);
 }); */
 
+/***********************************************************************
+ * jsTable — таблица редактора JS-кода блока.
+ **********************************************************************/
+const jsTable = document.getElementById('editor-js-panel');
+jsTable.innerHTML = '';
+
+// Храним введенный id без data-атрибутов на элементе
+const activeIdByEl = new WeakMap();
+
 
 let selectedElBorder = null;
+let lastSelectedEl = null;
 let isResizing = false;
 let startX, startY, startWidth, startHeight;
 const margin = 2; // зона границы
@@ -305,18 +315,15 @@ function switchTabPanel(tabName) {
 }
 
 function syncCssPanelVisibility() {
-    if (!cssPanel || !toggleCssPanel) return;
-    cssPanel.style.display = toggleCssPanel.checked ? 'flex' : 'none';
-}
+    const cssPanel = document.getElementById('css-panel');
+    const toggle = document.getElementById('toggle-css-panel');
 
-/* скрытие и показ css меню */
-toggleCssPanel?.addEventListener('change', () => {
-    syncCssPanelVisibility();
-    if (!toggleCssPanel.checked || !currentSelectedEl) return;
-    updateTagLabel(currentSelectedEl);
-    updateCssPanel(currentSelectedEl);
-    updatePropertiesPanel(currentSelectedEl);
-});
+    if (!cssPanel || !toggle) {
+        return;
+    }
+
+    cssPanel.style.display = toggle.checked ? 'flex' : 'none';
+}
 
 syncCssPanelVisibility();
 
@@ -782,7 +789,7 @@ function switchTo(blockId, tabEl) {
     if (tabEl) tabEl.classList.add('active');
 
     Array.from(container.children).forEach(ch => {
-        if (ch !== handle) ch.style.display = ch.id === blockId ? '' : 'none';
+        if (ch !== document.querySelector('.small-handle')) ch.style.display = ch.id === blockId ? '' : 'none';
     });
 
     // 🔑 ВАЖНО: применяем текущий режим центра
@@ -1651,7 +1658,7 @@ btnApplyJs.onclick = () => {
 /***********************************************************************
  * Ссылка на текущий выбранный элемент в view.
  **********************************************************************/
-let currentSelectedEl = null;
+window.currentSelectedEl = null;
 
 /***********************************************************************
  * document click — выбор элемента в режиме view:
@@ -1659,7 +1666,6 @@ let currentSelectedEl = null;
  * - Определяет выбранный HTML-элемент для редактирования.
  * - Обновляет связанные панели (CSS, свойства, JS).
  **********************************************************************/
-let lastSelectedEl = null;
 
 function getDefaultJsPanelElement(view) {
     if (!view) return null;
@@ -2258,12 +2264,6 @@ function rebuildStyleForActive() {
 
 
 /***********************************************************************
- * jsTable — таблица редактора JS-кода блока.
- **********************************************************************/
-const jsTable = document.getElementById('editor-js-panel');
-jsTable.innerHTML = '';
-
-/***********************************************************************
  * Список групп событий для элементов интерфейса.
  **********************************************************************/
 const events = [
@@ -2608,9 +2608,6 @@ addBtn.addEventListener('click', () => {
         tr.children[1].focus();
     }
 });
-
-// Храним введенный id без data-атрибутов на элементе
-const activeIdByEl = new WeakMap();
 
 function getActiveId(el) {
     if (!el) return '';
