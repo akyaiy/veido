@@ -353,17 +353,6 @@ td[contenteditable][data-placeholder]:empty:before {
     margin: 2px 0;
 }
 
-/* редактор свойств */
-#properties-simpleFormats [simpleformats-button] {
-    /* padding: 3px; */
-    cursor: pointer;
-    display: inline-block;
-    user-select: none; 
-}
-#properties-simpleFormats [simpleformats-button].active {
-    background-color: lightgray;
-}
-
 
 
 /* отступы для текста в редакторе */

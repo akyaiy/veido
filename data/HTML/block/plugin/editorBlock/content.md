@@ -27,7 +27,6 @@
             <div>Базовые элементы</div>
             <div style="display:block;">
                 <div class="add-el" data-el="<div style='border:1px solid #000; display: inline-block;'>[ST]</div>" title="блок"><svg class="svg-icon" use="4x19"></svg></div>
-                <!--  -->
                 <div class="image-insert-btn">
                     <svg class="svg-icon" use="19x19"></svg>
                 </div>
@@ -35,7 +34,6 @@
                     <div class="image-insert-item" data-action="url" data-el="<img src='[LINK]'>">Ссылка</div>
                     <div class="image-insert-item" data-action="file" data-el="<img src='[LINK]'>">С ПК</div>
                 </div>
-                <!--  -->
                 <div class="add-el" data-el="<a href='[LINK]'>[ST]</a>" title="ссылка"><svg class="svg-icon" use="14x23"></svg></div>
                 <div class="table-insert-btn" title="таблица">
                     <svg class="svg-icon" use="19x6"></svg>
@@ -44,7 +42,6 @@
                     <div id="table-size-grid"></div>
                     <div id="table-size-label">0 × 0</div>
                 </div>
-                <!--  -->
                 <div class="add-el" data-el="<hr style='height:2px;border:0;background:#000;'>" title="линия"><svg class="svg-icon" use="4x7"></svg></div>
             </div>
         </div>
@@ -107,11 +104,9 @@
 <div id="right-panel">
     <div id="css-js-tabs">
         <div class="tab active" data-tab="properties">Свойства</div>
-        <!-- <div class="tab" data-tab="css">Свойства+</div> -->
         <div class="tab" data-tab="js">Ивенты</div>
     </div>
     <hr>
-    <!--  -->
     <div id="properties-panel-spec" style="display: none;">
         <div class="table-title" style="padding-bottom: 5px;">Свойства элементов</div>
         <label data-target="all">ID: <input type="text" data-prop="id"><br></label>
@@ -231,29 +226,9 @@
             </div>
         </div>
     </div>
-    <!--  -->
     <div id="properties-panel">
         <div class="table-title">Свойства текста</div>
-        <div id="properties-simpleFormats">
-            <div simpleformats-button="bold"><svg class="svg-icon" use="8x4"></svg></div>
-            <div simpleformats-button="italic"><svg class="svg-icon" use="8x5"></svg></div>
-            <div simpleformats-button="underline"><svg class="svg-icon" use="8x6"></svg></div>
-            <div simpleformats-button="strike"><svg class="svg-icon" use="8x7"></svg></div>
-            <div simpleformats-button="text-color"><svg class="svg-icon" use="8x4" use-color="#516ed7"></svg></div>
-            <div simpleformats-button="bg-color"><svg class="svg-icon" use="8x4" use-background="#516ed7"></svg></div>
-            <div simpleformats-button="sup"><svg class="svg-icon" use="8x8"></svg></div>
-            <div simpleformats-button="sub"><svg class="svg-icon" use="8x9"></svg></div>
-            <div simpleformats-button="delete"><svg class="svg-icon" use="1x28"></svg></div>
-            <br>
-            <div simpleformats-button="text-align-left" title="Слева"><svg class="svg-icon" use="8x10"></svg></div>
-            <div simpleformats-button="text-align-center" title="По центру"><svg class="svg-icon" use="8x11"></svg></div>
-            <div simpleformats-button="text-align-right" title="Справа"><svg class="svg-icon" use="8x12"></svg></div>
-            <div simpleformats-button="text-align-justify" title="По ширине"><svg class="svg-icon" use="8x13"></svg></div>
-            <div simpleformats-button="list-disc" title="Точка"><svg class="svg-icon" use="19x23"></svg></div>
-            <div simpleformats-button="list-circle" title="Кружок"><svg class="svg-icon" use="10x10"></svg></div>
-            <div simpleformats-button="list-square" title="Квадрат"><svg class="svg-icon" use="19x24"></svg></div>
-            <div simpleformats-button="list-decimal" title="Нумерованный"><svg class="svg-icon" use="10x11"></svg></div>
-        </div>
+        <div id="properties-simpleFormats"><!-- loadBlockWindow --></div>
         <hr style="margin: 6px 0px;">
         <div id="properties-list">
             Размер текста:
@@ -311,9 +286,10 @@
 </div>
 
 
-<div id="rgb-picker-container"></div>
-<div id="ed-properties-container"></div>
-<div id="marker-modal-container"></div>
+<div id="rgb-picker-container"><!-- loadBlockWindow --></div>
+<div id="ed-properties-container"><!-- loadBlockWindow --></div>
+<div id="marker-modal-container"><!-- loadBlockWindow --></div>
+<div id="global-editorBlock-container" style="display: none;"><!-- loadBlockWindow --></div>
 
 
 </div>
