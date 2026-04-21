@@ -298,11 +298,11 @@ function switchTabPanel(tabName) {
         syncCssPanelVisibility();
     } else if (tabName === 'css') {
         propertiesPanel.style.display = 'none';
-        if (cssPanel) cssPanel.style.display = 'flex';
+        /* if (cssPanel) cssPanel.style.display = 'flex'; */
         jsPanel.style.display = 'none';
     } else if (tabName === 'js') {
         propertiesPanel.style.display = 'none';
-        if (cssPanel) cssPanel.style.display = 'none';
+        /* if (cssPanel) cssPanel.style.display = 'none'; */
         jsPanel.style.display = 'flex';
         const blockId = getActiveBlockId();
         if (blockId) ensureJsPanelSelection(blockId);
@@ -1812,7 +1812,10 @@ function createAttrRow(name, value) {
         const td3 = document.createElement('td');
         td3.textContent = '×';
         td3.style.cursor = 'pointer';
-        td3.onclick = () => removeAttrRow(tr, td1);
+        td3.onclick = (e) => {
+            e.stopPropagation();
+            removeAttrRow(tr, td1);
+        };
         tr.appendChild(td3);
     }
 
@@ -1852,103 +1855,6 @@ function ensureEmptyAttrRow() {
         createAttrRow('', '');
     }
 }
-
-/***********************************************************************
- * attributes-table input — Обновление атрибутов элемента:
- * - Получает событие ввода.
- * - Отслеживает редактирование ячеек name и value.
- * - При изменении name удаляет старый атрибут и ставит новый.
- * - При изменении value обновляет текущий атрибут.
- * - Добавляет кнопку удаления при появлении значения.
- * - Гарантирует наличие пустой строки в конце таблицы.
- **********************************************************************/
-const attrsTableElement = document.getElementById('attributes-table');
-
-attrsTableElement?.addEventListener('input', e => {
-    const td = e.target.closest('td');
-    if (!td) return;
-
-    const tr = td.parentNode;
-    const nameTd = tr.children[0];
-    const valTd = tr.children[1];
-
-    const prev = nameTd.dataset.prev || '';
-    const nameNow = nameTd.textContent.trim();
-    const valNow = valTd.textContent;
-
-    if (td === nameTd) {
-        if (prev && prev !== nameNow && currentSelectedEl) {
-            currentSelectedEl.removeAttribute(prev);
-        }
-        if (nameNow && currentSelectedEl) {
-            if (nameNow === 'id') {
-                const result = syncElementId(valNow, currentSelectedEl, [valTd]);
-                if (!result.valid) return;
-            } else {
-                currentSelectedEl.setAttribute(nameNow, valNow);
-            }
-        }
-        nameTd.dataset.prev = nameNow;
-    } else {
-        if (nameNow && currentSelectedEl) {
-            if (nameNow === 'id') {
-                const result = syncElementId(valNow, currentSelectedEl, [valTd]);
-                if (!result.valid) return;
-            } else {
-                currentSelectedEl.setAttribute(nameNow, valNow);
-            }
-        }
-    }
-
-    // update class autocomplete if we are editing value of class attribute
-    if (td === valTd && nameNow === 'class') {
-        updateClassAutocomplete(td);
-    }
-
-    if ((nameNow || valNow) && tr.children.length === 2) {
-        const td3 = document.createElement('td');
-        td3.textContent = '×';
-        td3.style.cursor = 'pointer';
-        td3.onclick = () => removeAttrRow(tr, nameTd);
-        tr.appendChild(td3);
-    }
-
-    if (tr === tr.parentNode.lastElementChild && nameNow) {
-        ensureEmptyAttrRow();
-    }
-});
-
-// show autocomplete when focusing value cell of class attribute
-attrsTableElement?.addEventListener('focusin', e => {
-    const td = e.target.closest('td');
-    if (!td) return;
-    const tr = td.parentNode;
-    const nameTd = tr.children[0];
-    if (td === tr.children[1] && nameTd && nameTd.textContent.trim() === 'class') {
-        prepareClassAutocomplete(td);
-    }
-});
-
-/***********************************************************************
- * attributes-table blur — Обработка потери фокуса ячейки таблицы:
- * - Получает событие потери фокуса.
- * - Определяет ячейку и строку таблицы, к которой относится событие.
- * - Удаляет атрибут у элемента, если имя стало пустым.
- * - Удаляет строку таблицы, если она пустая и не последняя.
- **********************************************************************/
-document.getElementById('attributes-table')?.addEventListener('blur', e => {
-    const td = e.target.closest('td');
-    if (!td) return;
-    const tr = td.parentNode;
-    const nameTd = tr.children[0];
-    const prev = nameTd.dataset.prev || '';
-    const nameNow = nameTd.textContent.trim();
-    if (!nameNow && prev && currentSelectedEl) currentSelectedEl.removeAttribute(prev);
-    if (!nameNow && tr !== tr.parentNode.lastElementChild) {
-        tr.remove();
-        ensureEmptyAttrRow();
-    }
-}, true);
 
 
 /***********************************************************************
@@ -2018,7 +1924,7 @@ function updatePropertiesPanel(el) {
         tdSel.textContent = sel;
         trSel.appendChild(tdSel);
         table.appendChild(trSel);
-        const decls = existingMap.get(sel) || '';
+        const decls = existingMap.get(sel) || (sel === tag ? (el.getAttribute('style') || '') : '');
         decls.split(';').map(v => v.trim()).filter(Boolean).forEach(line => {
             const i = line.indexOf(':');
             const p = i !== -1 ? line.slice(0, i).trim() : '';
@@ -2086,7 +1992,8 @@ function createPropRow(prop, val, deletable) {
         const td3 = document.createElement('td');
         td3.textContent = '×';
         td3.style.cursor = 'pointer';
-        td3.onclick = () => {
+        td3.onclick = (e) => {
+            e.stopPropagation();
             tr.remove();
             rebuildStyleForActive();
         };
@@ -2119,70 +2026,6 @@ function createAddPropRow() {
 }
 
 /***********************************************************************
- * properties-table input — следит за вводом в таблице CSS-свойств:
- * - Получает объект события ввода в таблице.
- * - Берёт имя и значение свойства из этой строки таблицы.
- * - Если свойство новое, добавляет крестик для удаления.
- * - Обновляет стиль выбранного блока на странице.
- * - Всегда оставляет пустую строку для добавления следующего свойства.
- **********************************************************************/
-document.getElementById('properties-table')?.addEventListener('input', e => {
-    const td = e.target.closest('td');
-    if (!td) return;
-    const tr = td.parentNode;
-    if (!tr) return;
-    if (tr.children.length === 2) {
-        const prop = tr.children[0].textContent.trim();
-        const val = tr.children[1].textContent.trim();
-        if (prop && val) {
-            if (!tr.children[2]) {
-                const td3 = document.createElement('td');
-                td3.textContent = '×';
-                td3.style.cursor = 'pointer';
-                td3.onclick = () => {
-                    tr.remove();
-                    rebuildStyleForActive();
-                };
-                tr.appendChild(td3);
-            }
-            ensureAddRowExists();
-        }
-    }
-    rebuildStyleForActive();
-});
-
-/***********************************************************************
- * properties-table blur — обработка потери фокуса в таблице CSS-свойств:
- * - Получает событие потери фокуса.
- * - Проверяет имя и значение свойства в строке таблицы.
- * - Удаляет пустые строки, кроме последней.
- * - Восстанавливает плейсхолдеры для имени и значения свойства.
- **********************************************************************/
-document.getElementById('properties-table')?.addEventListener('blur', e => {
-    const td = e.target.closest('td');
-    if (!td) return;
-    const tr = td.parentNode;
-    if (!tr) return;
-    if (tr.children.length === 3) {
-        const prop = tr.children[0].textContent.trim();
-        const val = tr.children[1].textContent.trim();
-        if (!prop && !val) {
-            tr.remove();
-            rebuildStyleForActive();
-        }
-    } else if (tr.children.length === 2) {
-        const prop = tr.children[0].textContent.trim();
-        const val = tr.children[1].textContent.trim();
-        if (!prop && !val && tr !== tr.parentNode.lastElementChild) {
-            tr.remove();
-        } else {
-            tr.children[0].dataset.placeholder = tr.children[0].dataset.placeholder || 'property';
-            tr.children[1].dataset.placeholder = tr.children[1].dataset.placeholder || 'value';
-        }
-    }
-}, true);
-
-/***********************************************************************
  * ensureAddRowExists — гарантирует наличие пустой строки для нового свойства:
  * - Проверяет последнюю строку таблицы свойств.
  * - Если строки нет или она некорректная, создаёт новую пустую строку.
@@ -2206,58 +2049,30 @@ function ensureAddRowExists() {
  * - Создаёт или обновляет динамический `<style>` для текущего блока.
  **********************************************************************/
 function rebuildStyleForActive() {
+    if (!currentSelectedEl) return;
+
     const table = document.getElementById('properties-table');
     if (!table) return;
-    const rows = Array.from(table.children);
-    const newMap = new Map();
-    let currentSelector = null;
-    rows.forEach(r => {
-        if (r.children.length === 1 || (r.children.length === 1 && r.children[0].colSpan === 3)) {
-            currentSelector = r.children[0].textContent.trim();
-            if (currentSelector && !newMap.has(currentSelector)) newMap.set(currentSelector, []);
-        } else if (r.children.length >= 2 && currentSelector) {
-            const p = r.children[0].textContent.trim();
-            const v = r.children[1].textContent.trim();
-            if (p && v) newMap.get(currentSelector).push(p + ': ' + v + ';');
+
+    // очистка старых inline-стилей
+    currentSelectedEl.style.cssText = '';
+
+    const rows = Array.from(table.querySelectorAll('tr'));
+
+    rows.forEach(tr => {
+        if (tr.children.length >= 2) {
+            const prop = tr.children[0].textContent.trim();
+            const val = tr.children[1].textContent.trim();
+
+            if (prop && val) {
+                const cssProp = prop.replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
+                currentSelectedEl.style[cssProp] = val;
+            }
         }
     });
-    const activeEl = currentSelectedEl;
-    const blockId = getBlockIdFromEl(activeEl) || getActiveBlockId() || 'loadedBlock_1';
-    let styleEl = document.querySelector('style[data-dynamic="' + blockId + '_view"]');
-    let existingCss = '';
-    if (styleEl) existingCss = styleEl.textContent;
-    const existingRules = parseCssToRules(existingCss);
-    const existingOrder = existingRules.map(r => r.selector);
-    const existingMap = new Map();
-    existingRules.forEach(r => {
-        if (!existingMap.has(r.selector)) existingMap.set(r.selector, r.decls);
-    });
-    const processed = new Set();
-    const out = [];
-    existingOrder.forEach(sel => {
-        if (newMap.has(sel)) {
-            const decls = newMap.get(sel).join(' ');
-            out.push(sel + ' { ' + decls + ' }');
-            processed.add(sel);
-        } else {
-            const decls = existingMap.get(sel);
-            if (decls && decls.trim()) out.push(sel + ' { ' + decls + ' }');
-        }
-    });
-    Array.from(newMap.keys()).forEach(sel => {
-        if (!processed.has(sel) && sel) {
-            const decls = newMap.get(sel).join(' ');
-            if (decls) out.push(sel + ' { ' + decls + ' }');
-        }
-    });
-    const cssText = out.join('\n');
-    if (!styleEl) {
-        styleEl = document.createElement('style');
-        styleEl.setAttribute('data-dynamic', blockId + '_view');
-        const wrap = document.getElementById(blockId + '_scripts') || document.getElementById('loadedBlockMain') || document.head;
-        wrap.appendChild(styleEl);
-    }
-    styleEl.textContent = cssText;
+
+    const view = currentSelectedEl.closest('[id^="loadedBlock_"][id$="_view"]');
+    if (view) view.dataset.dirty = 'true';
 }
 
 

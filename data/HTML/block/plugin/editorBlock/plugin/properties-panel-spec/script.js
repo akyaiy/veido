@@ -325,6 +325,172 @@ function rebuildTable(table, rows, cols) {
 }
 
 
+/***********************************************************************
+ * properties-table input — следит за вводом в таблице CSS-свойств:
+ * - Получает объект события ввода в таблице.
+ * - Берёт имя и значение свойства из этой строки таблицы.
+ * - Если свойство новое, добавляет крестик для удаления.
+ * - Обновляет стиль выбранного блока на странице.
+ * - Всегда оставляет пустую строку для добавления следующего свойства.
+ **********************************************************************/
+document.getElementById('properties-table')?.addEventListener('input', e => {
+    const td = e.target.closest('td');
+    if (!td) return;
+    const tr = td.parentNode;
+    if (!tr) return;
+    if (tr.children.length === 2) {
+        const prop = tr.children[0].textContent.trim();
+        const val = tr.children[1].textContent.trim();
+        if (prop && val) {
+            if (!tr.children[2]) {
+                const td3 = document.createElement('td');
+                td3.textContent = '×';
+                td3.style.cursor = 'pointer';
+                td3.onclick = (e) => {
+                    e.stopPropagation();
+                    tr.remove();
+                    rebuildStyleForActive();
+                };
+                tr.appendChild(td3);
+            }
+            ensureAddRowExists();
+        }
+    }
+    rebuildStyleForActive();
+});
+
+/***********************************************************************
+ * properties-table blur — обработка потери фокуса в таблице CSS-свойств:
+ * - Получает событие потери фокуса.
+ * - Проверяет имя и значение свойства в строке таблицы.
+ * - Удаляет пустые строки, кроме последней.
+ * - Восстанавливает плейсхолдеры для имени и значения свойства.
+ **********************************************************************/
+document.getElementById('properties-table')?.addEventListener('blur', e => {
+    const td = e.target.closest('td');
+    if (!td) return;
+    const tr = td.parentNode;
+    if (!tr) return;
+    if (tr.children.length === 3) {
+        const prop = tr.children[0].textContent.trim();
+        const val = tr.children[1].textContent.trim();
+        if (!prop && !val) {
+            tr.remove();
+            rebuildStyleForActive();
+        }
+    } else if (tr.children.length === 2) {
+        const prop = tr.children[0].textContent.trim();
+        const val = tr.children[1].textContent.trim();
+        if (!prop && !val && tr !== tr.parentNode.lastElementChild) {
+            tr.remove();
+        } else {
+            tr.children[0].dataset.placeholder = tr.children[0].dataset.placeholder || 'property';
+            tr.children[1].dataset.placeholder = tr.children[1].dataset.placeholder || 'value';
+        }
+    }
+}, true);
+
+/***********************************************************************
+ * attributes-table input — Обновление атрибутов элемента:
+ * - Получает событие ввода.
+ * - Отслеживает редактирование ячеек name и value.
+ * - При изменении name удаляет старый атрибут и ставит новый.
+ * - При изменении value обновляет текущий атрибут.
+ * - Добавляет кнопку удаления при появлении значения.
+ * - Гарантирует наличие пустой строки в конце таблицы.
+ **********************************************************************/
+const attrsTableElement = document.getElementById('attributes-table');
+
+attrsTableElement?.addEventListener('input', e => {
+    const td = e.target.closest('td');
+    if (!td) return;
+
+    const tr = td.parentNode;
+    const nameTd = tr.children[0];
+    const valTd = tr.children[1];
+
+    const prev = nameTd.dataset.prev || '';
+    const nameNow = nameTd.textContent.trim();
+    const valNow = valTd.textContent;
+
+    if (td === nameTd) {
+        if (prev && prev !== nameNow && currentSelectedEl) {
+            currentSelectedEl.removeAttribute(prev);
+        }
+        if (nameNow && currentSelectedEl) {
+            if (nameNow === 'id') {
+                const result = syncElementId(valNow, currentSelectedEl, [valTd]);
+                if (!result.valid) return;
+            } else {
+                currentSelectedEl.setAttribute(nameNow, valNow);
+            }
+        }
+        nameTd.dataset.prev = nameNow;
+    } else {
+        if (nameNow && currentSelectedEl) {
+            if (nameNow === 'id') {
+                const result = syncElementId(valNow, currentSelectedEl, [valTd]);
+                if (!result.valid) return;
+            } else {
+                currentSelectedEl.setAttribute(nameNow, valNow);
+            }
+        }
+    }
+
+    // update class autocomplete if we are editing value of class attribute
+    if (td === valTd && nameNow === 'class') {
+        updateClassAutocomplete(td);
+    }
+
+    if ((nameNow || valNow) && tr.children.length === 2) {
+        const td3 = document.createElement('td');
+        td3.textContent = '×';
+        td3.style.cursor = 'pointer';
+        td3.onclick = (e) => {
+            e.stopPropagation();
+            removeAttrRow(tr, nameTd);
+        };
+        tr.appendChild(td3);
+    }
+
+    if (tr === tr.parentNode.lastElementChild && nameNow) {
+        ensureEmptyAttrRow();
+    }
+});
+
+// show autocomplete when focusing value cell of class attribute
+attrsTableElement?.addEventListener('focusin', e => {
+    const td = e.target.closest('td');
+    if (!td) return;
+    const tr = td.parentNode;
+    const nameTd = tr.children[0];
+    if (td === tr.children[1] && nameTd && nameTd.textContent.trim() === 'class') {
+        prepareClassAutocomplete(td);
+    }
+});
+
+/***********************************************************************
+ * attributes-table blur — Обработка потери фокуса ячейки таблицы:
+ * - Получает событие потери фокуса.
+ * - Определяет ячейку и строку таблицы, к которой относится событие.
+ * - Удаляет атрибут у элемента, если имя стало пустым.
+ * - Удаляет строку таблицы, если она пустая и не последняя.
+ **********************************************************************/
+document.getElementById('attributes-table')?.addEventListener('blur', e => {
+    const td = e.target.closest('td');
+    if (!td) return;
+    const tr = td.parentNode;
+    const nameTd = tr.children[0];
+    const prev = nameTd.dataset.prev || '';
+    const nameNow = nameTd.textContent.trim();
+    if (!nameNow && prev && currentSelectedEl) currentSelectedEl.removeAttribute(prev);
+    if (!nameNow && tr !== tr.parentNode.lastElementChild) {
+        tr.remove();
+        ensureEmptyAttrRow();
+    }
+}, true);
+
+
 
 const toggleCssPanel = document.getElementById('toggle-css-panel');
 /* скрытие и показ css меню */
