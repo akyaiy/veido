@@ -66,6 +66,24 @@ document.addEventListener('contextmenu', e => {
     }
 });
 
+document.addEventListener('click', e => {
+    const el = findEditableElement(e.target);
+    if (!el) return;
+
+    const selection = window.getSelection();
+    const hasTextSelection = selection && !selection.isCollapsed;
+
+    if (el && !hasTextSelection) {
+        selectedEl = el;
+        selectElementForPanels(el);
+        showSpecForTarget(el);
+        populateSpecialProps(el);
+        syncCssPanelVisibility();
+    } else {
+        clearSelection();
+    }
+});
+
 // Click — только для рамки, без добавления нового элемента
 document.addEventListener('click', e => {
     if (shouldKeepSpecPanelVisible(e.target)) {
@@ -237,6 +255,147 @@ menu.addEventListener('click', async e => {
                 }
             }
             break;
+
+        // Открытие блока в новой страниц
+        case 'newLoadedBlock': {
+            const selectedElCont = selectedEl
+
+            const viewTab = document.querySelector('#center-tabs .center-tab[data-tab="view"]');
+            viewTab.click();
+
+            let tabs = document.getElementById('blocks-tabs');
+            let container = document.getElementById('loadedBlockMain');
+
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'loadedBlockMain';
+                mainEl.appendChild(container);
+            }
+
+            let existingTab;
+
+            if (selectedEl) {
+                tabs.querySelectorAll('.tab').forEach(t => {
+                    if (t.dataset.selectedEl === selectedEl) existingTab = t;
+                });
+            }
+
+            function switchTo(blockId, tabEl) {
+                tabs.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                if (tabEl) tabEl.classList.add('active');
+
+                Array.from(container.children).forEach(ch => {
+                    if (ch !== document.querySelector('.small-handle')) {
+                        ch.style.display = ch.id === blockId ? '' : 'none';
+                    }
+                });
+
+                const activeCenterTab = document.querySelector('#center-tabs .center-tab.active');
+                if (!activeCenterTab) return;
+
+                const mode = activeCenterTab.dataset.tab;
+                if (mode === 'view') showView(blockId);
+                if (mode === 'html') showHtml(blockId);
+                if (mode === 'js') showJs(blockId);
+            }
+
+            if (existingTab) {
+                switchTo(existingTab.dataset.blockId, existingTab);
+                return;
+            }
+
+            let num = 1;
+            while (document.getElementById('loadedBlock_' + num)) num++;
+            const blockId = 'loadedBlock_' + num;
+
+            const block = document.createElement('div');
+            block.id = blockId;
+
+            const viewDiv = document.createElement('div');
+            viewDiv.id = blockId + '_view';
+            viewDiv.className = 'loadedBlock_view';
+            viewDiv.contentEditable = 'true';
+            viewDiv.addEventListener('input', () => {
+                viewDiv.dataset.dirty = "true";
+                syncHtmlFromView(blockId);
+            });
+            viewDiv.replaceChildren(selectedElCont.cloneNode(true));
+
+            const htmlDiv = document.createElement('div');
+            htmlDiv.id = blockId + '_html';
+            htmlDiv.style.display = 'none';
+            htmlDiv.innerHTML = selectedElCont.outerHTML;
+
+            const cssDiv = document.createElement('div');
+            cssDiv.id = blockId + '_css';
+            cssDiv.style.display = 'none';
+
+            const scriptsDiv = document.createElement('div');
+            scriptsDiv.id = blockId + '_scripts';
+
+            const scriptText = document.createElement('script');
+            scriptText.setAttribute('data-dynamic-text', blockId + '_view');
+            scriptText.type = 'text/plain';
+            scriptsDiv.appendChild(scriptText);
+
+            const jsDiv = document.createElement('div');
+            jsDiv.id = blockId + '_js';
+            jsDiv.style.display = 'none';
+
+            block.appendChild(viewDiv);
+            block.appendChild(htmlDiv);
+            block.appendChild(cssDiv);
+            block.appendChild(scriptsDiv);
+            block.appendChild(jsDiv);
+
+            container.appendChild(block);
+
+            const tabEl = document.createElement('div');
+            tabEl.className = 'tab';
+
+            // вместо path
+            tabEl.dataset.selectedEl = selectedEl;
+
+            tabEl.dataset.blockId = blockId;
+            tabEl.textContent = selectedEl?.tagName?.toLowerCase() || "*new";
+
+            tabEl.onclick = () => switchTo(blockId, tabEl);
+
+            const closeBtn = document.createElement('span');
+            closeBtn.textContent = '×';
+            closeBtn.style.marginLeft = '6px';
+            closeBtn.style.cursor = 'pointer';
+            closeBtn.onclick = e => closeBlock(e, block, tabEl);
+
+            tabEl.appendChild(closeBtn);
+            tabs.appendChild(tabEl);
+
+            switchTo(blockId, tabEl);
+
+            const observer = new MutationObserver(mutations => {
+                mutations.forEach(m => {
+                    m.addedNodes.forEach(n => {
+                        if (!n || n.nodeType !== 1) return;
+                        if (n.tagName !== 'SCRIPT') return;
+
+                        const s = n;
+                        if (s.getAttribute('data-dynamic-text') === blockId + '_view') return;
+
+                        let txt = s.textContent || '';
+                        scriptText.textContent = (scriptText.textContent || '') + '\n' + txt;
+
+                        try { s.remove(); } catch (e) {}
+                    });
+                });
+            });
+
+            observer.observe(scriptsDiv, { childList: true });
+
+            showJs(blockId);
+            showView(blockId);
+
+            break;
+        }
     }
 
     menu.style.display = 'none';
