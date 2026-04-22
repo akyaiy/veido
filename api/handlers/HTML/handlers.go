@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"path"
@@ -118,4 +119,178 @@ func LoadTemplatePage(w http.ResponseWriter, r *http.Request) {
 		filePath = config.Data.StaticDir + config.Data.TemplateFile
 	}
 	http.ServeFile(w, r, filePath)
+}
+
+type Status struct {
+	Stat string `json:"status"`
+	Message string `json:"message,omitempty"`
+}
+
+func CreateContainer(w http.ResponseWriter, r *http.Request) {
+	var body HTMLblock
+	json.NewDecoder(r.Body).Decode(&body)
+	if body.CSS == "" || body.JS == "" || body.Content == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "wrong payload",
+		})
+		return
+	}
+	name := strings.TrimPrefix(r.URL.Path, "/api/HTML/")
+	path := filepath.Join(config.Data.HTTPBlockDir, name)
+	if info, err := os.Stat(path); err == nil && info.IsDir() {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotAcceptable)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "контейнер по такому пути уже существует",
+		})
+		return
+	}
+	err := os.MkdirAll(path, 0755)
+	if err != nil {
+		slog.Error("ошибка при создании контейнера", "err", err.Error())
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "server error",
+		})
+		return
+	}
+	files := make(map[string]string)
+	files["content.md"] = body.Content
+	files["script.js"] = body.JS
+	files["style.css"] = body.CSS
+	for part, value := range files {
+		func(){
+			file, err := os.Create(filepath.Join(path, part))
+			if err != nil {
+				slog.Error("ошибка при создании контейнера", "err", err.Error())
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(Status{
+					Stat: "error",
+					Message: "server error",
+				})
+				return
+			}
+			defer file.Close()
+
+			_, err = file.WriteString(value)
+			if err != nil {
+				slog.Error("ошибка при создании контейнера", "err", err.Error())
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(Status{
+					Stat: "error",
+					Message: "server error",
+				})
+				return
+			}
+		}()
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(Status{
+		Stat: "ok",
+	})
+}
+
+func UpdateContainer(w http.ResponseWriter, r *http.Request) {
+	var body HTMLblock
+	json.NewDecoder(r.Body).Decode(&body)
+	if body.CSS == "" && body.JS == "" && body.Content == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "wrong payload",
+		})
+		return
+	}
+	name := strings.TrimPrefix(r.URL.Path, "/api/HTML/")
+	path := filepath.Join(config.Data.HTTPBlockDir, name)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotAcceptable)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "контейнер по такому пути не существует",
+		})
+		return
+	}
+	files := make(map[string]string)
+	files["content.md"] = body.Content
+	files["script.js"] = body.JS
+	files["style.css"] = body.CSS
+	for part, value := range files {
+		// return при ошибках просто заканчивает интерацию, но не завершает функцию хендлера
+		func(){
+			if value == "" {
+				return
+			}
+			file, err := os.Create(filepath.Join(path, part))
+			if err != nil {
+				slog.Error("ошибка при обновления контейнера", "err", err.Error())
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(Status{
+					Stat: "error",
+					Message: "server error",
+				})
+				return
+			}
+			defer file.Close()
+
+			_, err = file.WriteString(value)
+			if err != nil {
+				slog.Error("ошибка при обновления контейнера", "err", err.Error())
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(Status{
+					Stat: "error",
+					Message: "server error",
+				})
+				return
+			}
+		}()
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(Status{
+		Stat: "ok",
+	})
+}
+
+func DeleteContainer(w http.ResponseWriter, r *http.Request) {
+	name := strings.TrimPrefix(r.URL.Path, "/api/HTML/")
+	path := filepath.Join(config.Data.HTTPBlockDir, name)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotAcceptable)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "контейнер по такому пути не существует",
+		})
+		return
+	}
+	err := os.RemoveAll(path)
+	if err != nil {
+		slog.Error("ошибка при удалении контейнера", "err", err.Error())
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "server error",
+		})
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(Status{
+		Stat: "ok",
+	})
 }
