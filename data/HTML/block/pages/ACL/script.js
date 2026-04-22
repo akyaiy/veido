@@ -13,19 +13,24 @@
 
 async function createPermission() {
   try {
-    const result = await apiProtected('/api/acl-admin/create-permission', {
+    const result = await apiProtected('/api/acl-admin/perms', {
       method: 'POST',
-      body: { name: permKey.value }
+      body: {
+        key: permKey.value,
+        name: permKey.value
+      }
     });
     alert(result);
+
+    /* const perms = await apiProtected('/api/acl-admin/perms?limit=100', { method: 'GET' }); */
   } catch (err) {
-    console.error("Ошибка создания разрешения:", err);
+    alert("Ошибка создания разрешения");
   }
 }
 
 async function createRole() {
   try {
-    const result = await apiProtected('/api/acl-admin/create-role', {
+    const result = await apiProtected('/api/acl-admin/roles', {
       method: 'POST',
       body: { name: roleName.value }
     });
@@ -39,7 +44,7 @@ let selectedPermId = null;
 
 // Загрузка ролей
 async function loadRoles() {
-  const roles = await apiProtected('/api/acl-admin/roles', { method: 'GET' }) || [];
+  const roles = await apiProtected('/api/acl-admin/roles?limit=100', { method: 'GET' }) || [];
   roleSelect.innerHTML = '';
   roles.forEach(r => {
     const opt = document.createElement('option');
@@ -57,7 +62,7 @@ async function loadRoles() {
 
 // Загрузка пользователей
 async function loadUsers() {
-    const users = await apiProtected("/api/users/getUsersNames") || [];
+    const users = await apiProtected("/api/users/getUsersNames?limit=100") || [];
     userSelect.innerHTML = '';
     users.forEach(r => {
     const opt = document.createElement('option');
@@ -92,11 +97,10 @@ availablePerms.addEventListener('change', async () => {
     return;
   }
   try {
-    await apiProtected('/api/acl-admin/assign-permission', {
+    await apiProtected(`/api/acl-admin/roles/${roleId}/perms`, {
       method: 'POST',
       body: {
-        role_id: roleId,
-        perm_id: permId
+        permId: permId
       }
     });
 
@@ -129,11 +133,10 @@ availableRoles.addEventListener('change', async () => {
     return;
   }
   try {
-    await apiProtected('/api/acl-admin/assign-role', {
+    await apiProtected(`/api/acl-admin/users/${userId}/roles`, {
       method: 'POST',
       body: {
-        user_id: userId,
-        role_id: roleId
+        roleId: roleId
       }
     });
 
@@ -150,7 +153,7 @@ availableRoles.addEventListener('change', async () => {
 // Загрузка разрешений роли
 async function loadRolePermissions() {
   const roleId = Number(roleSelect.value);
-  const perms = await apiProtected(`/api/acl-admin/role-permissions?role_id=${roleId}`, { method: 'GET' });
+  const perms = await apiProtected(`/api/acl-admin/roles/${roleId}/perms?limit=100`, { method: 'GET' });
   
   const tbody = document.querySelector('#permTable');
   tbody.innerHTML = '';
@@ -172,7 +175,7 @@ async function loadRolePermissions() {
 // Загрузка ролей пользователя
 async function loadUserRoles() {
   const userId = Number(userSelect.value);
-  const roles = await apiProtected(`/api/acl-admin/user-roles?user_id=${userId}`, { method: 'GET' });
+  const roles = await apiProtected(`/api/acl-admin/users/${userId}/roles?limit=100`, { method: 'GET' });
   
   const tbody = document.querySelector('#roleTable');
   tbody.innerHTML = '';
@@ -224,9 +227,8 @@ async function removePermission() {
   }
 
   try {
-  await apiProtected('/api/acl-admin/remove-permission', {
-    method: 'POST',
-    body: { role_id: roleId, perm_id: selectedPermId }
+  await apiProtected(`/api/acl-admin/roles/${roleId}/perms/${selectedPermId}`, {
+    method: 'DELETE'
   });
 
   // Обновляем таблицу
@@ -254,9 +256,8 @@ async function removeRole() {
   }
 
   try {
-  await apiProtected('/api/acl-admin/remove-role', {
-    method: 'POST',
-    body: { user_id: userId, role_id: selectedRoleId }
+  await apiProtected(`/api/acl-admin/users/${userId}/roles/${selectedRoleId}`, {
+    method: 'DELETE'
   });
 
   // Обновляем таблицу
@@ -272,12 +273,12 @@ async function renderAvailablePermissions() {
   const roleId = Number(roleSelect.value);
     try {
         const allPermissions = await apiProtected(
-            "/api/acl-admin/permissions",
+            "/api/acl-admin/perms?limit=100",
             { method: "GET" }
         );
 
         const rolePermissions = await apiProtected(
-            `/api/acl-admin/role-permissions?role_id=${roleId}`,
+            `/api/acl-admin/roles/${roleId}/perms?limit=100`,
             { method: "GET" }
         );
 
@@ -289,7 +290,7 @@ async function renderAvailablePermissions() {
         available.forEach(p => {
             const option = document.createElement("option");
             option.value = p.id;
-            option.textContent = p.key;
+            option.textContent = p.name;
             availablePerms.appendChild(option);
         });
 
@@ -306,12 +307,12 @@ async function renderAvailableRoles() {
   const userId = Number(userSelect.value);
     try {
         const allRoles = await apiProtected(
-            "/api/acl-admin/roles",
+            "/api/acl-admin/roles?limit=100",
             { method: "GET" }
         );
 
         const userRoles = await apiProtected(
-            `/api/acl-admin/user-roles?user_id=${userId}`,
+            `/api/acl-admin/users/${userId}/roles?limit=100`,
             { method: "GET" }
         );
 

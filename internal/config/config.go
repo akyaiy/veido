@@ -25,6 +25,7 @@ func generateSecret() string {
 }
 
 type Config struct {
+	Mode 	  string `yaml:"mode"`
 	Port         string `yaml:"port"`
 	FunctionDir  string `yaml:"functiondir"`
 	StaticDir    string `yaml:"staticdir"`
@@ -44,6 +45,7 @@ var Data *Config
 
 // Дефолтные данные, если файла нет
 var defaultConfig = Config{
+	Mode:         "release",
 	Port:         ":8080",
 	FunctionDir:  "./data/functions",
 	StaticDir:    "./data/HTML/frontend",

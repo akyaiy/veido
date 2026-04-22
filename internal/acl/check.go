@@ -5,7 +5,15 @@ import (
 	"strings"
 )
 
+// DEVMODE — если true, то при проверке прав будет разрешать доступ, даже если юзер не имеет нужного разрешения.
+// Это может быть полезно для разработки, чтобы не заморачиваться с правами на начальном этапе.
+// В продакшене должно быть false.
+var DEVMODE = false
+
 func CanUserAccess(db *sql.DB, userID int64, permissionKey string) (bool, error) {
+	if DEVMODE {
+		return true, nil
+	}
 	// Убедиться, что permission существует
 	if err := EnsurePermissionExists(db, permissionKey); err != nil {
 		return false, err

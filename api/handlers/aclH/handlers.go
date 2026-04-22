@@ -1,18 +1,20 @@
 package aclH
 
 import (
+	"MyServer/internal/acl"
+	"MyServer/internal/server"
+	"MyServer/internal/utils"
 	"database/sql"
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
-	"MyServer/internal/acl"
-	"MyServer/internal/auth"
+	"github.com/go-chi/chi/v5"
 )
 
 type AdminRoutes struct {
-	DB  *sql.DB
-	Aut *auth.Auth
+	db *sql.DB
 }
 
 type item struct {
@@ -20,205 +22,510 @@ type item struct {
 }
 
 type bindIDs struct {
-	RoleID int64 `json:"role_id"`
-	PermID int64 `json:"perm_id"`
-	UserID int64 `json:"user_id"`
+	RoleID int64 `json:"roleId"`
+	PermID int64 `json:"permId"`
+	UserID int64 `json:"userId"`
+}
+
+type Status struct {
+	Stat string `json:"status"`
+	Message string `json:"message,omitempty"`
 }
 
 func (h *AdminRoutes) GetRoles(w http.ResponseWriter, r *http.Request) {
-	rows, err := h.DB.Query(`SELECT id, name FROM roles ORDER BY id`)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
+	w.Header().Set("Content-Type", "application/json")
+	pg := server.GetPagination(r)
+	roles := acl.GetRoles(h.db, pg.Limit, pg.Offset)
+	json.NewEncoder(w).Encode(roles)
+}
+
+func (h *AdminRoutes) CreateRole(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var newRole acl.Role
+	json.NewDecoder(r.Body).Decode(&newRole)
+	if !utils.IsASCIIAlphaNumeric(newRole.Name) || newRole.Name == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "Only aA-zZ, 0-9, \"_\" and \"-\" symbols are supported",
+		})
 		return
 	}
-	defer rows.Close()
-
-	type Role struct {
-		ID   int    `json:"id"`
-		Name string `json:"name"`
+	id := acl.CreateRole(h.db, newRole.Name)
+	if id < 1 {
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "Role already exists",
+		})
+		return
 	}
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(Status{
+		Stat: "ok",
+	})
+}
 
-	var roles []Role
-	for rows.Next() {
-		var r Role
-		rows.Scan(&r.ID, &r.Name)
-		roles = append(roles, r)
+func (h *AdminRoutes) UpdateRole(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var role acl.Role
+	json.NewDecoder(r.Body).Decode(&role)
+	roleIDStr := chi.URLParam(r, "roleId")
+	roleID, err := strconv.Atoi(roleIDStr)
+	if err != nil || roleID < 1 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "Invalid role ID",
+		})
+		return
 	}
+	if roleID < 1 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "Invalid role ID",
+		})
+		return
+	}
+	if !utils.IsASCIIAlphaNumeric(role.Name) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "Only aA-zZ, 0-9, \"_\" and \"-\" symbols are supported",
+		})
+		return
+	}
+	role.ID = int64(roleID)
+	err = acl.UpdateRole(h.db, role)
+	if err != nil {
+		if err.Error() == "role does not exists" {
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "Role does not exists",
+			})
+		} else if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "Role with this name already exists",
+			})
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "Internal server error",
+			})
+		}
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(Status{
+		Stat: "ok",
+	})
+}
 
+func (h *AdminRoutes) DeleteRole(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	roleIDStr := chi.URLParam(r, "roleId")
+	roleID, err := strconv.Atoi(roleIDStr)
+	if err != nil || roleID < 1 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "Invalid role ID",
+		})
+		return
+	}
+	err = acl.DeleteRole(h.db, int64(roleID))
+	if err != nil {
+		if err.Error() == "role does not exists" {
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "Role does not exists",
+			})
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "Internal server error",
+			})
+		}
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(Status{
+		Stat: "ok",
+	})
+}
+
+func (h *AdminRoutes) AssignRole(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	userIDStr := chi.URLParam(r, "userId")
+	userID, err := strconv.Atoi(userIDStr)
+	if err != nil || userID < 1 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "Invalid user ID",
+		})
+		return
+	}
+	var bind bindIDs
+	json.NewDecoder(r.Body).Decode(&bind)
+	if userID < 1 || bind.RoleID < 1 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "Invalid user or role ID",
+		})
+		return
+	}
+	err = acl.AssignRoleToUser(h.db, bind.RoleID, int64(userID))
+	if err != nil {
+		if err.Error() == "user or role does not exists" {
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "User or role does not exists",
+			})
+		} else if strings.Contains(err.Error(), "role already assigned") {
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "Role already assigned",
+			})
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "Internal server error",
+			})
+		}
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(Status{
+		Stat: "ok",
+	})
+}
+
+func (h *AdminRoutes) DeAssignRole(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	userIDStr := chi.URLParam(r, "userId")
+	roleIDStr := chi.URLParam(r, "roleId")
+	userID, err1 := strconv.Atoi(userIDStr)
+	roleID, err2 := strconv.Atoi(roleIDStr)
+	if err1 != nil || err2 != nil || userID < 1 || roleID < 1 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "Invalid user or role ID",
+		})
+		return
+	}
+	err := acl.DeAssignRoleToUser(h.db, int64(roleID), int64(userID))
+	if err != nil {
+		if err.Error() == "relation does not exist" {
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "Relation does not exist",
+			})
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "Internal server error",
+			})
+		}
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(Status{
+		Stat: "ok",
+	})
+}
+
+func (h *AdminRoutes) GetUserRoles(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	userIDStr := chi.URLParam(r, "userId")
+	userID, err := strconv.Atoi(userIDStr)
+	if err != nil || userID < 1 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "Invalid user ID",
+		})
+		return
+	}
+	pg := server.GetPagination(r)
+	roles, err := acl.GetUserRoles(h.db, int64(userID), pg.Limit, pg.Offset)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "User not found",
+			})
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "Internal server error",
+			})
+		}
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(roles)
 }
 
 func (h *AdminRoutes) GetPermissions(w http.ResponseWriter, r *http.Request) {
-	rows, err := h.DB.Query(`SELECT id, key FROM permissions ORDER BY id`)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-	defer rows.Close()
-
-	type Perm struct {
-		ID  int    `json:"id"`
-		Key string `json:"key"`
-	}
-
-	var perms []Perm
-	for rows.Next() {
-		var p Perm
-		rows.Scan(&p.ID, &p.Key)
-		perms = append(perms, p)
-	}
-
+	w.Header().Set("Content-Type", "application/json")
+	pg := server.GetPagination(r)
+	perms := acl.GetPermissions(h.db, pg.Limit, pg.Offset)
 	json.NewEncoder(w).Encode(perms)
-}
-
-func (h *AdminRoutes) RemovePermissionFromRole(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		RoleID int `json:"role_id"`
-		PermID int `json:"perm_id"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), 400)
-		return
-	}
-
-	// Удаляем связь role-permission
-	_, err := h.DB.Exec(`DELETE FROM role_permissions WHERE role_id=? AND permission_id=?`, req.RoleID, req.PermID)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	w.Write([]byte("Удалено"))
-}
-
-func (h *AdminRoutes) RemoveRoleFromUser(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		UserID int `json:"user_id"`
-		RoleID int `json:"role_id"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), 400)
-		return
-	}
-
-	// Удаляем связь role-permission
-	_, err := h.DB.Exec(`DELETE FROM user_roles WHERE user_id=? AND role_id=?`, req.UserID, req.RoleID)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	w.Write([]byte("Удалено"))
-}
-
-func (h *AdminRoutes) GetRolePermissions(w http.ResponseWriter, r *http.Request) {
-	roleIDStr := r.URL.Query().Get("role_id")
-	roleID, err := strconv.Atoi(roleIDStr)
-	if err != nil {
-		http.Error(w, "Неверный role_id", 400)
-		return
-	}
-
-	// Получаем все разрешения для роли
-	rows, err := h.DB.Query(`
-		SELECT p.id, p.key
-		FROM role_permissions rp
-		JOIN permissions p ON rp.permission_id = p.id
-		WHERE rp.role_id = ?`, roleID)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-	defer rows.Close()
-
-	var perms []map[string]interface{}
-	for rows.Next() {
-		var id int
-		var key string
-		if err := rows.Scan(&id, &key); err != nil {
-			continue
-		}
-		perms = append(perms, map[string]interface{}{
-			"id":   id,
-			"name": key, // фронтенду удобно вернуть как "name"
-		})
-	}
-
-	json.NewEncoder(w).Encode(perms)
-}
-
-func (h *AdminRoutes) GetUserRoles(w http.ResponseWriter, r *http.Request) {
-	userIDStr := r.URL.Query().Get("user_id")
-	userID, err := strconv.Atoi(userIDStr)
-	if err != nil {
-		http.Error(w, "Неверный role_id", 400)
-		return
-	}
-
-	// Получаем все разрешения для роли
-	rows, err := h.DB.Query(`
-		SELECT r.id, r.name
-		FROM user_roles ur
-		JOIN roles r ON ur.role_id = r.id
-		WHERE ur.user_id = ?`, userID)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-	defer rows.Close()
-
-	var role []map[string]interface{}
-	for rows.Next() {
-		var id int
-		var key string
-		if err := rows.Scan(&id, &key); err != nil {
-			continue
-		}
-		role = append(role, map[string]interface{}{
-			"id":   id,
-			"name": key, // фронтенду удобно вернуть как "name"
-		})
-	}
-
-	json.NewEncoder(w).Encode(role)
-}
-
-func (h *AdminRoutes) CreateRole(w http.ResponseWriter, r *http.Request) {
-	var body item
-	json.NewDecoder(r.Body).Decode(&body)
-	if err := acl.CreateRole(h.DB, body.Name); err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-	w.Write([]byte("OK"))
 }
 
 func (h *AdminRoutes) CreatePermission(w http.ResponseWriter, r *http.Request) {
-	var body item
-	json.NewDecoder(r.Body).Decode(&body)
-	if err := acl.CreatePermission(h.DB, body.Name); err != nil {
-		http.Error(w, err.Error(), 500)
+	w.Header().Set("Content-Type", "application/json")
+	var newPerm acl.Permission
+	json.NewDecoder(r.Body).Decode(&newPerm)
+	if !utils.IsASCIIAlphaNumeric(newPerm.Key) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "Only aA-zZ, 0-9, \"_\" and \"-\" symbols are supported",
+		})
 		return
 	}
-	w.Write([]byte("OK"))
+	id := acl.CreatePermission(h.db, newPerm.Key)
+	if id < 1 {
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "Permission already exists",
+		})
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(Status{
+		Stat: "ok",
+	})
 }
 
-func (h *AdminRoutes) AssignPermissionToRole(w http.ResponseWriter, r *http.Request) {
-	var b bindIDs
-	json.NewDecoder(r.Body).Decode(&b)
-	if err := acl.AssignPermissionToRole(h.DB, b.RoleID, b.PermID); err != nil {
-		http.Error(w, err.Error(), 500)
+func (h *AdminRoutes) UpdatePermission(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var perm acl.Permission
+	json.NewDecoder(r.Body).Decode(&perm)
+	permIDStr := chi.URLParam(r, "permId")
+	permID, err := strconv.Atoi(permIDStr)
+	if err != nil || permID < 1 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "Invalid permission ID",
+		})
 		return
 	}
-	w.Write([]byte("OK"))
+	if permID < 1 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "Invalid permission ID",
+		})
+		return
+	}
+	if !utils.IsASCIIAlphaNumeric(perm.Key) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "Only aA-zZ, 0-9, \"_\" and \"-\" symbols are supported",
+		})
+		return
+	}
+	perm.ID = int64(permID)
+	err = acl.UpdatePermission(h.db, perm)
+	if err != nil {
+		if err.Error() == "permission does not exists" {
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "Permission does not exists",
+			})
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "Internal server error",
+			})
+		}
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(Status{
+		Stat: "ok",
+	})
 }
 
-func (h *AdminRoutes) AssignRoleToUser(w http.ResponseWriter, r *http.Request) {
-	var b bindIDs
-	json.NewDecoder(r.Body).Decode(&b)
-	if err := acl.AssignRoleToUser(h.DB, b.RoleID, b.UserID); err != nil {
-		http.Error(w, err.Error(), 500)
+func (h *AdminRoutes) DeletePermission(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	permIDStr := chi.URLParam(r, "permId")
+	permID, err := strconv.Atoi(permIDStr)
+	if err != nil || permID < 1 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "Invalid permission ID",
+		})
 		return
 	}
-	w.Write([]byte("OK"))
+	err = acl.DeletePermission(h.db, int64(permID))
+	if err != nil {
+		if err.Error() == "permission does not exists" {
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "Permission does not exists",
+			})
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "Internal server error",
+			})
+		}
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(Status{
+		Stat: "ok",
+	})
 }
+
+func (h *AdminRoutes) GetRolePermissions(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	roleIDStr := chi.URLParam(r, "roleId")
+	roleID, err := strconv.Atoi(roleIDStr)
+	if err != nil || roleID < 1 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "Invalid role ID",
+		})
+		return
+	}
+	pg := server.GetPagination(r)
+	perms, err := acl.GetRolePermissions(h.db, int64(roleID), pg.Limit, pg.Offset)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "Role not found",
+			})
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "Internal server error",
+			})
+		}
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(perms)
+}
+
+func (h *AdminRoutes) AssignPermission(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	roleIDStr := chi.URLParam(r, "roleId")
+	roleID, err := strconv.Atoi(roleIDStr)
+	if err != nil || roleID < 1 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "Invalid role ID",
+		})
+		return
+	}
+	var bind bindIDs
+	json.NewDecoder(r.Body).Decode(&bind)
+	if bind.PermID < 1 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "Invalid permission ID",
+		})
+		return
+	}
+	err = acl.AssignPermissionToRole(h.db, int64(roleID), bind.PermID)
+	if err != nil {
+		if err.Error() == "role or permission does not exists" {
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "Role or permission does not exists",
+			})
+		} else if strings.Contains(err.Error(), "permission already assigned") {
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "Permission already assigned",
+			})
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "Internal server error",
+			})
+		}
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(Status{
+		Stat: "ok",
+	})
+}
+
+func (h *AdminRoutes) DeAssignPermission(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	roleIDStr := chi.URLParam(r, "roleId")
+	permIDStr := chi.URLParam(r, "permId")
+	roleID, err1 := strconv.Atoi(roleIDStr)
+	permID, err2 := strconv.Atoi(permIDStr)
+	if err1 != nil || err2 != nil || roleID < 1 || permID < 1 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "Invalid role or permission ID",
+		})
+		return
+	}
+	err := acl.DeAssignPermissionToRole(h.db, int64(roleID), int64(permID))
+	if err != nil {
+		if err.Error() == "relation does not exist" {
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "Relation does not exist",
+			})
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "Internal server error",
+			})
+		}
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(Status{
+		Stat: "ok",
+	})
+}
+
+
