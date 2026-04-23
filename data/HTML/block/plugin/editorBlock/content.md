@@ -5,6 +5,8 @@
             <svg class="tabs-svg-icon" class="svg-icon" use="8x13"></svg>
         </div>
         <div id="tabs-menu" style="display:none;">
+            <div id="tab-save" class="tab">Сохранить</div>
+            <div id="tab-saveHow" class="tab">Сохранить как</div>
             <div id="tab-open" class="tab">Открыть</div>
             <div  id="tab-new" class="tab">Новый</div>
         </div>

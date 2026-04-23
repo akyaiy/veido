@@ -722,6 +722,55 @@ document.addEventListener('click', (e) => {
 });
 
 /***********************************************************************
+ * Кнопки "Сохранить" и "Сохранить как"
+ **********************************************************************/
+const tabSave = document.getElementById('tab-save');
+const tabSaveHow = document.getElementById('tab-saveHow');
+
+/***********************************************************************
+ * tabSave onclick — сохранить в текущий путь
+ **********************************************************************/
+function saveBlock(currentBlock) {
+    const block = document.getElementById(currentBlock);
+    if (!block) return;
+
+    const tab = document.querySelector(`.tab[data-block-id="${currentBlock}"]`);
+    const path = tab.dataset.path;
+
+    if (!path) {
+        saveHowBlock(currentBlock);
+        return;
+    }
+
+    const payload = {
+        content: block.querySelector('[id$="_view"]').innerHTML,
+        js: block.querySelector('[id$="_scripts"] script').textContent,
+        css: ""
+    };
+
+    const headers = { 'Content-Type': 'application/json' };
+    if (typeof accessToken !== 'undefined' && accessToken) {
+        headers.Authorization = `Bearer ${accessToken}`;
+    }
+
+    return fetch(`/api/HTML${path}`, {
+        method: 'PATCH',
+        headers: headers,
+        body: JSON.stringify(payload)
+    });
+}
+function saveHowBlock() {
+    console.log('saveHowBlock called');
+}
+
+tabSave.onclick = async () => {
+    await saveBlock(window.currentBlock);
+};
+tabSaveHow.onclick = async () => {
+    await saveHowBlock(window.currentBlock);
+};
+
+/***********************************************************************
  * Кнопка вкладки "Открыть" и контейнер содержимого.
  **********************************************************************/
 const tabOpen = document.getElementById('tab-open');
@@ -785,6 +834,7 @@ async function newLoadedBlock() {
     }
     
 function switchTo(blockId, tabEl) {
+    window.currentBlock = tabEl.dataset.blockId;
     tabs.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     if (tabEl) tabEl.classList.add('active');
 
@@ -813,6 +863,7 @@ function switchTo(blockId, tabEl) {
 
     const block = document.createElement('div');
     block.id = blockId;
+    block.dataset.path = path;
 
     const viewDiv = document.createElement('div');
     viewDiv.id = blockId + '_view';
