@@ -2,3 +2,4 @@ data/db/data.db
 bin/
 data/functions/
 data/files/
+testdata/
