@@ -3,13 +3,13 @@ package acl
 //import "time"
 
 type Role struct {
-	ID   int64
-	Name string
+	ID   int64 `json:"id"`
+	Name string `json:"name"`
 }
 
 type Permission struct {
-	ID  int64
-	Key string
+	ID  int64 `json:"id"`
+	Key string `json:"name"`
 }
 
 type RolePermission struct {
