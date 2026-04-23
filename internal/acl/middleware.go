@@ -26,7 +26,7 @@ func RequirePermission(db *sql.DB, aut *auth.Auth, permOrFunc interface{}, next 
 		//fmt.Printf("user metod:%v\n", r.Method)
 		// Разрешаем все стандартные и WebDAV методы
 		switch r.Method {
-		case "OPTIONS", "GET", "HEAD", "POST", "PUT", "DELETE",
+		case "OPTIONS", "GET", "HEAD", "POST", "PUT", "PATCH", "DELETE",
 			"PROPFIND", "MKCOL", "COPY", "MOVE", "LOCK", "UNLOCK":
 			// Разрешаем продолжить
 		default:
