@@ -43,7 +43,7 @@ func (h *AdminRoutes) CreateRole(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var newRole acl.Role
 	json.NewDecoder(r.Body).Decode(&newRole)
-	if !utils.IsASCIIAlphaNumeric(newRole.Name) {
+	if !utils.IsASCIIAlphaNumeric(newRole.Name) || newRole.Name == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(Status{
 			Stat: "error",
@@ -104,6 +104,12 @@ func (h *AdminRoutes) UpdateRole(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(Status{
 				Stat: "error",
 				Message: "Role does not exists",
+			})
+		} else if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "Role with this name already exists",
 			})
 		} else {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -169,7 +175,7 @@ func (h *AdminRoutes) AssignRole(w http.ResponseWriter, r *http.Request) {
 	}
 	var bind bindIDs
 	json.NewDecoder(r.Body).Decode(&bind)
-	if bind.UserID < 1 || bind.RoleID < 1 {
+	if userID < 1 || bind.RoleID < 1 {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(Status{
 			Stat: "error",
@@ -256,7 +262,24 @@ func (h *AdminRoutes) GetUserRoles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	pg := server.GetPagination(r)
-	roles := acl.GetUserRoles(h.db, int64(userID), pg.Limit, pg.Offset)
+	roles, err := acl.GetUserRoles(h.db, int64(userID), pg.Limit, pg.Offset)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "User not found",
+			})
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "Internal server error",
+			})
+		}
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(roles)
 }
 
@@ -396,7 +419,24 @@ func (h *AdminRoutes) GetRolePermissions(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	pg := server.GetPagination(r)
-	perms := acl.GetRolePermissions(h.db, int64(roleID), pg.Limit, pg.Offset)
+	perms, err := acl.GetRolePermissions(h.db, int64(roleID), pg.Limit, pg.Offset)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "Role not found",
+			})
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "Internal server error",
+			})
+		}
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(perms)
 }
 

@@ -34,7 +34,7 @@ func GetRoles(db *sql.DB, limit, offset int) []Role {
 
 // Если функция возвращает значение [id] < 1, то произошла ошибка (смотреть в логах)
 func CreateRole(db *sql.DB, name string) int64 {
-	result, err := db.Exec("INSERT INTO roles name VALUES ?", name)
+	result, err := db.Exec("INSERT INTO roles (name) VALUES (?)", name)
 	if err != nil {
 		var sqliteErr sqlite3.Error
 
@@ -118,28 +118,46 @@ func AssignRoleToUser(db *sql.DB, roleID, userID int64) error {
 	return nil
 }
 
-func GetUserRoles(db *sql.DB, userID int64, limit, offset int) []Role {
+func GetUserRoles(db *sql.DB, userID int64, limit, offset int) ([]Role, error) {
+	roles := []Role{}
 	rows, err := db.Query(
-		`SELECT r.id, r.name FROM roles r
-		 JOIN user_roles ur ON ur.role_id = r.id
-		 WHERE ur.user_id = ? LIMIT ? OFFSET ?`, userID, limit, offset,
+		`SELECT u.id, r.id, r.name 
+		FROM users u
+		LEFT JOIN user_roles ur ON u.id = ur.user_id
+		LEFT JOIN roles r ON ur.role_id = r.id
+		WHERE u.id = ? LIMIT ? OFFSET ?`, userID, limit, offset,
 	)
 	if err != nil {
-		slog.Error("GetUserRoles db error", "err", err.Error())
-		return []Role{}
+		return nil, err
 	}
 	defer rows.Close()
 
-	var roles []Role
+	userFound := false
+
 	for rows.Next() {
-		var role Role
-		if err := rows.Scan(&role.ID, &role.Name); err != nil {
-			slog.Warn("GetUserRoles - failed to read role", "err", err.Error())
+		userFound = true
+		var uID int64
+		var rID sql.NullInt64
+		var rName sql.NullString
+
+		if err := rows.Scan(&uID, &rID, &rName); err != nil {
+			slog.Warn("Scan error", "err", err)
 			continue
 		}
-		roles = append(roles, role)
+
+		if rID.Valid {
+			roles = append(roles, Role{
+				ID:   rID.Int64,
+				Name: rName.String,
+			})
+		}
 	}
-	return roles
+
+	if !userFound {
+		return nil, fmt.Errorf("user with id %d not found", userID)
+	}
+
+	return roles, nil
 }
 
 func DeAssignRoleToUser(db *sql.DB, roleID, userID int64) error {
@@ -170,8 +188,9 @@ func DeAssignRoleToUser(db *sql.DB, roleID, userID int64) error {
 // Permissions
 
 func GetPermissions(db *sql.DB, limit, offset int) []Permission {
-	rows, err := db.Query("SELECT id, name FROM permissions LIMIT ? OFFSET ?", limit, offset)
+	rows, err := db.Query("SELECT id, key FROM permissions LIMIT ? OFFSET ?", limit, offset)
 	if err != nil {
+		slog.Error("GetPermissions db error", "err", err.Error())
 		return []Permission{}
 	}
 	defer rows.Close()
@@ -190,7 +209,7 @@ func GetPermissions(db *sql.DB, limit, offset int) []Permission {
 
 // Если функция возвращает значение [id] < 1, то произошла ошибка (смотреть в логах)
 func CreatePermission(db *sql.DB, name string) int64 {
-	result, err := db.Exec("INSERT INTO permissions key VALUES ?", name)
+	result, err := db.Exec("INSERT INTO permissions (key) VALUES (?)", name)
 	if err != nil {
 		var sqliteErr sqlite3.Error
 
@@ -275,28 +294,51 @@ func AssignPermissionToRole(db *sql.DB, roleID, permID int64) error {
 	return nil
 }
 
-func GetRolePermissions(db *sql.DB, roleID int64, limit, offset int) []Permission {
+func GetRolePermissions(db *sql.DB, roleID int64, limit, offset int) ([]Permission, error) {
+	permissions := []Permission{}
+
 	rows, err := db.Query(
-		`SELECT p.id, p.key FROM permissions p
-		 JOIN role_permissions rp ON rp.permission_id = p.id
-		 WHERE rp.role_id = ? LIMIT ? OFFSET ?`, roleID, limit, offset,
+		`SELECT r.id, p.id, p.key 
+		FROM roles r
+		LEFT JOIN role_permissions rp ON r.id = rp.role_id
+		LEFT JOIN permissions p ON rp.permission_id = p.id
+		WHERE r.id = ? LIMIT ? OFFSET ?`, roleID, limit, offset,
 	)
 	if err != nil {
 		slog.Error("GetRolePermissions db error", "err", err.Error())
-		return []Permission{}
+		return nil, err
 	}
 	defer rows.Close()
 
-	var permissions []Permission
+	roleFound := false
 	for rows.Next() {
-		var permission Permission
-		if err := rows.Scan(&permission.ID, &permission.Key); err != nil {
-			slog.Warn("GetRolePermissions - failed to read permission", "err", err.Error())
+		roleFound = true
+		var rID int64
+		var pID sql.NullInt64
+		var pKey sql.NullString
+
+		if err := rows.Scan(&rID, &pID, &pKey); err != nil {
+			slog.Warn("GetRolePermissions - scan error", "err", err.Error())
 			continue
 		}
-		permissions = append(permissions, permission)
+
+		if pID.Valid {
+			permissions = append(permissions, Permission{
+				ID:  pID.Int64,
+				Key: pKey.String,
+			})
+		}
 	}
-	return permissions
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	if !roleFound {
+		return nil, fmt.Errorf("role with id %d not found", roleID)
+	}
+
+	return permissions, nil
 }
 
 func DeAssignPermissionToRole(db *sql.DB, roleID, permID int64) error {

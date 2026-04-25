@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -25,9 +26,14 @@ func RequirePermission(db *sql.DB, aut *auth.Auth, permOrFunc interface{}, next 
 	return func(w http.ResponseWriter, r *http.Request) {
 		//fmt.Printf("user metod:%v\n", r.Method)
 		// Разрешаем все стандартные и WebDAV методы
+		if DEVMODE {
+			slog.Warn("RequirePermission: DEVMODE is ON, skipping ACL checks")
+			next.ServeHTTP(w, r)
+			return
+		}
 		switch r.Method {
 		case "OPTIONS", "GET", "HEAD", "POST", "PUT", "DELETE",
-			"PROPFIND", "MKCOL", "COPY", "MOVE", "LOCK", "UNLOCK":
+			"PROPFIND", "MKCOL", "COPY", "MOVE", "LOCK", "UNLOCK", "PATCH":
 			// Разрешаем продолжить
 		default:
 			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
