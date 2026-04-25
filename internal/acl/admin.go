@@ -99,6 +99,31 @@ func AssignRoleToUser(db *sql.DB, roleID, userID int64) error {
 	return err
 }
 
+func DeAssignRoleToUser(db *sql.DB, roleID, userID int64) error {
+	res, err := db.Exec(
+		"DELETE FROM user_roles WHERE user_id = ? AND role_id = ?",
+		userID,
+		roleID,
+	)
+	if err != nil {
+		slog.Error("DeAssignRoleToUser db error", "err", err.Error())
+		return err
+	}
+
+	rows, err := res.RowsAffected()
+	if err != nil {
+		slog.Error("DeAssignRoleToUser db error", "err", err.Error())
+		return err
+	}
+
+	if rows == 0 {
+		slog.Error("DeAssignRoleToUser db error: relation does not exist")
+		return errors.New("relation does not exist")
+	}
+
+	return nil
+}
+
 // Permissions
 
 func GetPermissions(db *sql.DB, limit, offset int) []Permission {
@@ -189,4 +214,29 @@ func DeletePermission(db *sql.DB, name string) error {
 func AssignPermissionToRole(db *sql.DB, roleID, permID int64) error {
 	_, err := db.Exec("INSERT OR IGNORE INTO role_permissions(role_id, permission_id) VALUES (?, ?)", roleID, permID)
 	return err
+}
+
+func DeAssignPermissionToRole(db *sql.DB, roleID, permID int64) error {
+	res, err := db.Exec(
+		"DELETE FROM role_permissions WHERE role_id = ? AND permission_id = ?",
+		roleID,
+		permID,
+	)
+	if err != nil {
+		slog.Error("DeAssignPermissionToRole db error", "err", err.Error())
+		return err
+	}
+
+	rows, err := res.RowsAffected()
+	if err != nil {
+		slog.Error("DeAssignPermissionToRole db error", "err", err.Error())
+		return err
+	}
+
+	if rows == 0 {
+		slog.Error("DeAssignPermissionToRole db error: relation does not exist")
+		return errors.New("relation does not exist")
+	}
+
+	return nil
 }
