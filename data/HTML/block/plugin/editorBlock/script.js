@@ -730,7 +730,7 @@ const tabSaveHow = document.getElementById('tab-saveHow');
 /***********************************************************************
  * tabSave onclick — сохранить в текущий путь
  **********************************************************************/
-function saveBlock(currentBlock) {
+async function saveBlock(currentBlock) {
     const block = document.getElementById(currentBlock);
     if (!block) return;
 
@@ -753,14 +753,60 @@ function saveBlock(currentBlock) {
         headers.Authorization = `Bearer ${accessToken}`;
     }
 
-    return fetch(`/api/HTML${path}`, {
+    const url = `/api/HTML${path}`;
+    const patchRes = await fetch(url, {
         method: 'PATCH',
         headers: headers,
         body: JSON.stringify(payload)
     });
+
+    if (patchRes.status !== 406) {
+        return patchRes;
+    }
+
+    let message = "";
+    try {
+        const data = await patchRes.clone().json();
+        message = data?.message || "";
+    } catch (err) {
+        message = await patchRes.text();
+    }
+
+    if (!message.includes("не существует")) {
+        return patchRes;
+    }
+
+    return fetch(url, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({
+            ...payload,
+            css: payload.css || " "
+        })
+    });
 }
-function saveHowBlock() {
-    console.log('saveHowBlock called');
+async function saveHowBlock(currentBlock) {
+    const newPath = prompt("Новый путь:"); 
+    if (!newPath) return;
+
+    const headers = {};
+    if (typeof accessToken !== 'undefined' && accessToken) {
+        headers.Authorization = `Bearer ${accessToken}`;
+    }
+
+    const checkRes = await fetch(`/api/HTML${newPath}`, { headers });
+    const checkData = await checkRes.json();
+    const exists =
+        checkData.content !== "<h2>Запрашиваемая страница не найдена</h2>" ||
+        checkData.js !== "" ||
+        checkData.css !== "";
+
+    if (exists && !confirm(`Путь "${newPath}" уже существует. Перезаписать?`)) {
+        return;
+    }
+
+    document.querySelector(`.tab[data-block-id="${currentBlock}"]`).dataset.path = newPath;
+    await saveBlock(window.currentBlock);
 }
 
 tabSave.onclick = async () => {
