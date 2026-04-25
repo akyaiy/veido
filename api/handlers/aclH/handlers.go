@@ -157,13 +157,13 @@ func (h *AdminRoutes) DeleteRole(w http.ResponseWriter, r *http.Request) {
 
 func (h *AdminRoutes) AssignRole(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	roleIDStr := chi.URLParam(r, "roleId")
-	roleID, err := strconv.Atoi(roleIDStr)
-	if err != nil || roleID < 1 {
+	userIDStr := chi.URLParam(r, "userId")
+	userID, err := strconv.Atoi(userIDStr)
+	if err != nil || userID < 1 {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(Status{
 			Stat: "error",
-			Message: "Invalid role ID",
+			Message: "Invalid user ID",
 		})
 		return
 	}
@@ -177,7 +177,7 @@ func (h *AdminRoutes) AssignRole(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	err = acl.AssignRoleToUser(h.db, int64(roleID), bind.UserID)
+	err = acl.AssignRoleToUser(h.db, bind.RoleID, int64(userID))
 	if err != nil {
 		if err.Error() == "user or role does not exists" {
 			w.WriteHeader(http.StatusConflict)
@@ -304,7 +304,7 @@ func (h *AdminRoutes) UpdatePermission(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(Status{
 			Stat: "error",
-			Message: "Invalid role ID",
+			Message: "Invalid permission ID",
 		})
 		return
 	}
