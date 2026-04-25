@@ -3,27 +3,36 @@ package aclH
 import (
 	"MyServer/internal/acl"
 	"MyServer/internal/auth"
+	"MyServer/internal/server"
 	"database/sql"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 )
 
-// RegisterUserRoutes регистрирует все маршруты /api/users/*
 func RegisterRoutes(r chi.Router, db *sql.DB, aut *auth.Auth) {
-	h := &AdminRoutes{DB: db, Aut: aut}
-
-	//	r.Post("/register", acl.RequirePermission(db, aut, "users.register", RegisterHandler(db, aut)))
-
-	r.Get("/roles", acl.RequirePermission(db, aut, "acl.roles", http.HandlerFunc(h.GetRoles)))
-	r.Post("/create-role", acl.RequirePermission(db, aut, "acl.create_role", http.HandlerFunc(h.CreateRole)))
-	r.Post("/assign-role", acl.RequirePermission(db, aut, "acl.assign_role", http.HandlerFunc(h.AssignRoleToUser)))
-	r.Get("/user-roles", acl.RequirePermission(db, aut, "acl.user_roles", http.HandlerFunc(h.GetUserRoles)))
-	r.Post("/remove-role", acl.RequirePermission(db, aut, "acl.remove_role", http.HandlerFunc(h.RemoveRoleFromUser)))
-
-	r.Get("/permissions", acl.RequirePermission(db, aut, "acl.permissions", http.HandlerFunc(h.GetPermissions)))
-	r.Post("/create-permission", acl.RequirePermission(db, aut, "acl.create_permission", http.HandlerFunc(h.CreatePermission)))
-	r.Post("/assign-permission", acl.RequirePermission(db, aut, "acl.assign_permission", http.HandlerFunc(h.AssignPermissionToRole)))
-	r.Get("/role-permissions", acl.RequirePermission(db, aut, "acl.role_permissions", http.HandlerFunc(h.GetRolePermissions)))
-	r.Post("/remove-permission", acl.RequirePermission(db, aut, "acl.remove_permission", http.HandlerFunc(h.RemovePermissionFromRole)))
+	h := AdminRoutes{
+		db: db,
+	}
+	r.Route("/roles", func(r chi.Router) {
+		r.With(server.PaginationMiddleware).Get("/", acl.RequirePermission(db, aut, "acl.roles.list.get", http.HandlerFunc(h.GetRoles)))
+		r.Post("/", acl.RequirePermission(db, aut, "acl.roles.create", http.HandlerFunc(h.CreateRole)))
+		r.Patch("/{roleId}", acl.RequirePermission(db, aut, "acl.roles.update", http.HandlerFunc(h.UpdateRole)))
+		r.Delete("/{roleId}", acl.RequirePermission(db, aut, "acl.roles.delete", http.HandlerFunc(h.DeleteRole)))
+		
+		r.With(server.PaginationMiddleware).Get("/{roleId}/perms", acl.RequirePermission(db, aut, "acl.roles.permissions.list.get", http.HandlerFunc(h.GetRolePermissions)))
+		r.Post("/{roleId}/perms", acl.RequirePermission(db, aut, "acl.permission.assign", http.HandlerFunc(h.AssignPermission)))
+		r.Delete("/{roleId}/perms/{permId}", acl.RequirePermission(db, aut, "acl.permission.deassign", http.HandlerFunc(h.DeAssignPermission)))
+	})
+	
+	r.With(server.PaginationMiddleware).Get("/users/{userId}/roles", acl.RequirePermission(db, aut, "acl.user.roles.list.get", http.HandlerFunc(h.GetUserRoles)))
+	r.Post("/users/{userId}/roles", acl.RequirePermission(db, aut, "acl.user.roles.assign", http.HandlerFunc(h.AssignRole)))
+	r.Delete("/users/{userId}/roles/{roleId}", acl.RequirePermission(db, aut, "acl.user.roles.deassign", http.HandlerFunc(h.DeAssignRole)))
+	
+	r.Route("/perms", func(r chi.Router) {
+		r.With(server.PaginationMiddleware).Get("/", acl.RequirePermission(db, aut, "acl.permissions.list.get", http.HandlerFunc(h.GetPermissions)))
+		r.Post("/", acl.RequirePermission(db, aut, "acl.permission.create", http.HandlerFunc(h.CreatePermission)))
+		r.Patch("/{permId}", acl.RequirePermission(db, aut, "acl.permission.update", http.HandlerFunc(h.UpdatePermission)))
+		r.Delete("/{permId}", acl.RequirePermission(db, aut, "acl.permission.delete", http.HandlerFunc(h.DeletePermission)))
+	})
 }
