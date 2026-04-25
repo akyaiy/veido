@@ -3,7 +3,9 @@ package acl
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/mattn/go-sqlite3"
 )
@@ -97,8 +99,23 @@ func DeleteRole(db *sql.DB, id int64) error {
 }
 
 func AssignRoleToUser(db *sql.DB, roleID, userID int64) error {
-	_, err := db.Exec("INSERT OR IGNORE INTO user_roles(user_id, role_id) VALUES (?, ?)", userID, roleID)
-	return err
+	_, err := db.Exec(
+		"INSERT INTO user_roles(user_id, role_id) VALUES (?, ?)",
+		userID, roleID,
+	)
+
+	if err != nil {
+		if strings.Contains(err.Error(), "FOREIGN KEY constraint failed") {
+			return fmt.Errorf("user or role does not exist")
+		}
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			return fmt.Errorf("role already assigned")
+		}
+
+		slog.Error("AssignRoleToUser db error", "err", err.Error())
+		return err
+	}
+	return nil
 }
 
 func GetUserRoles(db *sql.DB, userID int64, limit, offset int) []Role {
@@ -238,8 +255,24 @@ func DeletePermission(db *sql.DB, id int64) error {
 }
 
 func AssignPermissionToRole(db *sql.DB, roleID, permID int64) error {
-	_, err := db.Exec("INSERT OR IGNORE INTO role_permissions(role_id, permission_id) VALUES (?, ?)", roleID, permID)
-	return err
+	_, err := db.Exec(
+		"INSERT INTO role_permissions(role_id, permission_id) VALUES (?, ?)",
+		roleID, permID,
+	)
+
+	if err != nil {
+		if strings.Contains(err.Error(), "FOREIGN KEY constraint failed") {
+			return fmt.Errorf("role or permission does not exist")
+		}
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			return fmt.Errorf("permission already assigned to role")
+		}
+
+		slog.Error("AssignPermissionToRole db error", "err", err.Error())
+		return err
+	}
+
+	return nil
 }
 
 func GetRolePermissions(db *sql.DB, roleID int64, limit, offset int) []Permission {
