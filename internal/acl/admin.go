@@ -30,6 +30,7 @@ func GetRoles(db *sql.DB, limit, offset int) []Role {
 	return roles
 }
 
+// Если функция возвращает значение [id] < 1, то произошла ошибка (смотреть в логах)
 func CreateRole(db *sql.DB, name string) int64 {
 	result, err := db.Exec("INSERT INTO roles name VALUES ?", name)
 	if err != nil {
@@ -75,8 +76,8 @@ func UpdateRole(db *sql.DB, fields Role) error {
 	return nil
 }
 
-func DeleteRole(db *sql.DB, name string) error {
-	result, err := db.Exec("DELETE FROM roles WHERE name = ?", name)
+func DeleteRole(db *sql.DB, id int64) error {
+	result, err := db.Exec("DELETE FROM roles WHERE id = ?", id)
 	if err != nil {
 		slog.Error("DeleteRole db error", "err", err.Error())
 		return err
@@ -192,8 +193,8 @@ func UpdatePermission(db *sql.DB, fields Permission) error {
 	return nil
 }
 
-func DeletePermission(db *sql.DB, name string) error {
-	result, err := db.Exec("DELETE FROM permissions WHERE key = ?", name)
+func DeletePermission(db *sql.DB, id int64) error {
+	result, err := db.Exec("DELETE FROM permissions WHERE id = ?", id)
 	if err != nil {
 		slog.Error("DeletePermission db error", "err", err.Error())
 		return err
