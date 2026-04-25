@@ -13,12 +13,10 @@ func RegisterRoutes(r chi.Router, db *sql.DB, aut *auth.Auth) {
 		r.Post("/", acl.RequirePermission(db, aut, "acl.roles.create", CreateRole))
 		r.Patch("/{roleId}", acl.RequirePermission(db, aut, "acl.roles.update", UpdateRole))
 		r.Delete("/{roleId}", acl.RequirePermission(db, aut, "acl.roles.delete", DeleteRole))
-		// Возможно, временное решение: логичнее присваивать роль пользователю, а не пользователя роли.
-		// Но для простоты архитектуры, пока что оставим так
-		r.Post("/{roleId}/users/", acl.RequirePermission(db, aut, "acl.roles.assign", AssignRole))
-		r.Delete("/{roleId}/users/{userId}", acl.RequirePermission(db, aut, "acl.roles.deassign", DeAssignRole))
+		r.Post("/users/{userId}/roles", acl.RequirePermission(db, aut, "acl.roles.assign", AssignRole))
+		r.Delete("/users/{userId}/roles/{roleId}", acl.RequirePermission(db, aut, "acl.roles.deassign", DeAssignRole))
 
-		r.Post("/{roleId}/perms/", acl.RequirePermission(db, aut, "acl.permission.assign", AssignPermission))
+		r.Post("/{roleId}/perms", acl.RequirePermission(db, aut, "acl.permission.assign", AssignPermission))
 		r.Delete("/{roleId}/perms/{permId}", acl.RequirePermission(db, aut, "acl.permission.deassign", DeAssignPermission))
 	})
 	r.Route("/perms", func(r chi.Router) {
