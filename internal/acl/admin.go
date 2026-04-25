@@ -13,6 +13,7 @@ import (
 func GetRoles(db *sql.DB, limit, offset int) []Role {
 	rows, err := db.Query("SELECT id, name FROM roles LIMIT ? OFFSET ?", limit, offset)
 	if err != nil {
+		slog.Error("GetRoles db error", "err", err.Error())
 		return []Role{}
 	}
 	defer rows.Close()
