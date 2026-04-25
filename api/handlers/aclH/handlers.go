@@ -157,6 +157,16 @@ func (h *AdminRoutes) DeleteRole(w http.ResponseWriter, r *http.Request) {
 
 func (h *AdminRoutes) AssignRole(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	roleIDStr := chi.URLParam(r, "roleId")
+	roleID, err := strconv.Atoi(roleIDStr)
+	if err != nil || roleID < 1 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "Invalid role ID",
+		})
+		return
+	}
 	var bind bindIDs
 	json.NewDecoder(r.Body).Decode(&bind)
 	if bind.UserID < 1 || bind.RoleID < 1 {
@@ -167,7 +177,7 @@ func (h *AdminRoutes) AssignRole(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	err := acl.AssignRoleToUser(h.db, bind.RoleID, bind.UserID)
+	err = acl.AssignRoleToUser(h.db, int64(roleID), bind.UserID)
 	if err != nil {
 		if err.Error() == "user or role does not exists" {
 			w.WriteHeader(http.StatusConflict)
