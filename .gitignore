@@ -3,3 +3,4 @@ bin/
 data/functions/
 data/files/
 testdata/
+data/config.yaml
