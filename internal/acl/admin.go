@@ -160,6 +160,30 @@ func GetUserRoles(db *sql.DB, userID int64, limit, offset int) ([]Role, error) {
 	return roles, nil
 }
 
+func GetUserRoles(db *sql.DB, userID int64, limit, offset int) []Role {
+	rows, err := db.Query(
+		`SELECT r.id, r.name FROM roles r
+		 JOIN user_roles ur ON ur.role_id = r.id
+		 WHERE ur.user_id = ? LIMIT ? OFFSET ?`, userID, limit, offset,
+	)
+	if err != nil {
+		slog.Error("GetUserRoles db error", "err", err.Error())
+		return []Role{}
+	}
+	defer rows.Close()
+
+	var roles []Role
+	for rows.Next() {
+		var role Role
+		if err := rows.Scan(&role.ID, &role.Name); err != nil {
+			slog.Warn("GetUserRoles - failed to read role", "err", err.Error())
+			continue
+		}
+		roles = append(roles, role)
+	}
+	return roles
+}
+
 func DeAssignRoleToUser(db *sql.DB, roleID, userID int64) error {
 	res, err := db.Exec(
 		"DELETE FROM user_roles WHERE user_id = ? AND role_id = ?",
@@ -339,6 +363,30 @@ func GetRolePermissions(db *sql.DB, roleID int64, limit, offset int) ([]Permissi
 	}
 
 	return permissions, nil
+}
+
+func GetRolePermissions(db *sql.DB, roleID int64, limit, offset int) []Permission {
+	rows, err := db.Query(
+		`SELECT p.id, p.key FROM permissions p
+		 JOIN role_permissions rp ON rp.permission_id = p.id
+		 WHERE rp.role_id = ? LIMIT ? OFFSET ?`, roleID, limit, offset,
+	)
+	if err != nil {
+		slog.Error("GetRolePermissions db error", "err", err.Error())
+		return []Permission{}
+	}
+	defer rows.Close()
+
+	var permissions []Permission
+	for rows.Next() {
+		var permission Permission
+		if err := rows.Scan(&permission.ID, &permission.Key); err != nil {
+			slog.Warn("GetRolePermissions - failed to read permission", "err", err.Error())
+			continue
+		}
+		permissions = append(permissions, permission)
+	}
+	return permissions
 }
 
 func DeAssignPermissionToRole(db *sql.DB, roleID, permID int64) error {
