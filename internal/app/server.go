@@ -50,7 +50,7 @@ func ServerStart(db *sql.DB, aut *auth.Auth) {
 	})
 
 	r.Route("/api", func(api chi.Router) {
-		api.Route("/users", func(u chi.Router) { users.RegisterRoutes(u, db, aut) })
+		api.Route("/auth", func(u chi.Router) { users.RegisterRoutes(u, db, aut) })
 		api.Get("/protected", HTML.LoadProtected(aut))
 		api.Route("/HTML", func(u chi.Router) { HTML.RegisterRoutes(u, db, aut) })
 		api.Route("/functions", func(u chi.Router) { functions.RegisterRoutes(u, db, aut) })
