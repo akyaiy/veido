@@ -22,9 +22,9 @@ type item struct {
 }
 
 type bindIDs struct {
-	RoleID int64 `json:"role_id"`
-	PermID int64 `json:"perm_id"`
-	UserID int64 `json:"user_id"`
+	RoleID int64 `json:"roleId"`
+	PermID int64 `json:"permId"`
+	UserID int64 `json:"userId"`
 }
 
 type Status struct {
