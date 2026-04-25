@@ -70,7 +70,17 @@ func (h *AdminRoutes) UpdateRole(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var role acl.Role
 	json.NewDecoder(r.Body).Decode(&role)
-	if role.ID < 1 {
+	roleIDStr := chi.URLParam(r, "roleId")
+	roleID, err := strconv.Atoi(roleIDStr)
+	if err != nil || roleID < 1 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "Invalid role ID",
+		})
+		return
+	}
+	if roleID < 1 {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(Status{
 			Stat: "error",
@@ -86,7 +96,8 @@ func (h *AdminRoutes) UpdateRole(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	err := acl.UpdateRole(h.db, role)
+	role.ID = int64(roleID)
+	err = acl.UpdateRole(h.db, role)
 	if err != nil {
 		if err.Error() == "role does not exists" {
 			w.WriteHeader(http.StatusConflict)
@@ -277,7 +288,17 @@ func (h *AdminRoutes) UpdatePermission(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var perm acl.Permission
 	json.NewDecoder(r.Body).Decode(&perm)
-	if perm.ID < 1 {
+	permIDStr := chi.URLParam(r, "permId")
+	permID, err := strconv.Atoi(permIDStr)
+	if err != nil || permID < 1 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "Invalid role ID",
+		})
+		return
+	}
+	if permID < 1 {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(Status{
 			Stat: "error",
@@ -293,7 +314,8 @@ func (h *AdminRoutes) UpdatePermission(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	err := acl.UpdatePermission(h.db, perm)
+	perm.ID = int64(permID)
+	err = acl.UpdatePermission(h.db, perm)
 	if err != nil {
 		if err.Error() == "permission does not exists" {
 			w.WriteHeader(http.StatusConflict)
