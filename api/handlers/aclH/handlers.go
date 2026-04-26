@@ -2,6 +2,7 @@ package aclH
 
 import (
 	"MyServer/internal/acl"
+	"MyServer/internal/auth"
 	"MyServer/internal/server"
 	"MyServer/internal/utils"
 	"database/sql"
@@ -15,6 +16,7 @@ import (
 
 type AdminRoutes struct {
 	db *sql.DB
+	auth *auth.Auth
 }
 
 type item struct {
@@ -528,4 +530,35 @@ func (h *AdminRoutes) DeAssignPermission(w http.ResponseWriter, r *http.Request)
 	})
 }
 
-
+func (h *AdminRoutes) GetMyRoles(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	userID, ok := h.auth.AuthenticateRequest(r)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "Unauthorized",
+		})
+		return
+	}
+	pg := server.GetPagination(r)
+	roles, err := acl.GetUserRoles(h.db, userID, pg.Limit, pg.Offset)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "User not found",
+			})
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "Internal server error",
+			})
+		}
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(roles)
+}
