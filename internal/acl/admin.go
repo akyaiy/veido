@@ -365,3 +365,151 @@ func DeAssignPermissionToRole(db *sql.DB, roleID, permID int64) error {
 
 	return nil
 }
+
+type UserPermission struct {
+	ID  int64 `json:"id,omitempty"`
+	Name string `json:"name,omitempty"`
+	ProvidingRoles []string `json:"providingRoles,omitempty"`
+	Access string `json:"access"` // "deny" or "allow"
+}
+
+func GetUserPermissions(db *sql.DB, userID int64, limit, offset int) ([]UserPermission, error) {
+	permissions := []UserPermission{}
+
+	rows, err := db.Query(
+		`SELECT p.id, p.key, r.name
+		FROM users u
+		LEFT JOIN user_roles ur ON u.id = ur.user_id
+		LEFT JOIN roles r ON ur.role_id = r.id
+		LEFT JOIN role_permissions rp ON r.id = rp.role_id
+		LEFT JOIN permissions p ON rp.permission_id = p.id
+		WHERE u.id = ?
+		LIMIT ? OFFSET ?`, userID, limit, offset,
+	)
+	if err != nil {
+		slog.Error("GetUserPermissions db error", "err", err.Error())
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var pID sql.NullInt64
+		var pKey sql.NullString
+		var rName sql.NullString
+
+		if err := rows.Scan(&pID, &pKey, &rName); err != nil {
+			slog.Warn("GetUserPermissions - scan error", "err", err.Error())
+			continue
+		}
+
+		if pID.Valid {
+			providingRole := ""
+			if rName.Valid {
+				providingRole = rName.String
+			}
+
+			found := false
+			for i := range permissions {
+				if permissions[i].ID == pID.Int64 {
+					if providingRole != "" {
+						already := false
+						for _, existing := range permissions[i].ProvidingRoles {
+							if existing == providingRole {
+								already = true
+								break
+							}
+						}
+						if !already {
+							permissions[i].ProvidingRoles = append(permissions[i].ProvidingRoles, providingRole)
+						}
+					}
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				perm := UserPermission{
+					ID:    pID.Int64,
+					Name:  pKey.String,
+					Access: "allow",
+				}
+				if providingRole != "" {
+					perm.ProvidingRoles = []string{providingRole}
+				}
+				permissions = append(permissions, perm)
+			}
+		}
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return evaluatePermissions(permissions), nil
+}
+
+func evaluatePermissions(raw []UserPermission) []UserPermission {
+	var denies []string
+	var allows []UserPermission
+
+	// 1. Разделяем на разрешающие и запрещающие
+	for _, p := range raw {
+		if strings.HasPrefix(p.Name, "!") {
+			// Убираем '!' и сохраняем в список запретов
+			denies = append(denies, strings.TrimPrefix(p.Name, "!"))
+		} else {
+			allows = append(allows, p)
+		}
+	}
+
+	finalPermissions := []UserPermission{}
+
+	// 2. Проверяем каждое разрешение на конфликт с запретами
+	for _, p := range allows {
+		isDenied := false
+		for _, denyPattern := range denies {
+			if matchACL(p.Name, denyPattern) {
+				isDenied = true
+				break
+			}
+		}
+
+		if !isDenied {
+			p.Access = "allow"
+			finalPermissions = append(finalPermissions, p)
+		}
+	}
+
+	return finalPermissions
+}
+
+// matchACL проверяет, подходит ли право под маску (например, "acl.view" под "acl.*")
+func matchACL(permission, pattern string) bool {
+	if pattern == "*" {
+		return true
+	}
+	if strings.HasSuffix(pattern, ".*") {
+		prefix := strings.TrimSuffix(pattern, ".*")
+		return strings.HasPrefix(permission, prefix)
+	}
+	return permission == pattern
+}
+
+func CheckUserPermission(db *sql.DB, userID, permID int64) (UserPermission, error) {
+	permissions, err := GetUserPermissions(db, userID, 1000, 0) // Получаем все права пользователя; TODO реализовать работу с пагинацией, пока что не ожидается большого количества прав на одного пользователя
+	if err != nil {
+		return UserPermission{}, err
+	}
+
+	for _, p := range permissions {
+		if p.ID == permID {
+			return p, nil
+		}
+	}
+
+	return UserPermission{
+		ID: permID,
+		Access: "deny",
+	}, nil
+}

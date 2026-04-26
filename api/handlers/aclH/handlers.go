@@ -562,3 +562,80 @@ func (h *AdminRoutes) GetMyRoles(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(roles)
 }
+
+func (h *AdminRoutes) CheckUserPermissions(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	userIDStr := chi.URLParam(r, "userId")
+	userID, err := strconv.Atoi(userIDStr)
+	if err != nil || userID < 1 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "Invalid user ID",
+		})
+		return
+	}
+	h.nextCheckUserPermissions(userID, w, r)
+}
+
+func (h *AdminRoutes) CheckMyPermissions(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	userID, ok := h.auth.AuthenticateRequest(r)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "Unauthorized",
+		})
+		return
+	}
+	h.nextCheckUserPermissions(int(userID), w, r)
+}
+
+func (h *AdminRoutes) nextCheckUserPermissions(userID int, w http.ResponseWriter, r *http.Request) {
+	permIdStr := r.URL.Query().Get("permission")
+	if permIdStr != "" {
+		permID, err := strconv.Atoi(permIdStr)
+		if err != nil || permID < 1 {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "Invalid permission ID",
+			})
+			return
+		}
+		userPermission, err := acl.CheckUserPermission(h.db, int64(userID), int64(permID))
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "Internal server error",
+			})
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(userPermission)
+		return
+	}
+
+	pg := server.GetPagination(r)
+	perms, err := acl.GetUserPermissions(h.db, int64(userID), pg.Limit, pg.Offset)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "User not found",
+			})
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(Status{
+				Stat: "error",
+				Message: "Internal server error",
+			})
+		}
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(perms)
+}
