@@ -629,19 +629,16 @@ async function loadBlock(path, block_Name, itemsHowText = null) {
  *****************************************************************************/
 function navigateTo(url, target) {
     const clean = url.replace(/^\//, "");
-    history.pushState({}, "", "/" + clean);
+    history.pushState({ target: target }, "", "/" + clean);
     loadBlock("pages/" + clean, target);
 }
 
 /*****************************************************************************
  * Поддержка кнопки "назад/вперед"
  *****************************************************************************/
-window.addEventListener("popstate", () => {loadBlock(location.pathname);});
-
-/*****************************************************************************
- * Обработка истории браузера
- *****************************************************************************/
-window.addEventListener("popstate", () => loadBlock(window.location.pathname));
+window.addEventListener("popstate", (event) => {
+    loadBlock("pages" + window.location.pathname, event.state.target);
+});
 
 /*****************************************************************************
  * Перехватчик ссылок
