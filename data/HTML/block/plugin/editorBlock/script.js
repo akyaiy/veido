@@ -1,7 +1,24 @@
-window.tempStore.getByRecipient = async () => [{ path: "/pages/example" }];
-newLoadedBlock();
-window.tempStore.getByRecipient = async () => [{ path: "/pages/test" }];
-newLoadedBlock();
+async function test() {
+    await window.tempStore.store(
+        { data: { path: "/pages/example" } },
+        { recipient: "newLoadedBlock", ttlMs: 5000, destroyOnRead: true }
+    );
+
+    await newLoadedBlock();
+
+    await window.tempStore.store(
+        { data: { path: "/pages/test" } },
+        { recipient: "newLoadedBlock", ttlMs: 5000, destroyOnRead: true }
+    );
+
+    await newLoadedBlock();
+}
+test()
+
+
+
+
+
 
 
 document.addEventListener('keydown', function(e) {
@@ -786,7 +803,11 @@ async function saveBlock(currentBlock) {
     });
 }
 async function saveHowBlock(currentBlock) {
-    const newPath = prompt("Новый путь:"); 
+    const div = document.createElement("div");
+    div.id = "fManager";
+    document.body.appendChild(div);
+    await window.tempStore.store({path: "/", listTfootAct: "loadBlock", sender: "newLoadedBlock", callbackFun: "newLoadedBlock"}, { recipient: 'fManager', ttlMs: 5000, destroyOnRead: true })
+    const newPath = await loadBlock("plugin/fManager", "fManager");
     if (!newPath) return;
 
     const headers = {};
@@ -834,7 +855,7 @@ tabOpen.onclick = async() => {
     fm.id = 'fManager';
     content.appendChild(fm);
 
-    await tempStore.store({path: "/data/HTML/block", listTfootAct: "loadBlock", sender: "editorBlock", callbackFun: "newLoadedBlock"}, { recipient: 'fManager', ttlMs: 5000, destroyOnRead: true })
+    await window.tempStore.store({path: "/", listTfootAct: "loadBlock", sender: "newLoadedBlock", callbackFun: "newLoadedBlock"}, { recipient: 'fManager', ttlMs: 5000, destroyOnRead: true })
     loadBlock('plugin/fManager', 'fManager');
 };
 
@@ -863,7 +884,7 @@ async function newLoadedBlock() {
     const viewTab = document.querySelector('#center-tabs .center-tab[data-tab="view"]');
     viewTab.click();
 
-    const path = (await tempStore.getByRecipient("editorBlock"))?.[0]?.path || "";
+    const path = (await window.tempStore.getByRecipient("newLoadedBlock"))?.[0]?.data?.path || "";
     let tabs = document.getElementById('blocks-tabs');
     let container = document.getElementById('loadedBlockMain');
     if (!container) {
