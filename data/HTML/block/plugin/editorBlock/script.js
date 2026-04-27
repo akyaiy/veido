@@ -747,17 +747,55 @@ const tabSaveHow = document.getElementById('tab-saveHow');
 /***********************************************************************
  * tabSave onclick — сохранить в текущий путь
  **********************************************************************/
-async function saveBlock(currentBlock) {
+async function saveBlock(currentBlock = null, newPath = null) {
+    // Использовать window.currentBlock если не передан параметр
+    currentBlock = currentBlock || window.currentBlock;
+    if (!currentBlock) return;
+
+    // Получить путь из tempStore если не был передан
+    let fromTempStore = false;
+
+    if (!newPath) {
+        const msgs = await window.tempStore.getByRecipient("saveBlock");
+
+        const tempPath = msgs?.at(-1)?.data?.path;
+        newPath = tempPath;
+
+        if (tempPath) {
+            fromTempStore = true;
+        }
+    }
+
     const block = document.getElementById(currentBlock);
     if (!block) return;
 
     const tab = document.querySelector(`.tab[data-block-id="${currentBlock}"]`);
-    const path = tab.dataset.path;
+    if (!tab) return;
 
+    const path = newPath || tab.dataset.path;
     if (!path) {
         saveHowBlock(currentBlock);
         return;
     }
+
+    const headersCheck = {};
+    if (typeof accessToken !== 'undefined' && accessToken) {
+        headersCheck.Authorization = `Bearer ${accessToken}`;
+    }
+
+    const checkRes = await fetch(`/api/HTML${path}`, { headers: headersCheck });
+    const checkData = await checkRes.json();
+
+    const exists =
+        checkData.content !== "<h2>Запрашиваемая страница не найдена</h2>" ||
+        checkData.js !== "" ||
+        checkData.css !== "";
+
+    if (fromTempStore && exists && !confirm(`Путь "${path}" уже существует. Перезаписать?`)) {
+        return;
+    }
+
+    tab.dataset.path = path;
 
     const payload = {
         content: block.querySelector('[id$="_view"]').innerHTML,
@@ -771,9 +809,10 @@ async function saveBlock(currentBlock) {
     }
 
     const url = `/api/HTML${path}`;
+
     const patchRes = await fetch(url, {
         method: 'PATCH',
-        headers: headers,
+        headers,
         body: JSON.stringify(payload)
     });
 
@@ -795,46 +834,35 @@ async function saveBlock(currentBlock) {
 
     return fetch(url, {
         method: 'POST',
-        headers: headers,
+        headers,
         body: JSON.stringify({
             ...payload,
             css: payload.css || " "
         })
     });
 }
-async function saveHowBlock(currentBlock) {
-    const div = document.createElement("div");
-    div.id = "fManager";
-    document.body.appendChild(div);
-    await window.tempStore.store({path: "/", listTfootAct: "loadBlock", sender: "newLoadedBlock", callbackFun: "newLoadedBlock"}, { recipient: 'fManager', ttlMs: 5000, destroyOnRead: true })
-    const newPath = await loadBlock("plugin/fManager", "fManager");
-    if (!newPath) return;
-
-    const headers = {};
-    if (typeof accessToken !== 'undefined' && accessToken) {
-        headers.Authorization = `Bearer ${accessToken}`;
-    }
-
-    const checkRes = await fetch(`/api/HTML${newPath}`, { headers });
-    const checkData = await checkRes.json();
-    const exists =
-        checkData.content !== "<h2>Запрашиваемая страница не найдена</h2>" ||
-        checkData.js !== "" ||
-        checkData.css !== "";
-
-    if (exists && !confirm(`Путь "${newPath}" уже существует. Перезаписать?`)) {
-        return;
-    }
-
-    document.querySelector(`.tab[data-block-id="${currentBlock}"]`).dataset.path = newPath;
-    await saveBlock(window.currentBlock);
-}
+window.saveBlock = saveBlock;
 
 tabSave.onclick = async () => {
     await saveBlock(window.currentBlock);
 };
+
 tabSaveHow.onclick = async () => {
-    await saveHowBlock(window.currentBlock);
+    const div = document.createElement("div");
+    div.id = "fManager";
+    document.body.appendChild(div);
+
+    await window.tempStore.store(
+        {
+            path: "/",
+            listTfootAct: "loadBlock",
+            sender: "saveBlock",
+            callbackFun: "saveBlock"
+        },
+        { recipient: 'fManager', ttlMs: 5000, destroyOnRead: true }
+    );
+
+    await loadBlock("plugin/fManager", "fManager");
 };
 
 /***********************************************************************
@@ -856,7 +884,7 @@ tabOpen.onclick = async() => {
     content.appendChild(fm);
 
     await window.tempStore.store({path: "/", listTfootAct: "loadBlock", sender: "newLoadedBlock", callbackFun: "newLoadedBlock"}, { recipient: 'fManager', ttlMs: 5000, destroyOnRead: true })
-    loadBlock('plugin/fManager', 'fManager');
+    await loadBlock("plugin/fManager", "fManager");
 };
 
 /***********************************************************************
@@ -868,8 +896,12 @@ const tabNew = document.getElementById('tab-new');
  * tabNew onclick — обработчик клика по вкладке "Новая":
  **********************************************************************/
 tabNew.onclick = async() => {
-    window.tempStore.getByRecipient = async () => [{ path: "" }];
-    newLoadedBlock("");
+    await window.tempStore.store(
+        { data: { path: "" } },
+        { recipient: "newLoadedBlock", ttlMs: 5000, destroyOnRead: true }
+    );
+
+    await newLoadedBlock();
 };
 
 /***********************************************************************
@@ -884,7 +916,8 @@ async function newLoadedBlock() {
     const viewTab = document.querySelector('#center-tabs .center-tab[data-tab="view"]');
     viewTab.click();
 
-    const path = (await window.tempStore.getByRecipient("newLoadedBlock"))?.[0]?.data?.path || "";
+    const data = await window.tempStore.getByRecipient("newLoadedBlock");
+    const path = data?.[data.length - 1]?.data?.path || "";
     let tabs = document.getElementById('blocks-tabs');
     let container = document.getElementById('loadedBlockMain');
     if (!container) {
