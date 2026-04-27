@@ -401,7 +401,8 @@ class MsgClient {
  * Переменная для хранения полученых данных
  ***************************************************************************/
   constructor(data) {
-    this.data
+    this.data;
+    this.selectedPath = "";
   }
 
 /***************************************************************************
@@ -423,7 +424,8 @@ class MsgClient {
  * Функция отправки данных в хранилище сообщений
  ***************************************************************************/
   async setData(path){
-    await tempStore.store({path: path}, { recipient: M.data?.[0]?.sender})
+    this.selectedPath = path;
+    await window.tempStore.store({ data: { path: path } }, { recipient: M.data?.[0]?.sender, ttlMs: 5000, destroyOnRead: true });
   }
 
 /***************************************************************************
