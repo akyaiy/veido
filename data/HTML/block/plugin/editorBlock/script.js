@@ -21,51 +21,95 @@ test()
 
 
 
-document.addEventListener('keydown', function(e) {
+/***********************************************************************
+ * document keydown — Вставка переноса строки при Enter:
+ **********************************************************************/
+document.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter') return;
 
-    const editable = e.target.closest('[contenteditable="true"]');
-    if (!editable) return;
+    // работаем только если включён contenteditable
+    if (!centerEditor.isContentEditable) return;
 
     const sel = window.getSelection();
-    if (!sel || !sel.rangeCount) return;
-
+    if (!sel.rangeCount) return;
     const range = sel.getRangeAt(0);
 
-    const node = range.startContainer.nodeType === 3
-        ? range.startContainer.parentElement
-        : range.startContainer;
+    if (!e.shiftKey) {
+        e.preventDefault();
 
-    // если внутри списка - не трогаем
-    if (node.closest('li')) return;
+        let currentEl = range.startContainer;
+        if (currentEl.nodeType === Node.TEXT_NODE) {
+            currentEl = currentEl.parentElement;
+        }
 
-    // ищем block, span не учитывается
-    const block = node.closest('div');
-    if (!block || !editable.contains(block)) return;
+        const isAtEnd = (() => {
+            if (range.endContainer.nodeType === Node.TEXT_NODE) {
+                const isEnd = range.endOffset === range.endContainer.textContent.length;
 
-    e.preventDefault();
+                if (!isEnd) return false;
 
-    const br = document.createElement('br');
-    range.deleteContents();
-    range.insertNode(br);
+                const parent = range.endContainer.parentElement;
+                const next = range.endContainer.nextSibling;
 
-    range.setStartAfter(br);
-    range.collapse(true);
+                // если сразу после текста уже <br>
+                if (next && next.nodeName === 'BR') {
+                    return false;
+                }
 
-    sel.removeAllRanges();
-    sel.addRange(range);
+                return true;
+            } else {
+                const nodes = range.endContainer.childNodes;
+                const atEnd = range.endOffset === nodes.length;
 
-    // проверяем последний узел в блоке
-    const last = block.lastChild;
-    if (last && last.nodeType === 3) { // текстовый узел
-        block.appendChild(document.createElement('br'));
+                if (!atEnd) return false;
+
+                const prev = nodes[nodes.length - 1];
+
+                // если последний уже <br>
+                if (prev && prev.nodeName === 'BR') {
+                    return false;
+                }
+
+                return true;
+            }
+        })();
+
+        const isInline = currentEl && getComputedStyle(currentEl).display === 'inline';
+
+        const br = document.createElement('br');
+        range.deleteContents();
+        range.insertNode(br);
+
+        if (!isInline && isAtEnd) {
+            const br2 = document.createElement('br');
+            br.after(br2);
+        }
+
+        range.setStartAfter(br);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+    } else {
+        let container = range.commonAncestorContainer;
+        if (container.nodeType === Node.TEXT_NODE) {
+            container = container.parentElement;
+        }
+
+        if (container !== centerEditor) {
+            e.preventDefault();
+
+            // вставка узла вне текущего тега
+            const exitNode = document.createTextNode('\u00A0');
+            container.after(exitNode);
+
+            // перенос курсора
+            const newRange = document.createRange();
+            newRange.setStart(exitNode, 0);
+            newRange.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(newRange);
+        }
     }
-
-    range.setStartAfter(br);
-    range.collapse(true);
-
-    sel.removeAllRanges();
-    sel.addRange(range);
 });
 
 
@@ -797,9 +841,12 @@ async function saveBlock(currentBlock = null, newPath = null) {
 
     tab.dataset.path = path;
 
+    // Сохранить текущий JS из редактора перед отправкой
+    saveJsToScript(currentBlock);
+
     const payload = {
-        content: block.querySelector('[id$="_view"]').innerHTML,
-        js: block.querySelector('[id$="_scripts"] script').textContent,
+        content: htmlToMixed(block.querySelector('[id$="_view"]').innerHTML),
+        js: (stripJsWrapper(block.querySelector('script[data-dynamic-text="' + currentBlock + '_view"]').textContent) || " "),
         css: ""
     };
 
@@ -817,13 +864,14 @@ async function saveBlock(currentBlock = null, newPath = null) {
     });
 
     if (patchRes.status !== 406) {
+        showMarkerModal('Контейнер сохранён!');
         return patchRes;
     }
 
     let message = "";
     try {
         const data = await patchRes.clone().json();
-        message = data?.message || "";
+        message = data?.message;
     } catch (err) {
         message = await patchRes.text();
     }
@@ -832,14 +880,15 @@ async function saveBlock(currentBlock = null, newPath = null) {
         return patchRes;
     }
 
-    return fetch(url, {
+    await fetch(url, {
         method: 'POST',
         headers,
         body: JSON.stringify({
             ...payload,
-            css: payload.css || " "
+            css: payload.css
         })
     });
+    showMarkerModal('Контейнер сохранён!');
 }
 window.saveBlock = saveBlock;
 
@@ -1047,6 +1096,7 @@ function switchTo(blockId, tabEl) {
     if (path) extractContentParts(blockId);
     showJs(blockId);
     showView(blockId);
+    syncHtmlFromView(blockId);
 }
 window.newLoadedBlock = newLoadedBlock;
 
@@ -1085,55 +1135,6 @@ centerEditor.addEventListener('keydown', e =>
     queueMicrotask(syncActiveBlock)
 );
 
-/***********************************************************************
- * CenterEditor keydown — Вставка переноса строки при Enter:
- **********************************************************************/
-centerEditor.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter') return;
-
-    // работаем только если включён contenteditable
-    if (!centerEditor.isContentEditable) return;
-
-    const sel = window.getSelection();
-    if (!sel.rangeCount) return;
-    const range = sel.getRangeAt(0);
-
-    if (!e.shiftKey) {
-        e.preventDefault();
-
-        // обычный enter - вставка \n
-        const textNode = document.createTextNode('\n');
-        range.deleteContents();
-        range.insertNode(textNode);
-
-        // перенос курсора после \n
-        range.setStartAfter(textNode);
-        range.collapse(true);
-        sel.removeAllRanges();
-        sel.addRange(range);
-    } else {
-        let container = range.commonAncestorContainer;
-        if (container.nodeType === Node.TEXT_NODE) {
-            container = container.parentElement;
-        }
-
-        if (container !== centerEditor) {
-            e.preventDefault();
-
-            // вставка узла вне текущего тега
-            const exitNode = document.createTextNode('\u00A0');
-            container.after(exitNode);
-
-            // перенос курсора
-            const newRange = document.createRange();
-            newRange.setStart(exitNode, 0);
-            newRange.collapse(true);
-            sel.removeAllRanges();
-            sel.addRange(newRange);
-        }
-    }
-});
-
 
 
 
@@ -1150,6 +1151,10 @@ let activeBlockId = null;
  * Хранит источник последней синхронизации (например, HTML или редактор)
  **********************************************************************/
 let activeSyncSource = null;
+/***********************************************************************
+ * Хранит blockId, которому принадлежит текущее содержимое centerPreJs
+ **********************************************************************/
+let centerJsBlockId = null;
 
 /***********************************************************************
  * logSync — Проверяет совпадение активного блока с переданным:
@@ -1497,7 +1502,13 @@ function runJs(blockId) {
     showMarkerModal('JS-код блока успешно применён!');
 }
 function saveJsToScript(blockId) {
-    const content = centerPreJs.textContent || '';
+    // Если centerPreJs содержит код другого блока, не переписывать его
+    // Берем содержимое только если это текущий активный блок в редакторе
+    let content = '';
+    if (centerJsBlockId === blockId) {
+        content = centerPreJs.textContent || '';
+    }
+    
     let textEl = document.querySelector('script[data-dynamic-text="' + blockId + '_view"]');
     if (!textEl) {
         const wrap = document.getElementById(blockId + '_scripts') || document.getElementById('loadedBlockMain');
@@ -1506,7 +1517,11 @@ function saveJsToScript(blockId) {
         textEl.type = 'text/plain';
         wrap.appendChild(textEl);
     }
-    textEl.textContent = content;
+    
+    // Только обновляем, если был получен контент из centerPreJs (это текущий блок)
+    if (centerJsBlockId === blockId) {
+        textEl.textContent = content;
+    }
 }
 
 /***********************************************************************
@@ -1676,6 +1691,7 @@ function showJs(blockId, highlightSearch=null) {
     code = ensureHandlerFunctions(code);
 
     centerPreJs.textContent = code;
+    centerJsBlockId = blockId; // отслеживаем, какому блоку принадлежит centerPreJs
 
     if (highlightSearch) {
         setTimeout(() => {
