@@ -12,10 +12,7 @@
     <div id="loadedBlock" aria-label="loadedBlock"><!-- loadBlockWindow --></div>
     <div id="center-tabs"><!-- loadBlockWindow --></div>
     <div id="center-tab-controls"><!-- loadBlockWindow --></div>
-    <div id="center-tab-content">
-        <pre id="center-tab-pre-html" contenteditable="true" style="display:none;"></pre>
-        <pre id="center-tab-pre-js" contenteditable="true" style="display:none; "></pre>
-    </div>
+    <div id="center-tab-content"><!-- loadBlockWindow --></div>
 </div>
 
 <div id="right-panel">

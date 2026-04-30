@@ -1,0 +1,27 @@
+/* контент вкладок центра */
+#center-tab-content {
+    background: #fff;
+    overflow: auto;
+    height: 100%;
+}
+
+#center-tab-pre-js, #center-tab-pre-html {
+    margin: 1em;
+    padding: 5px;
+    margin: 2px;
+    height: 470px;
+    overflow: auto;
+}
+#center-tab-pre-js {
+    height: 86%;
+}
+#center-tab-pre-html {
+    height: 95%;
+}
+
+#center-tab-pre-js {
+    white-space: pre;
+    tab-size: 4;
+    -moz-tab-size: 4;
+    -o-tab-size: 4;
+}
