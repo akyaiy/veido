@@ -1,168 +1,2386 @@
-/**
- * СИСТЕМА МОНИТОРИНГА СОБЫТИЙ (SINGLETON)
- */
-(function() {
-    if (window.__BlockEventMonitor) return;
+/***********************************************************************
+ * document keydown — Вставка переноса строки при Enter:
+ **********************************************************************/
+document.addEventListener('keydown', (e) => {
+    const centerEditor = document.getElementById('center-tab-pre-html');
+    if (e.key !== 'Enter') return;
 
-    const originalAdd = EventTarget.prototype.addEventListener;
-    const originalRemove = EventTarget.prototype.removeEventListener;
-    
-    window.__BlockEventMonitor = {
-        tracked: [],
-        isCleaning: false
-    };
+    // работаем только если включён contenteditable
+    if (!centerEditor.isContentEditable) return;
 
-    EventTarget.prototype.addEventListener = function(type, listener, options) {
-        const editorExists = !!document.getElementById('block-editor-app');
-        
-        // Отслеживаем только события на глобальных объектах (они сами не удаляются)
-        const isGlobal = this === window || this === document || this === document.body;
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
 
-        if (editorExists && isGlobal) {
-            // Проверяем, не сохранили ли мы это событие уже (защита от дублей)
-            const isAlreadyTracked = window.__BlockEventMonitor.tracked.some(
-                e => e.target === this && e.type === type && e.listener === listener
-            );
+    if (!e.shiftKey) {
+        e.preventDefault();
 
-            if (!isAlreadyTracked) {
-                window.__BlockEventMonitor.tracked.push({ target: this, type, listener, options });
+        let currentEl = range.startContainer;
+        if (currentEl.nodeType === Node.TEXT_NODE) {
+            currentEl = currentEl.parentElement;
+        }
+
+        const isAtEnd = (() => {
+            if (range.endContainer.nodeType === Node.TEXT_NODE) {
+                const isEnd = range.endOffset === range.endContainer.textContent.length;
+
+                if (!isEnd) return false;
+
+                const parent = range.endContainer.parentElement;
+                const next = range.endContainer.nextSibling;
+
+                // если сразу после текста уже <br>
+                if (next && next.nodeName === 'BR') {
+                    return false;
+                }
+
+                return true;
+            } else {
+                const nodes = range.endContainer.childNodes;
+                const atEnd = range.endOffset === nodes.length;
+
+                if (!atEnd) return false;
+
+                const prev = nodes[nodes.length - 1];
+
+                // если последний уже <br>
+                if (prev && prev.nodeName === 'BR') {
+                    return false;
+                }
+
+                return true;
             }
+        })();
+
+        const isInline = currentEl && getComputedStyle(currentEl).display === 'inline';
+
+        const br = document.createElement('br');
+        range.deleteContents();
+        range.insertNode(br);
+
+        if (!isInline && isAtEnd) {
+            const br2 = document.createElement('br');
+            br.after(br2);
         }
-        
-        return originalAdd.call(this, type, listener, options);
-    };
 
-    window.clearDynamicEvents = function() {
-        const monitor = window.__BlockEventMonitor;
-        if (monitor.tracked.length === 0 || monitor.isCleaning) return;
+        range.setStartAfter(br);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+    } else {
+        let container = range.commonAncestorContainer;
+        if (container.nodeType === Node.TEXT_NODE) {
+            container = container.parentElement;
+        }
 
-        monitor.isCleaning = true;
-        /* console.log(`Очистка: удаляем ${monitor.tracked.length} обработчиков...`); */
+        if (container !== centerEditor) {
+            e.preventDefault();
 
-        monitor.tracked.forEach(({ target, type, listener, options }) => {
-            try {
-                originalRemove.call(target, type, listener, options);
-            } catch (e) {}
+            // вставка узла вне текущего тега
+            const exitNode = document.createTextNode('\u00A0');
+            container.after(exitNode);
+
+            // перенос курсора
+            const newRange = document.createRange();
+            newRange.setStart(exitNode, 0);
+            newRange.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(newRange);
+        }
+    }
+});
+
+
+
+document.querySelector('#center-panel').addEventListener('click', (e) => {
+    const link = e.target.closest('a');
+    if (link) {
+        e.preventDefault();
+    }
+});
+
+/* document.querySelector('#center-panel').addEventListener('click', (e) => {
+    const table = e.target.closest('table');
+
+    // удалить старые кнопки, если клик вне таблицы
+    document.querySelectorAll('.table-controls-btn').forEach(btn => btn.remove());
+    if (!table) return;
+
+    // помечаем таблицу уникальным id
+    if (!table.dataset._tcid) table.dataset._tcid = String(Math.random()).slice(2);
+
+    table.style.position = table.style.position || 'relative';
+
+    // кнопка справа — добавить столбец
+    const btnRight = document.createElement('button');
+    btnRight.textContent = '+';
+    btnRight.title = 'Добавить столбец справа';
+    btnRight.className = 'table-controls-btn';
+    btnRight.style.position = 'absolute';
+    btnRight.style.width = '16px';
+    btnRight.style.height = '16px';
+    btnRight.style.top = '10px';
+    btnRight.style.right = '-17px';
+    btnRight.style.transform = 'translateY(-50%)';
+    btnRight.style.fontSize = '12px';
+    btnRight.style.opacity = '0.8';
+    btnRight.style.padding = '2px';
+    table.appendChild(btnRight);
+
+    // кнопка снизу — добавить строку
+    const btnBottom = document.createElement('button');
+    btnBottom.textContent = '+';
+    btnBottom.title = 'Добавить строку снизу';
+    btnBottom.className = 'table-controls-btn';
+    btnBottom.style.position = 'absolute';
+    btnBottom.style.right = '-7px';
+    btnBottom.style.bottom = '-17px';
+    btnBottom.style.transform = 'translateX(-50%)';
+    btnBottom.style.width = '16px';
+    btnBottom.style.height = '16px';
+    btnBottom.style.fontSize = '12px';
+    btnBottom.style.opacity = '0.8';
+    btnBottom.style.padding = '2px';
+    table.appendChild(btnBottom);
+
+    // добавить столбец
+    btnRight.addEventListener('click', ev => {
+        ev.stopPropagation();
+        Array.from(table.querySelectorAll('tr')).forEach(tr => {
+            const td = document.createElement('td');
+            td.innerHTML = '<br>';
+            tr.appendChild(td);
         });
-
-        monitor.tracked = [];
-        monitor.isCleaning = false;
-        /* console.log("Глобальные события очищены."); */
-    };
-
-    // Следим за удалением редактора из DOM
-    const observer = new MutationObserver(() => {
-        if (!document.getElementById('block-editor-app')) {
-            window.clearDynamicEvents();
-        }
     });
 
-    observer.observe(document.documentElement, { childList: true, subtree: true });
-})();
+    // добавить строку
+    btnBottom.addEventListener('click', ev => {
+        ev.stopPropagation();
+        const firstRow = table.querySelector('tr');
+        const cols = firstRow ? firstRow.children.length : 1;
+        const tr = document.createElement('tr');
+        for (let i = 0; i < cols; i++) {
+            const td = document.createElement('td');
+            td.innerHTML = '<br>';
+            tr.appendChild(td);
+        }
+        const tbody = table.querySelector('tbody');
+        if (tbody) tbody.appendChild(tr);
+        else table.appendChild(tr);
+    });
 
-/**
- * ЗАГРУЗКА БЛОКОВ
- */
-async function initBlocks() {
-    // На всякий случай чистим перед новой инициализацией
-    if (typeof window.clearDynamicEvents === 'function') window.clearDynamicEvents();
+    // убрать кнопки при клике вне таблицы
+    const onDocClick = ev => {
+        if (!ev.target.closest('table') || ev.target.closest('.table-controls-btn') === null) {
+            document.querySelectorAll('.table-controls-btn').forEach(btn => btn.remove());
+            document.removeEventListener('click', onDocClick, true);
+        }
+    };
+    document.addEventListener('click', onDocClick, true);
+}); */
 
-    await loadBlockWindow("plugin/editorBlock", "content");
+/***********************************************************************
+ * jsTable — таблица редактора JS-кода блока.
+ **********************************************************************/
+const jsTable = document.getElementById('editor-js-panel');
 
-    // Загружаем остальные блоки параллельно
-    await loadBlockWindow("plugin/editorBlock/plugin/properties-panel", "properties-panel")
-    await loadBlockWindow("plugin/editorBlock/plugin/center-tab-content", "center-tab-content")
-    await loadBlockWindow("plugin/editorBlock/plugin/center-tab-controls", "center-tab-controls")
-    await loadBlockWindow("plugin/editorBlock/plugin/loadedBlock", "loadedBlock")
-    await loadBlockWindow("plugin/editorBlock/plugin/css-js-tabs", "css-js-tabs")
-    await loadBlockWindow("plugin/editorBlock/plugin/center-tabs", "center-tabs")
-    await loadBlockWindow("plugin/editorBlock/plugin/js-panel", "js-panel")
-    await loadBlockWindow("plugin/editorBlock/plugin/blocks-tabs-menu", "blocks-tabs-menu")
-    await loadBlockWindow("plugin/editorBlock/plugin/elements-ul", "elements-ul")
-    await loadBlockWindow("plugin/editorBlock/plugin/properties-panel-spec", "properties-panel-spec")
-    await loadBlockWindow("plugin/editorBlock/plugin/rgb-picker", "rgb-picker-container")
-    await loadBlockWindow("plugin/editorBlock/plugin/ed-properties", "ed-properties-container")
-    await loadBlockWindow("plugin/editorBlock/plugin/marker-modal", "marker-modal-container")
-    await loadBlockWindow("plugin/editorBlock/plugin/global", "global-editorBlock-container")
-    await test()
-}
+// Храним введенный id без data-атрибутов на элементе
+const activeIdByEl = new WeakMap();
 
-async function test() {
-    await window.tempStore.store(
-        { data: { path: "/pages/example" } },
-        { recipient: "newLoadedBlock", ttlMs: 5000, destroyOnRead: true }
-    );
 
-    await newLoadedBlock();
+let selectedElBorder = null;
+let lastSelectedEl = null;
+let isResizing = false;
+let startX, startY, startWidth, startHeight;
+const margin = 2; // зона границы
 
-    await window.tempStore.store(
-        { data: { path: "/pages/test" } },
-        { recipient: "newLoadedBlock", ttlMs: 5000, destroyOnRead: true }
-    );
+document.addEventListener('mousemove', e => {
+    if (!selectedElBorder) return;
 
-    await newLoadedBlock();
-}
+    const rect = selectedElBorder.getBoundingClientRect();
 
-async function loadBlockWindow(path, block_Name, itemsHowText = null) {
-    const container = document.getElementById(block_Name);
-    if (!container) return;
-
-    try {
-        // Очистка ресурсов старого блока с таким же именем
-        document.querySelectorAll(`[data-dynamic="${block_Name}"]`).forEach(el => el.remove());
-        container.innerHTML = '';
-
-        const cleanPath = path.replace(/\/$/, "");
-        const apiPath = cleanPath === "pages" ? "pages/home" : cleanPath;
-
-        const response = await apiProtected(`/api/HTML/${apiPath}`, { method: "GET" });
-
-        if (!window.markdownit) {
-            await loadMdScript('/js/markdown-it.min.js');
+    if (isResizing) {
+        // изменение размеров
+        if (isResizing === 'width') {
+            selectedElBorder.style.width = startWidth + (e.clientX - startX) + 'px';
+        } else if (isResizing === 'height') {
+            selectedElBorder.style.height = startHeight + (e.clientY - startY) + 'px';
         }
 
-        const { content: mdContent, css, js } = response;
+        // обновляем рамку на текущие размеры
+        updateOutline(selectedElBorder);
+        return;
+    }
 
-        // Рендер HTML
-        if (mdContent) {
-            const md = window.markdownit({ html: true, linkify: true, typographer: true });
-            container.innerHTML = md.render(mdContent);
+    // курсор на границах
+    if (e.clientX >= rect.right - margin && e.clientX <= rect.right + margin) {
+        document.body.style.cursor = 'e-resize';
+    } else if (e.clientY >= rect.bottom - margin && e.clientY <= rect.bottom + margin) {
+        document.body.style.cursor = 's-resize';
+    } else {
+        document.body.style.cursor = '';
+    }
+});
 
-            const syncEl = document.getElementById(container.id.replace('_view', '_html'));
-            if (container.id.includes('_view') && syncEl) {
-                syncEl.innerHTML = mdContent;
-            }
-        }
+document.addEventListener('mousedown', e => {
+    if (!selectedElBorder) return;
 
-        // Рендер CSS
-        if (css) {
-            const style = document.createElement('style');
-            style.dataset.dynamic = block_Name;
-            style.textContent = css;
-            document.head.appendChild(style);
-        }
+    const rect = selectedElBorder.getBoundingClientRect();
+    // правая граница
+    if (e.clientX >= rect.right - margin && e.clientX <= rect.right + margin) {
+        isResizing = 'width';
+        startX = e.clientX;
+        startWidth = rect.width;
+        e.preventDefault();
+    }
+    // нижняя граница
+    else if (e.clientY >= rect.bottom - margin && e.clientY <= rect.bottom + margin) {
+        isResizing = 'height';
+        startY = e.clientY;
+        startHeight = rect.height;
+        e.preventDefault();
+    }
+});
 
-        // Рендер JS (БЕЗ анонимной обертки, чтобы функции были глобальными)
-        if (js) {
-            const script = document.createElement('script');
-            if (itemsHowText?.includes('js')) script.type = 'text/plain';
-            script.dataset.dynamic = block_Name;
-            
-            script.textContent = `
-                try {
-                    ${js}
-                    if (typeof pageInit === "function") pageInit();
-                } catch (e) {
-                    console.error("Ошибка в блоке [${block_Name}]:", e);
-                }
-            `;
-            document.body.appendChild(script);
-        }
+document.addEventListener('mousemove', e => {
+    if (!isResizing) return;
 
-    } catch (err) {
-        console.error(err);
-        container.innerHTML = "<h2>Ошибка загрузки блока</h2>";
+    if (isResizing === 'width') {
+        selectedElBorder.style.width = startWidth + (e.clientX - startX) + 'px';
+    } else if (isResizing === 'height') {
+        selectedElBorder.style.height = startHeight + (e.clientY - startY) + 'px';
+    }
+});
+
+document.addEventListener('mouseup', () => {
+    isResizing = false;
+    document.body.style.cursor = '';
+});
+
+/* document.addEventListener('dblclick', e => {
+    const el = findEditableElement(e.target); // вызываем только на клике
+    if (!el) {
+        selectedElBorder = null;
+        return;
+    }
+
+    selectedElBorder = el;
+}); */
+
+
+
+
+/* выделеине в view при клике по нему */
+document.getElementById('loadedBlock').addEventListener('click', e => {
+    const all = document.querySelectorAll('[id^="loadedBlock_"]');
+    let active = null;
+    for (const el of all) {
+        if (!/^loadedBlock_\d+$/.test(el.id)) continue;
+        if (getComputedStyle(el).display !== 'none') { active = el; break; }
+    }
+    if (!active) return;
+
+    const view = document.getElementById(active.id + '_view');
+    const sel = window.getSelection();
+    if (!view || (sel.rangeCount && view.contains(sel.anchorNode))) return;
+
+    const range = document.createRange();
+    range.selectNodeContents(view);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+});
+
+
+
+
+/***********************************************************************
+ * Элементы интерфейса вкладок CSS / JS.
+ **********************************************************************/
+const propertiesPanel = document.getElementById('properties-panel');
+const cssPanel = document.getElementById('css-panel');
+const jsPanel = document.getElementById('js-panel');
+const toggleCssPanel = document.getElementById('toggle-css-panel');
+
+/***********************************************************************
+ * Элементы вкладок view / html / js центрального редактора.
+ **********************************************************************/
+const centerContent = document.getElementById('center-tab-content');
+const centerPreHtml = document.getElementById('center-tab-pre-html');
+const centerPreJs = document.getElementById('center-tab-pre-js');
+/* const btnLoadFromView = document.getElementById('btn-load-from-view');
+const btnApplyToView = document.getElementById('btn-apply-to-view'); */
+
+/***********************************************************************
+ * switchTabPanel — переключение видимости панелей (properties, css, js):
+ * - Принимает имя вкладки: 'properties', 'css' или 'js'.
+ * - Показывает соответствующую панель.
+ * - Скрывает остальные панели.
+ **********************************************************************/
+function switchTabPanel(tabName) {
+    if (tabName === 'properties') {
+        propertiesPanel.style.display = '';
+        jsPanel.style.display = 'none';
+        syncCssPanelVisibility();
+    } else if (tabName === 'css') {
+        propertiesPanel.style.display = 'none';
+        /* if (cssPanel) cssPanel.style.display = 'flex'; */
+        jsPanel.style.display = 'none';
+    } else if (tabName === 'js') {
+        propertiesPanel.style.display = 'none';
+        /* if (cssPanel) cssPanel.style.display = 'none'; */
+        jsPanel.style.display = 'flex';
+        const blockId = getActiveBlockId();
+        if (blockId) ensureJsPanelSelection(blockId);
+    }
+
+    // если вкладка не properties, прячем панель спец‑свойств
+    if (tabName !== 'properties' && specRoot) {
+        specRoot.style.display = 'none';
     }
 }
 
-initBlocks();
+function syncCssPanelVisibility() {
+    const cssPanel = document.getElementById('css-panel');
+    const toggle = document.getElementById('toggle-css-panel');
+
+    if (!cssPanel || !toggle) {
+        return;
+    }
+
+    cssPanel.style.display = toggle.checked ? 'flex' : 'none';
+}
+
+syncCssPanelVisibility();
+
+
+
+/***********************************************************************
+ * Специальные свойства (рефакторинг: универсальная обработка).
+ **********************************************************************/
+window.selectedEl = null;
+const specRoot = document.getElementById('properties-panel-spec');
+const normalPanel = document.getElementById('properties-panel');
+
+// по умолчанию скрыть панель специальных свойств
+specRoot.style.display = 'none';
+
+// --- конфигурация: какие теги считаем "специальными" ---
+const EDITABLE_TAGS = new Set([
+    // Базовые и структурные
+    'block', 'div', 'a', 'table', 'hr', 'img', 'code',
+    // Формы
+    'form', 'textarea', 'input', 'select', 'option',
+    // Медиа
+    'figure', 'figcaption', 'video', 'audio', 'iframe',
+    // Интерактив
+    'button', 'details', 'summary', 'progress', 'meter'
+]);
+
+// --- Утилиты -----------------------------------------------------------------
+
+// Переменная вне функции для хранения текущего подсвеченного элемента
+window.lastHighlightedElement = null;
+
+// Список тегов, которые не могут содержать другие элементы или текст
+const ATOMIC_TAGS = new Set(['img', 'hr', 'input', 'progress', 'meter', 'video', 'audio', 'iframe', 'select']);
+
+function findEditableElement(startNode) {
+    // --- ПРОВЕРКА ДЛЯ ATOMIC TAGS (оставлена без изменений) ---
+    if (startNode && startNode.nodeType === 1) {
+        const startTag = startNode.tagName.toLowerCase();
+        if (ATOMIC_TAGS.has(startTag) && EDITABLE_TAGS.has(startTag)) {
+            if (!startNode.closest('[contenteditable="true"]')) return updateOutline(null);
+            return updateOutline(startNode);
+        }
+    }
+
+    if (!startNode) return updateOutline(null);
+
+    // 1. Инициализация таргета (сразу берем родителя, если это текст)
+    let target = startNode;
+    let el = target.nodeType === Node.TEXT_NODE ? target.parentElement : target;
+
+    // 2. Поиск контейнера view
+    const view = el.closest('[id^="loadedBlock_"][id$="_view"]');
+    if (!view) return updateOutline(null);
+
+    // 3. --- ГИБРИДНАЯ ПРОВЕРКА ССЫЛКИ (интегрирована из contextmenu) ---
+    let closestLink = el.closest('a');
+
+    if (!closestLink) {
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0 && sel.anchorNode) {
+            const nodeInside = sel.anchorNode;
+            const parentInside = nodeInside.nodeType === Node.TEXT_NODE ? nodeInside.parentElement : nodeInside;
+            closestLink = parentInside.closest('a');
+        }
+    }
+
+    // Если ссылка найдена (любым способом) - проверяем, что она в нашем view и редактируема
+    if (closestLink && view.contains(closestLink) && EDITABLE_TAGS.has('a')) {
+        if (!closestLink.closest('[contenteditable="true"]')) return updateOutline(null);
+        return updateOutline(closestLink);
+    }
+
+    // 4. Поиск вверх по дереву (оставлен без изменений)
+    let foundUp = null;
+    let upNode = el;
+    while (upNode && upNode !== view) {
+        if (upNode.nodeType === 1) {
+            const tag = upNode.tagName.toLowerCase();
+            if (EDITABLE_TAGS.has(tag)) {
+                foundUp = upNode;
+                break; // Мы нашли ближайший редактируемый элемент
+            }
+        }
+        upNode = upNode.parentElement;
+    }
+
+    if (foundUp && !foundUp.closest('[contenteditable="true"]')) {
+        return updateOutline(null);
+    }
+
+    return updateOutline(foundUp);
+}
+
+// Рекурсивный поиск (без изменений)
+function searchDownRecursive(element) {
+    if (!element || element.nodeType !== 1) return null;
+    for (let child of element.children) {
+        const tag = child.tagName.toLowerCase();
+        if (EDITABLE_TAGS.has(tag)) return child;
+        const deep = searchDownRecursive(child);
+        if (deep) return deep;
+    }
+    return null;
+}
+
+/**
+ * Вспомогательная функция для управления outline
+ */
+function updateOutline(element) {
+    const specRoot = document.getElementById('properties-panel-spec');
+    const normalPanel = document.getElementById('properties-panel');
+    const root = document.getElementById('loadedBlockMain');
+
+    // 1. Очистка старой обводки у всех элементов в рабочей области
+    if (root) {
+        const allWithOutline = root.querySelectorAll('[style*="outline"]');
+        allWithOutline.forEach(el => {
+            el.style.outline = '';
+        });
+    }
+
+    // 2. Если фокус или клик внутри самой панели свойств — игнорируем, чтобы не сбросить выбор
+    if (document.activeElement && document.activeElement.closest('#properties-panel-spec')) {
+        return lastHighlightedElement;
+    }
+
+    // 3. Если элемент найден и он находится внутри редактируемого контейнера
+    if (element && element.closest('[contenteditable="true"]')) {
+        const tagName = element.tagName.toLowerCase();
+        
+        // Визуально выделяем элемент
+        element.style.outline = '1px solid #2196F3';
+        lastHighlightedElement = element;
+        selectedEl = element;
+
+        // Показываем спец-панель и скрываем стандартную
+        if (specRoot) specRoot.style.display = 'block';
+        if (normalPanel) normalPanel.style.display = 'none';
+
+        if (specRoot) {
+            const allFields = specRoot.querySelectorAll('[data-target]');
+            
+            allFields.forEach(field => {
+                const targetAttr = field.getAttribute('data-target') || '';
+                const targets = targetAttr.toLowerCase().split(/\s+/).map(t => t.trim());
+
+                // Проверяем: подходит ли поле под текущий тег
+                if (targets.includes(tagName) || targets.includes('all')) {
+                    // Используем !important через setProperty, чтобы перебить любые другие стили
+                    field.style.setProperty('display', 'block', 'important');
+                } else {
+                    field.style.setProperty('display', 'none', 'important');
+                }
+            });
+        }
+
+    } else {
+        // Если кликнули в пустое место (не по редактируемому тегу)
+        lastHighlightedElement = null;
+        selectedEl = null;
+        
+        // Показать обычную панель только если вкладка properties активна
+        const cssActive = document.querySelector('#css-js-tabs .tab.active');
+        if (specRoot) specRoot.style.display = 'none';
+        if (normalPanel) normalPanel.style.display = (cssActive && cssActive.dataset.tab === 'properties') ? 'block' : 'none';
+    }
+
+    return element;
+}
+
+// Сброс выбора: скрыть specRoot, восстановить normalPanel
+function clearSelection() {
+    selectedEl = null;
+    const cssActiveTab = document.querySelector('#css-js-tabs .tab.active');
+    if (specRoot.style.display !== 'none' && normalPanel) {
+        normalPanel.style.display = (cssActiveTab && cssActiveTab.dataset.tab === 'properties') ? '' : 'none';
+    }
+    specRoot.style.display = 'none';
+    // очистить значения контролов
+    specRoot.querySelectorAll('[data-prop]').forEach(inp => {
+        if (inp.type === 'checkbox') inp.checked = false;
+        else if (inp.type === 'color') inp.value = '#000000';
+        else inp.value = '';
+    });
+}
+
+function shouldKeepSpecPanelVisible(target) {
+    return Boolean(
+        target &&
+        target.closest &&
+        (
+            target.closest('#properties-panel-spec') ||
+            target.closest('#rgb-picker') ||
+            target.closest('.color-swatch')
+        )
+    );
+}
+
+// --- Слушатели для панели (делегированно) ------------------------------------
+
+// ввод/изменение в любом контроле применяет свойство немедленно
+// но для color-контролов мы управляем через собственный picker
+specRoot.addEventListener('input', e => {
+    if (!lastHighlightedElement) return;
+    const ctrl = e.target.closest('[data-prop]');
+    if (!ctrl) return;
+    if (ctrl.type === 'color') return; // игнорируем, цвет устанавливается через picker
+    const prop = ctrl.getAttribute('data-prop');
+    const val = ctrl.type === 'checkbox' ? ctrl.checked : ctrl.value;
+    applyPropToElement(lastHighlightedElement, prop, val);
+});
+specRoot.addEventListener('change', e => {
+    if (!lastHighlightedElement) return;
+    const ctrl = e.target.closest('[data-prop]');
+    if (!ctrl) return;
+    if (ctrl.type === 'color') return; // игнорируем color
+    const prop = ctrl.getAttribute('data-prop');
+    const val = ctrl.type === 'checkbox' ? ctrl.checked : ctrl.value;
+    applyPropToElement(lastHighlightedElement, prop, val);
+});
+
+// --- Внешние интерфейсы: выбор элемента и отображение панели ------------------
+// функция, которая вызывается извне при выборе элемента (оставлена простая)
+function selectElementForEditing(el) {
+    selectedEl = el;
+    if (!el) { clearSelection(); return; }
+    selectElementForPanels(el);
+    // показать подходящие контролы (передаём сам элемент — функция учтёт тип input)
+    showSpecForTarget(el);
+    // заполнить контролы значениями элемента
+    populateSpecialProps(el);
+    syncCssPanelVisibility();
+}
+
+// экспорт/назначение - если модульная среда не используется, оставить глобально
+/* window.BlockEditorSpec = {
+    select: selectElementForEditing,
+    clear: clearSelection,
+    findEditableElement: findEditableElement
+}; */
+
+
+
+
+// --- Взаимодействие с loadedBlock_*_view ------------------------------------
+
+// Левый клик - выбрать элемент (только специальные элементы), не открываем панель
+/* document.addEventListener('dblclick', e => {
+    const el = findEditableElement(e.target);
+    if (!el) return; // игнорируем клики по тексту и обычным контейнерам
+    selectedEl = el;
+    populateSpecialProps(selectedEl);
+}, true); */
+
+// левый клик - открыть properties-panel-spec (скрыть обычную), показать только нужные контролы
+/* document.addEventListener('dblclick', e => {
+    const inSpec = !!e.target.closest('#properties-panel-spec');
+    if (inSpec) return;
+    const editableContainer = e.target.closest('[contenteditable="true"]');
+    if (!editableContainer) return;
+
+    const el = findEditableElement(e.target);
+    const selection = window.getSelection();
+    const hasTextSelection = selection && !selection.isCollapsed;
+
+    if (el && !hasTextSelection) {
+        selectedEl = el;
+        const tag = el.tagName.toLowerCase();
+        let target = 'all';
+
+        // Расширяем поддержку новых тегов
+        if (tag === 'img') target = 'img';
+        else if (tag === 'a') target = 'a';
+        else if (tag === 'input') target = 'input';
+        else if (tag === 'table') target = 'table';
+        else if (tag === 'block') target = 'block';
+        else if (tag === 'div') target = 'div';
+        else if (tag === 'video') target = 'video';
+        else if (tag === 'audio') target = 'audio';
+        else if (tag === 'iframe') target = 'iframe';
+        else if (tag === 'details') target = 'details';
+        else if (tag === 'textarea') target = 'textarea';
+        else if (tag === 'button') target = 'button';
+        else if (tag === 'select') target = 'select';
+        else if (tag === 'form') target = 'form';
+        else if (tag === 'code') target = 'code';
+        else if (tag === 'hr') target = 'hr';
+        // можно добавить другие, если появятся
+
+        showSpecForTarget(el);
+        populateSpecialProps(selectedEl);
+        return;
+    }
+
+    // clearSelection(); // убрано, чтобы selectedEl сохранялся
+}); */
+
+
+
+
+/***********************************************************************
+ * newLoadedBlock — загрузка и регистрация нового блока:
+ * - Принимает путь к блоку.
+ * - Проверяет, открыт ли блок с указанным путём, и активирует его при наличии.
+ * - Создаёт новый блок с view / html / scripts контейнерами.
+ * - Добавляет вкладку блока с возможностью переключения и закрытия.
+ * - Загружает содержимое блока и активирует его отображение.
+ **********************************************************************/
+async function newLoadedBlock() {
+    const viewTab = document.querySelector('#center-tabs .center-tab[data-tab="view"]');
+    viewTab.click();
+
+    const data = await window.tempStore.getByRecipient("newLoadedBlock");
+    const path = data?.[data.length - 1]?.data?.path || "";
+    let tabs = document.getElementById('blocks-tabs');
+    let container = document.getElementById('loadedBlockMain');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'loadedBlockMain';
+        mainEl.appendChild(container);
+    }
+
+    let existingTab;
+    if (path) {
+        tabs.querySelectorAll('.tab').forEach(t => {
+            if (t.dataset.path === path) existingTab = t;
+        });
+    }
+    
+function switchTo(blockId, tabEl) {
+    window.currentBlock = tabEl.dataset.blockId;
+    tabs.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    if (tabEl) tabEl.classList.add('active');
+
+    Array.from(container.children).forEach(ch => {
+        if (ch !== document.querySelector('.small-handle')) ch.style.display = ch.id === blockId ? '' : 'none';
+    });
+
+    // 🔑 ВАЖНО: применяем текущий режим центра
+    const activeCenterTab = document.querySelector('#center-tabs .center-tab.active');
+    if (!activeCenterTab) return;
+
+    const mode = activeCenterTab.dataset.tab;
+    if (mode === 'view') showView(blockId);
+    if (mode === 'html') showHtml(blockId);
+    if (mode === 'js') showJs(blockId);
+}
+
+    if (existingTab) {
+        switchTo(existingTab.dataset.blockId, existingTab);
+        return;
+    }
+
+    let num = 1;
+    while (document.getElementById('loadedBlock_' + num)) num++;
+    const blockId = 'loadedBlock_' + num;
+
+    const block = document.createElement('div');
+    block.id = blockId;
+    block.dataset.path = path;
+
+    const viewDiv = document.createElement('div');
+    viewDiv.id = blockId + '_view';
+    viewDiv.className = 'loadedBlock_view';
+    viewDiv.contentEditable = 'true';
+    viewDiv.addEventListener('input', () => { viewDiv.dataset.dirty = "true"; syncHtmlFromView(blockId); });
+
+    const htmlDiv = document.createElement('div');
+    htmlDiv.id = blockId + '_html';
+    htmlDiv.style.display = 'none';
+
+    const cssDiv = document.createElement('div');
+    cssDiv.id = blockId + '_css';
+    cssDiv.style.display = 'none';
+
+    const scriptsDiv = document.createElement('div');
+    scriptsDiv.id = blockId + '_scripts';
+
+    const scriptText = document.createElement('script');
+    scriptText.setAttribute('data-dynamic-text', blockId + '_view');
+    scriptText.type = 'text/plain';
+    scriptsDiv.appendChild(scriptText);
+
+    const jsDiv = document.createElement('div');
+    jsDiv.id = blockId + '_js';
+    jsDiv.style.display = 'none';
+
+    block.appendChild(viewDiv);
+    block.appendChild(htmlDiv);
+    block.appendChild(cssDiv);
+    block.appendChild(scriptsDiv);
+    block.appendChild(jsDiv);
+    container.appendChild(block);
+
+    // Наблюдатель: если загрузчик вставит <script> в scriptsDiv позже,
+    try {
+        const observer = new MutationObserver(mutations => {
+            mutations.forEach(m => {
+                m.addedNodes.forEach(n => {
+                    if (!n || n.nodeType !== 1) return;
+                    if (n.tagName !== 'SCRIPT') return;
+                    const s = n;
+                    // пропускаем служебные скрипты
+                    if (s.getAttribute('data-dynamic-text') === blockId + '_view' || s.getAttribute('data-dynamic') === blockId + '_view') return;
+                    try {
+                        let txt = s.textContent || '';
+                        if (!txt && s.src) txt = `// external: ${s.src}`;
+                        scriptText.textContent = (scriptText.textContent || '') + '\n' + txt;
+                    } catch (e) {}
+                    try { s.parentNode && s.parentNode.removeChild(s); } catch (e) {}
+                });
+            });
+        });
+        observer.observe(scriptsDiv, { childList: true });
+        scriptsDiv._beObserver = observer;
+    } catch (e) {}
+
+    const tabEl = document.createElement('div');
+    tabEl.className = 'tab';
+    tabEl.dataset.path = path || blockId;
+    tabEl.dataset.blockId = blockId;
+    tabEl.textContent = path ? (path.split('/').filter(Boolean).pop() || path) : "*new";
+    tabEl.onclick = () => switchTo(blockId, tabEl);
+    tabs.appendChild(tabEl);
+
+    const closeBtn = document.createElement('span');
+    closeBtn.textContent = '×';
+    closeBtn.style.marginLeft = '6px';
+    closeBtn.style.cursor = 'pointer';
+    closeBtn.onclick = e => closeBlock(e, block, tabEl);
+
+    tabEl.appendChild(closeBtn);
+
+    switchTo(blockId, tabEl);
+
+    if (path) await loadBlock(path, viewDiv.id, ["js", "html"]);
+    const loadedScript = document.querySelector('script[data-dynamic="' + blockId + '_view"]');
+    if (loadedScript) {
+        scriptText.textContent = loadedScript.textContent || '';
+    }
+    if (path) extractContentParts(blockId);
+    showJs(blockId);
+    showView(blockId);
+    syncHtmlFromView(blockId);
+}
+window.newLoadedBlock = newLoadedBlock;
+
+/***********************************************************************
+ * centerEditor — HTML/Markdown-редактор центра.
+ **********************************************************************/
+const centerEditor = document.getElementById('center-tab-pre-html');
+
+/***********************************************************************
+ * syncActiveBlock — синхронизация активного блока:
+ * - Копирует содержимое HTML-редактора в HTML-блок.
+ * - Обновляет визуальное представление блока через syncViewFromHtml.
+ **********************************************************************/
+function syncActiveBlock() {
+    const centerEditor = document.getElementById('center-tab-pre-html');
+    const tab = document.querySelector('#blocks-tabs .tab.active');
+    if (!tab) return;
+
+    const blockId = tab.dataset.blockId;
+    const htmlEl = document.getElementById(blockId + '_html');
+    if (!htmlEl) return;
+
+    htmlEl.textContent = centerEditor.textContent;
+    syncViewFromHtml(blockId);
+}
+
+
+
+
+/***********************************************************************
+ * Создает объект MarkdownIt с HTML, автоссылками и типографикой
+ **********************************************************************/
+const md = window.markdownit({ html: true, linkify: true, typographer: true });
+
+/***********************************************************************
+ * Хранит идентификатор текущего активного блока
+ **********************************************************************/
+let activeBlockId = null;
+/***********************************************************************
+ * Хранит источник последней синхронизации (например, HTML или редактор)
+ **********************************************************************/
+let activeSyncSource = null;
+/***********************************************************************
+ * Хранит blockId, которому принадлежит текущее содержимое centerPreJs
+ **********************************************************************/
+let centerJsBlockId = null;
+
+/***********************************************************************
+ * logSync — Проверяет совпадение активного блока с переданным:
+ * - Принимает идентификатор следующего блока и источник.
+ * - Сравнивает с активным блоком.
+ * - Возвращает true, если блоки совпадают.
+ **********************************************************************/
+function logSync(nextBlockId, nextSource) {
+    const sameId = activeBlockId === nextBlockId;
+    return sameId;
+}
+
+/***********************************************************************
+ * syncViewFromHtml — Синхронизирует содержимое HTML-блока с редактором:
+ * - Принимает идентификатор блока.
+ * - Проверяет, нужно ли обновлять блок через logSync.
+ * - Копирует текст из редактора в скрытый HTML и обновляет визуальный блок через Markdown.
+ * - Обновляет активный блок и источник синхронизации.
+ **********************************************************************/
+function syncViewFromHtml(blockId) {
+    activeBlockId = blockId;
+    activeSyncSource = 'html';
+
+    const canRender = logSync(blockId, 'html');
+
+    const htmlElPre = document.getElementById('center-tab-pre-html');
+    const htmlEl = document.getElementById(blockId + '_html');
+    const viewEl = document.getElementById(blockId + '_view');
+    if (!htmlElPre || !htmlEl || !viewEl) return;
+
+    if (canRender) {
+        let content = htmlElPre.textContent.trim();
+        if (!content) content = '<div><br></div>';
+
+        const markdownBlocks = [
+            /^\s*#/,               // заголовки
+            /^\s*\*\*\*.*\*\*\*/, // жирный курсив
+            /^\s*\*\*.*\*\*/,     // жирный
+            /^\s*\*.*\*/,         // курсив
+            /^\s*-/ ,             // маркированный список
+            /^\s*\d+\./,          // нумерованный список
+            /^\s*>/,              // блок цитаты
+            /^\s*```/,            // блок кода
+            /^\s*<s>/,            // зачеркнутый
+        ];
+
+        const lines = content.split('\n');
+        let prevIsMd = false;
+
+        for (let i = 0; i < lines.length; i++) {
+            const isMd = markdownBlocks.some(re => re.test(lines[i]));
+            if (isMd && !prevIsMd) {
+                // добавляем перенос только если предыдущий не Markdown
+                lines[i] = '\n' + lines[i];
+            }
+            prevIsMd = isMd;
+        }
+
+        content = lines.join('\n');
+
+        htmlEl.innerHTML = content;
+        viewEl.innerHTML = md.render(content);
+    }
+}
+
+/***********************************************************************
+ * syncHtmlFromView — Синхронизирует HTML-блок с визуальным представлением:
+ * - Принимает идентификатор блока.
+ * - Проверяет, нужно ли обновлять блок через logSync.
+ * - Преобразует содержимое визуального блока в смешанный HTML и обновляет HTML-блок.
+ * - Обновляет активный блок и источник синхронизации.
+ **********************************************************************/
+function syncHtmlFromView(blockId) {
+    activeBlockId = blockId;
+    activeSyncSource = 'view';
+
+    const canRender = logSync(blockId, 'view');
+
+    const viewEl = document.getElementById(blockId + '_view');
+    const htmlEl = document.getElementById(blockId + '_html');
+    if (!viewEl || !htmlEl) return;
+
+    if (canRender) {
+        let mdText = htmlToMixed(viewEl.innerHTML);
+        htmlEl.innerHTML = mdText;
+        // also reflect changes immediately in the central HTML editor
+        const centerPre = document.getElementById('center-tab-pre-html');
+        if (centerPre) {
+            centerPre.textContent = mdText;
+            centerPre.dataset.userEdited = '0';
+        }
+    }
+}
+
+/***********************************************************************
+ * nodeToMd — Преобразует HTML-узел в Markdown:
+ * - Принимает HTML-узел.
+ * - Конвертирует текстовые узлы в текст.
+ * - Конвертирует элементы (заголовки, параграфы, списки, ссылки, изображения, код) в Markdown.
+ * - Рекурсивно обрабатывает дочерние узлы.
+ **********************************************************************/
+function nodeToMd(node) {
+    if (node.nodeType === Node.TEXT_NODE) return node.nodeValue;
+    if (node.nodeType !== Node.ELEMENT_NODE) return '';
+
+    const tag = node.tagName.toLowerCase();
+    const children = [...node.childNodes].map(nodeToMd).join('');
+
+    switch (tag) {
+        case 'h1': return '# ' + children.trim() + '\n\n';
+        case 'h2': return '## ' + children.trim() + '\n\n';
+        case 'h3': return '### ' + children.trim() + '\n\n';
+        case 'h4': return '#### ' + children.trim() + '\n\n';
+        case 'strong':
+        case 'b': return '**' + children + '**';
+        case 'em':
+        case 'i': return '*' + children + '*';
+        case 'p': return children.trim() + '\n\n';
+        case 'br': return '  \n';
+        case 'ul':
+            return '\n' + [...node.children]
+                .map(li => '- ' + [...li.childNodes].map(nodeToMd).join('').trim())
+                .join('\n') + '\n\n';
+        case 'ol':
+            return '\n' + [...node.children]
+                .map((li, i) =>
+                    (i + 1) + '. ' +
+                    [...li.childNodes].map(nodeToMd).join('').trim()
+                ).join('\n') + '\n\n';
+        case 'a':
+            return '[' + (children || node.getAttribute('href') || '') + '](' +
+                   (node.getAttribute('href') || '') + ')';
+        case 'img':
+            return '![' + (node.getAttribute('alt') || '') + '](' +
+                   (node.getAttribute('src') || '') + ')';
+        case 'pre': {
+            const code = node.querySelector('code');
+            const txt = code ? code.textContent : node.textContent;
+            return '\n```\n' + txt.replace(/^\n+|\n+$/g, '') + '\n```\n\n';
+        }
+        default:
+            // сохранить тег целиком, если он не преобразуется в Markdown
+            try {
+                return node.outerHTML;
+            } catch (e) {
+                // если по какой-то причине outerHTML недоступен — вернуть дочерний контент
+                return children;
+            }
+    }
+}
+
+/***********************************************************************
+ * htmlToMixed — Конвертирует HTML в Markdown:
+ * - Принимает HTML строку.
+ * - Парсит и обрабатывает дочерние узлы через nodeToMd.
+ * - Убирает лишние пустые строки.
+ * - Возвращает Markdown с переносом строки.
+ **********************************************************************/
+function htmlToMixed(html) {
+    let out = html;
+    const doc = new DOMParser().parseFromString('<div>' + html + '</div>', 'text/html');
+    const wrapper = doc.body.firstElementChild;
+    if (!wrapper) return '\n';
+
+    out = [...wrapper.childNodes]
+        .map(nodeToMd)
+        .join('')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+
+    out = out ? out + '\n' : '\n'
+    return out;
+}
+
+/**
+* extractContentParts — Перемещает встроенные теги <style> и <script> из представления в блочные контейнеры
+* — Сохраняет CSS в <style data-dynamic="blockId_view"> и JS в <script data-dynamic-text="blockId_view"> (только текст)
+* — Удаляет исходные встроенные теги из представления, чтобы избежать автоматического выполнения
+*/
+function extractContentParts(blockId) {
+    const viewEl = document.getElementById(blockId + '_view');
+    if (!viewEl) return;
+
+    const scriptsDiv = document.getElementById(blockId + '_scripts') || document.getElementById('loadedBlockMain');
+    const cssDiv = document.getElementById(blockId + '_css');
+    const htmlDiv = document.getElementById(blockId + '_html');
+
+   // собирать стили
+    viewEl.querySelectorAll('style').forEach(st => {
+        try {
+            let styleEl = document.querySelector('style[data-dynamic="' + blockId + '_view"]');
+            if (!styleEl) {
+                styleEl = document.createElement('style');
+                styleEl.setAttribute('data-dynamic', blockId + '_view');
+                (scriptsDiv || document.head).appendChild(styleEl);
+            }
+            styleEl.textContent = (styleEl.textContent || '') + '\n' + (st.textContent || '');
+        } catch (e) {}
+        st.parentNode && st.parentNode.removeChild(st);
+    });
+
+    // готовим контейнер для скриптов 
+    let textEl = document.querySelector('script[data-dynamic-text="' + blockId + '_view"]');
+    if (!textEl && scriptsDiv) {
+        textEl = document.createElement('script');
+        textEl.setAttribute('data-dynamic-text', blockId + '_view');
+        textEl.type = 'text/plain';
+        scriptsDiv.appendChild(textEl);
+    }
+
+    // также нормализуем любые скрипты, которые были помещены в scriptsDiv загрузчиком: преобразуем их в хранилище текста
+    if (scriptsDiv) {
+        scriptsDiv.querySelectorAll('script').forEach(s => {
+            if (s.getAttribute('data-dynamic-text') === blockId + '_view' || s.getAttribute('data-dynamic') === blockId + '_view') return;
+            try {
+                textEl.textContent = (textEl.textContent || '') + '\n' + (s.textContent || '');
+            } catch (e) {}
+            s.parentNode && s.parentNode.removeChild(s);
+        });
+    }
+
+    // собирать скрипты из представления
+    viewEl.querySelectorAll('script').forEach(sc => {
+        // пропускаем служебные скрипты
+        if (sc.getAttribute('data-dynamic-text') === blockId + '_view' || sc.getAttribute('data-dynamic') === blockId + '_view') return;
+        try {
+            textEl.textContent = (textEl.textContent || '') + '\n' + (sc.textContent || '');
+        } catch (e) {}
+        sc.parentNode && sc.parentNode.removeChild(sc);
+    });
+
+    // обновляем HTML-контейнер, удаляя встроенные стили и скрипты из представления
+    if (htmlDiv) htmlDiv.innerHTML = viewEl.innerHTML;
+
+    // обновляем центральные редакторы
+    const centerPre = document.getElementById('center-tab-pre-html');
+    if (centerPre) centerPre.textContent = htmlToMixed(viewEl.innerHTML);
+    const centerJs = document.getElementById('center-tab-pre-js');
+    if (centerJs && textEl) centerJs.textContent = textEl.textContent || '';
+}
+
+
+
+
+/***********************************************************************
+ * closeBlock — закрытие блока и очистка интерфейса:
+ * - Принимает событие клика, элемент блока и вкладку.
+ * - Удаляет блок и связанную с ним вкладку.
+ * - Сбрасывает содержимое редакторов HTML и JS.
+ * - Очищает панели CSS, атрибутов, свойств и событий.
+ **********************************************************************/
+function closeBlock(e, block, tabEl) {
+    e.stopPropagation();
+    try {
+        const scriptsDiv = block ? block.querySelector('#' + block.id + '_scripts') : null;
+        if (scriptsDiv && scriptsDiv._beObserver) {
+            try { scriptsDiv._beObserver.disconnect(); } catch (e) {}
+            scriptsDiv._beObserver = null;
+        }
+    } catch (e) {}
+
+    const container = document.getElementById('loadedBlockMain');
+    if (container && block) container.removeChild(block);
+    if (tabEl.parentNode) tabEl.parentNode.removeChild(tabEl);
+
+    centerPreHtml.textContent = '';
+    centerPreJs.textContent = '';
+    centerContent.style.display = 'none';
+    document.getElementById('loadedBlock').style.display = '';
+
+    const tagLabel = document.getElementById('tag-label');
+    if (tagLabel) tagLabel.textContent = 'TAG';
+
+    const attrId = document.getElementById('attr-id');
+    const attrClass = document.getElementById('attr-class');
+    if (attrId) attrId.value = '';
+    if (attrClass) attrClass.value = '';
+
+    const attrTable = document.getElementById('attributes-table');
+    if (attrTable) {
+        attrTable.innerHTML = '<tr><td contenteditable="true" data-placeholder="name"></td><td contenteditable="true" data-placeholder="value"></td></tr>';
+    }
+
+    const propTable = document.getElementById('properties-table');
+    if (propTable) {
+        propTable.innerHTML = '<tr><td contenteditable="true" data-placeholder="property"></td><td contenteditable="true" data-placeholder="value"></td></tr>';
+    }
+
+    const jsTable = document.getElementById('editor-js-panel');
+    if (jsTable) {
+        jsTable.querySelectorAll('td[contenteditable="true"]').forEach(td => td.textContent = '');
+    }
+
+    const cssPanel = document.getElementById('css-panel');
+    const jsPanel = document.getElementById('js-panel');
+    /* if (cssPanel) cssPanel.style.display = ''; */
+    if (jsPanel) jsPanel.style.display = 'none';
+}
+
+
+
+
+/***********************************************************************
+ * getActiveBlockId — определение активного блока:
+ * - Проверяет активную вкладку и возвращает связанный с ней blockId.
+ * - Если вкладка не найдена, ищет видимый блок в контейнере loadedBlockMain.
+ * - Возвращает идентификатор активного блока или null при его отсутствии.
+ **********************************************************************/
+function getActiveBlockId() {
+    const tab = document.querySelector('#blocks-tabs .tab.active');
+    if (tab && tab.dataset.blockId) return tab.dataset.blockId;
+
+    const container = document.getElementById('loadedBlockMain');
+    if (!container) return null;
+
+    for (const ch of container.children) {
+        if (getComputedStyle(ch).display !== 'none') return ch.id;
+    }
+    return null;
+}
+
+/***********************************************************************
+ * applyJs — применение JavaScript-кода к блоку:
+ * - Принимает идентификатор блока.
+ * - Получает код из JS-редактора и привязывает его к блоку.
+ * - Создаёт или обновляет динамический script-элемент блока.
+ * - Оборачивает код в защитную IIFE с обработкой ошибок.
+ * - Выполняет обновлённый скрипт для активного блока.
+ **********************************************************************/
+function runJs(blockId) {
+    const textEl = document.querySelector('script[data-dynamic-text="' + blockId + '_view"]');
+    if (!textEl) return;
+    const content = textEl.textContent || '';
+    if (!content.trim()) return;
+
+    const prev = document.querySelector('script[data-dynamic="' + blockId + '_view"]');
+    if (prev && prev.parentNode) prev.parentNode.removeChild(prev);
+
+    const exec = document.createElement('script');
+    exec.setAttribute('data-dynamic', blockId + '_view');
+    exec.type = '';
+    exec.textContent = `(function(){try{${content}\nif(typeof pageInit==='function')pageInit();}catch(e){console.error('Block script error:',e);}})();`;
+    const wrap = document.getElementById(blockId + '_scripts') || document.getElementById('loadedBlockMain') || document.body;
+    wrap.appendChild(exec);
+    showMarkerModal('JS-код блока успешно применён!');
+}
+function saveJsToScript(blockId) {
+    const centerPreJs = document.getElementById('center-tab-pre-js');
+    // Если centerPreJs содержит код другого блока, не переписывать его
+    // Берем содержимое только если это текущий активный блок в редакторе
+    let content = '';
+    if (centerJsBlockId === blockId) {
+        content = centerPreJs.textContent || '';
+    }
+    
+    let textEl = document.querySelector('script[data-dynamic-text="' + blockId + '_view"]');
+    if (!textEl) {
+        const wrap = document.getElementById(blockId + '_scripts') || document.getElementById('loadedBlockMain');
+        textEl = document.createElement('script');
+        textEl.setAttribute('data-dynamic-text', blockId + '_view');
+        textEl.type = 'text/plain';
+        wrap.appendChild(textEl);
+    }
+    
+    // Только обновляем, если был получен контент из centerPreJs (это текущий блок)
+    if (centerJsBlockId === blockId) {
+        textEl.textContent = content;
+    }
+}
+
+/***********************************************************************
+ * updateCenterControls — управление кнопками центральной панели:
+ * - Принимает текущий режим отображения (view / html / js).
+ * - Показывает или скрывает кнопку применения JS.
+ **********************************************************************/
+function updateCenterControls(mode) {
+    /* btnLoadFromView.style.display = mode === 'html' ? '' : 'none';
+    btnApplyToView.style.display = mode === 'html' ? '' : 'none'; */
+    const btnApplyJs = document.getElementById('btn-apply-js');
+    if (btnApplyJs) btnApplyJs.style.display = mode === 'js' ? '' : 'none';
+
+    const panel = document.getElementById('center-tab-controls');
+
+    const buttons = panel.querySelectorAll('button');
+    const visible = Array.from(buttons).some(btn => btn.style.display !== 'none');
+
+    panel.style.display = visible ? 'flex' : 'none';
+}
+
+/***********************************************************************
+ * showView — показ блока в режиме визуального просмотра:
+ * - Принимает идентификатор блока, который нужно отобразить.
+ * - Скрывает область редактирования HTML и JS.
+ * - Обновляет состояние кнопок управления в центре.
+ * - Отображает только активный блок, скрывая остальные.
+ **********************************************************************/
+function showView(blockId) {
+    centerContent.style.display = 'none';
+    updateCenterControls('view');
+    const container = document.getElementById('loadedBlockMain');
+    if (!container) return;
+    Array.from(container.children).forEach(ch => {
+        if (ch !== document.querySelector('.small-handle')) ch.style.display = ch.id === blockId ? '' : 'none';
+    });
+    document.getElementById('loadedBlock').style.display = '';
+    document.getElementById('left-panel').style.display = 'flex';
+    document.querySelector('#css-js-tabs .tab[data-tab="properties"]').style.display = '';
+    document.querySelector('#css-js-tabs .tab[data-tab="properties"]').click();
+    ensureJsPanelSelection(blockId);
+}
+
+/***********************************************************************
+ * showHtml — показ блока в режиме редактирования HTML:
+ * - Принимает идентификатор блока.
+ * - Показывает HTML-редактор и скрывает JS-редактор.
+ * - Обновляет состояние кнопок управления.
+ * - Скрывает визуальный режим и отображает только активный блок.
+ * - Загружает HTML блока в редактор, если пользователь ещё не редактировал код.
+ **********************************************************************/
+function showHtml(blockId) {
+    const centerPreHtml = document.getElementById('center-tab-pre-html');
+    const centerPreJs = document.getElementById('center-tab-pre-js');
+    centerContent.style.display = '';
+    centerPreHtml.style.display = '';
+    centerPreJs.style.display = 'none';
+    updateCenterControls('html');
+
+    const container = document.getElementById('loadedBlockMain');
+    if (container) Array.from(container.children).forEach(ch => {
+        if (ch !== document.querySelector('.small-handle')) ch.style.display = ch.id === blockId ? '' : 'none';
+    });
+    document.getElementById('loadedBlock').style.display = 'none';
+
+    const htmlContainer = document.getElementById(blockId + '_html');
+    centerPreHtml.textContent = htmlContainer.innerHTML;
+    document.getElementById('left-panel').style.display = 'none';
+    document.querySelector('#css-js-tabs .tab[data-tab="properties"]').style.display = 'none';
+    document.querySelector('#css-js-tabs .tab[data-tab="js"]').click();
+}
+
+/***********************************************************************
+ * showJs — отображение и подготовка JS-кода блока:
+ * - Переключает интерфейс в режим редактирования JS.
+ * - Извлекает JS-код блока и очищает его от служебной обёртки.
+ * - Показывает JS-редактор и скрывает визуальное представление блока.
+ **********************************************************************/
+function ensureHandlerFunctions(code) {
+    const handlerNames = new Set();
+    let m;
+
+    // find .onX = handler;
+    const onAssignRe = /\.on[a-zA-Z]+\s*=\s*([A-Za-z_$][A-Za-z0-9_$]*)/g;
+    while ((m = onAssignRe.exec(code)) !== null) {
+        handlerNames.add(m[1]);
+    }
+
+    // find addEventListener(..., handler)
+    const addListenerRe = /\.addEventListener\(\s*['"][^'"]+['"]\s*,\s*([A-Za-z_$][A-Za-z0-9_$]*)/g;
+    while ((m = addListenerRe.exec(code)) !== null) {
+        handlerNames.add(m[1]);
+    }
+
+    // собрать уже определенные функции и переменные, присвоенные функциям/стрелочным функциям
+    const defined = new Set();
+    const funcDefRe = /function\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*\(/g;
+    while ((m = funcDefRe.exec(code)) !== null) {
+        defined.add(m[1]);
+    }
+    const varFuncRe = /(?:var|let|const)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*(?:function\b|\()/g;
+    while ((m = varFuncRe.exec(code)) !== null) {
+        defined.add(m[1]);
+    }
+
+    handlerNames.forEach(name => {
+        if (!defined.has(name)) {
+            code += `\nfunction ${name}() {\n    // автоматически сгенерированный функция\n}\n`;
+        }
+    });
+
+    return code;
+}
+
+function stripJsWrapper(code) {
+    // Arrow IIFE with try/catch + optional pageInit
+    let out = code
+        .replace(/^\s*\(\(\)\s*=>\s*{\s*try\s*{\s*/s, '')
+        .replace(/\s*if\s*\(\s*typeof pageInit[\s\S]*?\)\s*pageInit\(\);\s*/s, '')
+        .replace(/\s*}\s*catch[\s\S]*?}\s*\}\)\s*\(\s*\)\s*;?\s*$/s, '');
+
+    // Legacy function IIFE wrapper (fallback)
+    out = out
+        .replace(/^\s*\(function\(\)\s*{\s*try\s*{\s*/s, '')
+        .replace(/\s*}\s*catch\s*\(e\)\s*{\s*console\.error\(\"Block script error:\",\s*e\);\s*}\s*}\)\(\);?\s*$/s, '');
+
+    return out;
+}
+
+function showJs(blockId, highlightSearch=null) {
+    const centerPreHtml = document.getElementById('center-tab-pre-html');
+    const centerPreJs = document.getElementById('center-tab-pre-js');
+    centerContent.style.display = '';
+    centerPreHtml.style.display = 'none';
+    centerPreJs.style.display = '';
+    updateCenterControls('js');
+
+    const scriptEl = document.querySelector('script[data-dynamic-text="' + blockId + '_view"]');
+    let code = scriptEl ? scriptEl.textContent : '';
+
+    code = stripJsWrapper(code);
+
+    code = ensureHandlerFunctions(code);
+
+    centerPreJs.textContent = code;
+    centerJsBlockId = blockId; // отслеживаем, какому блоку принадлежит centerPreJs
+
+    if (highlightSearch) {
+        setTimeout(() => {
+            highlightInJsEditor(highlightSearch, code);
+        }, 0);
+    }
+
+    const container = document.getElementById('loadedBlockMain');
+    if (container) Array.from(container.children).forEach(ch => {
+        if (ch !== document.querySelector('.small-handle')) ch.style.display = 'none';
+    });
+    document.getElementById('loadedBlock').style.display = 'none';
+    document.getElementById('left-panel').style.display = 'none';
+    document.querySelector('#css-js-tabs .tab[data-tab="properties"]').style.display = 'none';
+    document.querySelector('#css-js-tabs .tab[data-tab="js"]').click();
+}
+
+
+
+
+/***********************************************************************
+ * Ссылка на текущий выбранный элемент в view.
+ **********************************************************************/
+window.currentSelectedEl = null;
+
+/***********************************************************************
+ * document click — выбор элемента в режиме view:
+ * - Обрабатывает клик по элементу внутри блока просмотра.
+ * - Определяет выбранный HTML-элемент для редактирования.
+ * - Обновляет связанные панели (CSS, свойства, JS).
+ **********************************************************************/
+
+function getDefaultJsPanelElement(view) {
+    if (!view) return null;
+    const all = view.querySelectorAll('*');
+    for (const el of all) {
+        const tag = el.tagName.toLowerCase();
+        if (tag === 'script' || tag === 'style') continue;
+        return el;
+    }
+    return view;
+}
+
+function selectElementForPanels(el, resetPrevious = true) {
+    if (!el) return;
+    if (resetPrevious && lastSelectedEl && lastSelectedEl !== el) {
+        delete lastSelectedEl.dataset.selectorType;
+    }
+
+    lastSelectedEl = el;
+    selectedElBorder = el;
+
+    updateCssPanel(el);
+    updateTagLabel(el);
+    updateJsPanel(el);
+    updateJsPanelName(el);
+    updatePropertiesPanel(el);
+}
+
+function ensureJsPanelSelection(blockId) {
+    const view = document.getElementById(blockId + '_view');
+    if (!view) return;
+
+    if (lastSelectedEl && view.contains(lastSelectedEl)) {
+        selectElementForPanels(lastSelectedEl, false);
+        return;
+    }
+
+    const el = getDefaultJsPanelElement(view);
+    if (el) selectElementForPanels(el);
+}
+
+document.addEventListener('click', e => {
+    const clicked = e.target;
+
+    const view = clicked.closest('[id^="loadedBlock_"][id$="_view"]');
+
+    if (!view) {
+        if (lastSelectedEl) {
+            delete lastSelectedEl.dataset.selectorType;
+            lastSelectedEl = null;
+        }
+        return;
+    }
+
+    const el =
+        (lastHighlightedElement && view.contains(lastHighlightedElement) && lastHighlightedElement) ||
+        /* findEditableElement(clicked) || */
+        view;
+    selectElementForPanels(el);
+});
+
+/***********************************************************************
+ * updateTagLabel — обновление метки тега:
+ * - Получает имя тега выбранного элемента.
+ * - Отображает его в панели информации.
+ **********************************************************************/
+function updateTagLabel(el) {
+    const label = document.getElementById('tag-label');
+    if (!label) return;
+    let name = el.tagName.toLowerCase();
+    label.textContent = name;
+}
+
+
+
+
+/***********************************************************************
+ * updateCssPanel — Обновляет панель атрибутов CSS для выбранного элемента:
+ * - Принимает HTML элемент.
+ * - Заполняет поля ввода ID и класса текущего элемента.
+ * - Очищает и заполняет таблицу остальных атрибутов.
+ * - Добавляет пустую строку для нового атрибута.
+ **********************************************************************/
+function updateCssPanel(el) {
+    currentSelectedEl = el;
+    const attrsTable = document.getElementById('attributes-table');
+    if (!attrsTable) return;
+    attrsTable.innerHTML = '';
+    // include id and class as ordinary attributes first
+    if (el.id) createAttrRow('id', el.id);
+    if (el.className) createAttrRow('class', el.className);
+    const names = el.getAttributeNames().filter(n => n !== 'id' && n !== 'class');
+    names.forEach(name => createAttrRow(name, el.getAttribute(name) || ''));
+    ensureEmptyAttrRow();
+}
+
+/***********************************************************************
+ * attr-id input — Синхронизирует ввод ID с текущим элементом:
+ * - Принимает событие ввода.
+ * - Обновляет ID выбранного элемента или удаляет его, если пусто.
+ **********************************************************************/
+/* document.getElementById('attr-id')?.addEventListener('input', e => {
+    if (!currentSelectedEl) return;
+    const v = e.target.value.trim();
+    v ? currentSelectedEl.id = v : currentSelectedEl.removeAttribute('id');
+});
+ */
+/***********************************************************************
+ * attr-class input — Синхронизирует ввод класса с текущим элементом:
+ * - Принимает событие ввода.
+ * - Обновляет class выбранного элемента.
+ **********************************************************************/
+/* document.getElementById('attr-class')?.addEventListener('input', e => {
+    if (!currentSelectedEl) return;
+    currentSelectedEl.className = e.target.value;
+}); */
+
+
+/***********************************************************************
+ * createAttrRow — Создает строку таблицы атрибутов элемента:
+ * - Принимает имя и значение атрибута.
+ * - Создает редактируемые ячейки name и value.
+ * - Добавляет кнопку удаления, если атрибут задан.
+ * - Вставляет строку в таблицу атрибутов.
+ **********************************************************************/
+function createAttrRow(name, value) {
+    const attrsTable = document.getElementById('attributes-table');
+    const tr = document.createElement('tr');
+    const td1 = document.createElement('td');
+    const td2 = document.createElement('td');
+
+    td1.contentEditable = 'true';
+    td1.dataset.placeholder = 'name';
+    td2.contentEditable = 'true';
+    td2.dataset.placeholder = 'value';
+
+    td1.textContent = name || '';
+    td2.textContent = value || '';
+    td1.dataset.prev = name || '';
+
+    tr.append(td1, td2);
+
+    if (name || value) {
+        const td3 = document.createElement('td');
+        td3.textContent = '×';
+        td3.style.cursor = 'pointer';
+        td3.onclick = (e) => {
+            e.stopPropagation();
+            removeAttrRow(tr, td1);
+        };
+        tr.appendChild(td3);
+    }
+
+    attrsTable.appendChild(tr);
+}
+
+/***********************************************************************
+ * removeAttrRow — Удаляет строку атрибута из таблицы:
+ * - Удаляет атрибут с элемента, если он был задан.
+ * - Удаляет строку из таблицы.
+ * - Обеспечивает наличие пустой строки для нового атрибута.
+ **********************************************************************/
+function removeAttrRow(tr, td1) {
+    const prev = td1.dataset.prev || '';
+    if (prev && currentSelectedEl) {
+        currentSelectedEl.removeAttribute(prev);
+    }
+    tr.remove();
+    ensureEmptyAttrRow();
+}
+
+/***********************************************************************
+ * ensureEmptyAttrRow — Гарантирует наличие пустой строки в таблице атрибутов:
+ * - Проверяет последнюю строку таблицы.
+ * - Если строки нет или она не пуста, создаёт новую пустую строку.
+ **********************************************************************/
+function ensureEmptyAttrRow() {
+    const t = document.getElementById('attributes-table');
+    if (!t) return;
+
+    const last = t.lastElementChild;
+    if (
+        !last ||
+        last.children[0].textContent.trim() ||
+        last.children[1].textContent.trim()
+    ) {
+        createAttrRow('', '');
+    }
+}
+
+
+/***********************************************************************
+ * getBlockIdFromEl — Определяет id блока по элементу:
+ * - Принимает DOM-элемент.
+ * - Поднимается по DOM вверх от переданного элемента.
+ * - Ищет первый элемент с id, оканчивающимся на "_view".
+ * - Возвращает id без суффикса "_view" или null, если такого элемента нет.
+ **********************************************************************/
+function getBlockIdFromEl(el) {
+    let node = el;
+    while (node) {
+        if (node.id && node.id.endsWith('_view')) return node.id.replace(/_view$/, '');
+        node = node.parentElement;
+    }
+    return null;
+}
+
+/***********************************************************************
+ * updatePropertiesPanel — Обновляет панель CSS-свойств элемента:
+ * - Принимает DOM-элемент.
+ * - Определяет id блока и связанные динамические стили.
+ * - Парсит CSS правила и сопоставляет их с элементом.
+ * - Формирует список селекторов по приоритету (id, классы, тег, matched rules).
+ * - Заполняет таблицу свойствами и добавляет строки для новых свойств.
+ **********************************************************************/
+function updatePropertiesPanel(el) {
+    const table = document.getElementById('properties-table');
+    if (!table) return;
+    table.innerHTML = '';
+    const blockId = getBlockIdFromEl(el) || getActiveBlockId() || 'loadedBlock_1';
+    let styleEl = document.querySelector('style[data-dynamic="' + blockId + '_view"]');
+    const css = styleEl ? styleEl.textContent : '';
+    const rules = parseCssToRules(css);
+    const existingMap = new Map();
+    const existingOrder = [];
+    rules.forEach(r => {
+        if (!existingMap.has(r.selector)) {
+            existingMap.set(r.selector, r.decls);
+            existingOrder.push(r.selector);
+        }
+    });
+    const matchedSet = new Set();
+    rules.forEach(r => {
+        try {
+            if (el.matches(r.selector)) matchedSet.add(r.selector);
+        } catch (e) {
+            const selStripped = r.selector.replace(/::[a-zA-Z0-9\-\(\)]+/g, '').trim();
+            try { if (selStripped && el.matches(selStripped)) matchedSet.add(r.selector); } catch (e2) {}
+        }
+    });
+    const candidates = [];
+    const id = el.id ? '#' + el.id : null;
+    const classes = Array.from(el.classList || []);
+    const tag = el.tagName.toLowerCase();
+    if (id) candidates.push(id);
+    classes.forEach(c => candidates.push('.' + c));
+    candidates.push(tag);
+    const order = [];
+    existingOrder.forEach(s => { if (matchedSet.has(s) && !order.includes(s)) order.push(s); });
+    candidates.forEach(s => { if (!order.includes(s)) order.push(s); });
+    if (order.length === 0) order.push(buildSelector(el));
+    order.forEach(sel => {
+        const trSel = document.createElement('tr');
+        const tdSel = document.createElement('td');
+        tdSel.colSpan = 3;
+        tdSel.textContent = sel;
+        trSel.appendChild(tdSel);
+        table.appendChild(trSel);
+        const decls = existingMap.get(sel) || (sel === tag ? (el.getAttribute('style') || '') : '');
+        decls.split(';').map(v => v.trim()).filter(Boolean).forEach(line => {
+            const i = line.indexOf(':');
+            const p = i !== -1 ? line.slice(0, i).trim() : '';
+            const v = i !== -1 ? line.slice(i + 1).trim() : '';
+            createPropRow(p, v, true);
+        });
+        createAddPropRow();
+    });
+
+    updateSimpleFormats(el);
+    updateSelectProperties(el);
+}
+
+/***********************************************************************
+ * parseCssToRules — Преобразует CSS строку в массив правил:
+ * - Принимает CSS строку.
+ * - Разбивает её на селекторы и декларации.
+ * - Для каждого селектора формирует объект {selector, decls}.
+ * - Возвращает массив таких объектов.
+ **********************************************************************/
+function parseCssToRules(css) {
+    const out = [];
+    const re = /([^{]+)\{([^}]*)\}/g;
+    let m;
+    while ((m = re.exec(css)) !== null) {
+        const selectorText = m[1].trim();
+        const decls = m[2].trim();
+        const selectors = selectorText.split(',').map(s => s.trim()).filter(Boolean);
+        selectors.forEach(sel => out.push({ selector: sel, decls }));
+    }
+    return out;
+}
+
+/***********************************************************************
+ * buildSelector — Создает CSS-селектор для элемента по id, классам или тегу.
+ * - Принимает DOM-элемент.
+ * - Возвращает селектор как строку.
+ **********************************************************************/
+function buildSelector(el) {
+    if (el.id) return '#' + el.id;
+    if (el.className) return '.' + el.className.split(' ').filter(Boolean).join('.');
+    return el.tagName.toLowerCase();
+}
+
+/***********************************************************************
+ * createPropRow — Создает строку свойства CSS в таблице:
+ * - Принимает имя свойства, значение и флаг удаляемости.
+ * - Создает редактируемые ячейки для имени и значения.
+ * - Добавляет кнопку удаления, если нужно.
+ * - Вставляет строку в таблицу properties-table.
+ **********************************************************************/
+function createPropRow(prop, val, deletable) {
+    const table = document.getElementById('properties-table');
+    const tr = document.createElement('tr');
+    const td1 = document.createElement('td');
+    const td2 = document.createElement('td');
+    td1.contentEditable = 'true';
+    td1.dataset.placeholder = td1.dataset.placeholder || 'property';
+    td2.contentEditable = 'true';
+    td2.dataset.placeholder = td2.dataset.placeholder || 'value';
+    td1.textContent = prop || '';
+    td2.textContent = val || '';
+    tr.append(td1, td2);
+    if (deletable) {
+        const td3 = document.createElement('td');
+        td3.textContent = '×';
+        td3.style.cursor = 'pointer';
+        td3.onclick = (e) => {
+            e.stopPropagation();
+            tr.remove();
+            rebuildStyleForActive();
+        };
+        tr.appendChild(td3);
+    }
+    table.appendChild(tr);
+}
+
+/***********************************************************************
+ * createAddPropRow — Добавляет пустую строку для нового свойства CSS:
+ * - Проверяет, что последняя строка таблицы пустая.
+ * - Создает редактируемые ячейки для имени и значения.
+ * - Вставляет строку в таблицу properties-table.
+ **********************************************************************/
+function createAddPropRow() {
+    const table = document.getElementById('properties-table');
+    const last = table.lastElementChild;
+    if (last && last.children.length === 2 && !last.children[0].textContent.trim() && !last.children[1].textContent.trim()) return;
+    const tr = document.createElement('tr');
+    const td1 = document.createElement('td');
+    const td2 = document.createElement('td');
+    td1.contentEditable = 'true';
+    td1.dataset.placeholder = 'property';
+    td2.contentEditable = 'true';
+    td2.dataset.placeholder = 'value';
+    td1.textContent = '';
+    td2.textContent = '';
+    tr.append(td1, td2);
+    table.appendChild(tr);
+}
+
+/***********************************************************************
+ * ensureAddRowExists — гарантирует наличие пустой строки для нового свойства:
+ * - Проверяет последнюю строку таблицы свойств.
+ * - Если строки нет или она некорректная, создаёт новую пустую строку.
+ * - Иначе восстанавливает плейсхолдеры для имени и значения свойства.
+ **********************************************************************/
+function ensureAddRowExists() {
+    const table = document.getElementById('properties-table');
+    const last = table.lastElementChild;
+    if (!last || last.children.length !== 2) createAddPropRow();
+    else {
+        last.children[0].dataset.placeholder = last.children[0].dataset.placeholder || 'property';
+        last.children[1].dataset.placeholder = last.children[1].dataset.placeholder || 'value';
+    }
+}
+
+/***********************************************************************
+ * rebuildStyleForActive — обновляет CSS для активного элемента блока:
+ * - Считывает все строки таблицы свойств и формирует карту селекторов и их стилей.
+ * - Сохраняет порядок существующих правил и добавляет новые.
+ * - Генерирует итоговый CSS текст.
+ * - Создаёт или обновляет динамический `<style>` для текущего блока.
+ **********************************************************************/
+function rebuildStyleForActive() {
+    if (!currentSelectedEl) return;
+
+    const table = document.getElementById('properties-table');
+    if (!table) return;
+
+    // очистка старых inline-стилей
+    currentSelectedEl.style.cssText = '';
+
+    const rows = Array.from(table.querySelectorAll('tr'));
+
+    rows.forEach(tr => {
+        if (tr.children.length >= 2) {
+            const prop = tr.children[0].textContent.trim();
+            const val = tr.children[1].textContent.trim();
+
+            if (prop && val) {
+                const cssProp = prop.replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
+                currentSelectedEl.style[cssProp] = val;
+            }
+        }
+    });
+
+    const view = currentSelectedEl.closest('[id^="loadedBlock_"][id$="_view"]');
+    if (view) view.dataset.dirty = 'true';
+}
+
+
+
+
+
+// --- class name autocomplete helpers --------------------------------------
+function gatherClasses(blockId) {
+    const view = document.getElementById(blockId + '_view');
+    if (!view) return [];
+    const set = new Set();
+    view.querySelectorAll('[class]').forEach(el => {
+        el.classList.forEach(c => set.add(c));
+    });
+    return Array.from(set).sort();
+}
+
+let currentClassAutoTarget = null;
+function prepareClassAutocomplete(td) {
+    currentClassAutoTarget = td;
+    const blockId = getActiveBlockId();
+    const list = blockId ? gatherClasses(blockId) : [];
+    td.dataset.classNames = JSON.stringify(list);
+    showClassAutocomplete(td, '');
+}
+
+function updateClassAutocomplete(td) {
+    if (currentClassAutoTarget !== td) return;
+    const prefix = td.value ? td.value.trim() : td.textContent.trim();
+    showClassAutocomplete(td, prefix);
+}
+
+function showClassAutocomplete(td, prefix) {
+    const list = JSON.parse(td.dataset.classNames || '[]');
+    const filtered = prefix ? list.filter(n => n.startsWith(prefix)) : list;
+    if (!filtered.length) {
+        hideClassAutocomplete();
+        return;
+    }
+    classAutoBox.innerHTML = '';
+    filtered.forEach(name => {
+        const div = document.createElement('div');
+        div.textContent = name;
+        div.style.padding = '2px 4px';
+        div.style.cursor = 'pointer';
+        div.addEventListener('mousedown', e => {
+            e.preventDefault();
+            if (currentClassAutoTarget) {
+                if (currentClassAutoTarget.value !== undefined) currentClassAutoTarget.value = name;
+                else currentClassAutoTarget.textContent = name;
+                currentClassAutoTarget.focus();
+            }
+            hideClassAutocomplete();
+        });
+        classAutoBox.appendChild(div);
+    });
+    positionClassAutocomplete(td);
+    classAutoBox.style.display = '';
+}
+
+function positionClassAutocomplete(td) {
+    const rect = td.getBoundingClientRect();
+    let left = rect.left + window.scrollX;
+    const top = rect.bottom + window.scrollY;
+    const boxWidth = classAutoBox.offsetWidth || 0;
+    const avail = window.innerWidth - 10;
+    if (left + boxWidth > avail) {
+        left = Math.max(10, avail - boxWidth);
+    }
+    classAutoBox.style.top = top + 'px';
+    classAutoBox.style.left = left + 'px';
+    if (top + classAutoBox.offsetHeight > window.innerHeight + window.scrollY) {
+        classAutoBox.style.top = (rect.top + window.scrollY - classAutoBox.offsetHeight - 2) + 'px';
+    }
+}
+
+function hideClassAutocomplete() {
+    classAutoBox.style.display = 'none';
+    currentClassAutoTarget = null;
+}
+
+
+// reposition
+window.addEventListener('resize', () => {
+    if (currentClassAutoTarget && classAutoBox.style.display !== 'none') {
+        positionClassAutocomplete(currentClassAutoTarget);
+    }
+});
+
+// hide outside
+document.addEventListener('mousedown', e => {
+    if (currentClassAutoTarget && !classAutoBox.contains(e.target) && e.target !== currentClassAutoTarget) {
+        hideClassAutocomplete();
+    }
+});
+
+function hideClassAutocomplete() {
+    classAutoBox.style.display = 'none';
+    currentClassAutoTarget = null;
+}
+
+function getActiveId(el) {
+    if (!el) return '';
+    if (activeIdByEl.has(el)) return activeIdByEl.get(el) || '';
+    return el.id || '';
+}
+
+function setActiveId(el, val) {
+    if (!el) return;
+    activeIdByEl.set(el, val);
+}
+
+
+
+
+
+
+/* работа с текстом */
+function updateSimpleFormats(el) {
+    if (!el) return;
+    const simple = document.getElementById('properties-simpleFormats');
+    if (!simple) return;
+    const btns = Array.from(simple.querySelectorAll('[simpleformats-button]'));
+
+    btns.forEach(b => {
+        const key = b.getAttribute('simpleformats-button');
+        updateButtonActive(b, el, key);
+        b.onclick = () => { 
+            handleSimpleFormatClick(b, el, key);
+            const blockId = getActiveBlockId();
+            if (blockId) {
+                syncHtmlFromView(blockId);
+            }
+        };
+    });
+}
+
+function updateSelectProperties(el) {
+    if (!el) return;
+    const list = document.getElementById('properties-list');
+    if (!list) return;
+    const selects = Array.from(list.querySelectorAll('[property-item]'));
+
+    selects.forEach(sel => {
+        const prop = sel.getAttribute('property-item');
+
+        // отдельная функция для вычисления текущего значения
+        const value = getSelectValue(el, prop);
+
+        const found = Array.from(sel.options).some(o => o.value === value);
+        if (!found) {
+            if (!Array.from(sel.options).some(o => o.value === '-')) {
+                const dash = document.createElement('option');
+                dash.value = '-';
+                dash.textContent = '-';
+                sel.insertBefore(dash, sel.firstChild);
+            }
+            sel.value = '-';
+        } else sel.value = value;
+
+        // отдельная функция для обработчика onchange
+        sel.onchange = (e) => {
+            const handler = createSelectChangeHandler(el, prop);
+            if (handler) handler(e);
+            const blockId = getActiveBlockId();
+            if (blockId) {
+                syncHtmlFromView(blockId);
+            }
+        };
+    });
+}
+
+// --- вычисляет текущее значение свойства ---
+function getSelectValue(el, prop) {
+    switch (prop) {
+        case 'font-size': return getComputedProp(el, 'fontSize');
+        case 'font-family': return getComputedProp(el, 'fontFamily');
+        case 'text-align': return getComputedProp(el, 'textAlign');
+        case 'line-height': return getComputedProp(el, 'lineHeight');
+        case 'padding': return getComputedProp(el, 'padding');
+        case 'list': {
+            const li = el.closest && el.closest('li');
+            if (!li) return 'none';
+            const parent = li.parentElement;
+            if (!parent) return 'none';
+            if (parent.tagName === 'OL') return 'decimal';
+            if (parent.tagName === 'UL') {
+                const cs = window.getComputedStyle(parent);
+                return cs.listStyleType || 'disc';
+            }
+            return 'none';
+        }
+        default: return '';
+    }
+}
+
+// --- вспомогательная функция: возвращает текущее значение свойства ---
+function getComputedProp(el, prop) {
+    if (!el && !window.getSelection) return '';
+
+    // --- нормализация fontWeight ---
+    function normalizeFontWeight(v) {
+        if (!v && v !== 0) return '';
+        const s = String(v).trim();
+        const n = parseInt(s, 10);
+        if (!isNaN(n)) return n >= 700 ? 'bold' : (n >= 400 ? 'normal' : s);
+        return s === 'bolder' || s === 'bold' ? 'bold' : s;
+    }
+
+    // --- нормализация textDecoration в упорядоченную строку ---
+    function normalizeTextDecorationStr(s) {
+        if (!s) return '';
+        const parts = String(s).split(/\s+/).map(p => p.trim()).filter(Boolean);
+        const set = new Set();
+        for (const p of parts) {
+            if (/underline/i.test(p)) set.add('underline');
+            if (/line-?through|strike|strikethrough/i.test(p)) set.add('line-through');
+        }
+        return Array.from(set).sort().join(' ');
+    }
+
+    // --- вычислить свойство для конкретного элемента-родителя текстового узла ---
+    function computeForElement(target, propName) {
+        if (!target) return '';
+        const cs = window.getComputedStyle(target);
+
+        switch (propName) {
+            case 'fontWeight':
+                if (target.style && target.style.fontWeight) return normalizeFontWeight(target.style.fontWeight);
+                if (target.closest && target.closest('strong,b')) return 'bold';
+                return normalizeFontWeight(cs.fontWeight || '');
+            case 'fontStyle':
+                if (target.style && target.style.fontStyle) return target.style.fontStyle;
+                if (target.closest && target.closest('em,i')) return 'italic';
+                return cs.fontStyle || '';
+            case 'textDecoration':
+                let td = (target.style && target.style.textDecoration) || cs.textDecorationLine || cs.textDecoration || '';
+                if (target.closest && target.closest('u')) td = td ? td + ' underline' : 'underline';
+                if (target.closest && target.closest('s, strike, del')) td = td ? td + ' line-through' : 'line-through';
+                return normalizeTextDecorationStr(td);
+            case 'verticalAlign':
+                if (target.style && target.style.verticalAlign) return target.style.verticalAlign;
+                if (target.closest && target.closest('sup')) return 'super';
+                if (target.closest && target.closest('sub')) return 'sub';
+                return cs.verticalAlign || '';
+            case 'lineHeight': return (target.style && target.style.lineHeight) || cs.lineHeight || '';
+            case 'fontSize': return (target.style && target.style.fontSize) || cs.fontSize || '';
+            case 'fontFamily': return (target.style && target.style.fontFamily) || cs.fontFamily || '';
+            case 'textAlign': return (target.style && target.style.textAlign) || cs.textAlign || '';
+            case 'borderWidth': return (target.style && target.style.borderWidth) || cs.borderWidth || '';
+            case 'padding': return (target.style && target.style.padding) || cs.padding || '';
+            case 'borderColor': return (target.style && target.style.borderColor) || cs.borderColor || '';
+            case 'backgroundColor': return (target.style && target.style.backgroundColor) || cs.backgroundColor || '';
+            case 'color': return (target.style && target.style.color) || cs.color || '';
+            case 'listStyleType': return (target.style && target.style.listStyleType) || cs.listStyleType || 'none';
+            default: return '';
+        }
+    }
+
+    // --- собрать текстовые узлы, которые реально входят в Range (если есть) ---
+    function textNodesInRange(range) {
+        const nodes = [];
+        const root = range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+            ? range.commonAncestorContainer
+            : range.commonAncestorContainer.parentElement || document.body;
+
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+            acceptNode(node) {
+                if (!node.nodeValue) return NodeFilter.FILTER_REJECT;
+                if (!node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+                try {
+                    if (range.intersectsNode(node)) return NodeFilter.FILTER_ACCEPT;
+                } catch (e) {
+                }
+                return NodeFilter.FILTER_REJECT;
+            }
+        }, false);
+
+        while (walker.nextNode()) nodes.push(walker.currentNode);
+        return nodes;
+    }
+
+    // --- собрать текстовые узлы внутри элемента целиком (fallback) ---
+    function textNodesInElement(root) {
+        const nodes = [];
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+            acceptNode(node) {
+                if (!node.nodeValue) return NodeFilter.FILTER_REJECT;
+                if (!node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+                return NodeFilter.FILTER_ACCEPT;
+            }
+        }, false);
+        while (walker.nextNode()) nodes.push(walker.currentNode);
+        return nodes;
+    }
+
+    // --- определим набор текстовых узлов для проверки ---
+    let nodes = [];
+
+    // Если есть активное выделение и оно не пустое, используем его (обычно это то, что нужно при кликах на панели)
+    const sel = window.getSelection && window.getSelection();
+    let selRoot = null;
+    if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+        const range = sel.getRangeAt(0);
+        selRoot = range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+            ? range.commonAncestorContainer
+            : range.commonAncestorContainer.parentElement || document.body;
+        nodes = textNodesInRange(range);
+    }
+
+    // иначе если передан элемент — берём все текстовые узлы внутри него
+    if (!nodes.length && el) {
+        if (el.nodeType === Node.TEXT_NODE) {
+            if (el.nodeValue && el.nodeValue.trim()) nodes = [el];
+        } else if (el.nodeType === Node.ELEMENT_NODE || el.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+            nodes = textNodesInElement(el);
+        }
+    }
+
+    // Если всё ещё пусто — fallback: вычислить для самого элемента
+    if (!nodes.length) {
+        return computeForElement(el, prop);
+    }
+
+    // helper: map JS prop to property-item attribute in selects
+    function propToSelectAttr(p) {
+        switch (p) {
+            case 'fontSize': return 'font-size';
+            case 'fontFamily': return 'font-family';
+            case 'lineHeight': return 'line-height';
+            case 'padding': return 'padding';
+            default: return '';
+        }
+    }
+
+    // Для специальных свойств будем искать применимое значение, начиная с самого близкого к текстовому узлу
+    const specialProps = new Set(['fontSize', 'fontFamily', 'lineHeight', 'padding']);
+
+    const values = [];
+    for (const tn of nodes) {
+        let applied = '';
+        const parent = tn.parentElement || tn.parentNode;
+
+        if (specialProps.has(prop)) {
+            // Идём по цепочке предков, начиная с ближайшего, и возвращаем первое найденное значение
+            let cur = parent;
+            while (cur) {
+                try {
+                    // сначала - inline стиль
+                    if (cur.style) {
+                        const v = cur.style[prop];
+                        if (v && String(v).trim()) {
+                            applied = String(v).trim();
+                            break;
+                        }
+                    }
+
+                    // затем - вычисленное значение для текущего элемента (это позволит учитывать классы и CSS)
+                    const cs = window.getComputedStyle(cur);
+                    const cv = cs && cs[prop];
+                    if (cv && String(cv).trim() && String(cv).trim() !== 'normal') {
+                        applied = String(cv).trim();
+                        break;
+                    }
+                } catch (e) {
+                }
+
+                // не выходить за пределы выделения (если есть)
+                if (selRoot && cur === selRoot) break;
+                cur = cur.parentElement;
+            }
+
+            // fallback — как раньше для ближайшего элемента
+            if (!applied) applied = computeForElement(parent, prop);
+        } else {
+            applied = computeForElement(parent, prop);
+        }
+
+        values.push((applied === null || applied === undefined) ? '' : String(applied).trim());
+    }
+
+    // Нормализуем набор значений: игнорируем пустые значения, если есть хотя бы одно непустое
+    const all = values.map(v => (v === null || v === undefined) ? '' : String(v).trim());
+    const nonEmpty = Array.from(new Set(all.filter(v => v !== '')));
+
+    if (nonEmpty.length === 1) {
+        const val = nonEmpty[0];
+        // попытаться найти соответствующий select и добавить опцию, если нужно
+        const attr = propToSelectAttr(prop);
+        if (attr && typeof document !== 'undefined') {
+            try {
+                const selEl = document.querySelector('[property-item="' + attr + '"]');
+                if (selEl && selEl.tagName === 'SELECT') {
+                    let found = false;
+                    for (let i = 0; i < selEl.options.length; i++) {
+                        if (selEl.options[i].value === val) { found = true; break; }
+                    }
+                    if (!found) {
+                        const opt = document.createElement('option');
+                        opt.value = val;
+                        opt.textContent = val;
+                        selEl.appendChild(opt);
+                    }
+                    selEl.value = val;
+                }
+            } catch (e) {}
+        }
+        return val;
+    }
+
+    if (nonEmpty.length > 1) return '-';
+
+    // Всё пусто — возвращаем пустую строку (По умолчанию)
+    return '';
+}
+
+
+
+
+
+let savedRange = null;
+let lastEditableElement = null; 
+
+function saveSelection(editableEl) {
+    if (!editableEl) return;
+
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    
+    const range = sel.getRangeAt(0);
+
+    if (!editableEl.contains(range.commonAncestorContainer)) return;
+    
+    savedRange = range.cloneRange();
+    lastEditableElement = editableEl; 
+}
+
+function restoreSelection() {
+    if (!savedRange) return;
+    
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(savedRange);
+    
+    if (lastEditableElement) {
+        lastEditableElement.focus();
+    }
+}
+
+function trySaveSelection() {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+
+    let node = sel.anchorNode;
+    
+    if (node && node.nodeType === Node.ELEMENT_NODE && node.closest('#rgb-picker')) {
+        return;
+    }
+    if (node.nodeType === Node.TEXT_NODE) {
+        node = node.parentElement;
+    }
+
+    const editableEl = node ? node.closest('[contenteditable="true"]') : null;
+
+    if (editableEl) {
+        saveSelection(editableEl);
+    }
+}
+
+// Слушатели для сохранения позиции курсора
+document.addEventListener('mouseup', trySaveSelection);
+document.addEventListener('keyup', trySaveSelection);
+
+document.getElementById('content').classList.add('editor');
+
+
+
+
+
+/* работа с id элементов: синхронизация и проверка уникальности */
+function syncElementId(newId, el, highlightElements) {
+    if (!el) return { valid: false };
+
+    const id = String(newId || '').trim();
+    const oldId = el.id || '';
+
+    const clearBg = () => {
+        (highlightElements || []).forEach(n => {
+            if (n) n.style.backgroundColor = '';
+        });
+    };
+
+    const setErrorBg = () => {
+        (highlightElements || []).forEach(n => {
+            if (!n) return;
+        
+            // Ставим красный фон
+            n.style.backgroundColor = '#fdd';
+        
+            // Добавляем разовый слушатель: как только пользователь уйдет из поля, цвет сбросится
+            n.addEventListener('focusout', () => {
+                n.style.backgroundColor = '';
+            }, { once: true }); 
+        });
+    };
+
+    // пустой id - просто удалить
+    if (!id) {
+        clearBg();
+        if (oldId) el.removeAttribute('id');
+        return { valid: true, reason: 'empty' };
+    }
+
+    // ИСПРАВЛЕНИЕ: проверка уникальности по всему document, игнорируя <style> и <script>
+    let isDuplicate = false;
+    try {
+        // Ищем все элементы с таким ID (CSS.escape защищает от ошибок парсинга)
+        const existingElements = document.querySelectorAll('[id="' + CSS.escape(id) + '"]');
+        // Проверяем, есть ли среди них "настоящие" элементы (не скрипты и не стили)
+        isDuplicate = Array.from(existingElements).some(
+            node => node !== el && node.tagName !== 'SCRIPT' && node.tagName !== 'STYLE'
+        );
+    } catch(e) {
+        // Запасной вариант на случай непредвиденных ошибок селектора
+        const fallback = document.getElementById(id);
+        isDuplicate = fallback && fallback !== el && fallback.tagName !== 'SCRIPT' && fallback.tagName !== 'STYLE';
+    }
+
+    if (isDuplicate) {
+        setErrorBg();
+        return { valid: false, reason: 'duplicate' };
+    }
+
+    clearBg();
+
+    if (oldId === id) return { valid: true, reason: 'same' };
+
+    const view = el.closest('[id^="loadedBlock_"][id$="_view"]');
+    const viewId = view ? view.id : null;
+
+    // обновить id элемента
+    el.id = id;
+
+    if (!oldId) return { valid: true, reason: 'updated' };
+    if (!view) return { valid: true };
+
+    const escOld = oldId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    // ИСПРАВЛЕНИЕ: Замена в скриптах ТОЛЬКО внутри кавычек ("oldId", 'oldId', `#oldId`)
+    // Группа $1 - это кавычка, группа $2 - возможный символ решетки '#'
+    const reScripts = new RegExp('([\'"`])(#?)' + escOld + '\\1', 'g');
+
+    const dynamicScript = document.querySelector('script[data-dynamic-text="' + viewId + '"]');
+    const scripts = [];
+    if (dynamicScript) scripts.push(dynamicScript);
+
+    view.querySelectorAll('script').forEach(s => {
+        if (!scripts.includes(s)) scripts.push(s);
+    });
+
+    scripts.forEach(s => {
+        try {
+            // Подменяем, сохраняя оригинальные кавычки и решетку (если она была)
+            s.textContent = s.textContent.replace(reScripts, '$1$2' + id + '$1');
+        } catch (e) {}
+    });
+
+    // ИСПРАВЛЕНИЕ: Обновление атрибутов (строгие совпадения)
+    // Группа $1 - начало строки или пробел, $2 - решетка, $3 - пробел или конец строки
+    const reAttr = new RegExp('(^|\\s)(#?)' + escOld + '(\\s|$)', 'g');
+
+    view.querySelectorAll('*').forEach(node => {
+        // Пропускаем скрипты и стили внутри view, чтобы не повредить их логику
+        if (node.tagName === 'SCRIPT' || node.tagName === 'STYLE') return;
+        if (!node.attributes) return;
+
+        Array.from(node.attributes).forEach(attr => {
+            if (!attr.value) return;
+            // Проверяем, есть ли точное совпадение слова oldId или #oldId
+            if (attr.value.match(reAttr)) {
+                // Заменяем, сохраняя пробелы или решетку
+                node.setAttribute(
+                    attr.name,
+                    attr.value.replace(reAttr, '$1$2' + id + '$3')
+                );
+            }
+        });
+    });
+
+    return { valid: true, reason: 'updated' };
+}
