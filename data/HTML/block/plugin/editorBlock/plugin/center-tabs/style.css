@@ -17,13 +17,6 @@
     font-size: 13px;
 }
 
-#center-tab-pre-js {
-    white-space: pre;
-    tab-size: 4;
-    -moz-tab-size: 4;
-    -o-tab-size: 4;
-}
-
 .center-tab.active {
     background: #fff;
     font-weight: bold;

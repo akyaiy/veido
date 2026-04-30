@@ -2,6 +2,7 @@
  * document keydown — Вставка переноса строки при Enter:
  **********************************************************************/
 document.addEventListener('keydown', (e) => {
+    const centerEditor = document.getElementById('center-tab-pre-html');
     if (e.key !== 'Enter') return;
 
     // работаем только если включён contenteditable
@@ -309,15 +310,6 @@ const centerPreHtml = document.getElementById('center-tab-pre-html');
 const centerPreJs = document.getElementById('center-tab-pre-js');
 /* const btnLoadFromView = document.getElementById('btn-load-from-view');
 const btnApplyToView = document.getElementById('btn-apply-to-view'); */
-
-// Сохранение текста JavaScript в блок памяти происходит немедленно при редактировании пользователем JS-редактора (без выполнения).
-if (centerPreJs) {
-    centerPreJs.addEventListener('input', () => {
-        const blockId = getActiveBlockId();
-        if (!blockId) return;
-        saveJsToScript(blockId);
-    });
-}
 
 /***********************************************************************
  * switchTabPanel — переключение видимости панелей (properties, css, js):
@@ -817,6 +809,7 @@ const centerEditor = document.getElementById('center-tab-pre-html');
  * - Обновляет визуальное представление блока через syncViewFromHtml.
  **********************************************************************/
 function syncActiveBlock() {
+    const centerEditor = document.getElementById('center-tab-pre-html');
     const tab = document.querySelector('#blocks-tabs .tab.active');
     if (!tab) return;
 
@@ -827,19 +820,6 @@ function syncActiveBlock() {
     htmlEl.textContent = centerEditor.textContent;
     syncViewFromHtml(blockId);
 }
-
-/***********************************************************************
- * Асинхронная синхронизация активного блока при input, paste и keydown (Enter / Ctrl+Z / Ctrl+Y).
- **********************************************************************/
-const scheduleSync = () => queueMicrotask(syncActiveBlock);
-centerEditor.addEventListener('input', scheduleSync);
-centerEditor.addEventListener('paste', () => {
-    setTimeout(syncActiveBlock, 0);
-});
-centerEditor.addEventListener('keydown', e =>
-    (e.key === 'Enter') &&
-    queueMicrotask(syncActiveBlock)
-);
 
 
 
@@ -1208,6 +1188,7 @@ function runJs(blockId) {
     showMarkerModal('JS-код блока успешно применён!');
 }
 function saveJsToScript(blockId) {
+    const centerPreJs = document.getElementById('center-tab-pre-js');
     // Если centerPreJs содержит код другого блока, не переписывать его
     // Берем содержимое только если это текущий активный блок в редакторе
     let content = '';
@@ -1280,6 +1261,8 @@ function showView(blockId) {
  * - Загружает HTML блока в редактор, если пользователь ещё не редактировал код.
  **********************************************************************/
 function showHtml(blockId) {
+    const centerPreHtml = document.getElementById('center-tab-pre-html');
+    const centerPreJs = document.getElementById('center-tab-pre-js');
     centerContent.style.display = '';
     centerPreHtml.style.display = '';
     centerPreJs.style.display = 'none';
@@ -1297,35 +1280,6 @@ function showHtml(blockId) {
     document.querySelector('#css-js-tabs .tab[data-tab="properties"]').style.display = 'none';
     document.querySelector('#css-js-tabs .tab[data-tab="js"]').click();
 }
-
-/***********************************************************************
- * centerPreHtml input — помечает HTML-редактор как изменённый пользователем.
- **********************************************************************/
-centerPreHtml.addEventListener('input', () => {
-    centerPreHtml.dataset.userEdited = '1';
-});
-
-centerPreHtml.addEventListener('paste', e => {
-    e.preventDefault();
-
-    const text = e.clipboardData.getData('text/plain');
-
-    const sel = window.getSelection();
-    if (!sel || !sel.rangeCount) return;
-
-    const range = sel.getRangeAt(0);
-
-    range.deleteContents();
-
-    const textNode = document.createTextNode(text);
-    range.insertNode(textNode);
-
-    range.setStartAfter(textNode);
-    range.collapse(true);
-
-    sel.removeAllRanges();
-    sel.addRange(range);
-});
 
 /***********************************************************************
  * showJs — отображение и подготовка JS-кода блока:
@@ -1385,6 +1339,8 @@ function stripJsWrapper(code) {
 }
 
 function showJs(blockId, highlightSearch=null) {
+    const centerPreHtml = document.getElementById('center-tab-pre-html');
+    const centerPreJs = document.getElementById('center-tab-pre-js');
     centerContent.style.display = '';
     centerPreHtml.style.display = 'none';
     centerPreJs.style.display = '';
@@ -1415,63 +1371,6 @@ function showJs(blockId, highlightSearch=null) {
     document.querySelector('#css-js-tabs .tab[data-tab="properties"]').style.display = 'none';
     document.querySelector('#css-js-tabs .tab[data-tab="js"]').click();
 }
-
-[centerPreJs, centerPreHtml].forEach(el => {
-    el.addEventListener('keydown', (e) => {
-        const sel = window.getSelection();
-        if (!sel.rangeCount) return;
-        const range = sel.getRangeAt(0);
-
-        if (e.key === 'Tab') {
-            e.preventDefault();
-            const tabNode = document.createTextNode('\t');
-            range.deleteContents();
-            range.insertNode(tabNode);
-            range.setStartAfter(tabNode);
-            range.setEndAfter(tabNode);
-            sel.removeAllRanges();
-            sel.addRange(range);
-        }
-
-        if (e.key === 'Enter') {
-            e.preventDefault();
-
-            // 1. Получаем ВЕСЬ текст от начала блока до курсора через Range
-            const preRange = document.createRange();
-            preRange.selectNodeContents(el);
-            preRange.setEnd(range.startContainer, range.startOffset);
-            const textBefore = preRange.toString();
-
-            // 2. Находим отступ последней строки (табы и пробелы)
-            const lines = textBefore.split('\n');
-            const currentLine = lines[lines.length - 1];
-            const indent = currentLine.match(/^[ \t]*/)[0];
-
-            // 3. Проверяем, есть ли текст ПОСЛЕ курсора
-            const afterRange = document.createRange();
-            afterRange.selectNodeContents(el);
-            afterRange.setStart(range.startContainer, range.startOffset);
-            const textAfter = afterRange.toString();
-
-            // Если после курсора ничего нет, нужен "добивочный" \n
-            const isAtEnd = textAfter.length === 0;
-            const insertText = '\n' + indent + (isAtEnd ? '\n' : '');
-
-            const newNode = document.createTextNode(insertText);
-            range.deleteContents();
-            range.insertNode(newNode);
-
-            // 4. Устанавливаем курсор строго после \n и indent
-            // Смещение = 1 (для \n) + длина отступа
-            const newOffset = 1 + indent.length;
-            range.setStart(newNode, newOffset);
-            range.setEnd(newNode, newOffset);
-
-            sel.removeAllRanges();
-            sel.addRange(range);
-        }
-    });
-});
 
 
 
