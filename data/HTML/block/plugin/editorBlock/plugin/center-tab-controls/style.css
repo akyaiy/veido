@@ -1,0 +1,5 @@
+#center-tab-controls {
+    display: flex;
+    gap: 8px;
+    padding: 6px 8px;
+}

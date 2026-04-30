@@ -11,11 +11,7 @@
 <div id="center-panel">
     <div id="loadedBlock" aria-label="loadedBlock"><!-- loadBlockWindow --></div>
     <div id="center-tabs"><!-- loadBlockWindow --></div>
-    <div id="center-tab-controls" style="display:flex;gap:8px;padding:6px 8px">
-        <!-- <button id="btn-load-from-view" style="display:none">Загрузить из внешнего вида</button>
-        <button id="btn-apply-to-view" style="display:none">Применить в внешний вид</button> -->
-        <button id="btn-apply-js" style="display:none">Применить JS</button>
-    </div>
+    <div id="center-tab-controls"><!-- loadBlockWindow --></div>
     <div id="center-tab-content">
         <pre id="center-tab-pre-html" contenteditable="true" style="display:none;"></pre>
         <pre id="center-tab-pre-js" contenteditable="true" style="display:none; "></pre>
