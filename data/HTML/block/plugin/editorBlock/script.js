@@ -1,26 +1,3 @@
-async function test() {
-    await window.tempStore.store(
-        { data: { path: "/pages/example" } },
-        { recipient: "newLoadedBlock", ttlMs: 5000, destroyOnRead: true }
-    );
-
-    await newLoadedBlock();
-
-    await window.tempStore.store(
-        { data: { path: "/pages/test" } },
-        { recipient: "newLoadedBlock", ttlMs: 5000, destroyOnRead: true }
-    );
-
-    await newLoadedBlock();
-}
-test()
-
-
-
-
-
-
-
 /***********************************************************************
  * document keydown — Вставка переноса строки при Enter:
  **********************************************************************/

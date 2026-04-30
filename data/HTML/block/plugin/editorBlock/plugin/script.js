@@ -70,16 +70,32 @@ async function initBlocks() {
     await loadBlockWindow("plugin/editorBlock", "content");
 
     // Загружаем остальные блоки параллельно
-    await loadBlockWindow("plugin/editorBlock/plugin/properties-simpleFormats", "properties-simpleFormats")
+    await loadBlockWindow("plugin/editorBlock/plugin/properties-panel", "properties-panel")
     await loadBlockWindow("plugin/editorBlock/plugin/js-panel", "js-panel")
     await loadBlockWindow("plugin/editorBlock/plugin/blocks-tabs-menu", "blocks-tabs-menu")
     await loadBlockWindow("plugin/editorBlock/plugin/elements-ul", "elements-ul")
-    await loadBlockWindow("plugin/editorBlock/plugin/properties-list", "properties-list")
     await loadBlockWindow("plugin/editorBlock/plugin/properties-panel-spec", "properties-panel-spec")
     await loadBlockWindow("plugin/editorBlock/plugin/rgb-picker", "rgb-picker-container")
     await loadBlockWindow("plugin/editorBlock/plugin/ed-properties", "ed-properties-container")
     await loadBlockWindow("plugin/editorBlock/plugin/marker-modal", "marker-modal-container")
     await loadBlockWindow("plugin/editorBlock/plugin/global", "global-editorBlock-container")
+    await test()
+}
+
+async function test() {
+    await window.tempStore.store(
+        { data: { path: "/pages/example" } },
+        { recipient: "newLoadedBlock", ttlMs: 5000, destroyOnRead: true }
+    );
+
+    await newLoadedBlock();
+
+    await window.tempStore.store(
+        { data: { path: "/pages/test" } },
+        { recipient: "newLoadedBlock", ttlMs: 5000, destroyOnRead: true }
+    );
+
+    await newLoadedBlock();
 }
 
 async function loadBlockWindow(path, block_Name, itemsHowText = null) {
