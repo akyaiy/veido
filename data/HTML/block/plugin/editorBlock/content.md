@@ -42,21 +42,7 @@
         <hr style="margin: 6px 0px;">
         <div id="properties-list"><!-- loadBlockWindow --></div>
     </div>
-    <div id="js-panel" style="display: none;">
-        <div class="table-title">События и функции</div>
-        <div id="editor-js-panel-name">
-            <select id="selector-type" style="flex: 0 0 35%; min-width: 0;">
-                <option value="id">id</option>
-                <option value="class">class</option>
-            </select>
-            <input id="selector-name-id" type="text" style="flex:1; min-width:0;">
-            <input id="selector-name-class" type="text" style="flex:1; min-width:0; display: none;">
-            <select id="selector-class" style="flex: 0 0 5%; min-width: 0; display: none;">
-            </select>
-        </div>
-        <table id="editor-js-panel">
-        </table>
-    </div>
+    <div id="js-panel" style="display: none;"><!-- loadBlockWindow --></div>
 </div>
 
 </div>

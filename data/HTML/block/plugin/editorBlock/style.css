@@ -184,22 +184,6 @@ main.editor {
     box-shadow: 0 1px 0 rgba(0,0,0,0.03);
 }
 
-/* js панель */
-#js-panel {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-#editor-js-panel-name {
-    display: flex;
-    gap: 0;
-}
-#editor-js-panel-name select,
-#editor-js-panel-name input {
-    box-sizing: border-box;
-}
-
 /* плейсхолдеры для editable */
 td[contenteditable][data-placeholder]:empty:before {
     content: attr(data-placeholder);

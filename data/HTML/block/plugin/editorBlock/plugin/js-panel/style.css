@@ -1,0 +1,47 @@
+/* js панель */
+#js-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+#editor-js-panel-name {
+    display: flex;
+    gap: 0;
+}
+#editor-js-panel-name select,
+#editor-js-panel-name input {
+    box-sizing: border-box;
+}
+
+.table-title {
+    font-size: 12px;
+    padding: 2px;
+}
+
+
+#editor-js-panel-name {
+    display: flex;
+}
+
+#selector-type {
+    flex: 0 0 35%;
+    min-width: 0;
+}
+
+#selector-name-id {
+    flex: 1;
+    min-width: 0;
+}
+
+#selector-name-class {
+    flex: 1;
+    min-width: 0;
+    display: none;
+}
+
+#selector-class {
+    flex: 0 0 5%;
+    min-width: 0;
+    display: none;
+}
