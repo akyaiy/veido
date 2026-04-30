@@ -26,10 +26,7 @@
 </div>
 
 <div id="right-panel">
-    <div id="css-js-tabs">
-        <div class="tab active" data-tab="properties">Свойства</div>
-        <div class="tab" data-tab="js">Ивенты</div>
-    </div>
+    <div id="css-js-tabs"><!-- loadBlockWindow --></div>
     <hr>
     <div id="properties-panel-spec" style="display: none;"><!-- loadBlockWindow --></div>
     <div id="properties-panel"><!-- loadBlockWindow --></div>
