@@ -71,6 +71,7 @@ async function initBlocks() {
 
     // Загружаем остальные блоки параллельно
     await loadBlockWindow("plugin/editorBlock/plugin/properties-panel", "properties-panel")
+    await loadBlockWindow("plugin/editorBlock/plugin/loadedBlock", "loadedBlock")
     await loadBlockWindow("plugin/editorBlock/plugin/css-js-tabs", "css-js-tabs")
     await loadBlockWindow("plugin/editorBlock/plugin/center-tabs", "center-tabs")
     await loadBlockWindow("plugin/editorBlock/plugin/js-panel", "js-panel")

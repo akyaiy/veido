@@ -9,10 +9,7 @@
 </div>
 
 <div id="center-panel">
-    <div id="loadedBlock" aria-label="loadedBlock">
-        <div id="loadedBlockMain"></div>
-        <div class="small-handle"></div>
-    </div>
+    <div id="loadedBlock" aria-label="loadedBlock"><!-- loadBlockWindow --></div>
     <div id="center-tabs"><!-- loadBlockWindow --></div>
     <div id="center-tab-controls" style="display:flex;gap:8px;padding:6px 8px">
         <!-- <button id="btn-load-from-view" style="display:none">Загрузить из внешнего вида</button>
