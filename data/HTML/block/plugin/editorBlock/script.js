@@ -309,7 +309,6 @@ const centerPreHtml = document.getElementById('center-tab-pre-html');
 const centerPreJs = document.getElementById('center-tab-pre-js');
 /* const btnLoadFromView = document.getElementById('btn-load-from-view');
 const btnApplyToView = document.getElementById('btn-apply-to-view'); */
-const btnApplyJs = document.getElementById('btn-apply-js');
 
 // Сохранение текста JavaScript в блок памяти происходит немедленно при редактировании пользователем JS-редактора (без выполнения).
 if (centerPreJs) {
@@ -1239,7 +1238,8 @@ function saveJsToScript(blockId) {
 function updateCenterControls(mode) {
     /* btnLoadFromView.style.display = mode === 'html' ? '' : 'none';
     btnApplyToView.style.display = mode === 'html' ? '' : 'none'; */
-    btnApplyJs.style.display = mode === 'js' ? '' : 'none';
+    const btnApplyJs = document.getElementById('btn-apply-js');
+    if (btnApplyJs) btnApplyJs.style.display = mode === 'js' ? '' : 'none';
 
     const panel = document.getElementById('center-tab-controls');
 
@@ -1416,40 +1416,6 @@ function showJs(blockId, highlightSearch=null) {
     document.querySelector('#css-js-tabs .tab[data-tab="js"]').click();
 }
 
-/* btnLoadFromView.onclick = () => {
-    const blockId = getActiveBlockId();
-    if (!blockId) return;
-    const view = document.getElementById(blockId + '_view');
-    const htmlDiv = document.getElementById(blockId + '_html');
-    if (!view || !htmlDiv) return;
-    htmlDiv.innerHTML = view.innerHTML;
-    centerPreHtml.textContent = htmlDiv.innerHTML;
-};
-
-btnApplyToView.onclick = () => {
-    const blockId = getActiveBlockId();
-    if (!blockId) return;
-    const view = document.getElementById(blockId + '_view');
-    const htmlDiv = document.getElementById(blockId + '_html');
-    if (!view || !htmlDiv) return;
-
-    const md = window.markdownit({ html: true, linkify: true, typographer: true });
-    const rendered = centerPreHtml.textContent;
-
-    htmlDiv.innerHTML = rendered;
-    view.innerHTML = rendered;
-}; */
-
-/***********************************************************************
- * btnApplyJs onclick — применение JS-кода:
- * - Определяет активный блок.
- * - Применяет JS-код из редактора к выбранному блоку.
- **********************************************************************/
-btnApplyJs.onclick = () => {
-    const blockId = getActiveBlockId();
-    if (!blockId) return;
-    runJs(blockId);
-};
 [centerPreJs, centerPreHtml].forEach(el => {
     el.addEventListener('keydown', (e) => {
         const sel = window.getSelection();
