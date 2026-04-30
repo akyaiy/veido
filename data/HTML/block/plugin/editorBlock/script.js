@@ -296,7 +296,6 @@ document.getElementById('loadedBlock').addEventListener('click', e => {
 /***********************************************************************
  * Элементы интерфейса вкладок CSS / JS.
  **********************************************************************/
-const tabs = document.querySelectorAll('#css-js-tabs .tab');
 const propertiesPanel = document.getElementById('properties-panel');
 const cssPanel = document.getElementById('css-panel');
 const jsPanel = document.getElementById('js-panel');
@@ -362,21 +361,6 @@ function syncCssPanelVisibility() {
 }
 
 syncCssPanelVisibility();
-
-/***********************************************************************
- * tabs tab click — переключение вкладок CSS и JS:
- * - Снимает активное состояние со всех вкладок.
- * - Активирует выбранную вкладку.
- * - Отображает соответствующую панель (CSS или JS).
- * - Скрывает неактивную панель.
- **********************************************************************/
-tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-        tabs.forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        switchTabPanel(tab.dataset.tab);
-    });
-});
 
 
 

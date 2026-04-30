@@ -1,0 +1,19 @@
+/* вкладки css js */
+#css-js-tabs {
+    display: flex;
+    gap: 2px;
+}
+
+#css-js-tabs .tab {
+    padding: 2px 4px;
+    border-radius: 3px;
+    border: 1px solid rgba(0,0,0,0.06);
+    background: #fff;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+#css-js-tabs .tab.active {
+    box-shadow: 0 1px 0 rgba(0,0,0,0.03);
+}
+
