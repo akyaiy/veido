@@ -36,12 +36,7 @@
     </div>
     <hr>
     <div id="properties-panel-spec" style="display: none;"><!-- loadBlockWindow --></div>
-    <div id="properties-panel">
-        <div class="table-title">Свойства текста</div>
-        <div id="properties-simpleFormats"><!-- loadBlockWindow --></div>
-        <hr style="margin: 6px 0px;">
-        <div id="properties-list"><!-- loadBlockWindow --></div>
-    </div>
+    <div id="properties-panel"><!-- loadBlockWindow --></div>
     <div id="js-panel" style="display: none;"><!-- loadBlockWindow --></div>
 </div>
 
