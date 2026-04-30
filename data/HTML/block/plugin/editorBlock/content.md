@@ -13,11 +13,7 @@
         <div id="loadedBlockMain"></div>
         <div class="small-handle"></div>
     </div>
-    <div id="center-tabs">
-        <div class="center-tab active" data-tab="view">Внешний вид</div>
-        <div class="center-tab" data-tab="html">HTML код</div>
-        <div class="center-tab" data-tab="js">JS код</div>
-    </div>
+    <div id="center-tabs"><!-- loadBlockWindow --></div>
     <div id="center-tab-controls" style="display:flex;gap:8px;padding:6px 8px">
         <!-- <button id="btn-load-from-view" style="display:none">Загрузить из внешнего вида</button>
         <button id="btn-apply-to-view" style="display:none">Применить в внешний вид</button> -->

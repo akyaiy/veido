@@ -305,7 +305,6 @@ const toggleCssPanel = document.getElementById('toggle-css-panel');
 /***********************************************************************
  * Элементы вкладок view / html / js центрального редактора.
  **********************************************************************/
-const centerTabs = document.querySelectorAll('#center-tabs .center-tab');
 const centerContent = document.getElementById('center-tab-content');
 const centerPreHtml = document.getElementById('center-tab-pre-html');
 const centerPreJs = document.getElementById('center-tab-pre-js');
@@ -1500,25 +1499,6 @@ function showJs(blockId, highlightSearch=null) {
     document.querySelector('#css-js-tabs .tab[data-tab="properties"]').style.display = 'none';
     document.querySelector('#css-js-tabs .tab[data-tab="js"]').click();
 }
-
-/***********************************************************************
- * centerTabs tab click — переключение режимов просмотра блока:
- * - Обрабатывает клик по вкладкам view / html / js.
- * - Делает выбранную вкладку активной.
- * - Определяет текущий активный блок.
- * - Переключает отображение блока в соответствующий режим.
- **********************************************************************/
-centerTabs.forEach(tab => {
-    tab.onclick = () => {
-        centerTabs.forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        const blockId = getActiveBlockId();
-        if (!blockId) return;
-        if (tab.dataset.tab === 'view') showView(blockId);
-        if (tab.dataset.tab === 'html') showHtml(blockId);
-        if (tab.dataset.tab === 'js') showJs(blockId);
-    };
-});
 
 /* btnLoadFromView.onclick = () => {
     const blockId = getActiveBlockId();
