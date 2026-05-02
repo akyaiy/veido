@@ -774,3 +774,304 @@ function toggleListForSelection(listType) {
         i = j;
     }
 }
+
+
+
+/* работа с текстом */
+function updateSimpleFormats(el) {
+    if (!el) return;
+    const simple = document.getElementById('properties-simpleFormats');
+    if (!simple) return;
+    const btns = Array.from(simple.querySelectorAll('[simpleformats-button]'));
+
+    btns.forEach(b => {
+        const key = b.getAttribute('simpleformats-button');
+        updateButtonActive(b, el, key);
+        b.onclick = () => { 
+            handleSimpleFormatClick(b, el, key);
+            const blockId = getActiveBlockId();
+            if (blockId) {
+                syncHtmlFromView(blockId);
+            }
+        };
+    });
+}
+
+function updateSelectProperties(el) {
+    if (!el) return;
+    const list = document.getElementById('properties-list');
+    if (!list) return;
+    const selects = Array.from(list.querySelectorAll('[property-item]'));
+
+    selects.forEach(sel => {
+        const prop = sel.getAttribute('property-item');
+
+        // отдельная функция для вычисления текущего значения
+        const value = getSelectValue(el, prop);
+
+        const found = Array.from(sel.options).some(o => o.value === value);
+        if (!found) {
+            if (!Array.from(sel.options).some(o => o.value === '-')) {
+                const dash = document.createElement('option');
+                dash.value = '-';
+                dash.textContent = '-';
+                sel.insertBefore(dash, sel.firstChild);
+            }
+            sel.value = '-';
+        } else sel.value = value;
+
+        // отдельная функция для обработчика onchange
+        sel.onchange = (e) => {
+            const handler = createSelectChangeHandler(el, prop);
+            if (handler) handler(e);
+            const blockId = getActiveBlockId();
+            if (blockId) {
+                syncHtmlFromView(blockId);
+            }
+        };
+    });
+}
+
+// --- вычисляет текущее значение свойства ---
+function getSelectValue(el, prop) {
+    switch (prop) {
+        case 'font-size': return getComputedProp(el, 'fontSize');
+        case 'font-family': return getComputedProp(el, 'fontFamily');
+        case 'text-align': return getComputedProp(el, 'textAlign');
+        case 'line-height': return getComputedProp(el, 'lineHeight');
+        case 'padding': return getComputedProp(el, 'padding');
+        case 'list': {
+            const li = el.closest && el.closest('li');
+            if (!li) return 'none';
+            const parent = li.parentElement;
+            if (!parent) return 'none';
+            if (parent.tagName === 'OL') return 'decimal';
+            if (parent.tagName === 'UL') {
+                const cs = window.getComputedStyle(parent);
+                return cs.listStyleType || 'disc';
+            }
+            return 'none';
+        }
+        default: return '';
+    }
+}
+
+// --- вспомогательная функция: возвращает текущее значение свойства ---
+function getComputedProp(el, prop) {
+    if (!el && !window.getSelection) return '';
+
+    // --- нормализация fontWeight ---
+    function normalizeFontWeight(v) {
+        if (!v && v !== 0) return '';
+        const s = String(v).trim();
+        const n = parseInt(s, 10);
+        if (!isNaN(n)) return n >= 700 ? 'bold' : (n >= 400 ? 'normal' : s);
+        return s === 'bolder' || s === 'bold' ? 'bold' : s;
+    }
+
+    // --- нормализация textDecoration в упорядоченную строку ---
+    function normalizeTextDecorationStr(s) {
+        if (!s) return '';
+        const parts = String(s).split(/\s+/).map(p => p.trim()).filter(Boolean);
+        const set = new Set();
+        for (const p of parts) {
+            if (/underline/i.test(p)) set.add('underline');
+            if (/line-?through|strike|strikethrough/i.test(p)) set.add('line-through');
+        }
+        return Array.from(set).sort().join(' ');
+    }
+
+    // --- вычислить свойство для конкретного элемента-родителя текстового узла ---
+    function computeForElement(target, propName) {
+        if (!target) return '';
+        const cs = window.getComputedStyle(target);
+
+        switch (propName) {
+            case 'fontWeight':
+                if (target.style && target.style.fontWeight) return normalizeFontWeight(target.style.fontWeight);
+                if (target.closest && target.closest('strong,b')) return 'bold';
+                return normalizeFontWeight(cs.fontWeight || '');
+            case 'fontStyle':
+                if (target.style && target.style.fontStyle) return target.style.fontStyle;
+                if (target.closest && target.closest('em,i')) return 'italic';
+                return cs.fontStyle || '';
+            case 'textDecoration':
+                let td = (target.style && target.style.textDecoration) || cs.textDecorationLine || cs.textDecoration || '';
+                if (target.closest && target.closest('u')) td = td ? td + ' underline' : 'underline';
+                if (target.closest && target.closest('s, strike, del')) td = td ? td + ' line-through' : 'line-through';
+                return normalizeTextDecorationStr(td);
+            case 'verticalAlign':
+                if (target.style && target.style.verticalAlign) return target.style.verticalAlign;
+                if (target.closest && target.closest('sup')) return 'super';
+                if (target.closest && target.closest('sub')) return 'sub';
+                return cs.verticalAlign || '';
+            case 'lineHeight': return (target.style && target.style.lineHeight) || cs.lineHeight || '';
+            case 'fontSize': return (target.style && target.style.fontSize) || cs.fontSize || '';
+            case 'fontFamily': return (target.style && target.style.fontFamily) || cs.fontFamily || '';
+            case 'textAlign': return (target.style && target.style.textAlign) || cs.textAlign || '';
+            case 'borderWidth': return (target.style && target.style.borderWidth) || cs.borderWidth || '';
+            case 'padding': return (target.style && target.style.padding) || cs.padding || '';
+            case 'borderColor': return (target.style && target.style.borderColor) || cs.borderColor || '';
+            case 'backgroundColor': return (target.style && target.style.backgroundColor) || cs.backgroundColor || '';
+            case 'color': return (target.style && target.style.color) || cs.color || '';
+            case 'listStyleType': return (target.style && target.style.listStyleType) || cs.listStyleType || 'none';
+            default: return '';
+        }
+    }
+
+    // --- собрать текстовые узлы, которые реально входят в Range (если есть) ---
+    function textNodesInRange(range) {
+        const nodes = [];
+        const root = range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+            ? range.commonAncestorContainer
+            : range.commonAncestorContainer.parentElement || document.body;
+
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+            acceptNode(node) {
+                if (!node.nodeValue) return NodeFilter.FILTER_REJECT;
+                if (!node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+                try {
+                    if (range.intersectsNode(node)) return NodeFilter.FILTER_ACCEPT;
+                } catch (e) {
+                }
+                return NodeFilter.FILTER_REJECT;
+            }
+        }, false);
+
+        while (walker.nextNode()) nodes.push(walker.currentNode);
+        return nodes;
+    }
+
+    // --- собрать текстовые узлы внутри элемента целиком (fallback) ---
+    function textNodesInElement(root) {
+        const nodes = [];
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+            acceptNode(node) {
+                if (!node.nodeValue) return NodeFilter.FILTER_REJECT;
+                if (!node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+                return NodeFilter.FILTER_ACCEPT;
+            }
+        }, false);
+        while (walker.nextNode()) nodes.push(walker.currentNode);
+        return nodes;
+    }
+
+    // --- определим набор текстовых узлов для проверки ---
+    let nodes = [];
+
+    // Если есть активное выделение и оно не пустое, используем его (обычно это то, что нужно при кликах на панели)
+    const sel = window.getSelection && window.getSelection();
+    let selRoot = null;
+    if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+        const range = sel.getRangeAt(0);
+        selRoot = range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+            ? range.commonAncestorContainer
+            : range.commonAncestorContainer.parentElement || document.body;
+        nodes = textNodesInRange(range);
+    }
+
+    // иначе если передан элемент — берём все текстовые узлы внутри него
+    if (!nodes.length && el) {
+        if (el.nodeType === Node.TEXT_NODE) {
+            if (el.nodeValue && el.nodeValue.trim()) nodes = [el];
+        } else if (el.nodeType === Node.ELEMENT_NODE || el.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+            nodes = textNodesInElement(el);
+        }
+    }
+
+    // Если всё ещё пусто — fallback: вычислить для самого элемента
+    if (!nodes.length) {
+        return computeForElement(el, prop);
+    }
+
+    // helper: map JS prop to property-item attribute in selects
+    function propToSelectAttr(p) {
+        switch (p) {
+            case 'fontSize': return 'font-size';
+            case 'fontFamily': return 'font-family';
+            case 'lineHeight': return 'line-height';
+            case 'padding': return 'padding';
+            default: return '';
+        }
+    }
+
+    // Для специальных свойств будем искать применимое значение, начиная с самого близкого к текстовому узлу
+    const specialProps = new Set(['fontSize', 'fontFamily', 'lineHeight', 'padding']);
+
+    const values = [];
+    for (const tn of nodes) {
+        let applied = '';
+        const parent = tn.parentElement || tn.parentNode;
+
+        if (specialProps.has(prop)) {
+            // Идём по цепочке предков, начиная с ближайшего, и возвращаем первое найденное значение
+            let cur = parent;
+            while (cur) {
+                try {
+                    // сначала - inline стиль
+                    if (cur.style) {
+                        const v = cur.style[prop];
+                        if (v && String(v).trim()) {
+                            applied = String(v).trim();
+                            break;
+                        }
+                    }
+
+                    // затем - вычисленное значение для текущего элемента (это позволит учитывать классы и CSS)
+                    const cs = window.getComputedStyle(cur);
+                    const cv = cs && cs[prop];
+                    if (cv && String(cv).trim() && String(cv).trim() !== 'normal') {
+                        applied = String(cv).trim();
+                        break;
+                    }
+                } catch (e) {
+                }
+
+                // не выходить за пределы выделения (если есть)
+                if (selRoot && cur === selRoot) break;
+                cur = cur.parentElement;
+            }
+
+            // fallback — как раньше для ближайшего элемента
+            if (!applied) applied = computeForElement(parent, prop);
+        } else {
+            applied = computeForElement(parent, prop);
+        }
+
+        values.push((applied === null || applied === undefined) ? '' : String(applied).trim());
+    }
+
+    // Нормализуем набор значений: игнорируем пустые значения, если есть хотя бы одно непустое
+    const all = values.map(v => (v === null || v === undefined) ? '' : String(v).trim());
+    const nonEmpty = Array.from(new Set(all.filter(v => v !== '')));
+
+    if (nonEmpty.length === 1) {
+        const val = nonEmpty[0];
+        // попытаться найти соответствующий select и добавить опцию, если нужно
+        const attr = propToSelectAttr(prop);
+        if (attr && typeof document !== 'undefined') {
+            try {
+                const selEl = document.querySelector('[property-item="' + attr + '"]');
+                if (selEl && selEl.tagName === 'SELECT') {
+                    let found = false;
+                    for (let i = 0; i < selEl.options.length; i++) {
+                        if (selEl.options[i].value === val) { found = true; break; }
+                    }
+                    if (!found) {
+                        const opt = document.createElement('option');
+                        opt.value = val;
+                        opt.textContent = val;
+                        selEl.appendChild(opt);
+                    }
+                    selEl.value = val;
+                }
+            } catch (e) {}
+        }
+        return val;
+    }
+
+    if (nonEmpty.length > 1) return '-';
+
+    // Всё пусто — возвращаем пустую строку (По умолчанию)
+    return '';
+}

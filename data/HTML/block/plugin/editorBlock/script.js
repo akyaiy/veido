@@ -150,12 +150,19 @@ async function loadBlockWindow(path, block_Name, itemsHowText = null) {
             
             script.textContent = `
                 try {
-                    ${js}
-                    if (typeof pageInit === "function") pageInit();
+                    (function(scope){
+                        with(scope) {
+                            ${js}
+                        }
+                        if (typeof scope.pageInit === "function") scope.pageInit();
+                    })((window.__blocks ||= {})["${block_Name}"] ||= {});
                 } catch (e) {
                     console.error("Ошибка в блоке [${block_Name}]:", e);
                 }
             `;
+            window.callBlock = function(block, fn, ...args) {
+                return window.__blocks?.[block]?.[fn]?.(...args);
+            };
             document.body.appendChild(script);
         }
 
@@ -166,3 +173,5 @@ async function loadBlockWindow(path, block_Name, itemsHowText = null) {
 }
 
 initBlocks();
+
+

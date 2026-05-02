@@ -501,3 +501,225 @@ toggleCssPanel.addEventListener('change', () => {
     updateCssPanel(currentSelectedEl);
     updatePropertiesPanel(currentSelectedEl);
 });
+
+
+
+
+
+// --- class name autocomplete helpers --------------------------------------
+function gatherClasses(blockId) {
+    const view = document.getElementById(blockId + '_view');
+    if (!view) return [];
+    const set = new Set();
+    view.querySelectorAll('[class]').forEach(el => {
+        el.classList.forEach(c => set.add(c));
+    });
+    return Array.from(set).sort();
+}
+
+let currentClassAutoTarget = null;
+function prepareClassAutocomplete(td) {
+    currentClassAutoTarget = td;
+    const blockId = getActiveBlockId();
+    const list = blockId ? gatherClasses(blockId) : [];
+    td.dataset.classNames = JSON.stringify(list);
+    showClassAutocomplete(td, '');
+}
+
+function updateClassAutocomplete(td) {
+    if (currentClassAutoTarget !== td) return;
+    const prefix = td.value ? td.value.trim() : td.textContent.trim();
+    showClassAutocomplete(td, prefix);
+}
+
+function showClassAutocomplete(td, prefix) {
+    const list = JSON.parse(td.dataset.classNames || '[]');
+    const filtered = prefix ? list.filter(n => n.startsWith(prefix)) : list;
+    if (!filtered.length) {
+        hideClassAutocomplete();
+        return;
+    }
+    classAutoBox.innerHTML = '';
+    filtered.forEach(name => {
+        const div = document.createElement('div');
+        div.textContent = name;
+        div.style.padding = '2px 4px';
+        div.style.cursor = 'pointer';
+        div.addEventListener('mousedown', e => {
+            e.preventDefault();
+            if (currentClassAutoTarget) {
+                if (currentClassAutoTarget.value !== undefined) currentClassAutoTarget.value = name;
+                else currentClassAutoTarget.textContent = name;
+                currentClassAutoTarget.focus();
+            }
+            hideClassAutocomplete();
+        });
+        classAutoBox.appendChild(div);
+    });
+    positionClassAutocomplete(td);
+    classAutoBox.style.display = '';
+}
+
+function positionClassAutocomplete(td) {
+    const rect = td.getBoundingClientRect();
+    let left = rect.left + window.scrollX;
+    const top = rect.bottom + window.scrollY;
+    const boxWidth = classAutoBox.offsetWidth || 0;
+    const avail = window.innerWidth - 10;
+    if (left + boxWidth > avail) {
+        left = Math.max(10, avail - boxWidth);
+    }
+    classAutoBox.style.top = top + 'px';
+    classAutoBox.style.left = left + 'px';
+    if (top + classAutoBox.offsetHeight > window.innerHeight + window.scrollY) {
+        classAutoBox.style.top = (rect.top + window.scrollY - classAutoBox.offsetHeight - 2) + 'px';
+    }
+}
+
+function hideClassAutocomplete() {
+    classAutoBox.style.display = 'none';
+    currentClassAutoTarget = null;
+}
+
+
+// reposition
+window.addEventListener('resize', () => {
+    if (currentClassAutoTarget && classAutoBox.style.display !== 'none') {
+        positionClassAutocomplete(currentClassAutoTarget);
+    }
+});
+
+// hide outside
+document.addEventListener('mousedown', e => {
+    if (currentClassAutoTarget && !classAutoBox.contains(e.target) && e.target !== currentClassAutoTarget) {
+        hideClassAutocomplete();
+    }
+});
+
+function hideClassAutocomplete() {
+    classAutoBox.style.display = 'none';
+    currentClassAutoTarget = null;
+}
+
+function getActiveId(el) {
+    if (!el) return '';
+    if (activeIdByEl.has(el)) return activeIdByEl.get(el) || '';
+    return el.id || '';
+}
+
+function setActiveId(el, val) {
+    if (!el) return;
+    activeIdByEl.set(el, val);
+}
+/* работа с id элементов: синхронизация и проверка уникальности */
+function syncElementId(newId, el, highlightElements) {
+    if (!el) return { valid: false };
+
+    const id = String(newId || '').trim();
+    const oldId = el.id || '';
+
+    const clearBg = () => {
+        (highlightElements || []).forEach(n => {
+            if (n) n.style.backgroundColor = '';
+        });
+    };
+
+    const setErrorBg = () => {
+        (highlightElements || []).forEach(n => {
+            if (!n) return;
+        
+            // Ставим красный фон
+            n.style.backgroundColor = '#fdd';
+        
+            // Добавляем разовый слушатель: как только пользователь уйдет из поля, цвет сбросится
+            n.addEventListener('focusout', () => {
+                n.style.backgroundColor = '';
+            }, { once: true }); 
+        });
+    };
+
+    // пустой id - просто удалить
+    if (!id) {
+        clearBg();
+        if (oldId) el.removeAttribute('id');
+        return { valid: true, reason: 'empty' };
+    }
+
+    // ИСПРАВЛЕНИЕ: проверка уникальности по всему document, игнорируя <style> и <script>
+    let isDuplicate = false;
+    try {
+        // Ищем все элементы с таким ID (CSS.escape защищает от ошибок парсинга)
+        const existingElements = document.querySelectorAll('[id="' + CSS.escape(id) + '"]');
+        // Проверяем, есть ли среди них "настоящие" элементы (не скрипты и не стили)
+        isDuplicate = Array.from(existingElements).some(
+            node => node !== el && node.tagName !== 'SCRIPT' && node.tagName !== 'STYLE'
+        );
+    } catch(e) {
+        // Запасной вариант на случай непредвиденных ошибок селектора
+        const fallback = document.getElementById(id);
+        isDuplicate = fallback && fallback !== el && fallback.tagName !== 'SCRIPT' && fallback.tagName !== 'STYLE';
+    }
+
+    if (isDuplicate) {
+        setErrorBg();
+        return { valid: false, reason: 'duplicate' };
+    }
+
+    clearBg();
+
+    if (oldId === id) return { valid: true, reason: 'same' };
+
+    const view = el.closest('[id^="loadedBlock_"][id$="_view"]');
+    const viewId = view ? view.id : null;
+
+    // обновить id элемента
+    el.id = id;
+
+    if (!oldId) return { valid: true, reason: 'updated' };
+    if (!view) return { valid: true };
+
+    const escOld = oldId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    // ИСПРАВЛЕНИЕ: Замена в скриптах ТОЛЬКО внутри кавычек ("oldId", 'oldId', `#oldId`)
+    // Группа $1 - это кавычка, группа $2 - возможный символ решетки '#'
+    const reScripts = new RegExp('([\'"`])(#?)' + escOld + '\\1', 'g');
+
+    const dynamicScript = document.querySelector('script[data-dynamic-text="' + viewId + '"]');
+    const scripts = [];
+    if (dynamicScript) scripts.push(dynamicScript);
+
+    view.querySelectorAll('script').forEach(s => {
+        if (!scripts.includes(s)) scripts.push(s);
+    });
+
+    scripts.forEach(s => {
+        try {
+            // Подменяем, сохраняя оригинальные кавычки и решетку (если она была)
+            s.textContent = s.textContent.replace(reScripts, '$1$2' + id + '$1');
+        } catch (e) {}
+    });
+
+    // ИСПРАВЛЕНИЕ: Обновление атрибутов (строгие совпадения)
+    // Группа $1 - начало строки или пробел, $2 - решетка, $3 - пробел или конец строки
+    const reAttr = new RegExp('(^|\\s)(#?)' + escOld + '(\\s|$)', 'g');
+
+    view.querySelectorAll('*').forEach(node => {
+        // Пропускаем скрипты и стили внутри view, чтобы не повредить их логику
+        if (node.tagName === 'SCRIPT' || node.tagName === 'STYLE') return;
+        if (!node.attributes) return;
+
+        Array.from(node.attributes).forEach(attr => {
+            if (!attr.value) return;
+            // Проверяем, есть ли точное совпадение слова oldId или #oldId
+            if (attr.value.match(reAttr)) {
+                // Заменяем, сохраняя пробелы или решетку
+                node.setAttribute(
+                    attr.name,
+                    attr.value.replace(reAttr, '$1$2' + id + '$3')
+                );
+            }
+        });
+    });
+
+    return { valid: true, reason: 'updated' };
+}

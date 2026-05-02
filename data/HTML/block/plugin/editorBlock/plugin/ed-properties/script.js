@@ -413,3 +413,187 @@ function shouldKeepSpecPanelVisible(target) {
         )
     );
 }
+
+
+/***********************************************************************
+ * Специальные свойства (рефакторинг: универсальная обработка).
+ **********************************************************************/
+window.selectedEl = null;
+const specRoot = document.getElementById('properties-panel-spec');
+const normalPanel = document.getElementById('properties-panel');
+
+// по умолчанию скрыть панель специальных свойств
+specRoot.style.display = 'none';
+
+// --- конфигурация: какие теги считаем "специальными" ---
+const EDITABLE_TAGS = new Set([
+    // Базовые и структурные
+    'block', 'div', 'a', 'table', 'hr', 'img', 'code',
+    // Формы
+    'form', 'textarea', 'input', 'select', 'option',
+    // Медиа
+    'figure', 'figcaption', 'video', 'audio', 'iframe',
+    // Интерактив
+    'button', 'details', 'summary', 'progress', 'meter'
+]);
+
+// --- Утилиты -----------------------------------------------------------------
+
+// Переменная вне функции для хранения текущего подсвеченного элемента
+window.lastHighlightedElement = null;
+
+// Список тегов, которые не могут содержать другие элементы или текст
+const ATOMIC_TAGS = new Set(['img', 'hr', 'input', 'progress', 'meter', 'video', 'audio', 'iframe', 'select']);
+
+function findEditableElement(startNode) {
+    // --- ПРОВЕРКА ДЛЯ ATOMIC TAGS (оставлена без изменений) ---
+    if (startNode && startNode.nodeType === 1) {
+        const startTag = startNode.tagName.toLowerCase();
+        if (ATOMIC_TAGS.has(startTag) && EDITABLE_TAGS.has(startTag)) {
+            if (!startNode.closest('[contenteditable="true"]')) return updateOutline(null);
+            return updateOutline(startNode);
+        }
+    }
+
+    if (!startNode) return updateOutline(null);
+
+    // 1. Инициализация таргета (сразу берем родителя, если это текст)
+    let target = startNode;
+    let el = target.nodeType === Node.TEXT_NODE ? target.parentElement : target;
+
+    // 2. Поиск контейнера view
+    const view = el.closest('[id^="loadedBlock_"][id$="_view"]');
+    if (!view) return updateOutline(null);
+
+    // 3. --- ГИБРИДНАЯ ПРОВЕРКА ССЫЛКИ (интегрирована из contextmenu) ---
+    let closestLink = el.closest('a');
+
+    if (!closestLink) {
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0 && sel.anchorNode) {
+            const nodeInside = sel.anchorNode;
+            const parentInside = nodeInside.nodeType === Node.TEXT_NODE ? nodeInside.parentElement : nodeInside;
+            closestLink = parentInside.closest('a');
+        }
+    }
+
+    // Если ссылка найдена (любым способом) - проверяем, что она в нашем view и редактируема
+    if (closestLink && view.contains(closestLink) && EDITABLE_TAGS.has('a')) {
+        if (!closestLink.closest('[contenteditable="true"]')) return updateOutline(null);
+        return updateOutline(closestLink);
+    }
+
+    // 4. Поиск вверх по дереву (оставлен без изменений)
+    let foundUp = null;
+    let upNode = el;
+    while (upNode && upNode !== view) {
+        if (upNode.nodeType === 1) {
+            const tag = upNode.tagName.toLowerCase();
+            if (EDITABLE_TAGS.has(tag)) {
+                foundUp = upNode;
+                break; // Мы нашли ближайший редактируемый элемент
+            }
+        }
+        upNode = upNode.parentElement;
+    }
+
+    if (foundUp && !foundUp.closest('[contenteditable="true"]')) {
+        return updateOutline(null);
+    }
+
+    return updateOutline(foundUp);
+}
+
+// Рекурсивный поиск (без изменений)
+function searchDownRecursive(element) {
+    if (!element || element.nodeType !== 1) return null;
+    for (let child of element.children) {
+        const tag = child.tagName.toLowerCase();
+        if (EDITABLE_TAGS.has(tag)) return child;
+        const deep = searchDownRecursive(child);
+        if (deep) return deep;
+    }
+    return null;
+}
+
+/**
+ * Вспомогательная функция для управления outline
+ */
+function updateOutline(element) {
+    const specRoot = document.getElementById('properties-panel-spec');
+    const normalPanel = document.getElementById('properties-panel');
+    const root = document.getElementById('loadedBlockMain');
+
+    // 1. Очистка старой обводки у всех элементов в рабочей области
+    if (root) {
+        const allWithOutline = root.querySelectorAll('[style*="outline"]');
+        allWithOutline.forEach(el => {
+            el.style.outline = '';
+        });
+    }
+
+    // 2. Если фокус или клик внутри самой панели свойств — игнорируем, чтобы не сбросить выбор
+    if (document.activeElement && document.activeElement.closest('#properties-panel-spec')) {
+        return lastHighlightedElement;
+    }
+
+    // 3. Если элемент найден и он находится внутри редактируемого контейнера
+    if (element && element.closest('[contenteditable="true"]')) {
+        const tagName = element.tagName.toLowerCase();
+        
+        // Визуально выделяем элемент
+        element.style.outline = '1px solid #2196F3';
+        lastHighlightedElement = element;
+        selectedEl = element;
+
+        // Показываем спец-панель и скрываем стандартную
+        if (specRoot) specRoot.style.display = 'block';
+        if (normalPanel) normalPanel.style.display = 'none';
+
+        if (specRoot) {
+            const allFields = specRoot.querySelectorAll('[data-target]');
+            
+            allFields.forEach(field => {
+                const targetAttr = field.getAttribute('data-target') || '';
+                const targets = targetAttr.toLowerCase().split(/\s+/).map(t => t.trim());
+
+                // Проверяем: подходит ли поле под текущий тег
+                if (targets.includes(tagName) || targets.includes('all')) {
+                    // Используем !important через setProperty, чтобы перебить любые другие стили
+                    field.style.setProperty('display', 'block', 'important');
+                } else {
+                    field.style.setProperty('display', 'none', 'important');
+                }
+            });
+        }
+
+    } else {
+        // Если кликнули в пустое место (не по редактируемому тегу)
+        lastHighlightedElement = null;
+        selectedEl = null;
+        
+        // Показать обычную панель только если вкладка properties активна
+        const cssActive = document.querySelector('#css-js-tabs .tab.active');
+        if (specRoot) specRoot.style.display = 'none';
+        if (normalPanel) normalPanel.style.display = (cssActive && cssActive.dataset.tab === 'properties') ? 'block' : 'none';
+    }
+
+    return element;
+}
+
+
+// Сброс выбора: скрыть specRoot, восстановить normalPanel
+function clearSelection() {
+    selectedEl = null;
+    const cssActiveTab = document.querySelector('#css-js-tabs .tab.active');
+    if (specRoot.style.display !== 'none' && normalPanel) {
+        normalPanel.style.display = (cssActiveTab && cssActiveTab.dataset.tab === 'properties') ? '' : 'none';
+    }
+    specRoot.style.display = 'none';
+    // очистить значения контролов
+    specRoot.querySelectorAll('[data-prop]').forEach(inp => {
+        if (inp.type === 'checkbox') inp.checked = false;
+        else if (inp.type === 'color') inp.value = '#000000';
+        else inp.value = '';
+    });
+}

@@ -14,3 +14,32 @@ tabs.forEach(tab => {
         switchTabPanel(tab.dataset.tab);
     });
 });
+
+/***********************************************************************
+ * switchTabPanel — переключение видимости панелей (properties, css, js):
+ * - Принимает имя вкладки: 'properties', 'css' или 'js'.
+ * - Показывает соответствующую панель.
+ * - Скрывает остальные панели.
+ **********************************************************************/
+function switchTabPanel(tabName) {
+    if (tabName === 'properties') {
+        propertiesPanel.style.display = '';
+        jsPanel.style.display = 'none';
+        syncCssPanelVisibility();
+    } else if (tabName === 'css') {
+        propertiesPanel.style.display = 'none';
+        /* if (cssPanel) cssPanel.style.display = 'flex'; */
+        jsPanel.style.display = 'none';
+    } else if (tabName === 'js') {
+        propertiesPanel.style.display = 'none';
+        /* if (cssPanel) cssPanel.style.display = 'none'; */
+        jsPanel.style.display = 'flex';
+        const blockId = getActiveBlockId();
+        if (blockId) ensureJsPanelSelection(blockId);
+    }
+
+    // если вкладка не properties, прячем панель спец‑свойств
+    if (tabName !== 'properties' && specRoot) {
+        specRoot.style.display = 'none';
+    }
+}
