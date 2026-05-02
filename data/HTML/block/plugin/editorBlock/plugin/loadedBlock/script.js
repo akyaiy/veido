@@ -193,22 +193,6 @@ function getDefaultJsPanelElement(view) {
     return view;
 }
 
-function selectElementForPanels(el, resetPrevious = true) {
-    if (!el) return;
-    if (resetPrevious && lastSelectedEl && lastSelectedEl !== el) {
-        delete lastSelectedEl.dataset.selectorType;
-    }
-
-    lastSelectedEl = el;
-    selectedElBorder = el;
-
-    updateCssPanel(el);
-    updateTagLabel(el);
-    updateJsPanel(el);
-    updateJsPanelName(el);
-    updatePropertiesPanel(el);
-}
-
 function ensureJsPanelSelection(blockId) {
     const view = document.getElementById(blockId + '_view');
     if (!view) return;

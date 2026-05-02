@@ -414,29 +414,6 @@ function nodeToMd(node) {
     }
 }
 
-/***********************************************************************
- * htmlToMixed — Конвертирует HTML в Markdown:
- * - Принимает HTML строку.
- * - Парсит и обрабатывает дочерние узлы через nodeToMd.
- * - Убирает лишние пустые строки.
- * - Возвращает Markdown с переносом строки.
- **********************************************************************/
-function htmlToMixed(html) {
-    let out = html;
-    const doc = new DOMParser().parseFromString('<div>' + html + '</div>', 'text/html');
-    const wrapper = doc.body.firstElementChild;
-    if (!wrapper) return '\n';
-
-    out = [...wrapper.childNodes]
-        .map(nodeToMd)
-        .join('')
-        .replace(/\n{3,}/g, '\n\n')
-        .trim();
-
-    out = out ? out + '\n' : '\n'
-    return out;
-}
-
 function saveJsToScript(blockId) {
     const centerPreJs = document.getElementById('center-tab-pre-js');
     // Если centerPreJs содержит код другого блока, не переписывать его
