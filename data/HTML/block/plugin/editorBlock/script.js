@@ -83,7 +83,6 @@ async function initBlocks() {
     await loadBlockWindow("plugin/editorBlock/plugin/rgb-picker", "rgb-picker-container")
     await loadBlockWindow("plugin/editorBlock/plugin/ed-properties", "ed-properties-container")
     await loadBlockWindow("plugin/editorBlock/plugin/marker-modal", "marker-modal-container")
-    await loadBlockWindow("plugin/editorBlock/plugin/global", "global-editorBlock-container")
     await test()
 }
 
