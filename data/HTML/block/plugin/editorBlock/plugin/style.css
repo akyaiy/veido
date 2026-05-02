@@ -1,3 +1,11 @@
+#elements-ul {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    user-select: none;
+}
+
+
 /* основная область страницы */
 main.editor {
     width: calc(100% - 40px);
@@ -44,13 +52,6 @@ main.editor {
 .elements-header {
     font-size: 13px;
     padding-bottom: 2px;
-}
-
-#elements-ul {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    user-select: none;
 }
 
 /* центральная панель */

@@ -122,3 +122,341 @@ if (centerPreJs) {
         }
     });
 });
+
+
+
+/***********************************************************************
+ * document keydown — Вставка переноса строки при Enter:
+ **********************************************************************/
+document.addEventListener('keydown', (e) => {
+    const centerEditor = document.getElementById('center-tab-pre-html');
+    if (e.key !== 'Enter') return;
+
+    // работаем только если включён contenteditable
+    if (!centerEditor.isContentEditable) return;
+
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+
+    if (!e.shiftKey) {
+        e.preventDefault();
+
+        let currentEl = range.startContainer;
+        if (currentEl.nodeType === Node.TEXT_NODE) {
+            currentEl = currentEl.parentElement;
+        }
+
+        const isAtEnd = (() => {
+            if (range.endContainer.nodeType === Node.TEXT_NODE) {
+                const isEnd = range.endOffset === range.endContainer.textContent.length;
+
+                if (!isEnd) return false;
+
+                const parent = range.endContainer.parentElement;
+                const next = range.endContainer.nextSibling;
+
+                // если сразу после текста уже <br>
+                if (next && next.nodeName === 'BR') {
+                    return false;
+                }
+
+                return true;
+            } else {
+                const nodes = range.endContainer.childNodes;
+                const atEnd = range.endOffset === nodes.length;
+
+                if (!atEnd) return false;
+
+                const prev = nodes[nodes.length - 1];
+
+                // если последний уже <br>
+                if (prev && prev.nodeName === 'BR') {
+                    return false;
+                }
+
+                return true;
+            }
+        })();
+
+        const isInline = currentEl && getComputedStyle(currentEl).display === 'inline';
+
+        const br = document.createElement('br');
+        range.deleteContents();
+        range.insertNode(br);
+
+        if (!isInline && isAtEnd) {
+            const br2 = document.createElement('br');
+            br.after(br2);
+        }
+
+        range.setStartAfter(br);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+    } else {
+        let container = range.commonAncestorContainer;
+        if (container.nodeType === Node.TEXT_NODE) {
+            container = container.parentElement;
+        }
+
+        if (container !== centerEditor) {
+            e.preventDefault();
+
+            // вставка узла вне текущего тега
+            const exitNode = document.createTextNode('\u00A0');
+            container.after(exitNode);
+
+            // перенос курсора
+            const newRange = document.createRange();
+            newRange.setStart(exitNode, 0);
+            newRange.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(newRange);
+        }
+    }
+});
+
+
+
+
+
+
+
+/***********************************************************************
+ * centerEditor — HTML/Markdown-редактор центра.
+ **********************************************************************/
+const centerEditor = document.getElementById('center-tab-pre-html');
+
+/***********************************************************************
+ * syncActiveBlock — синхронизация активного блока:
+ * - Копирует содержимое HTML-редактора в HTML-блок.
+ * - Обновляет визуальное представление блока через syncViewFromHtml.
+ **********************************************************************/
+function syncActiveBlock() {
+    const centerEditor = document.getElementById('center-tab-pre-html');
+    const tab = document.querySelector('#blocks-tabs .tab.active');
+    if (!tab) return;
+
+    const blockId = tab.dataset.blockId;
+    const htmlEl = document.getElementById(blockId + '_html');
+    if (!htmlEl) return;
+
+    htmlEl.textContent = centerEditor.textContent;
+    syncViewFromHtml(blockId);
+}
+
+/***********************************************************************
+ * Создает объект MarkdownIt с HTML, автоссылками и типографикой
+ **********************************************************************/
+const md = window.markdownit({ html: true, linkify: true, typographer: true });
+
+/***********************************************************************
+ * Хранит идентификатор текущего активного блока
+ **********************************************************************/
+let activeBlockId = null;
+/***********************************************************************
+ * Хранит источник последней синхронизации (например, HTML или редактор)
+ **********************************************************************/
+let activeSyncSource = null;
+/***********************************************************************
+ * Хранит blockId, которому принадлежит текущее содержимое centerPreJs
+ **********************************************************************/
+let centerJsBlockId = null;
+
+/***********************************************************************
+ * logSync — Проверяет совпадение активного блока с переданным:
+ * - Принимает идентификатор следующего блока и источник.
+ * - Сравнивает с активным блоком.
+ * - Возвращает true, если блоки совпадают.
+ **********************************************************************/
+function logSync(nextBlockId, nextSource) {
+    const sameId = activeBlockId === nextBlockId;
+    return sameId;
+}
+
+/***********************************************************************
+ * syncViewFromHtml — Синхронизирует содержимое HTML-блока с редактором:
+ * - Принимает идентификатор блока.
+ * - Проверяет, нужно ли обновлять блок через logSync.
+ * - Копирует текст из редактора в скрытый HTML и обновляет визуальный блок через Markdown.
+ * - Обновляет активный блок и источник синхронизации.
+ **********************************************************************/
+function syncViewFromHtml(blockId) {
+    activeBlockId = blockId;
+    activeSyncSource = 'html';
+
+    const canRender = logSync(blockId, 'html');
+
+    const htmlElPre = document.getElementById('center-tab-pre-html');
+    const htmlEl = document.getElementById(blockId + '_html');
+    const viewEl = document.getElementById(blockId + '_view');
+    if (!htmlElPre || !htmlEl || !viewEl) return;
+
+    if (canRender) {
+        let content = htmlElPre.textContent.trim();
+        if (!content) content = '<div><br></div>';
+
+        const markdownBlocks = [
+            /^\s*#/,               // заголовки
+            /^\s*\*\*\*.*\*\*\*/, // жирный курсив
+            /^\s*\*\*.*\*\*/,     // жирный
+            /^\s*\*.*\*/,         // курсив
+            /^\s*-/ ,             // маркированный список
+            /^\s*\d+\./,          // нумерованный список
+            /^\s*>/,              // блок цитаты
+            /^\s*```/,            // блок кода
+            /^\s*<s>/,            // зачеркнутый
+        ];
+
+        const lines = content.split('\n');
+        let prevIsMd = false;
+
+        for (let i = 0; i < lines.length; i++) {
+            const isMd = markdownBlocks.some(re => re.test(lines[i]));
+            if (isMd && !prevIsMd) {
+                // добавляем перенос только если предыдущий не Markdown
+                lines[i] = '\n' + lines[i];
+            }
+            prevIsMd = isMd;
+        }
+
+        content = lines.join('\n');
+
+        htmlEl.innerHTML = content;
+        viewEl.innerHTML = md.render(content);
+    }
+}
+
+/***********************************************************************
+ * syncHtmlFromView — Синхронизирует HTML-блок с визуальным представлением:
+ * - Принимает идентификатор блока.
+ * - Проверяет, нужно ли обновлять блок через logSync.
+ * - Преобразует содержимое визуального блока в смешанный HTML и обновляет HTML-блок.
+ * - Обновляет активный блок и источник синхронизации.
+ **********************************************************************/
+function syncHtmlFromView(blockId) {
+    activeBlockId = blockId;
+    activeSyncSource = 'view';
+
+    const canRender = logSync(blockId, 'view');
+
+    const viewEl = document.getElementById(blockId + '_view');
+    const htmlEl = document.getElementById(blockId + '_html');
+    if (!viewEl || !htmlEl) return;
+
+    if (canRender) {
+        let mdText = htmlToMixed(viewEl.innerHTML);
+        htmlEl.innerHTML = mdText;
+        // also reflect changes immediately in the central HTML editor
+        const centerPre = document.getElementById('center-tab-pre-html');
+        if (centerPre) {
+            centerPre.textContent = mdText;
+            centerPre.dataset.userEdited = '0';
+        }
+    }
+}
+
+/***********************************************************************
+ * nodeToMd — Преобразует HTML-узел в Markdown:
+ * - Принимает HTML-узел.
+ * - Конвертирует текстовые узлы в текст.
+ * - Конвертирует элементы (заголовки, параграфы, списки, ссылки, изображения, код) в Markdown.
+ * - Рекурсивно обрабатывает дочерние узлы.
+ **********************************************************************/
+function nodeToMd(node) {
+    if (node.nodeType === Node.TEXT_NODE) return node.nodeValue;
+    if (node.nodeType !== Node.ELEMENT_NODE) return '';
+
+    const tag = node.tagName.toLowerCase();
+    const children = [...node.childNodes].map(nodeToMd).join('');
+
+    switch (tag) {
+        case 'h1': return '# ' + children.trim() + '\n\n';
+        case 'h2': return '## ' + children.trim() + '\n\n';
+        case 'h3': return '### ' + children.trim() + '\n\n';
+        case 'h4': return '#### ' + children.trim() + '\n\n';
+        case 'strong':
+        case 'b': return '**' + children + '**';
+        case 'em':
+        case 'i': return '*' + children + '*';
+        case 'p': return children.trim() + '\n\n';
+        case 'br': return '  \n';
+        case 'ul':
+            return '\n' + [...node.children]
+                .map(li => '- ' + [...li.childNodes].map(nodeToMd).join('').trim())
+                .join('\n') + '\n\n';
+        case 'ol':
+            return '\n' + [...node.children]
+                .map((li, i) =>
+                    (i + 1) + '. ' +
+                    [...li.childNodes].map(nodeToMd).join('').trim()
+                ).join('\n') + '\n\n';
+        case 'a':
+            return '[' + (children || node.getAttribute('href') || '') + '](' +
+                   (node.getAttribute('href') || '') + ')';
+        case 'img':
+            return '![' + (node.getAttribute('alt') || '') + '](' +
+                   (node.getAttribute('src') || '') + ')';
+        case 'pre': {
+            const code = node.querySelector('code');
+            const txt = code ? code.textContent : node.textContent;
+            return '\n```\n' + txt.replace(/^\n+|\n+$/g, '') + '\n```\n\n';
+        }
+        default:
+            // сохранить тег целиком, если он не преобразуется в Markdown
+            try {
+                return node.outerHTML;
+            } catch (e) {
+                // если по какой-то причине outerHTML недоступен — вернуть дочерний контент
+                return children;
+            }
+    }
+}
+
+/***********************************************************************
+ * htmlToMixed — Конвертирует HTML в Markdown:
+ * - Принимает HTML строку.
+ * - Парсит и обрабатывает дочерние узлы через nodeToMd.
+ * - Убирает лишние пустые строки.
+ * - Возвращает Markdown с переносом строки.
+ **********************************************************************/
+function htmlToMixed(html) {
+    let out = html;
+    const doc = new DOMParser().parseFromString('<div>' + html + '</div>', 'text/html');
+    const wrapper = doc.body.firstElementChild;
+    if (!wrapper) return '\n';
+
+    out = [...wrapper.childNodes]
+        .map(nodeToMd)
+        .join('')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+
+    out = out ? out + '\n' : '\n'
+    return out;
+}
+
+function saveJsToScript(blockId) {
+    const centerPreJs = document.getElementById('center-tab-pre-js');
+    // Если centerPreJs содержит код другого блока, не переписывать его
+    // Берем содержимое только если это текущий активный блок в редакторе
+    let content = '';
+    if (centerJsBlockId === blockId) {
+        content = centerPreJs.textContent || '';
+    }
+    
+    let textEl = document.querySelector('script[data-dynamic-text="' + blockId + '_view"]');
+    if (!textEl) {
+        const wrap = document.getElementById(blockId + '_scripts') || document.getElementById('loadedBlockMain');
+        textEl = document.createElement('script');
+        textEl.setAttribute('data-dynamic-text', blockId + '_view');
+        textEl.type = 'text/plain';
+        wrap.appendChild(textEl);
+    }
+    
+    // Только обновляем, если был получен контент из centerPreJs (это текущий блок)
+    if (centerJsBlockId === blockId) {
+        textEl.textContent = content;
+    }
+}

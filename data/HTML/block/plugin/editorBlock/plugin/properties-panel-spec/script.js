@@ -502,6 +502,18 @@ toggleCssPanel.addEventListener('change', () => {
     updatePropertiesPanel(currentSelectedEl);
 });
 
+/***********************************************************************
+ * updateTagLabel — обновление метки тега:
+ * - Получает имя тега выбранного элемента.
+ * - Отображает его в панели информации.
+ **********************************************************************/
+function updateTagLabel(el) {
+    const label = document.getElementById('tag-label');
+    if (!label) return;
+    let name = el.tagName.toLowerCase();
+    label.textContent = name;
+}
+
 
 
 
@@ -722,4 +734,362 @@ function syncElementId(newId, el, highlightElements) {
     });
 
     return { valid: true, reason: 'updated' };
+}
+
+
+
+
+
+function syncCssPanelVisibility() {
+    const cssPanel = document.getElementById('css-panel');
+    const toggle = document.getElementById('toggle-css-panel');
+
+    if (!cssPanel || !toggle) {
+        return;
+    }
+
+    cssPanel.style.display = toggle.checked ? 'flex' : 'none';
+}
+
+syncCssPanelVisibility();
+
+
+
+
+
+// --- Слушатели для панели (делегированно) ------------------------------------
+
+// ввод/изменение в любом контроле применяет свойство немедленно
+// но для color-контролов мы управляем через собственный picker
+specRoot.addEventListener('input', e => {
+    if (!lastHighlightedElement) return;
+    const ctrl = e.target.closest('[data-prop]');
+    if (!ctrl) return;
+    if (ctrl.type === 'color') return; // игнорируем, цвет устанавливается через picker
+    const prop = ctrl.getAttribute('data-prop');
+    const val = ctrl.type === 'checkbox' ? ctrl.checked : ctrl.value;
+    applyPropToElement(lastHighlightedElement, prop, val);
+});
+specRoot.addEventListener('change', e => {
+    if (!lastHighlightedElement) return;
+    const ctrl = e.target.closest('[data-prop]');
+    if (!ctrl) return;
+    if (ctrl.type === 'color') return; // игнорируем color
+    const prop = ctrl.getAttribute('data-prop');
+    const val = ctrl.type === 'checkbox' ? ctrl.checked : ctrl.value;
+    applyPropToElement(lastHighlightedElement, prop, val);
+});
+
+
+
+
+/***********************************************************************
+ * updateCssPanel — Обновляет панель атрибутов CSS для выбранного элемента:
+ * - Принимает HTML элемент.
+ * - Заполняет поля ввода ID и класса текущего элемента.
+ * - Очищает и заполняет таблицу остальных атрибутов.
+ * - Добавляет пустую строку для нового атрибута.
+ **********************************************************************/
+function updateCssPanel(el) {
+    currentSelectedEl = el;
+    const attrsTable = document.getElementById('attributes-table');
+    if (!attrsTable) return;
+    attrsTable.innerHTML = '';
+    // include id and class as ordinary attributes first
+    if (el.id) createAttrRow('id', el.id);
+    if (el.className) createAttrRow('class', el.className);
+    const names = el.getAttributeNames().filter(n => n !== 'id' && n !== 'class');
+    names.forEach(name => createAttrRow(name, el.getAttribute(name) || ''));
+    ensureEmptyAttrRow();
+}
+
+/***********************************************************************
+ * createAttrRow — Создает строку таблицы атрибутов элемента:
+ * - Принимает имя и значение атрибута.
+ * - Создает редактируемые ячейки name и value.
+ * - Добавляет кнопку удаления, если атрибут задан.
+ * - Вставляет строку в таблицу атрибутов.
+ **********************************************************************/
+function createAttrRow(name, value) {
+    const attrsTable = document.getElementById('attributes-table');
+    const tr = document.createElement('tr');
+    const td1 = document.createElement('td');
+    const td2 = document.createElement('td');
+
+    td1.contentEditable = 'true';
+    td1.dataset.placeholder = 'name';
+    td2.contentEditable = 'true';
+    td2.dataset.placeholder = 'value';
+
+    td1.textContent = name || '';
+    td2.textContent = value || '';
+    td1.dataset.prev = name || '';
+
+    tr.append(td1, td2);
+
+    if (name || value) {
+        const td3 = document.createElement('td');
+        td3.textContent = '×';
+        td3.style.cursor = 'pointer';
+        td3.onclick = (e) => {
+            e.stopPropagation();
+            removeAttrRow(tr, td1);
+        };
+        tr.appendChild(td3);
+    }
+
+    attrsTable.appendChild(tr);
+}
+
+/***********************************************************************
+ * removeAttrRow — Удаляет строку атрибута из таблицы:
+ * - Удаляет атрибут с элемента, если он был задан.
+ * - Удаляет строку из таблицы.
+ * - Обеспечивает наличие пустой строки для нового атрибута.
+ **********************************************************************/
+function removeAttrRow(tr, td1) {
+    const prev = td1.dataset.prev || '';
+    if (prev && currentSelectedEl) {
+        currentSelectedEl.removeAttribute(prev);
+    }
+    tr.remove();
+    ensureEmptyAttrRow();
+}
+
+/***********************************************************************
+ * ensureEmptyAttrRow — Гарантирует наличие пустой строки в таблице атрибутов:
+ * - Проверяет последнюю строку таблицы.
+ * - Если строки нет или она не пуста, создаёт новую пустую строку.
+ **********************************************************************/
+function ensureEmptyAttrRow() {
+    const t = document.getElementById('attributes-table');
+    if (!t) return;
+
+    const last = t.lastElementChild;
+    if (
+        !last ||
+        last.children[0].textContent.trim() ||
+        last.children[1].textContent.trim()
+    ) {
+        createAttrRow('', '');
+    }
+}
+
+
+/***********************************************************************
+ * getBlockIdFromEl — Определяет id блока по элементу:
+ * - Принимает DOM-элемент.
+ * - Поднимается по DOM вверх от переданного элемента.
+ * - Ищет первый элемент с id, оканчивающимся на "_view".
+ * - Возвращает id без суффикса "_view" или null, если такого элемента нет.
+ **********************************************************************/
+function getBlockIdFromEl(el) {
+    let node = el;
+    while (node) {
+        if (node.id && node.id.endsWith('_view')) return node.id.replace(/_view$/, '');
+        node = node.parentElement;
+    }
+    return null;
+}
+
+/***********************************************************************
+ * updatePropertiesPanel — Обновляет панель CSS-свойств элемента:
+ * - Принимает DOM-элемент.
+ * - Определяет id блока и связанные динамические стили.
+ * - Парсит CSS правила и сопоставляет их с элементом.
+ * - Формирует список селекторов по приоритету (id, классы, тег, matched rules).
+ * - Заполняет таблицу свойствами и добавляет строки для новых свойств.
+ **********************************************************************/
+function updatePropertiesPanel(el) {
+    const table = document.getElementById('properties-table');
+    if (!table) return;
+    table.innerHTML = '';
+    const blockId = getBlockIdFromEl(el) || getActiveBlockId() || 'loadedBlock_1';
+    let styleEl = document.querySelector('style[data-dynamic="' + blockId + '_view"]');
+    const css = styleEl ? styleEl.textContent : '';
+    const rules = parseCssToRules(css);
+    const existingMap = new Map();
+    const existingOrder = [];
+    rules.forEach(r => {
+        if (!existingMap.has(r.selector)) {
+            existingMap.set(r.selector, r.decls);
+            existingOrder.push(r.selector);
+        }
+    });
+    const matchedSet = new Set();
+    rules.forEach(r => {
+        try {
+            if (el.matches(r.selector)) matchedSet.add(r.selector);
+        } catch (e) {
+            const selStripped = r.selector.replace(/::[a-zA-Z0-9\-\(\)]+/g, '').trim();
+            try { if (selStripped && el.matches(selStripped)) matchedSet.add(r.selector); } catch (e2) {}
+        }
+    });
+    const candidates = [];
+    const id = el.id ? '#' + el.id : null;
+    const classes = Array.from(el.classList || []);
+    const tag = el.tagName.toLowerCase();
+    if (id) candidates.push(id);
+    classes.forEach(c => candidates.push('.' + c));
+    candidates.push(tag);
+    const order = [];
+    existingOrder.forEach(s => { if (matchedSet.has(s) && !order.includes(s)) order.push(s); });
+    candidates.forEach(s => { if (!order.includes(s)) order.push(s); });
+    if (order.length === 0) order.push(buildSelector(el));
+    order.forEach(sel => {
+        const trSel = document.createElement('tr');
+        const tdSel = document.createElement('td');
+        tdSel.colSpan = 3;
+        tdSel.textContent = sel;
+        trSel.appendChild(tdSel);
+        table.appendChild(trSel);
+        const decls = existingMap.get(sel) || (sel === tag ? (el.getAttribute('style') || '') : '');
+        decls.split(';').map(v => v.trim()).filter(Boolean).forEach(line => {
+            const i = line.indexOf(':');
+            const p = i !== -1 ? line.slice(0, i).trim() : '';
+            const v = i !== -1 ? line.slice(i + 1).trim() : '';
+            createPropRow(p, v, true);
+        });
+        createAddPropRow();
+    });
+
+    updateSimpleFormats(el);
+    updateSelectProperties(el);
+}
+
+/***********************************************************************
+ * parseCssToRules — Преобразует CSS строку в массив правил:
+ * - Принимает CSS строку.
+ * - Разбивает её на селекторы и декларации.
+ * - Для каждого селектора формирует объект {selector, decls}.
+ * - Возвращает массив таких объектов.
+ **********************************************************************/
+function parseCssToRules(css) {
+    const out = [];
+    const re = /([^{]+)\{([^}]*)\}/g;
+    let m;
+    while ((m = re.exec(css)) !== null) {
+        const selectorText = m[1].trim();
+        const decls = m[2].trim();
+        const selectors = selectorText.split(',').map(s => s.trim()).filter(Boolean);
+        selectors.forEach(sel => out.push({ selector: sel, decls }));
+    }
+    return out;
+}
+
+/***********************************************************************
+ * buildSelector — Создает CSS-селектор для элемента по id, классам или тегу.
+ * - Принимает DOM-элемент.
+ * - Возвращает селектор как строку.
+ **********************************************************************/
+function buildSelector(el) {
+    if (el.id) return '#' + el.id;
+    if (el.className) return '.' + el.className.split(' ').filter(Boolean).join('.');
+    return el.tagName.toLowerCase();
+}
+
+/***********************************************************************
+ * createPropRow — Создает строку свойства CSS в таблице:
+ * - Принимает имя свойства, значение и флаг удаляемости.
+ * - Создает редактируемые ячейки для имени и значения.
+ * - Добавляет кнопку удаления, если нужно.
+ * - Вставляет строку в таблицу properties-table.
+ **********************************************************************/
+function createPropRow(prop, val, deletable) {
+    const table = document.getElementById('properties-table');
+    const tr = document.createElement('tr');
+    const td1 = document.createElement('td');
+    const td2 = document.createElement('td');
+    td1.contentEditable = 'true';
+    td1.dataset.placeholder = td1.dataset.placeholder || 'property';
+    td2.contentEditable = 'true';
+    td2.dataset.placeholder = td2.dataset.placeholder || 'value';
+    td1.textContent = prop || '';
+    td2.textContent = val || '';
+    tr.append(td1, td2);
+    if (deletable) {
+        const td3 = document.createElement('td');
+        td3.textContent = '×';
+        td3.style.cursor = 'pointer';
+        td3.onclick = (e) => {
+            e.stopPropagation();
+            tr.remove();
+            rebuildStyleForActive();
+        };
+        tr.appendChild(td3);
+    }
+    table.appendChild(tr);
+}
+
+/***********************************************************************
+ * createAddPropRow — Добавляет пустую строку для нового свойства CSS:
+ * - Проверяет, что последняя строка таблицы пустая.
+ * - Создает редактируемые ячейки для имени и значения.
+ * - Вставляет строку в таблицу properties-table.
+ **********************************************************************/
+function createAddPropRow() {
+    const table = document.getElementById('properties-table');
+    const last = table.lastElementChild;
+    if (last && last.children.length === 2 && !last.children[0].textContent.trim() && !last.children[1].textContent.trim()) return;
+    const tr = document.createElement('tr');
+    const td1 = document.createElement('td');
+    const td2 = document.createElement('td');
+    td1.contentEditable = 'true';
+    td1.dataset.placeholder = 'property';
+    td2.contentEditable = 'true';
+    td2.dataset.placeholder = 'value';
+    td1.textContent = '';
+    td2.textContent = '';
+    tr.append(td1, td2);
+    table.appendChild(tr);
+}
+
+/***********************************************************************
+ * ensureAddRowExists — гарантирует наличие пустой строки для нового свойства:
+ * - Проверяет последнюю строку таблицы свойств.
+ * - Если строки нет или она некорректная, создаёт новую пустую строку.
+ * - Иначе восстанавливает плейсхолдеры для имени и значения свойства.
+ **********************************************************************/
+function ensureAddRowExists() {
+    const table = document.getElementById('properties-table');
+    const last = table.lastElementChild;
+    if (!last || last.children.length !== 2) createAddPropRow();
+    else {
+        last.children[0].dataset.placeholder = last.children[0].dataset.placeholder || 'property';
+        last.children[1].dataset.placeholder = last.children[1].dataset.placeholder || 'value';
+    }
+}
+
+/***********************************************************************
+ * rebuildStyleForActive — обновляет CSS для активного элемента блока:
+ * - Считывает все строки таблицы свойств и формирует карту селекторов и их стилей.
+ * - Сохраняет порядок существующих правил и добавляет новые.
+ * - Генерирует итоговый CSS текст.
+ * - Создаёт или обновляет динамический `<style>` для текущего блока.
+ **********************************************************************/
+function rebuildStyleForActive() {
+    if (!currentSelectedEl) return;
+
+    const table = document.getElementById('properties-table');
+    if (!table) return;
+
+    // очистка старых inline-стилей
+    currentSelectedEl.style.cssText = '';
+
+    const rows = Array.from(table.querySelectorAll('tr'));
+
+    rows.forEach(tr => {
+        if (tr.children.length >= 2) {
+            const prop = tr.children[0].textContent.trim();
+            const val = tr.children[1].textContent.trim();
+
+            if (prop && val) {
+                const cssProp = prop.replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
+                currentSelectedEl.style[cssProp] = val;
+            }
+        }
+    });
+
+    const view = currentSelectedEl.closest('[id^="loadedBlock_"][id$="_view"]');
+    if (view) view.dataset.dirty = 'true';
 }
