@@ -551,7 +551,7 @@ function switchTo(blockId, tabEl) {
     if (tabEl) tabEl.classList.add('active');
 
     Array.from(container.children).forEach(ch => {
-        if (ch !== document.querySelector('.small-handle')) ch.style.display = ch.id === blockId ? '' : 'none';
+        if (ch !== document.querySelector('.resizeHandle')) ch.style.display = ch.id === blockId ? '' : 'none';
     });
 
     // 🔑 ВАЖНО: применяем текущий режим центра

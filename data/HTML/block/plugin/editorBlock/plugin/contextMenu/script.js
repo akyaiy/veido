@@ -285,7 +285,7 @@ menu.addEventListener('click', async e => {
                 if (tabEl) tabEl.classList.add('active');
 
                 Array.from(container.children).forEach(ch => {
-                    if (ch !== document.querySelector('.small-handle')) {
+                    if (ch !== document.querySelector('.resizeHandle')) {
                         ch.style.display = ch.id === blockId ? '' : 'none';
                     }
                 });
@@ -418,7 +418,6 @@ function shouldKeepSpecPanelVisible(target) {
 /***********************************************************************
  * Специальные свойства (рефакторинг: универсальная обработка).
  **********************************************************************/
-window.selectedEl = null;
 const specRoot = document.getElementById('propertiesPanel');
 const normalPanel = document.getElementById('properties-panel');
 

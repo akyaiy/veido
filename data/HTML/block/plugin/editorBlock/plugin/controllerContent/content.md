@@ -1,1 +1,1 @@
-<button id="btn-apply-js" style="display:none">Применить JS</button>
+<button id="jsApplyButton" style="display:none">Применить JS</button>

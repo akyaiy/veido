@@ -1,7 +1,7 @@
 /***********************************************************************
  * Элементы интерфейса управления загруженным блоком.
  **********************************************************************/
-const handle = document.querySelector('.small-handle');
+const handle = document.querySelector('.resizeHandle');
 const loadedBlocks = document.getElementById('loadedBlocks');
 
 /***********************************************************************
@@ -74,27 +74,25 @@ const centerPreJs = document.getElementById('center-tab-pre-js');
 const btnApplyToView = document.getElementById('btn-apply-to-view'); */
 
 
-let selectedElBorder = null;
-let lastSelectedEl = null;
 let isResizing = false;
 let startX, startY, startWidth, startHeight;
 const margin = 2; // зона границы
 
 document.addEventListener('mousemove', e => {
-    if (!selectedElBorder) return;
+    if (!window.selectedEl) return;
 
-    const rect = selectedElBorder.getBoundingClientRect();
+    const rect = window.selectedEl.getBoundingClientRect();
 
     if (isResizing) {
         // изменение размеров
         if (isResizing === 'width') {
-            selectedElBorder.style.width = startWidth + (e.clientX - startX) + 'px';
+            window.selectedEl.style.width = startWidth + (e.clientX - startX) + 'px';
         } else if (isResizing === 'height') {
-            selectedElBorder.style.height = startHeight + (e.clientY - startY) + 'px';
+            window.selectedEl.style.height = startHeight + (e.clientY - startY) + 'px';
         }
 
         // обновляем рамку на текущие размеры
-        updateOutline(selectedElBorder);
+        updateOutline(window.selectedEl);
         return;
     }
 
@@ -109,9 +107,9 @@ document.addEventListener('mousemove', e => {
 });
 
 document.addEventListener('mousedown', e => {
-    if (!selectedElBorder) return;
+    if (!window.selectedEl) return;
 
-    const rect = selectedElBorder.getBoundingClientRect();
+    const rect = window.selectedEl.getBoundingClientRect();
     // правая граница
     if (e.clientX >= rect.right - margin && e.clientX <= rect.right + margin) {
         isResizing = 'width';
@@ -132,9 +130,9 @@ document.addEventListener('mousemove', e => {
     if (!isResizing) return;
 
     if (isResizing === 'width') {
-        selectedElBorder.style.width = startWidth + (e.clientX - startX) + 'px';
+        window.selectedEl.style.width = startWidth + (e.clientX - startX) + 'px';
     } else if (isResizing === 'height') {
-        selectedElBorder.style.height = startHeight + (e.clientY - startY) + 'px';
+        window.selectedEl.style.height = startHeight + (e.clientY - startY) + 'px';
     }
 });
 
@@ -197,8 +195,8 @@ function ensureJsPanelSelection(blockId) {
     const view = document.getElementById(blockId + '_view');
     if (!view) return;
 
-    if (lastSelectedEl && view.contains(lastSelectedEl)) {
-        selectElementForPanels(lastSelectedEl, false);
+    if (window.lastSelectedEl && view.contains(window.lastSelectedEl)) {
+        selectElementForPanels(window.lastSelectedEl, false);
         return;
     }
 
@@ -212,9 +210,9 @@ document.addEventListener('click', e => {
     const view = clicked.closest('[id^="loadedBlock_"][id$="_view"]');
 
     if (!view) {
-        if (lastSelectedEl) {
-            delete lastSelectedEl.dataset.selectorType;
-            lastSelectedEl = null;
+        if (window.lastSelectedEl) {
+            delete window.lastSelectedEl.dataset.selectorType;
+            window.lastSelectedEl = null;
         }
         return;
     }

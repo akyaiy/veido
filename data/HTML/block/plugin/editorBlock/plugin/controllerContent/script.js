@@ -1,4 +1,4 @@
-const btnApplyJs = document.getElementById('btn-apply-js');
+const btnApplyJs = document.getElementById('jsApplyButton');
 
 /***********************************************************************
  * btnApplyJs onclick — применение JS-кода:

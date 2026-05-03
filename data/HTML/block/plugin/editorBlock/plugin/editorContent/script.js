@@ -357,63 +357,6 @@ function syncHtmlFromView(blockId) {
     }
 }
 
-/***********************************************************************
- * nodeToMd — Преобразует HTML-узел в Markdown:
- * - Принимает HTML-узел.
- * - Конвертирует текстовые узлы в текст.
- * - Конвертирует элементы (заголовки, параграфы, списки, ссылки, изображения, код) в Markdown.
- * - Рекурсивно обрабатывает дочерние узлы.
- **********************************************************************/
-function nodeToMd(node) {
-    if (node.nodeType === Node.TEXT_NODE) return node.nodeValue;
-    if (node.nodeType !== Node.ELEMENT_NODE) return '';
-
-    const tag = node.tagName.toLowerCase();
-    const children = [...node.childNodes].map(nodeToMd).join('');
-
-    switch (tag) {
-        case 'h1': return '# ' + children.trim() + '\n\n';
-        case 'h2': return '## ' + children.trim() + '\n\n';
-        case 'h3': return '### ' + children.trim() + '\n\n';
-        case 'h4': return '#### ' + children.trim() + '\n\n';
-        case 'strong':
-        case 'b': return '**' + children + '**';
-        case 'em':
-        case 'i': return '*' + children + '*';
-        case 'p': return children.trim() + '\n\n';
-        case 'br': return '  \n';
-        case 'ul':
-            return '\n' + [...node.children]
-                .map(li => '- ' + [...li.childNodes].map(nodeToMd).join('').trim())
-                .join('\n') + '\n\n';
-        case 'ol':
-            return '\n' + [...node.children]
-                .map((li, i) =>
-                    (i + 1) + '. ' +
-                    [...li.childNodes].map(nodeToMd).join('').trim()
-                ).join('\n') + '\n\n';
-        case 'a':
-            return '[' + (children || node.getAttribute('href') || '') + '](' +
-                   (node.getAttribute('href') || '') + ')';
-        case 'img':
-            return '![' + (node.getAttribute('alt') || '') + '](' +
-                   (node.getAttribute('src') || '') + ')';
-        case 'pre': {
-            const code = node.querySelector('code');
-            const txt = code ? code.textContent : node.textContent;
-            return '\n```\n' + txt.replace(/^\n+|\n+$/g, '') + '\n```\n\n';
-        }
-        default:
-            // сохранить тег целиком, если он не преобразуется в Markdown
-            try {
-                return node.outerHTML;
-            } catch (e) {
-                // если по какой-то причине outerHTML недоступен — вернуть дочерний контент
-                return children;
-            }
-    }
-}
-
 function saveJsToScript(blockId) {
     const centerPreJs = document.getElementById('center-tab-pre-js');
     // Если centerPreJs содержит код другого блока, не переписывать его
