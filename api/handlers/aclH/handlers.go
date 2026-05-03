@@ -1,5 +1,7 @@
 package aclH
 
+// TODO: стандартизировать структуру ответов как в auth пакете
+
 import (
 	"MyServer/internal/acl"
 	"MyServer/internal/auth"
@@ -532,8 +534,17 @@ func (h *AdminRoutes) DeAssignPermission(w http.ResponseWriter, r *http.Request)
 
 func (h *AdminRoutes) GetMyRoles(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	userID, ok := h.auth.AuthenticateRequest(r)
-	if !ok {
+	claims, err := h.auth.AuthenticateRequest(r)
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "Unauthorized",
+		})
+		return
+	}
+	userID, err := strconv.Atoi(claims.Subject)
+	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(Status{
 			Stat: "error",
@@ -542,7 +553,7 @@ func (h *AdminRoutes) GetMyRoles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	pg := server.GetPagination(r)
-	roles, err := acl.GetUserRoles(h.db, userID, pg.Limit, pg.Offset)
+	roles, err := acl.GetUserRoles(h.db, int64(userID), pg.Limit, pg.Offset)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			w.WriteHeader(http.StatusNotFound)
@@ -580,8 +591,17 @@ func (h *AdminRoutes) CheckUserPermissions(w http.ResponseWriter, r *http.Reques
 
 func (h *AdminRoutes) CheckMyPermissions(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	userID, ok := h.auth.AuthenticateRequest(r)
-	if !ok {
+	claims, err := h.auth.AuthenticateRequest(r)
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(Status{
+			Stat: "error",
+			Message: "Unauthorized",
+		})
+		return
+	}
+	userID, err := strconv.Atoi(claims.Subject)
+	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(Status{
 			Stat: "error",

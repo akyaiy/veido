@@ -20,7 +20,7 @@ func main() {
 	}
 	db := sqliteDB.InitDB(config.Data.DB)
 	defer db.Close()
-	aut := auth.NewAuth(db, []byte(config.Data.MySekret))
+	aut := auth.NewAuth(db, []byte(config.Data.MySecret))
 	acl.InitACL(db)
 	app.ServerStart(db, aut)
 }

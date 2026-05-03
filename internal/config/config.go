@@ -38,7 +38,7 @@ type Config struct {
 	ATokenTime   string `yaml:"atokentime"`
 	RTokenTime   string `yaml:"rtokentime"`
 	STimeoutTime string `yaml:"stimeouttime"`
-	MySekret     string `yaml:"mysecret"`
+	MySecret     string `yaml:"mysecret"`
 }
 
 var Data *Config
@@ -58,7 +58,7 @@ var defaultConfig = Config{
 	ATokenTime:   "15m",
 	RTokenTime:   "24h",
 	STimeoutTime: "15s",
-	MySekret:     generateSecret(),
+	MySecret:     generateSecret(),
 }
 
 func LoadData(path string) {

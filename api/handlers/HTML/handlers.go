@@ -25,9 +25,14 @@ type HTMLblock struct {
 
 func LoadProtected(aut *auth.Auth) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		id, ok := aut.AuthenticateRequest(r)
-		if !ok {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+		w.Header().Set("Content-Type", "application/json")
+		id, err := aut.AuthenticateRequest(r)
+		if err != nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(map[string]any{
+				"error": "Unauthorized",
+				"reason": err.Error(),
+			})
 			return
 		}
 		json.NewEncoder(w).Encode(map[string]any{
