@@ -67,7 +67,7 @@ func BuildVFS(db *sql.DB, user *auth.User) *VFSNode {
 	root.Children[shared.Name] = shared
 
 	// Монтируем реальный каталог пользователя
-	userFilesPath := fmt.Sprintf("./data/files/users/%s", user.Username)
+	userFilesPath := fmt.Sprintf("./data/files/users/%s", user.Name)
 	_ = MountRealDir(root, "/Мой диск/Файлы", userFilesPath)
 
 	return root

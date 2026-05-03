@@ -37,7 +37,7 @@ func WebDAVHandler(db *sql.DB, aut *auth.Auth) http.Handler {
 
 		user, err := aut.GetUserFromRequest(req)
 		if err != nil {
-			user = &auth.User{ID: 0, Username: "Guest"}
+			user = &auth.User{ID: 0, Name: "Guest"}
 		}
 
 		vfsRoot := vfs.BuildVFS(db, user)
