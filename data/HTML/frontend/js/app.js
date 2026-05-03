@@ -556,7 +556,7 @@ async function loadMenu() {
  * - Вызывает pageInit() блока, если есть.
  * - Обрабатывает ошибки.
  **********************************************************************************/
-async function loadBlock(path, block_Name, itemsHowText = null) {
+async function loadBlock(path, block_Name, itemsHowText = false, jsCommunication = false) {
     //console.log(path);
     // Получаем контейнер блока
     const container = document.getElementById(block_Name);
@@ -603,18 +603,34 @@ async function loadBlock(path, block_Name, itemsHowText = null) {
         // Добавление JS блока
         if (js) {
             const script = document.createElement('script');
-            if (itemsHowText?.includes('js')) script.type = 'text/plain';
+            if (itemsHowText !== false) script.type = 'text/plain';
             script.dataset.dynamic = block_Name;
-            script.textContent = `
-                (() => {
+
+            if (jsCommunication == false) {
+                script.textContent = `
+                    (() => {
+                        try {
+                            ${js}
+                            if (typeof pageInit === "function") pageInit();
+                        } catch (e) {
+                            console.error("Block script error:", e);
+                        }
+                    })();
+                `;
+            } else {
+                script.textContent = `
                     try {
-                        ${js}
-                        if (typeof pageInit === "function") pageInit();
+                        (function(scope){
+                            const exports = scope;
+                            ${js}
+                            if (typeof exports.pageInit === "function") exports.pageInit();
+                        })((window.__blocks ||= {})["${blockName}"] ||= {});
                     } catch (e) {
-                        console.error("Block script error:", e);
+                        console.error("Ошибка в блоке [${blockName}]:", e);
                     }
-                })();
-            `;
+                `;
+            }
+
             document.body.appendChild(script);
         }
     // Обработка ошибок
@@ -623,6 +639,15 @@ async function loadBlock(path, block_Name, itemsHowText = null) {
         container.innerHTML = "<h2>блок не найден</h2>";
     }
 }
+/*****************************************************************************
+ * Глобальный вызов функций блоков
+ * - Позволяет вызывать функции внутри динамических блоков
+ * - Поддерживает передачу аргументов
+ * - Возвращает результат выполнения функции блока
+ *****************************************************************************/
+window.callBlock = function(block, fn, ...args) {
+    return window.__blocks?.[block]?.[fn]?.(...args);
+};
 
 /*****************************************************************************
  * SPA-навигация
