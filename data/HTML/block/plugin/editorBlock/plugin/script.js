@@ -1,100 +1,390 @@
-document.querySelector('#center-panel').addEventListener('click', (e) => {
-    const link = e.target.closest('a');
-    if (link) {
-        e.preventDefault();
-    }
-});
-
-
-/***********************************************************************
- * getActiveBlockId — определение активного блока:
- * - Проверяет активную вкладку и возвращает связанный с ней blockId.
- * - Если вкладка не найдена, ищет видимый блок в контейнере loadedBlockMain.
- * - Возвращает идентификатор активного блока или null при его отсутствии.
- **********************************************************************/
+/**
+ * Получение активного блока
+ * - Сначала проверяет активную вкладку
+ * - Если вкладки нет, ищет видимый блок в контейнере
+ * - Возвращает id блока или null
+ */
 function getActiveBlockId() {
-    const tab = document.querySelector('#blocks-tabs .tab.active');
-    if (tab && tab.dataset.blockId) return tab.dataset.blockId;
+    /* Активная вкладка */
+    const activeTab = document.querySelector('#blocks-tabs .tab.active');
+    if (activeTab && activeTab.dataset.blockId) return activeTab.dataset.blockId;
 
+    /* Контейнер с блоками */
     const container = document.getElementById('loadedBlockMain');
     if (!container) return null;
 
-    for (const ch of container.children) {
-        if (getComputedStyle(ch).display !== 'none') return ch.id;
+    /* Поиск видимого блока */
+    for (const child of container.children) {
+        if (getComputedStyle(child).display !== 'none') return child.id;
     }
+
     return null;
 }
 
-let savedRange = null;
-let lastEditableElement = null; 
 
-function saveSelection(editableEl) {
-    if (!editableEl) return;
 
-    const sel = window.getSelection();
-    if (!sel.rangeCount) return;
-    
-    const range = sel.getRangeAt(0);
+/**
+ * Обновление выделения элемента (outline)
+ * - Сбрасывает старое выделение
+ * - Игнорирует фокус внутри панели свойств
+ * - Выделяет элемент и переключает панели
+ */
+function updateOutline(element) {
+    /* Основные контейнеры */
+    const specPanel = document.getElementById('propertiesPanel');
+    const defaultPanel = document.getElementById('htmlTagsInserter');
+    const root = document.getElementById('loadedBlockMain');
+    const activeTab = document.querySelector('#panelsSwitcher .tab.active');
 
-    if (!editableEl.contains(range.commonAncestorContainer)) return;
-    
-    savedRange = range.cloneRange();
-    lastEditableElement = editableEl; 
+    /* Очистка старого outline */
+    if (root) {
+        const outlinedElements = root.querySelectorAll('[style*="outline"]');
+        outlinedElements.forEach(el => {
+            el.style.outline = '';
+        });
+    }
+
+    /* Игнор фокуса внутри панели свойств */
+    if (document.activeElement && document.activeElement.closest('#propertiesPanel')) {
+        return lastHighlightedElement;
+    }
+
+    /* Если есть элемент и он внутри editable */
+    if (element && element.closest('[contenteditable="true"]')) {
+        const tag = element.tagName.toLowerCase();
+
+        /* Выделение элемента */
+        element.style.outline = '1px solid #2196F3';
+        lastHighlightedElement = element;
+        window.selectedEl = element;
+
+        /* Переключение панелей */
+        if (specPanel) specPanel.style.display = 'block';
+        if (defaultPanel) defaultPanel.style.display = 'none';
+
+        /* Фильтрация полей панели */
+        if (specPanel) {
+            const fields = specPanel.querySelectorAll('[data-target]');
+
+            /* Показываем только панели-свойства, что подходят под выбранный тег */
+            fields.forEach(field => {
+                const targetAttr = field.getAttribute('data-target') || '';
+                const targets = targetAttr.toLowerCase().split(/\s+/).map(t => t.trim());
+
+                if (targets.includes(tag) || targets.includes('all')) {
+                    field.style.setProperty('display', 'block', 'important');
+                } else {
+                    field.style.setProperty('display', 'none', 'important');
+                }
+            });
+        }
+
+    } else {
+        /* Сброс выбранного элемента */
+        lastHighlightedElement = null;
+        window.selectedEl = null;
+
+        /* Переключение видимости панелей в зависимости от активной вкладки */
+        if (specPanel) specPanel.style.display = 'none';
+        if (defaultPanel) {
+            if (activeTab && activeTab.dataset.tab === 'properties') {
+                defaultPanel.style.display = 'block';
+            } else {
+                defaultPanel.style.display = 'none';
+            }
+        }
+    }
+
+    return element;
 }
 
-function restoreSelection() {
-    if (!savedRange) return;
-    
-    const sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(savedRange);
-    
-    if (lastEditableElement) {
-        lastEditableElement.focus();
+
+
+/**
+ * Показ блока в режиме просмотра
+ * - Скрывает редактор
+ * - Показывает только выбранный блок
+ * - Обновляет панели и контролы
+ */
+function showView(blockId) {
+    /* Основные контейнеры */
+    const root = document.getElementById('loadedBlockMain');
+    const editor = document.getElementById('editorContent');
+    const blocksPanel = document.getElementById('loadedBlocks');
+    const leftPanel = document.getElementById('leftPanel');
+
+    /* Контролы */
+    const propertiesTab = document.querySelector('#panelsSwitcher .tab[data-tab="properties"]');
+    const handle = document.querySelector('.resizeHandle');
+
+    /* Скрытие редактора */
+    if (editor) editor.style.display = 'none';
+
+    /* Обновление контролов */
+    updateCenterControls('view');
+
+    /* Если нет контейнера — выход */
+    if (!root) return;
+
+    /* Отображение только активного блока */
+    Array.from(root.children).forEach(child => {
+        if (child !== handle) {
+            if (child.id === blockId) {
+                child.style.display = '';
+            } else {
+                child.style.display = 'none';
+            }
+        }
+    });
+
+    /* Отображение панелей */
+    if (blocksPanel) blocksPanel.style.display = '';
+    if (leftPanel) leftPanel.style.display = 'flex';
+
+    /* Переключение на properties */
+    if (propertiesTab) {
+        propertiesTab.style.display = '';
+        propertiesTab.click();
     }
+
+    /* Обновление JS панели */
+    ensureJsPanelSelection(blockId);
 }
 
-function trySaveSelection() {
-    const sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0) return;
+/**
+ * Показ блока в режиме редактирования HTML:
+ * - Принимает идентификатор блока.
+ * - Показывает HTML-редактор и скрывает JS-редактор.
+ * - Обновляет состояние кнопок управления.
+ * - Скрывает визуальный режим и отображает только активный блок.
+ * - Загружает HTML блока в редактор.
+ */
+function showHtml(blockId) {
+    /* Основные контейнеры */
+    const centerContent = document.getElementById('editorContent');
+    const centerPreHtml = document.getElementById('center-tab-pre-html');
+    const centerPreJs = document.getElementById('center-tab-pre-js');
+    const root = document.getElementById('loadedBlockMain');
+    const loadedBlocks = document.getElementById('loadedBlocks');
+    const leftPanel = document.getElementById('leftPanel');
 
-    let node = sel.anchorNode;
-    
-    if (node && node.nodeType === Node.ELEMENT_NODE && node.closest('#rgb-picker')) {
-        return;
-    }
-    if (node.nodeType === Node.TEXT_NODE) {
-        node = node.parentElement;
+    /* Контролы */
+    const propertiesTab = document.querySelector('#panelsSwitcher .tab[data-tab="properties"]');
+    const jsTab = document.querySelector('#panelsSwitcher .tab[data-tab="js"]');
+    const handle = document.querySelector('.resizeHandle');
+
+    /* HTML контейнер блока */
+    const htmlContainer = document.getElementById(blockId + '_html');
+
+    /* Переключение режима */
+    if (centerContent) centerContent.style.display = '';
+    if (centerPreHtml) centerPreHtml.style.display = '';
+    if (centerPreJs) centerPreJs.style.display = 'none';
+
+    /* Обновление контролов */
+    updateCenterControls('html');
+
+    /* Отображение только активного блока */
+    if (root) {
+        Array.from(root.children).forEach(child => {
+            if (child !== handle) {
+                if (child.id === blockId) {
+                    child.style.display = '';
+                } else {
+                    child.style.display = 'none';
+                }
+            }
+        });
     }
 
-    const editableEl = node ? node.closest('[contenteditable="true"]') : null;
+    /* Скрытие визуального списка блоков */
+    if (loadedBlocks) loadedBlocks.style.display = 'none';
 
-    if (editableEl) {
-        saveSelection(editableEl);
+    /* Загрузка HTML в редактор */
+    if (centerPreHtml && htmlContainer) {
+        centerPreHtml.textContent = htmlContainer.innerHTML;
     }
+
+    /* Левая панель */
+    if (leftPanel) leftPanel.style.display = 'none';
+
+    /* Панели переключения */
+    if (propertiesTab) propertiesTab.style.display = 'none';
+    if (jsTab) jsTab.click();
 }
 
-// Слушатели для сохранения позиции курсора
-document.addEventListener('mouseup', trySaveSelection);
-document.addEventListener('keyup', trySaveSelection);
+/**
+ * Показ блока в режиме редактирования JS:
+ * - Переключает интерфейс в JS режим
+ * - Загружает JS код блока в редактор
+ * - Очищает визуальное представление
+ * - Скрывает лишние панели
+ */
+function showJs(blockId, highlightSearch = null) {
+    /* Основные контейнеры */
+    const centerContent = document.getElementById('editorContent');
+    const centerPreHtml = document.getElementById('center-tab-pre-html');
+    const centerPreJs = document.getElementById('center-tab-pre-js');
+    const root = document.getElementById('loadedBlockMain');
+    const loadedBlocks = document.getElementById('loadedBlocks');
+    const leftPanel = document.getElementById('leftPanel');
 
-document.getElementById('content').classList.add('editor');
+    /* Контролы */
+    const propertiesTab = document.querySelector('#panelsSwitcher .tab[data-tab="properties"]');
+    const jsTab = document.querySelector('#panelsSwitcher .tab[data-tab="js"]');
+    const handle = document.querySelector('.resizeHandle');
+
+    /* Переключение режима */
+    if (centerContent) centerContent.style.display = '';
+    if (centerPreHtml) centerPreHtml.style.display = 'none';
+    if (centerPreJs) centerPreJs.style.display = '';
+
+    /* Обновление контролов */
+    updateCenterControls('js');
+
+    /* Получение JS кода блока */
+    const scriptEl = document.querySelector('script[data-dynamic-text="' + blockId + '_view"]');
+    let code = scriptEl ? scriptEl.textContent : '';
+
+    code = stripJsWrapper(code);
+    code = ensureHandlerFunctions(code);
+
+    /* Установка кода в редактор */
+    centerPreJs.textContent = code;
+    centerJsBlockId = blockId;
+
+    /* Подсветка (опционально) */
+    if (highlightSearch) {
+        setTimeout(() => {
+            highlightInJsEditor(highlightSearch, code);
+        }, 0);
+    }
+
+    /* Скрытие всех блоков */
+    if (root) {
+        Array.from(root.children).forEach(child => {
+            if (child !== handle) {
+                child.style.display = 'none';
+            }
+        });
+    }
+
+    /* Панели */
+    if (loadedBlocks) loadedBlocks.style.display = 'none';
+    if (leftPanel) leftPanel.style.display = 'none';
+
+    /* Переключение tab состояния */
+    if (propertiesTab) propertiesTab.style.display = 'none';
+    if (jsTab) jsTab.click();
+}
+
+/**
+ * Обеспечение наличия обработчиков событий в JS коде
+ * - Ищет используемые имена обработчиков в коде
+ * - Проверяет, существуют ли соответствующие функции
+ * - Добавляет пустые функции, если их нет
+ */
+function ensureHandlerFunctions(code) {
+    const handlerNames = new Set();
+    let match;
+
+    /* Поиск обработчиков через onX = handler */
+    const onAssignRe = /\.on[a-zA-Z]+\s*=\s*([A-Za-z_$][A-Za-z0-9_$]*)/g;
+    while ((match = onAssignRe.exec(code)) !== null) {
+        handlerNames.add(match[1]);
+    }
+
+    /* Поиск обработчиков через addEventListener */
+    const addListenerRe = /\.addEventListener\(\s*['"][^'"]+['"]\s*,\s*([A-Za-z_$][A-Za-z0-9_$]*)/g;
+    while ((match = addListenerRe.exec(code)) !== null) {
+        handlerNames.add(match[1]);
+    }
+
+    /* Список уже существующих функций в коде */
+    const defined = new Set();
+
+    /* Поиск объявленных функций function name() {} */
+    const funcDefRe = /function\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*\(/g;
+    while ((match = funcDefRe.exec(code)) !== null) {
+        defined.add(match[1]);
+    }
+
+    /* Поиск функций, объявленных через переменные fn = function() {} или const fn = () => {} */
+    const varFuncRe = /(?:var|let|const)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*(?:function\b|\()/g;
+    while ((match = varFuncRe.exec(code)) !== null) {
+        defined.add(match[1]);
+    }
+
+    /* Добавление недостающих обработчиков */
+    handlerNames.forEach(name => {
+        if (!defined.has(name)) {
+            code += `
+function ${name}() {
+    // автоматически созданный обработчик
+}
+`;
+        }
+    });
+
+    return code;
+}
+
+/**
+ * Управление кнопками центральной панели
+ * - управляет видимостью кнопок в зависимости от режима
+ * - скрывает или показывает кнопку применения JS
+ * - скрывает панель, если нет доступных кнопок
+ */
+function updateCenterControls(mode) {
+    /* Центральная панель контролов */
+    const panel = document.getElementById('controllerContent');
+
+    /* Кнопка применения JS */
+    const btnApplyJs = document.getElementById('jsApplyButton');
+
+    /* Управление видимостью кнопки применения JS */
+    if (btnApplyJs) {
+        if (mode === 'js') {
+            btnApplyJs.style.display = '';
+        } else {
+            btnApplyJs.style.display = 'none';
+        }
+    }
+
+    if (!panel) return;
+
+    /* Проверка видимости кнопок */
+    const buttons = panel.querySelectorAll('button');
+    const visible = Array.from(buttons).some(btn =>
+        btn.style.display !== 'none'
+    );
+
+    /* Управление видимостью панели в зависимости от видимости кнопок */
+    panel.style.display = visible ? 'flex' : 'none';
+}
 
 
 
+/* Текущий выбранный элемент */
+window.selectedEl = null;
 
+/* Память о последнем выбранном элементе */
+window.lastSelectedEl = null;
 
-
-
+/* Управление выбранным элементом и обновлением панелей */
 function selectElementForPanels(el, resetPrevious = true) {
     if (!el) return;
-    if (resetPrevious && lastSelectedEl && lastSelectedEl !== el) {
-        delete lastSelectedEl.dataset.selectorType;
+
+    /* Сброс предыдущего выбора при необходимости */
+    if (resetPrevious && window.lastSelectedEl && window.lastSelectedEl !== el) {
+        delete window.lastSelectedEl.dataset.selectorType;
     }
 
-    lastSelectedEl = el;
-    selectedElBorder = el;
+    /* Обновление состояния выбора */
+    window.lastSelectedEl = el;
+    window.selectedEl = el;
 
+    /* Обновление всех связанных панелей */
     updateCssPanel(el);
     updateTagLabel(el);
     updateJsPanel(el);
@@ -104,278 +394,263 @@ function selectElementForPanels(el, resetPrevious = true) {
 
 
 
+/* Позиция курсора */
+let savedRange = null;
 
-/***********************************************************************
- * htmlToMixed — Конвертирует HTML в Markdown:
- * - Принимает HTML строку.
- * - Парсит и обрабатывает дочерние узлы через nodeToMd.
- * - Убирает лишние пустые строки.
- * - Возвращает Markdown с переносом строки.
- **********************************************************************/
+/* Последний активный редактируемый элемент */
+let lastEditableElement = null;
+
+/**
+ * Сохранение текущего выделения курсора
+ * - проверяет наличие выделения внутри редактируемого элемента
+ * - сохраняет выделение и ссылку на редактируемый элемент
+ */
+function saveSelection(editableElement) {
+    if (!editableElement) return;
+
+    const sel = window.getSelection();
+
+    /* Проверка наличия активного выделения */
+    if (!sel.rangeCount) return;
+
+    const range = sel.getRangeAt(0);
+
+    /* Проверка: выделение должно находиться внутри редактируемого элемента */
+    if (!editableElement.contains(range.commonAncestorContainer)) return;
+
+    /* Сохранение текущего выделения */
+    savedRange = range.cloneRange();
+
+    /* Сохранение активного редактируемого элемента */
+    lastEditableElement = editableElement;
+}
+
+/**
+ * Восстановление сохранённого выделения курсора
+ * - проверяет наличие сохранённого диапазона
+ * - восстанавливает выделение в документе
+ * - возвращает фокус в редактируемый элемент
+ */
+function restoreSelection() {
+    if (!savedRange) return;
+
+    const sel = window.getSelection();
+
+    /* Очистка текущего выделения */
+    sel.removeAllRanges();
+
+    /* Восстановление сохранённого выделения */
+    sel.addRange(savedRange);
+
+    /* Возврат фокуса в редактируемый элемент */
+    if (lastEditableElement) lastEditableElement.focus();
+}
+
+/**
+ * Попытка сохранить позицию курсора
+ * - проверяет наличие активного выделения
+ * - определяет текущий DOM-узел курсора
+ * - игнорирует взаимодействие с rgb-пикером
+ * - находит ближайший редактируемый элемент
+ * - сохраняет выделение, если оно внутри editable
+ */
+function trySaveSelection() {
+    const sel = window.getSelection();
+
+    /* Нет активного выделения */
+    if (!sel || sel.rangeCount === 0) return;
+
+    let node = sel.anchorNode;
+
+    /* Игнорирование элементов внутри rgb-пикера */
+    if (node && node.nodeType === Node.ELEMENT_NODE && node.closest('#rgb-picker')) return;
+
+    /* Если это текстовый узел — переходим к родительскому элементу */
+    if (node && node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+
+    /* Поиск ближайшего редактируемого элемента */
+    const editableElement = node ? node.closest('[contenteditable="true"]') : null;
+
+    /* Сохранение позиции курсора */
+    if (editableElement) saveSelection(editableElement);
+}
+
+/* Слушатели для сохранения позиции курсора */
+document.addEventListener('mouseup', trySaveSelection);
+document.addEventListener('keyup', trySaveSelection);
+
+
+
+/**
+ * Конвертация HTML в Markdown-подобный формат
+ * - принимает HTML строку
+ * - парсит её через DOMParser
+ * - обрабатывает узлы через nodeToMd
+ * - возвращает нормализованный Markdown текст
+ */
 function htmlToMixed(html) {
     let out = html;
+
+    /* Парсинг HTML в DOM-структуру */
     const doc = new DOMParser().parseFromString('<div>' + html + '</div>', 'text/html');
     const wrapper = doc.body.firstElementChild;
+
+    /* Если структура не распарсилась */
     if (!wrapper) return '\n';
 
+    /* Конвертация узлов в markdown */
     out = [...wrapper.childNodes]
         .map(nodeToMd)
         .join('')
         .replace(/\n{3,}/g, '\n\n')
         .trim();
 
-    out = out ? out + '\n' : '\n'
-    return out;
-}
-
-
-
-function stripJsWrapper(code) {
-    // Arrow IIFE with try/catch + optional pageInit
-    let out = code
-        .replace(/^\s*\(\(\)\s*=>\s*{\s*try\s*{\s*/s, '')
-        .replace(/\s*if\s*\(\s*typeof pageInit[\s\S]*?\)\s*pageInit\(\);\s*/s, '')
-        .replace(/\s*}\s*catch[\s\S]*?}\s*\}\)\s*\(\s*\)\s*;?\s*$/s, '');
-
-    // Legacy function IIFE wrapper (fallback)
-    out = out
-        .replace(/^\s*\(function\(\)\s*{\s*try\s*{\s*/s, '')
-        .replace(/\s*}\s*catch\s*\(e\)\s*{\s*console\.error\(\"Block script error:\",\s*e\);\s*}\s*}\)\(\);?\s*$/s, '');
+    /* Гарантия завершающего переноса строки */
+    out = out ? out + '\n' : '\n';
 
     return out;
 }
 
+/**
+ * Преобразование HTML-узла в Markdown
+ * - принимает DOM-узел
+ * - конвертирует текстовые узлы в текст
+ * - преобразует основные HTML-теги в Markdown-разметку
+ * - рекурсивно обрабатывает вложенные элементы
+ */
+function nodeToMd(node) {
+    /* Текстовый узел */
+    if (node.nodeType === Node.TEXT_NODE) return node.nodeValue;
 
+    /* Не HTML-элемент */
+    if (node.nodeType !== Node.ELEMENT_NODE) return '';
 
+    const tag = node.tagName.toLowerCase();
 
-/***********************************************************************
- * updateCenterControls — управление кнопками центральной панели:
- * - Принимает текущий режим отображения (view / html / js).
- * - Показывает или скрывает кнопку применения JS.
- **********************************************************************/
-function updateCenterControls(mode) {
-    /* btnLoadFromView.style.display = mode === 'html' ? '' : 'none';
-    btnApplyToView.style.display = mode === 'html' ? '' : 'none'; */
-    const btnApplyJs = document.getElementById('btn-apply-js');
-    if (btnApplyJs) btnApplyJs.style.display = mode === 'js' ? '' : 'none';
+    /* Рекурсивная обработка дочерних узлов */
+    const children = [...node.childNodes]
+        .map(nodeToMd)
+        .join('');
 
-    const panel = document.getElementById('center-tab-controls');
+    /* Конвертация тегов в Markdown */
+    switch (tag) {
+        case 'h1': return '# ' + children.trim() + '\n\n';
+        case 'h2': return '## ' + children.trim() + '\n\n';
+        case 'h3': return '### ' + children.trim() + '\n\n';
+        case 'h4': return '#### ' + children.trim() + '\n\n';
+        case 'strong': case 'b': return '**' + children + '**';
+        case 'em': case 'i': return '*' + children + '*';
+        case 'p': return children.trim() + '\n\n';
+        case 'br': return '  \n';
 
-    const buttons = panel.querySelectorAll('button');
-    const visible = Array.from(buttons).some(btn => btn.style.display !== 'none');
+        case 'ul':
+            return '\n' + [...node.children]
+                .map(li =>
+                    '- ' + [...li.childNodes]
+                        .map(nodeToMd)
+                        .join('')
+                        .trim()
+                )
+                .join('\n') + '\n\n';
+        case 'ol':
+            return '\n' + [...node.children]
+                .map((li, i) =>
+                    (i + 1) + '. ' +
+                    [...li.childNodes]
+                        .map(nodeToMd)
+                        .join('')
+                        .trim()
+                )
+                .join('\n') + '\n\n';
+                
+        case 'a':
+            return '[' +
+                (children || node.getAttribute('href') || '') +
+                '](' + (node.getAttribute('href') || '') + ')';
+        case 'img':
+            return '![' +
+                (node.getAttribute('alt') || '') +
+                '](' + (node.getAttribute('src') || '') + ')';
 
-    panel.style.display = visible ? 'flex' : 'none';
-}
-
-/***********************************************************************
- * showView — показ блока в режиме визуального просмотра:
- * - Принимает идентификатор блока, который нужно отобразить.
- * - Скрывает область редактирования HTML и JS.
- * - Обновляет состояние кнопок управления в центре.
- * - Отображает только активный блок, скрывая остальные.
- **********************************************************************/
-function showView(blockId) {
-    centerContent.style.display = 'none';
-    updateCenterControls('view');
-    const container = document.getElementById('loadedBlockMain');
-    if (!container) return;
-    Array.from(container.children).forEach(ch => {
-        if (ch !== document.querySelector('.small-handle')) ch.style.display = ch.id === blockId ? '' : 'none';
-    });
-    document.getElementById('loadedBlock').style.display = '';
-    document.getElementById('left-panel').style.display = 'flex';
-    document.querySelector('#css-js-tabs .tab[data-tab="properties"]').style.display = '';
-    document.querySelector('#css-js-tabs .tab[data-tab="properties"]').click();
-    ensureJsPanelSelection(blockId);
-}
-
-/***********************************************************************
- * showHtml — показ блока в режиме редактирования HTML:
- * - Принимает идентификатор блока.
- * - Показывает HTML-редактор и скрывает JS-редактор.
- * - Обновляет состояние кнопок управления.
- * - Скрывает визуальный режим и отображает только активный блок.
- * - Загружает HTML блока в редактор, если пользователь ещё не редактировал код.
- **********************************************************************/
-function showHtml(blockId) {
-    const centerPreHtml = document.getElementById('center-tab-pre-html');
-    const centerPreJs = document.getElementById('center-tab-pre-js');
-    centerContent.style.display = '';
-    centerPreHtml.style.display = '';
-    centerPreJs.style.display = 'none';
-    updateCenterControls('html');
-
-    const container = document.getElementById('loadedBlockMain');
-    if (container) Array.from(container.children).forEach(ch => {
-        if (ch !== document.querySelector('.small-handle')) ch.style.display = ch.id === blockId ? '' : 'none';
-    });
-    document.getElementById('loadedBlock').style.display = 'none';
-
-    const htmlContainer = document.getElementById(blockId + '_html');
-    centerPreHtml.textContent = htmlContainer.innerHTML;
-    document.getElementById('left-panel').style.display = 'none';
-    document.querySelector('#css-js-tabs .tab[data-tab="properties"]').style.display = 'none';
-    document.querySelector('#css-js-tabs .tab[data-tab="js"]').click();
-}
-
-/***********************************************************************
- * showJs — отображение и подготовка JS-кода блока:
- * - Переключает интерфейс в режим редактирования JS.
- * - Извлекает JS-код блока и очищает его от служебной обёртки.
- * - Показывает JS-редактор и скрывает визуальное представление блока.
- **********************************************************************/
-function ensureHandlerFunctions(code) {
-    const handlerNames = new Set();
-    let m;
-
-    // find .onX = handler;
-    const onAssignRe = /\.on[a-zA-Z]+\s*=\s*([A-Za-z_$][A-Za-z0-9_$]*)/g;
-    while ((m = onAssignRe.exec(code)) !== null) {
-        handlerNames.add(m[1]);
-    }
-
-    // find addEventListener(..., handler)
-    const addListenerRe = /\.addEventListener\(\s*['"][^'"]+['"]\s*,\s*([A-Za-z_$][A-Za-z0-9_$]*)/g;
-    while ((m = addListenerRe.exec(code)) !== null) {
-        handlerNames.add(m[1]);
-    }
-
-    // собрать уже определенные функции и переменные, присвоенные функциям/стрелочным функциям
-    const defined = new Set();
-    const funcDefRe = /function\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*\(/g;
-    while ((m = funcDefRe.exec(code)) !== null) {
-        defined.add(m[1]);
-    }
-    const varFuncRe = /(?:var|let|const)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*(?:function\b|\()/g;
-    while ((m = varFuncRe.exec(code)) !== null) {
-        defined.add(m[1]);
-    }
-
-    handlerNames.forEach(name => {
-        if (!defined.has(name)) {
-            code += `\nfunction ${name}() {\n    // автоматически сгенерированный функция\n}\n`;
+        case 'pre': {
+            const code = node.querySelector('code');
+            const txt = code ? code.textContent : node.textContent;
+            return '\n```\n' + txt.replace(/^\n+|\n+$/g, '') + '\n```\n\n';
         }
-    });
 
-    return code;
-}
-
-function showJs(blockId, highlightSearch=null) {
-    const centerPreHtml = document.getElementById('center-tab-pre-html');
-    const centerPreJs = document.getElementById('center-tab-pre-js');
-    centerContent.style.display = '';
-    centerPreHtml.style.display = 'none';
-    centerPreJs.style.display = '';
-    updateCenterControls('js');
-
-    const scriptEl = document.querySelector('script[data-dynamic-text="' + blockId + '_view"]');
-    let code = scriptEl ? scriptEl.textContent : '';
-
-    code = stripJsWrapper(code);
-
-    code = ensureHandlerFunctions(code);
-
-    centerPreJs.textContent = code;
-    centerJsBlockId = blockId; // отслеживаем, какому блоку принадлежит centerPreJs
-
-    if (highlightSearch) {
-        setTimeout(() => {
-            highlightInJsEditor(highlightSearch, code);
-        }, 0);
+        default:
+            /* Сохраняем HTML как есть */
+            try {
+                return node.outerHTML;
+            } catch (e) {
+                return children;
+            }
     }
-
-    const container = document.getElementById('loadedBlockMain');
-    if (container) Array.from(container.children).forEach(ch => {
-        if (ch !== document.querySelector('.small-handle')) ch.style.display = 'none';
-    });
-    document.getElementById('loadedBlock').style.display = 'none';
-    document.getElementById('left-panel').style.display = 'none';
-    document.querySelector('#css-js-tabs .tab[data-tab="properties"]').style.display = 'none';
-    document.querySelector('#css-js-tabs .tab[data-tab="js"]').click();
 }
-
 
 
 
 /**
- * Вспомогательная функция для управления outline
+ * Удаление служебной JS-обёртки блока
+ * - убирает arrow IIFE обёртку, try/catch, pageInit
  */
-function updateOutline(element) {
-    const specRoot = document.getElementById('properties-panel-spec');
-    const normalPanel = document.getElementById('properties-panel');
-    const root = document.getElementById('loadedBlockMain');
+function stripJsWrapper(code) {
+    /* Удаление служебной обёртки */
+    let out = code
+        /* начало обёртки (() => { try { */
+        .replace(/^\s*\(\(\)\s*=>\s*{\s*try\s*{\s*/s, '')
+        /* вызов pageInit (если присутствует) */
+        .replace(/\s*if\s*\(\s*typeof pageInit[\s\S]*?\)\s*pageInit\(\);\s*/s, '')
+        /* конец обёртки } catch ... })() */
+        .replace(/\s*}\s*catch[\s\S]*?}\s*\}\)\s*\(\s*\)\s*;?\s*$/s, '');
 
-    // 1. Очистка старой обводки у всех элементов в рабочей области
-    if (root) {
-        const allWithOutline = root.querySelectorAll('[style*="outline"]');
-        allWithOutline.forEach(el => {
-            el.style.outline = '';
-        });
-    }
+    /* поддерживает удаление старого IIFE варианта (function() { try { ... } catch ... }) */
+    out = out
+        .replace(/^\s*\(function\(\)\s*{\s*try\s*{\s*/s, '')
+        .replace(
+            /\s*}\s*catch\s*\(e\)\s*{\s*console\.error\(\"Block script error:\",\s*e\);\s*}\s*}\)\(\);?\s*$/s,
+            ''
+        );
 
-    // 2. Если фокус или клик внутри самой панели свойств — игнорируем, чтобы не сбросить выбор
-    if (document.activeElement && document.activeElement.closest('#properties-panel-spec')) {
-        return lastHighlightedElement;
-    }
-
-    // 3. Если элемент найден и он находится внутри редактируемого контейнера
-    if (element && element.closest('[contenteditable="true"]')) {
-        const tagName = element.tagName.toLowerCase();
-        
-        // Визуально выделяем элемент
-        element.style.outline = '1px solid #2196F3';
-        lastHighlightedElement = element;
-        selectedEl = element;
-
-        // Показываем спец-панель и скрываем стандартную
-        if (specRoot) specRoot.style.display = 'block';
-        if (normalPanel) normalPanel.style.display = 'none';
-
-        if (specRoot) {
-            const allFields = specRoot.querySelectorAll('[data-target]');
-            
-            allFields.forEach(field => {
-                const targetAttr = field.getAttribute('data-target') || '';
-                const targets = targetAttr.toLowerCase().split(/\s+/).map(t => t.trim());
-
-                // Проверяем: подходит ли поле под текущий тег
-                if (targets.includes(tagName) || targets.includes('all')) {
-                    // Используем !important через setProperty, чтобы перебить любые другие стили
-                    field.style.setProperty('display', 'block', 'important');
-                } else {
-                    field.style.setProperty('display', 'none', 'important');
-                }
-            });
-        }
-
-    } else {
-        // Если кликнули в пустое место (не по редактируемому тегу)
-        lastHighlightedElement = null;
-        selectedEl = null;
-        
-        // Показать обычную панель только если вкладка properties активна
-        const cssActive = document.querySelector('#css-js-tabs .tab.active');
-        if (specRoot) specRoot.style.display = 'none';
-        if (normalPanel) normalPanel.style.display = (cssActive && cssActive.dataset.tab === 'properties') ? 'block' : 'none';
-    }
-
-    return element;
+    return out;
 }
 
 
-/* авто создание иконок */
-document.querySelectorAll('svg[use]').forEach(svg => {
-    const id = svg.getAttribute('use');
-    const color = svg.getAttribute('use-color');
-    const background = svg.getAttribute('use-background');
+/* Блокировка переходов по ссылкам внутри центральной панели */
+document.querySelector('#centerPanel').addEventListener('click', (e) => {
+    const link = e.target.closest('a');
+    /* Если клик был по ссылке — отключаем стандартный переход */
+    if (link) {
+        e.preventDefault();
+    }
+});
 
-    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-    use.setAttribute('href', './static/img/icons.svg#' + id);
+/* Применение базового класса редактора к контейнеру контента */
+document.getElementById('content').classList.add('editor');
 
-    if (color) svg.style.color = color;
-    else svg.style.color = "#000000";
-    if (background) svg.style.background = background;
-    else svg.style.background = "";
 
-    svg.appendChild(use);
+
+/* Автоматическая подстановка SVG-иконок по атрибуту use */
+document.addEventListener('initEditorBlocks:ready', () => {
+    document.querySelectorAll('svg[use]').forEach(svg => {
+        /* Получение значений атрибутов */
+        const id = svg.getAttribute('use');
+        const color = svg.getAttribute('use-color');
+        const background = svg.getAttribute('use-background');
+
+        /* Создание SVG <use> элемента */
+        const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+        use.setAttribute('href', './static/img/icons.svg#' + id);
+
+        /* Применение цвета */
+        if (color) svg.style.color = color;
+        else svg.style.color = "#000000";
+
+        /* Применение фона */
+        if (background) svg.style.background = background;
+        else svg.style.background = "";
+
+        /* Вставка иконки в SVG */
+        svg.appendChild(use);
+    });
 });

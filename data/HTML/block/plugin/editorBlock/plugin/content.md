@@ -1,38 +1,38 @@
 <div id="blockEditor">
 
-<div id="topPanel"><!-- loadBlockWindow --></div>
+<div id="topPanel"><!-- loadBlock --></div>
 
 <div id="mainArea">
-    <div id="leftDiv">
-        <div class="leftDivHeader">Html</div>
+    <div id="leftPanel">
+        <div class="panelHeader">Html</div>
         <hr>
-        <div id="inserterHtmlElements"><!-- loadBlockWindow --></div>
+        <div id="htmlElementsInserter"><!-- loadBlock --></div>
     </div>
-    <div id="centerDiv">
-        <div id="loadedBlocks"><!-- loadBlockWindow --></div>
-        <div id="switcherModeContent"><!-- loadBlockWindow --></div>
-        <div id="controllerContent"><!-- loadBlockWindow --></div>
-        <div id="editorContent"><!-- loadBlockWindow --></div>
+    <div id="centerPanel">
+        <div id="loadedBlocks"><!-- loadBlock --></div>
+        <div id="modeSwitcherContent"><!-- loadBlock --></div>
+        <div id="controllerContent"><!-- loadBlock --></div>
+        <div id="editorContent"><!-- loadBlock --></div>
     </div>
-    <div id="rightDiv">
-        <div id="switcherPanels"><!-- loadBlockWindow --></div>
+    <div id="rightPanel">
+        <div id="panelsSwitcher"><!-- loadBlock --></div>
         <hr>
-        <div id="propertiesPanel" style="display: none;"><!-- loadBlockWindow --></div>
-        <div id="inserterHtmlTags"><!-- loadBlockWindow --></div>
-        <div id="jsPanel" style="display: none;"><!-- loadBlockWindow --></div>
+        <div id="propertiesPanel"><!-- loadBlock --></div>
+        <div id="htmlTagsInserter"><!-- loadBlock --></div>
+        <div id="jsPanel"><!-- loadBlock --></div>
     </div>
 </div>
 
-<div id="rgbPicker"><!-- loadBlockWindow --></div>
-<div id="contextMenu"><!-- loadBlockWindow --></div>
-<div id="modalWindows"><!-- loadBlockWindow --></div>
+<div id="rgbPicker"><!-- loadBlock --></div>
+<div id="contextMenu"><!-- loadBlock --></div>
+<div id="modalWindows"><!-- loadBlock --></div>
 
 </div>
 
 
 <!-- <div id="block-editor-app">
 
-<div id="blocks-tabs-menu"></div>
+<div id="topPanel"></div>
 
 <div id="editor-area">
     <div id="left-panel">

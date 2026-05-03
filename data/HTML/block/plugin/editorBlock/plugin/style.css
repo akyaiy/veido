@@ -1,12 +1,4 @@
-#elements-ul {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    user-select: none;
-}
-
-
-/* основная область страницы */
+/* Основные контейнеры */
 main.editor {
     width: calc(100% - 40px);
     max-width: calc(100% - 40px);
@@ -14,8 +6,7 @@ main.editor {
     padding: 20px;
 }
 
-/* контейнер редактора */
-#block-editor-app {
+#blockEditor {
     box-sizing: border-box;
     width: 100%;
     height: 100%;
@@ -26,8 +17,7 @@ main.editor {
     gap: 2px;
 }
 
-/* основная рабочая зона */
-#editor-area {
+#mainArea {
     flex: 1;
     display: flex;
     gap: 4px;
@@ -36,8 +26,40 @@ main.editor {
     align-items: flex-start;
 }
 
-/* левая панель элементов */
-#left-panel {
+/* Заголовки панелей */
+.panelHeader {
+    font-size: 13px;
+    padding-bottom: 2px;
+}
+
+/* Иконки */
+.svgIcon {
+    width: 20px;
+    height: 20px;
+}
+.svgIcon:hover, .tabsSvgIcon:hover {
+    opacity: 0.6;
+}
+
+
+/* Верхняя панель */
+#topPanel {
+    display: flex;
+    padding: 2px;
+    gap: 2px;
+    background: #f4f4f4;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+#topPanel > :first-child {
+    flex: 0 0 auto;
+}
+#topPanel > :nth-child(2) {
+    flex: 1 1 auto;
+}
+
+
+/* Левая панель */
+#leftPanel {
     width: 80px;
     font-size: 12px;
     display: flex;
@@ -49,13 +71,16 @@ main.editor {
     box-sizing: border-box;
 }
 
-.elements-header {
-    font-size: 13px;
-    padding-bottom: 2px;
+#htmlElementsInserter {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    user-select: none;
 }
 
-/* центральная панель */
-#center-panel {
+
+/* Центральная панель */
+#centerPanel {
     border: 1px solid rgba(0,0,0,0.06);
     background: #fff;
     position: relative;
@@ -64,12 +89,42 @@ main.editor {
     height: 70vh;
     max-width: calc(100% - 200px);
 }
-#center-panel a {
-    pointer-events: none;
+
+#loadedBlocks {
+    height: calc(100% - 26px);
+    min-height: 20px;
+    min-width: 20px;
+    background: #fff;
+    position: relative;
+    overflow: auto;
+    border: 1px solid rgba(0,0,0,1);
 }
 
-/* правая панель css js */
-#right-panel {
+#modeSwitcherContent {
+    display: flex;
+    justify-content: space-around;
+    border-top: 1px solid rgba(0,0,0,0.1);
+    background: #f4f4f4;
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+}
+
+#controllerContent {
+    display: flex;
+    gap: 8px;
+    padding: 6px 8px;
+}
+
+#center-tab-content {
+    background: #fff;
+    overflow: auto;
+    height: 100%;
+}
+
+
+/* Правая панель */
+#rightPanel {
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -83,46 +138,62 @@ main.editor {
     overflow-y: auto;
 }
 
-/* плейсхолдеры для editable */
-td[contenteditable][data-placeholder]:empty:before {
-    content: attr(data-placeholder);
-    color: #aaa;
-    pointer-events: none;
-    font-size: 13px;
+#panelsSwitcher {
+    display: flex;
+    gap: 2px;
 }
 
-/* разделители */
-#block-editor-app hr {
+#propertiesPanel {
+    display: none;
+}
+
+#jsPanel {
+    display: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+
+
+
+/* Html элементы */
+p {
+    margin-block-start: 0em;
+    margin-block-end: 0em;
+}
+
+#blockEditor hr {
     border: none;
     height: 1px;
     background: rgba(0,0,0,0.2);
     margin: 2px 0;
 }
 
-
-
-/* отступы для текста в редакторе */
-p {
-    margin-block-start: 0em;
-    margin-block-end: 0em;
+#blockEditor table {
+    width: 100%;
+    border-collapse: collapse;
 }
 
-block {
-    display: inline-block;
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
+#blockEditor td {
+    padding: 2px;
+    border: 1px solid rgba(0,0,0,0.04);
+    font-size: 13px;
+    width: 50%;
+    word-break: break-word;
 }
 
-#center-panel td {
+#centerPanel td {
     width: auto;
 }
 
-/* иконки */
-.svg-icon {
-    width: 20px;
-    height: 20px;
+#centerPanel a {
+    pointer-events: none;
 }
-.svg-icon:hover, .tabs-svg-icon:hover {
-    opacity: 0.6;
+
+td[contenteditable][data-placeholder]:empty::before {
+    content: attr(data-placeholder);
+    color: #aaa;
+    pointer-events: none;
+    font-size: 13px;
 }
