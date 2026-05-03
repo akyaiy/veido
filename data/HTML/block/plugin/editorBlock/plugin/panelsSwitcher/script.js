@@ -1,4 +1,4 @@
-const tabs = document.querySelectorAll('#css-js-tabs .tab');
+const tabs = document.querySelectorAll('#panelsSwitcher .tab');
 
 /***********************************************************************
  * tabs tab click — переключение вкладок CSS и JS:

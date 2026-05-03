@@ -1,7 +1,7 @@
 /***********************************************************************
  * jsTable — таблица редактора JS-кода блока.
  **********************************************************************/
-const jsTable = document.getElementById('editor-js-panel');
+const jsTable = document.getElementById('editor-jsPanel');
 const centerPreJs = document.getElementById('center-tab-pre-js');
 jsTable.innerHTML = '';
 
@@ -43,7 +43,7 @@ const events = [
  * Создаем панель: слева список всех событий (select), справа кнопка (button)
  **********************************************************************/
 const controlsDiv = document.createElement('div');
-controlsDiv.className = 'js-panel-controls';
+controlsDiv.className = 'jsPanel-controls';
 controlsDiv.style.display = 'flex';
 controlsDiv.style.gap = '10px';
 controlsDiv.style.marginBottom = '15px';
@@ -89,7 +89,7 @@ function createEventRow(eventName, handlerName = '', rawStr = null, scriptTxt = 
     // клик по событию — перейти в JS с подсветкой обработчика или строки
     tdEvent.style.cursor = 'pointer';
     tdEvent.onclick = () => {
-        const jsTab = document.querySelector('#center-tabs .center-tab[data-tab="js"]');
+        const jsTab = document.querySelector('#modeSwitcherContent .center-tab[data-tab="js"]');
         if (jsTab) jsTab.click();
         const blockId = getActiveBlockId();
         if (!blockId) return;

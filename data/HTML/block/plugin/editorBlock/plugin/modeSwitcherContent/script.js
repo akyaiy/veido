@@ -1,4 +1,4 @@
-const centerTabs = document.querySelectorAll('#center-tabs .center-tab');
+const centerTabs = document.querySelectorAll('#modeSwitcherContent .center-tab');
 
 /***********************************************************************
  * centerTabs tab click — переключение режимов просмотра блока:

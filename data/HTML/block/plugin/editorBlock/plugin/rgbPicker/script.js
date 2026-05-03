@@ -2,7 +2,7 @@
 const colorState = { h: 0, s: 100, l: 50 }; 
 let activeContext = null;
 
-const specRoot_2 = document.getElementById('properties-panel-spec');
+const specRoot_2 = document.getElementById('propertiesPanel');
 
 const picker = document.getElementById('rgb-picker');
 const hueCanvas = document.getElementById('cp-hue');

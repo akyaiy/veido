@@ -2,7 +2,7 @@
 /***********************************************************************
  * Элементы вкладок view / html / js центрального редактора.
  **********************************************************************/
-const centerContent = document.getElementById('center-tab-content');
+const centerContent = document.getElementById('editorContent');
 const centerPreHtml = document.getElementById('center-tab-pre-html');
 const centerPreJs = document.getElementById('center-tab-pre-js');
 

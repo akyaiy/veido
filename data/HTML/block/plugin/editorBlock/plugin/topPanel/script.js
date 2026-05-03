@@ -192,7 +192,7 @@ tabNew.onclick = async() => {
 
 /* отмена и повтор действий для блоков */
 const historyPanel = document.querySelector('.history-actions');
-const centerPanel = document.getElementById('center-panel');
+const centerPanel = document.getElementById('centerPanel');
 const undoBtn = historyPanel?.querySelector('[data-act="undo"]');
 const redoBtn = historyPanel?.querySelector('[data-act="redo"]');
 
@@ -451,7 +451,7 @@ document.getElementById('previewPage').addEventListener('click', () => {
     if (!activeBlock) return;
 
     const view = activeBlock.querySelector('[id$="_view"]');
-    const editorApp = document.getElementById('block-editor-app');
+    const editorApp = document.getElementById('blockEditor');
     const content = document.getElementById('content');
 
     if (!view || !editorApp || !content) return;
@@ -525,7 +525,7 @@ document.getElementById('previewPage').addEventListener('click', () => {
  * - Загружает содержимое блока и активирует его отображение.
  **********************************************************************/
 async function newLoadedBlock() {
-    const viewTab = document.querySelector('#center-tabs .center-tab[data-tab="view"]');
+    const viewTab = document.querySelector('#modeSwitcherContent .center-tab[data-tab="view"]');
     viewTab.click();
 
     const data = await window.tempStore.getByRecipient("newLoadedBlock");
@@ -555,7 +555,7 @@ function switchTo(blockId, tabEl) {
     });
 
     // 🔑 ВАЖНО: применяем текущий режим центра
-    const activeCenterTab = document.querySelector('#center-tabs .center-tab.active');
+    const activeCenterTab = document.querySelector('#modeSwitcherContent .center-tab.active');
     if (!activeCenterTab) return;
 
     const mode = activeCenterTab.dataset.tab;
@@ -688,7 +688,7 @@ function closeBlock(e, block, tabEl) {
     centerPreHtml.textContent = '';
     centerPreJs.textContent = '';
     centerContent.style.display = 'none';
-    document.getElementById('loadedBlock').style.display = '';
+    document.getElementById('loadedBlocks').style.display = '';
 
     const tagLabel = document.getElementById('tag-label');
     if (tagLabel) tagLabel.textContent = 'TAG';
@@ -708,13 +708,13 @@ function closeBlock(e, block, tabEl) {
         propTable.innerHTML = '<tr><td contenteditable="true" data-placeholder="property"></td><td contenteditable="true" data-placeholder="value"></td></tr>';
     }
 
-    const jsTable = document.getElementById('editor-js-panel');
+    const jsTable = document.getElementById('editor-jsPanel');
     if (jsTable) {
         jsTable.querySelectorAll('td[contenteditable="true"]').forEach(td => td.textContent = '');
     }
 
     const cssPanel = document.getElementById('css-panel');
-    const jsPanel = document.getElementById('js-panel');
+    const jsPanel = document.getElementById('jsPanel');
     /* if (cssPanel) cssPanel.style.display = ''; */
     if (jsPanel) jsPanel.style.display = 'none';
 }

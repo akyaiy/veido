@@ -260,7 +260,7 @@ menu.addEventListener('click', async e => {
         case 'newLoadedBlock': {
             const selectedElCont = selectedEl
 
-            const viewTab = document.querySelector('#center-tabs .center-tab[data-tab="view"]');
+            const viewTab = document.querySelector('#modeSwitcherContent .center-tab[data-tab="view"]');
             viewTab.click();
 
             let tabs = document.getElementById('blocks-tabs');
@@ -290,7 +290,7 @@ menu.addEventListener('click', async e => {
                     }
                 });
 
-                const activeCenterTab = document.querySelector('#center-tabs .center-tab.active');
+                const activeCenterTab = document.querySelector('#modeSwitcherContent .center-tab.active');
                 if (!activeCenterTab) return;
 
                 const mode = activeCenterTab.dataset.tab;
@@ -407,7 +407,7 @@ function shouldKeepSpecPanelVisible(target) {
         target &&
         target.closest &&
         (
-            target.closest('#properties-panel-spec') ||
+            target.closest('#propertiesPanel') ||
             target.closest('#rgb-picker') ||
             target.closest('.color-swatch')
         )
@@ -419,7 +419,7 @@ function shouldKeepSpecPanelVisible(target) {
  * Специальные свойства (рефакторинг: универсальная обработка).
  **********************************************************************/
 window.selectedEl = null;
-const specRoot = document.getElementById('properties-panel-spec');
+const specRoot = document.getElementById('propertiesPanel');
 const normalPanel = document.getElementById('properties-panel');
 
 // по умолчанию скрыть панель специальных свойств
@@ -520,7 +520,7 @@ function searchDownRecursive(element) {
 // Сброс выбора: скрыть specRoot, восстановить normalPanel
 function clearSelection() {
     selectedEl = null;
-    const cssActiveTab = document.querySelector('#css-js-tabs .tab.active');
+    const cssActiveTab = document.querySelector('#panelsSwitcher .tab.active');
     if (specRoot.style.display !== 'none' && normalPanel) {
         normalPanel.style.display = (cssActiveTab && cssActiveTab.dataset.tab === 'properties') ? '' : 'none';
     }

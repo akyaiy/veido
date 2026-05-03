@@ -1,7 +1,7 @@
 /***********************************************************************
  * Универсальный обработчик вставки элементов из панели
  **********************************************************************/
-document.getElementById('elements-ul').addEventListener('click', async e => {
+document.getElementById('htmlElementsInserter').addEventListener('click', async e => {
     const el = e.target.closest('.add-el');
     if (!el) return;
 
@@ -16,13 +16,13 @@ document.getElementById('elements-ul').addEventListener('click', async e => {
     const blockId = getActiveBlockId();
     if (!blockId) return;
     
-    const activeCenterTab = document.querySelector('#center-tabs .center-tab.active');
+    const activeCenterTab = document.querySelector('#modeSwitcherContent .center-tab.active');
     const mode = activeCenterTab ? activeCenterTab.dataset.tab : 'view';
     
     if (mode === 'view') syncHtmlFromView(blockId);
     else if (mode === 'html') syncActiveBlock();
 });
-document.querySelectorAll('#elements-ul > div > div:first-child').forEach(tab => {
+document.querySelectorAll('#htmlElementsInserter > div > div:first-child').forEach(tab => {
     tab.style.cursor = 'pointer';
     tab.addEventListener('click', () => {
         const content = tab.nextElementSibling;
@@ -495,7 +495,7 @@ tableSizeGrid.addEventListener('click', async e => {
     const blockId = getActiveBlockId();
     if (!blockId) return;
 
-    const activeCenterTab = document.querySelector('#center-tabs .center-tab.active');
+    const activeCenterTab = document.querySelector('#modeSwitcherContent .center-tab.active');
     const mode = activeCenterTab ? activeCenterTab.dataset.tab : 'view';
 
     if (mode === 'view') syncHtmlFromView(blockId);

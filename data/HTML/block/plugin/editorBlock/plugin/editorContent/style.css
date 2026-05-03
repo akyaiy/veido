@@ -1,10 +1,4 @@
 /* контент вкладок центра */
-#center-tab-content {
-    background: #fff;
-    overflow: auto;
-    height: 100%;
-}
-
 #center-tab-pre-js, #center-tab-pre-html {
     margin: 1em;
     padding: 5px;

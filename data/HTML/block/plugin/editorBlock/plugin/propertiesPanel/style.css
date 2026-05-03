@@ -33,19 +33,6 @@
     gap: 2px;
 }
 
-#block-editor-app table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-#block-editor-app td {
-    padding: 2px;
-    border: 1px solid rgba(0,0,0,0.04);
-    font-size: 13px;
-    width: 50%;
-    word-break: break-word;
-}
-
 
 /* отступы */
 .margin-grid, .padding-grid {

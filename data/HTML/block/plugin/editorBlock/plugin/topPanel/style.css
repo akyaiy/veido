@@ -1,17 +1,4 @@
 /* верхние вкладки блоков */
-#blocks-tabs-menu {
-    display: flex;
-    padding: 2px;
-    gap: 2px;
-    background: #f4f4f4;
-    border-bottom: 1px solid rgba(0,0,0,0.06);
-}
-#blocks-tabs-menu > :first-child {
-    flex: 0 0 auto;
-}
-#blocks-tabs-menu > :nth-child(2) {
-    flex: 1 1 auto;
-}
 
 #blocks-tabs {
     display: flex;
@@ -21,7 +8,7 @@
     flex: 1 1 auto;
 }
 
-#blocks-tabs-menu .tab {
+#topPanel .tab {
     display: flex;
     align-items: center;
     padding: 2px 4px;
@@ -31,7 +18,7 @@
     font-size: 13px;
 }
 
-#blocks-tabs-menu .tab.active {
+#topPanel .tab.active {
     background: #fff;
     border-color: rgba(0,0,0,0.06);
 }
@@ -42,7 +29,7 @@
     flex: 0 0 auto;
     padding: 2px 4px;
 }
-.tabs-svg-icon {
+.tabsSvgIcon {
     width: 20px;
     height: 20px;
     cursor: pointer;

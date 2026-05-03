@@ -1,14 +1,4 @@
 /* вкладки view html js */
-#center-tabs {
-    display: flex;
-    justify-content: space-around;
-    border-top: 1px solid rgba(0,0,0,0.1);
-    background: #f4f4f4;
-    position: absolute;
-    bottom: 0;
-    width: 100%;
-}
-
 .center-tab {
     flex: 1;
     text-align: center;

@@ -1,16 +1,10 @@
 /* js панель */
-#js-panel {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-#editor-js-panel-name {
+#editor-jsPanel-name {
     display: flex;
     gap: 0;
 }
-#editor-js-panel-name select,
-#editor-js-panel-name input {
+#editor-jsPanel-name select,
+#editor-jsPanel-name input {
     box-sizing: border-box;
 }
 
@@ -20,7 +14,7 @@
 }
 
 
-#editor-js-panel-name {
+#editor-jsPanel-name {
     display: flex;
 }
 

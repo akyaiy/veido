@@ -2,7 +2,7 @@
  * Элементы интерфейса управления загруженным блоком.
  **********************************************************************/
 const handle = document.querySelector('.small-handle');
-const loadedBlock = document.getElementById('loadedBlock');
+const loadedBlocks = document.getElementById('loadedBlocks');
 
 /***********************************************************************
  * Переменные состояния перетаскивания и изменения размера блока.
@@ -15,8 +15,8 @@ let sx, sy, sw, sh;
  **********************************************************************/
 function updateHandlePosition() {
     handle.style.display = '';
-    handle.style.top = loadedBlock.scrollTop + loadedBlock.clientHeight - handle.offsetHeight - 8 + 'px';
-    handle.style.left = loadedBlock.scrollLeft + loadedBlock.clientWidth - handle.offsetWidth - 8 + 'px';
+    handle.style.top = loadedBlocks.scrollTop + loadedBlocks.clientHeight - handle.offsetHeight - 8 + 'px';
+    handle.style.left = loadedBlocks.scrollLeft + loadedBlocks.clientWidth - handle.offsetWidth - 8 + 'px';
 }
 
 /***********************************************************************
@@ -27,8 +27,8 @@ handle.onmousedown = e => {
     active = true;
     sx = e.clientX;
     sy = e.clientY;
-    sw = loadedBlock.offsetWidth;
-    sh = loadedBlock.offsetHeight;
+    sw = loadedBlocks.offsetWidth;
+    sh = loadedBlocks.offsetHeight;
 
     document.onmousemove = move;
     document.onmouseup = () => {
@@ -47,8 +47,8 @@ function move(e) {
     let deltaX = e.clientX - sx;
     let deltaY = e.clientY - sy;
 
-    loadedBlock.style.width = sw + deltaX + 'px';
-    loadedBlock.style.height = sh + deltaY + 'px';
+    loadedBlocks.style.width = sw + deltaX + 'px';
+    loadedBlocks.style.height = sh + deltaY + 'px';
 
     updateHandlePosition(); // handle двигается вместе с прокруткой видимой области
 }
@@ -56,8 +56,8 @@ function move(e) {
 /***********************************************************************
  * Обновление позиции при скролле блока
  **********************************************************************/
-loadedBlock.addEventListener('click', updateHandlePosition);
-loadedBlock.addEventListener('scroll', () => {
+loadedBlocks.addEventListener('click', updateHandlePosition);
+loadedBlocks.addEventListener('scroll', () => {
     handle.style.display = 'none';
 });
 
@@ -67,7 +67,7 @@ loadedBlock.addEventListener('scroll', () => {
 /***********************************************************************
  * Элементы вкладок view / html / js центрального редактора.
  **********************************************************************/
-const centerContent = document.getElementById('center-tab-content');
+const centerContent = document.getElementById('editorContent');
 const centerPreHtml = document.getElementById('center-tab-pre-html');
 const centerPreJs = document.getElementById('center-tab-pre-js');
 /* const btnLoadFromView = document.getElementById('btn-load-from-view');
@@ -147,7 +147,7 @@ document.addEventListener('mouseup', () => {
 
 
 /* выделеине в view при клике по нему */
-document.getElementById('loadedBlock').addEventListener('click', e => {
+document.getElementById('loadedBlocks').addEventListener('click', e => {
     const all = document.querySelectorAll('[id^="loadedBlock_"]');
     let active = null;
     for (const el of all) {

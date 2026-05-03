@@ -1,5 +1,5 @@
 <div class="table-title">События и функции</div>
-<div id="editor-js-panel-name">
+<div id="editor-jsPanel-name">
     <select id="selector-type">
         <option value="id">id</option>
         <option value="class">class</option>
@@ -9,5 +9,5 @@
     <select id="selector-class" class="hidden">
     </select>
 </div>
-<table id="editor-js-panel">
+<table id="editor-jsPanel">
 </table>

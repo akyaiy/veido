@@ -1,4 +1,4 @@
-const specRoot = document.getElementById('properties-panel-spec');
+const specRoot = document.getElementById('propertiesPanel');
 const normalPanel = document.getElementById('properties-panel');
 
 // Преобразовать rgb(...) в hex
@@ -76,7 +76,7 @@ const PROP_MAP = {
 // --- Управление видимостью панели ----------------------------------------------
 function showSpecForTarget(targetOrEl) {
     // показать панель специальных свойств только если вкладка properties активна
-    const activeTab = document.querySelector('#css-js-tabs .tab.active');
+    const activeTab = document.querySelector('#panelsSwitcher .tab.active');
     if (!activeTab || activeTab.dataset.tab !== 'properties') {
         if (specRoot && specRoot.style.display !== 'none') {
             specRoot.style.display = 'none';
