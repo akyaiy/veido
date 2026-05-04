@@ -64,11 +64,9 @@ func (a *Auth) CreateUser(user *User) (userId, error) {
 	if user.Password == "" {
 		hash = "" // Если пароль пустой, не хешируем его, чтобы не создавать валидный хеш от пустой строки
 	} 
-	if user.Name == "" || !utils.IsASCIIAlphaNumeric(user.Name) {
+	if user.Name == "" {
 		return 0, &InvalidCredentialsError{Reason: "username cannot be empty and must be alphanumeric"}
-	} else if user.Password == "" {
-		return 0, &InvalidCredentialsError{Reason: "password cannot be empty"}
-	}
+	} 
 
 	res, err := a.db.Exec("INSERT INTO users(username, password_hash, status) VALUES(?,?,?)",
 		user.Name, hash, user.Status)

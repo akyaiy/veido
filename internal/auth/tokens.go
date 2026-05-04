@@ -11,11 +11,24 @@ import (
 )
 
 type Claims struct {
+	PairJTI string `json:"pair_jti,omitempty"`
 	jwt.RegisteredClaims
 }
 
-func (a* Auth) createToken(userId int64, expiresAt time.Duration) (*jwt.Token, error) {
-	claims := &Claims{
+func (a* Auth) createToken(userId int64, pairJTI string, expiresAt time.Duration) (*jwt.Token, error) {
+	var claims *Claims
+	if pairJTI == "" {
+		claims = &Claims{
+			RegisteredClaims: jwt.RegisteredClaims{
+				Subject:   strconv.FormatInt(userId, 10),
+				ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiresAt)),
+				IssuedAt:  jwt.NewNumericDate(time.Now()),
+				ID:        uuid.NewString(),
+			},
+		}
+	}
+	claims = &Claims{
+		PairJTI: pairJTI,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   strconv.FormatInt(userId, 10),
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiresAt)),
@@ -27,8 +40,8 @@ func (a* Auth) createToken(userId int64, expiresAt time.Duration) (*jwt.Token, e
 	return token, nil
 }
 
-func (a *Auth) CreateToken(userId int64, expiresAt time.Duration) (string, string, error) {
-	token, err := a.createToken(userId, expiresAt)
+func (a *Auth) CreateToken(userId int64, pairJTI string, expiresAt time.Duration) (string, string, error) {
+	token, err := a.createToken(userId, pairJTI, expiresAt)
 	if err != nil {
 		return "", "", err
 	}
