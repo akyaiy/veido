@@ -59,15 +59,20 @@
 
 ## Пользователи (Users)
 
-### POST `/users/register`
+### Базовый путь
+`/api/auth`
+
+### Аутентификация
+
+#### POST `/register`
 Регистрация нового пользователя.
 
-**Требуемое право:** `users.register`
+**Требуемое право:** `auth.register`
 
 **Request:**
 ```json
 {
-  "username": "john_doe",
+  "name": "john_doe",
   "password": "securePassword123"
 }
 ```
@@ -76,20 +81,25 @@
 ```json
 {
   "status": "ok",
-  "message": "user created"
+  "data": {
+    "id": 1,
+    "message": "User registered successfully",
+    "userStatus": "unactive"
+  }
 }
 ```
 
 **Возможные ошибки:**
 - `409 Conflict`: Пользователь с таким именем уже существует
-- `400 Bad Request`: Некорректный формат данных
+- `400 Bad Request`: Некорректный формат данных или отсутствуют `name` или `password`
+- `500 Internal Server Error`: Ошибка при создании пользователя
 
 ---
 
-### POST `/users/login`
+#### POST `/session/login`
 Аутентификация пользователя и получение токенов.
 
-**Требуемое право:** `users.login`
+**Требуемое право:** `auth.login`
 
 **Request:**
 ```json
@@ -101,26 +111,23 @@
 
 **Response (200 OK):**
 - **Headers:**
-  - `Set-Cookie: refresh_token={token}; HttpOnly; SameSite=Lax`
+  - `Set-Cookie: refresh_token={token}; HttpOnly; SameSite=Lax; Path=/`
 - **Body:**
   ```json
   {
-    "access_token": "eyJhbGc...",
-    "expires_in": 3600,
-    "user": {
-      "id": 1,
-      "username": "john_doe"
-    }
+    "status": "ok",
+    "data": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
   }
   ```
 
 **Возможные ошибки:**
 - `401 Unauthorized`: Неверные учётные данные
-- `400 Bad Request`: Пользователь не найден
+- `400 Bad Request`: Отсутствуют `username` или `password`
+- `500 Internal Server Error`: Ошибка при создании токенов
 
 ---
 
-### POST `/users/refresh`
+#### POST `/session/refresh`
 Обновление access token с использованием refresh token.
 
 **Требуемое право:** Нет (публичный эндпоинт)
@@ -131,20 +138,53 @@
 **Response (200 OK):**
 ```json
 {
-  "access_token": "eyJhbGc...",
-  "expires_in": 3600
+  "status": "ok",
+  "data": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
 ```
 
 **Возможные ошибки:**
+- `400 Bad Request`: Cookie `refresh_token` не найден
 - `401 Unauthorized`: Refresh token истёк или невалиден
+- `500 Internal Server Error`: Ошибка при создании нового токена
 
 ---
 
-### POST `/users/logout`
+#### POST `/session/logout`
 Выход пользователя (инвалидация токена на сервере).
 
-**Требуемое право:** `users.logout`
+**Требуемое право:** `auth.logout`
+
+**Request:**
+- Headers: `Authorization: Bearer {access_token}`
+- **Body:**
+  ```json
+  {
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
+  ```
+
+**Response (200 OK):**
+```json
+{
+  "status": "ok",
+  "data": "Logged out successfully"
+}
+```
+
+**Возможные ошибки:**
+- `400 Bad Request`: `accessToken` не передан
+- `401 Unauthorized`: Токен невалиден
+- `500 Internal Server Error`: Ошибка при logout
+
+---
+
+### Текущий пользователь (Self)
+
+#### GET `/me`
+Получение данных текущего пользователя.
+
+**Требуемое право:** `auth.self.read`
 
 **Request:**
 - Headers: `Authorization: Bearer {access_token}`
@@ -153,76 +193,350 @@
 ```json
 {
   "status": "ok",
-  "message": "logged out"
-}
-```
-
----
-
-### GET `/users/getUserData`
-Получение данных текущего пользователя.
-
-**Требуемое право:** `users.read`
-
-**Request:**
-- Headers: `Authorization: Bearer {access_token}`
-
-**Response (200 OK):**
-```json
-{
-  "id": 1,
-  "username": "john_doe",
-  "email": "john@example.com"
+  "data": {
+    "id": 1,
+    "username": "john_doe",
+    "status": "active"
+  }
 }
 ```
 
 **Возможные ошибки:**
-- `401 Unauthorized`: Не авторизован
+- `401 Unauthorized`: Токен не найден или невалиден
+- `404 Not Found`: Пользователь не найден
+- `500 Internal Server Error`: Ошибка на сервере
 
 ---
 
-### GET `/users/getUsersNames`
-Получение списка всех пользователей (только ID и username).
+#### PATCH `/me`
+Обновление данных текущего пользователя (username).
 
-**Требуемое право:** `users.list`
+**Требуемое право:** `auth.self.update`
 
 **Request:**
 - Headers: `Authorization: Bearer {access_token}`
+- **Body:**
+  ```json
+  {
+    "name": "john_doe_new"
+  }
+  ```
 
 **Response (200 OK):**
 ```json
-[
-  {
-    "id": 1,
-    "username": "john_doe"
-  },
-  {
-    "id": 2,
-    "username": "jane_smith"
-  }
-]
+{
+  "status": "ok",
+  "data": "User updated successfully"
+}
 ```
+
+**Возможные ошибки:**
+- `401 Unauthorized`: Токен не найден или невалиден
+- `400 Bad Request`: `name` не передан
+- `404 Not Found`: Пользователь не найден
+- `500 Internal Server Error`: Ошибка на сервере
 
 ---
 
-### POST `/users/update_password`
-Обновление пароля пользователя.
+#### PATCH `/me/password`
+Обновление пароля текущего пользователя.
 
-**Требуемое право:** `users.update_password`
+**Требуемое право:** `auth.self.update_password`
 
 **Request:**
-```json
-{
-  "username": "john_doe",
-  "password": "newSecurePassword123"
-}
-```
+- Headers: `Authorization: Bearer {access_token}`
+- **Body:**
+  ```json
+  {
+    "oldPassword": "securePassword123",
+    "newPassword": "newSecurePassword123"
+  }
+  ```
 
 **Response (200 OK):**
 ```json
 {
-  "status": "ok"
+  "status": "ok",
+  "data": "Password updated successfully"
 }
+```
+
+**Возможные ошибки:**
+- `401 Unauthorized`: Токен не найден или невалиден
+- `400 Bad Request`: Отсутствуют `oldPassword` или `newPassword`
+- `404 Not Found`: Пользователь не найден
+- `500 Internal Server Error`: Ошибка на сервере
+
+---
+
+### Управление пользователями (Admin)
+
+#### POST `/users/admin`
+Создание нового пользователя (администратор).
+
+**Требуемое право:** `auth.admin.users.create`
+
+**Request:**
+- Headers: `Authorization: Bearer {access_token}`
+- **Body:**
+  ```json
+  {
+    "name": "new_user",
+    "password": "securePassword123",
+    "status": "active"
+  }
+  ```
+
+**Response (200 OK):**
+```json
+{
+  "status": "ok",
+  "data": {
+    "id": 5,
+    "message": "User registered successfully",
+    "userStatus": "active"
+  }
+}
+```
+
+**Возможные ошибки:**
+- `401 Unauthorized`: Токен не найден или невалиден
+- `403 Forbidden`: Недостаточно прав доступа
+- `400 Bad Request`: Некорректный формат данных
+- `409 Conflict`: Пользователь с таким именем уже существует
+- `500 Internal Server Error`: Ошибка на сервере
+
+---
+
+#### GET `/users/admin`
+Получение списка всех пользователей (администратор) с пагинацией.
+
+**Требуемое право:** `auth.admin.users.list`
+
+**Request:**
+- Headers: `Authorization: Bearer {access_token}`
+- **Query parameters:**
+  - `limit` (integer, default: 10): Количество записей на странице
+  - `offset` (integer, default: 0): Смещение от начала списка
+
+**Response (200 OK):**
+```json
+{
+  "status": "ok",
+  "data": [
+    {
+      "id": 1,
+      "username": "john_doe",
+      "status": "active"
+    },
+    {
+      "id": 2,
+      "username": "jane_smith",
+      "status": "active"
+    }
+  ]
+}
+```
+
+**Возможные ошибки:**
+- `401 Unauthorized`: Токен не найден или невалиден
+- `403 Forbidden`: Недостаточно прав доступа
+- `500 Internal Server Error`: Ошибка на сервере
+
+---
+
+#### GET `/users/admin/{id}`
+Получение данных конкретного пользователя (администратор).
+
+**Требуемое право:** `auth.admin.users.read`
+
+**Request:**
+- Headers: `Authorization: Bearer {access_token}`
+- **Path parameters:**
+  - `id` (integer): ID пользователя
+
+**Response (200 OK):**
+```json
+{
+  "status": "ok",
+  "data": {
+    "id": 1,
+    "username": "john_doe",
+    "status": "active"
+  }
+}
+```
+
+**Возможные ошибки:**
+- `401 Unauthorized`: Токен не найден или невалиден
+- `403 Forbidden`: Недостаточно прав доступа
+- `400 Bad Request`: Некорректный формат ID
+- `404 Not Found`: Пользователь не найден
+- `500 Internal Server Error`: Ошибка на сервере
+
+---
+
+#### PATCH `/users/admin/{id}`
+Обновление данных пользователя (администратор).
+
+**Требуемое право:** `auth.admin.users.update`
+
+**Request:**
+- Headers: `Authorization: Bearer {access_token}`
+- **Path parameters:**
+  - `id` (integer): ID пользователя
+- **Body:**
+  ```json
+  {
+    "name": "john_doe_updated",
+    "status": "blocked"
+  }
+  ```
+
+**Response (200 OK):**
+```json
+{
+  "status": "ok",
+  "data": "User updated successfully"
+}
+```
+
+**Возможные ошибки:**
+- `401 Unauthorized`: Токен не найден или невалиден
+- `403 Forbidden`: Недостаточно прав доступа
+- `400 Bad Request`: Некорректный формат ID или отсутствуют поля для обновления
+- `404 Not Found`: Пользователь не найден
+- `500 Internal Server Error`: Ошибка на сервере
+
+---
+
+#### PATCH `/users/admin/{id}/password`
+Обновление пароля пользователя (администратор).
+
+**Требуемое право:** `auth.admin.users.update_password`
+
+**Request:**
+- Headers: `Authorization: Bearer {access_token}`
+- **Path parameters:**
+  - `id` (integer): ID пользователя
+- **Body:**
+  ```json
+  {
+    "newPassword": "newSecurePassword123"
+  }
+  ```
+
+**Response (200 OK):**
+```json
+{
+  "status": "ok",
+  "data": "Password updated successfully"
+}
+```
+
+**Возможные ошибки:**
+- `401 Unauthorized`: Токен не найден или невалиден
+- `403 Forbidden`: Недостаточно прав доступа
+- `400 Bad Request`: Некорректный формат ID или `newPassword` не передан
+- `404 Not Found`: Пользователь не найден
+- `500 Internal Server Error`: Ошибка на сервере
+
+---
+
+#### DELETE `/users/admin/{id}`
+Удаление пользователя (администратор).
+
+**Требуемое право:** `auth.admin.users.delete`
+
+**Request:**
+- Headers: `Authorization: Bearer {access_token}`
+- **Path parameters:**
+  - `id` (integer): ID пользователя
+
+**Response (200 OK):**
+```json
+{
+  "status": "ok",
+  "data": "User deleted successfully"
+}
+```
+
+**Возможные ошибки:**
+- `401 Unauthorized`: Токен не найден или невалиден
+- `403 Forbidden`: Недостаточно прав доступа
+- `400 Bad Request`: Некорректный формат ID
+- `404 Not Found`: Пользователь не найден
+- `500 Internal Server Error`: Ошибка на сервере
+
+---
+
+### Просмотр пользователей (Public/User)
+
+#### GET `/users`
+Получение списка всех пользователей с пагинацией.
+
+**Требуемое право:** `auth.users.list`
+
+**Request:**
+- Headers: `Authorization: Bearer {access_token}`
+- **Query parameters:**
+  - `limit` (integer, default: 10): Количество записей на странице
+  - `offset` (integer, default: 0): Смещение от начала списка
+
+**Response (200 OK):**
+```json
+{
+  "status": "ok",
+  "data": [
+    {
+      "id": 1,
+      "username": "john_doe",
+      "status": "active"
+    },
+    {
+      "id": 2,
+      "username": "jane_smith",
+      "status": "active"
+    }
+  ]
+}
+```
+
+**Возможные ошибки:**
+- `401 Unauthorized`: Токен не найден или невалиден
+- `403 Forbidden`: Недостаточно прав доступа
+- `501 Not Implemented`: Эндпоинт ещё не реализован
+
+---
+
+#### GET `/users/{id}`
+Получение данных конкретного пользователя по ID.
+
+**Требуемое право:** `auth.users.read`
+
+**Request:**
+- Headers: `Authorization: Bearer {access_token}`
+- **Path parameters:**
+  - `id` (integer): ID пользователя
+
+**Response (200 OK):**
+```json
+{
+  "status": "ok",
+  "data": {
+    "id": 1,
+    "username": "john_doe",
+    "status": "active"
+  }
+}
+```
+
+**Возможные ошибки:**
+- `401 Unauthorized`: Токен не найден или невалиден
+- `403 Forbidden`: Недостаточно прав доступа
+- `400 Bad Request`: Некорректный формат ID
+- `404 Not Found`: Пользователь не найден
+- `501 Not Implemented`: Эндпоинт ещё не реализован
 ```
 
 ---
