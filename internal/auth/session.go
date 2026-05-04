@@ -39,15 +39,15 @@ func (a *Auth) Login(req *LoginRequest) (*LoginResponse, error) {
 		return nil, &InvalidCredentialsError{Reason: "invalid username or password"}
 	}
 
-	accessToken, _, err := a.CreateToken(user.ID, config.GetATokenTime())
+	refreshToken, id, err := a.CreateToken(user.ID, "", config.GetRTokenTime())
 	if err != nil {
-		slog.Error("Login: failed to create access token", "user_id", user.ID, "error", err)
+		slog.Error("Login: failed to create refresh token", "user_id", user.ID, "error", err)
 		return nil, err
 	}
 
-	refreshToken, id, err := a.CreateToken(user.ID, config.GetRTokenTime())
+	accessToken, _, err := a.CreateToken(user.ID, id, config.GetATokenTime())
 	if err != nil {
-		slog.Error("Login: failed to create refresh token", "user_id", user.ID, "error", err)
+		slog.Error("Login: failed to create access token", "user_id", user.ID, "error", err)
 		return nil, err
 	}
 
@@ -96,13 +96,28 @@ func (a *Auth) Logout(accessToken string) error {
 		return &InvalidCredentialsError{Reason: "access token is required"}
 	}
 
-	claims, userID, err := a.checkToken(accessToken)
+	claims, err := a.AuthenticateToken(accessToken)
 	if err != nil {
 		slog.Warn("Logout: invalid access token", "error", err)
 		return &InvalidCredentialsError{Reason: "invalid access token"}
 	}
+	userID, err := strconv.Atoi(claims.Subject)
+	if err != nil {
+		slog.Error("Logout: invalid user ID in token claims", "subject", claims.Subject, "error", err)
+		return &InvalidCredentialsError{Reason: "invalid token claims"}
+	}
 
-	if err := a.RemoveToken(int64(userID), claims.ID); err != nil {
+	isWhiteListened, err := a.IsTokenWhitelisted(int64(userID), claims.PairJTI)
+	if err != nil {
+		slog.Error("Logout: failed to check token whitelist", "user_id", userID, "jwt_id", claims.ID, "error", err)
+		return err
+	}
+	if !isWhiteListened {
+		slog.Warn("Logout: token is not whitelisted", "user_id", userID, "jwt_id", claims.ID)
+		return &InvalidCredentialsError{Reason: "token is not valid"}
+	}
+
+	if err := a.RemoveToken(int64(userID), claims.PairJTI); err != nil {
 		slog.Error("Logout: failed to delete access token", "user_id", userID, "error", err)
 		return err
 	}
@@ -120,15 +135,15 @@ func (a *Auth) Refresh(req *RefreshRequest) (*RefreshResponse, error) {
 		return nil, &InvalidCredentialsError{Reason: "invalid access token"}
 	}
 
-	accessTokenString, _, err := a.CreateToken(userID, config.GetATokenTime())
+	refreshTokenString, newId, err := a.CreateToken(userID, "", config.GetRTokenTime())
 	if err != nil {
-		slog.Error("Refresh: failed to create new access token", "user_id", userID, "error", err)
+		slog.Error("Refresh: failed to create new refresh token", "user_id", userID, "error", err)
 		return nil, err
 	}
 
-	refreshTokenString, newId, err := a.CreateToken(userID, config.GetRTokenTime())
+	accessTokenString, _, err := a.CreateToken(userID, newId, config.GetATokenTime())
 	if err != nil {
-		slog.Error("Refresh: failed to create new refresh token", "user_id", userID, "error", err)
+		slog.Error("Refresh: failed to create new access token", "user_id", userID, "error", err)
 		return nil, err
 	}
 
