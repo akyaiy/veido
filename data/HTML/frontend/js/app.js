@@ -448,7 +448,7 @@ async function apiProtected(path, options = {}) {
  ****************************************************************************/
 async function refreshAccess (){
     //Отправка запроса на обновление токена
-    const rr = await fetch("/api/users/refresh", {
+    const rr = await fetch("/api/auth/session/refresh", {
         method: "POST",
         credentials: "include"
     });
@@ -462,7 +462,7 @@ async function refreshAccess (){
     const j = await rr.json();
     emitAuthEvent(true);  // Пользователь вошёл в систему ✅
     //console.log("+++")
-    accessToken = j.access_token;
+    accessToken = j.data;
     // Декодирование payload JWT
     const payload = JSON.parse(
             atob(accessToken.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))
@@ -779,7 +779,7 @@ async function getUserDataByID(id) {
 async function userLogin(username, password) {
     try {
         // Запрос логина
-        const r = await apiProtected(`/api/users/login`, {
+        const r = await apiProtected(`/api/auth/session/login`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
@@ -790,19 +790,19 @@ async function userLogin(username, password) {
             })
         });
         // Проверка access token
-        if (!r?.access_token) {
+        if (!r?.data) {
             throw new Error("Token not received");
         }
         const payload = JSON.parse(
-            atob(r.access_token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))
+            atob(r.data.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))
     );
         // Успешный результат
         emitAuthEvent(true);  // Пользователь вошёл в систему ✅
         //console.log("+++");
         user.name = username;
-        user.id = payload.user_id;
+        user.id = payload.sub; // sub вместо user_id в JWT payload
         return {
-            accessToken: r.access_token
+            accessToken: r.data
         };
     // Обработка ошибок (catch)    
     } catch (err) {
@@ -836,11 +836,14 @@ async function userLogin(username, password) {
 // }
 
 async function userLogout() {
-    accessToken = "";
     emitAuthEvent(false); // Пользователь вышел из системы ❌
-    //console.log("---")apiProtected
-    //await fetch("/api/users/logout", { method: "POST", credentials: "include" });
-    await apiProtected("/api/users/logout", { method: "POST", credentials: "include" });
+
+    const data = await fetch("/api/auth/session/refresh", { method: "POST", credentials: "include" });
+    const response = await data.json();
+    const accessToken = response.data;
+    await fetch("/api/auth/session/logout", { method: "POST", body: JSON.stringify({ accessToken })});
+
+    location.reload();
 };
 
 /******************************************************************************
@@ -853,7 +856,7 @@ async function userLogout() {
 async function userRegister(username, password) {
     try {
         // Запрос регистрации
-        const data = await apiProtected("/api/users/register", {
+        const data = await apiProtected("/api/auth/register", {
             method: "POST",
             body: {
                 username,
