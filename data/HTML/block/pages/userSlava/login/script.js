@@ -3,23 +3,25 @@ btn_log.onclick = UserLogin;
 
 btn_prot.onclick = async () => {
     try {
-        const data = await apiProtected("/api/protected");
-        out.textContent = JSON.stringify(data, null, 2);
+        const data = await fetch("/api/auth/session/refresh", { method: "POST", credentials: "include" });
+        out.textContent = JSON.stringify(await data.json(), null, 2);
     } catch {
         out.textContent = "err";
     }
 };
 
 async function UserLogout() {
-    accessToken = "";
-    await fetch("/api/users/logout", { method: "POST", credentials: "include" });
+    const data = await fetch("/api/auth/session/refresh", { method: "POST", credentials: "include" });
+    const response = await data.json();
+    const accessToken = response.data;
+    await fetch("/api/auth/session/logout", { method: "POST", body: JSON.stringify({ accessToken })});
 };
 
 async function UserLogin() {
     const u = log_user.value,
         p = log_pass.value;
 
-    const r = await fetch("/api/users/login", {
+    const r = await fetch("/api/auth/session/login", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

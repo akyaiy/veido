@@ -62,7 +62,8 @@ async function loadRoles() {
 
 // Загрузка пользователей
 async function loadUsers() {
-    const users = await apiProtected("/api/users/getUsersNames?limit=100") || [];
+    const response = await apiProtected("/api/auth/users/admin?limit=100");
+    const users = response?.data || [];
     userSelect.innerHTML = '';
     users.forEach(r => {
     const opt = document.createElement('option');
