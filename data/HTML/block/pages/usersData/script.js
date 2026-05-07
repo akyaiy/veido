@@ -1,28 +1,51 @@
 const panel = document.getElementById("regPanel");
+const overlay = document.getElementById("overlay");
+const menuToggle = document.getElementById("menuToggle");
 
-// Обработчик клика по ссылкам внутри панели
-panel.addEventListener("click", (e) => {
-    // Ищем ближайшую ссылку
+
+
+// Открытие/закрытие меню
+function toggleMenu() {
+    panel.classList.add("active");
+    overlay.style.display = "block";
+}
+
+// Закрытие меню при клике на оверлей
+function closeMenu() {
+    panel.classList.remove("active");
+    overlay.style.display = "none";
+}
+
+// Обработка клика по ссылкам внутри панели
+function handlePanelClick(e) {
+    // ищем ссылку с data-link
     const link = e.target.closest("a[data-link='true']");
     if (!link || !panel.contains(link)) return;
 
-    // Отменяем стандартный переход
+    // отменяем стандартный переход
     e.preventDefault();
 
-    // Разбираем URL ссылки
+    // парсим URL
     const { url, action, data } = urlStrBr(link.href);
-    // Целевой контейнер для загрузки
     const targetId = link.dataset.target;
 
-    // Работаем только с параметром sPage
+    // работаем только с sPage
     if (action !== "sPage") return;
 
-    // Обновляем URL без перезагрузки страницы
+    // обновляем URL без перезагрузки
     history.pushState(null, "", `/${url}/?${action}=${data}`);
 
-    // Загружаем нужный блок
+    // загружаем блок
     loadBlock(`pages/${url}/${data}`, targetId);
-});
+
+    // закрытие на мобильных
+    if (window.innerWidth <= 768 && panel.classList.contains("active")) {
+        const a = e.target.closest("a");
+        if (a && panel.contains(a)) {
+            closeMenu();
+        }
+    }
+}
 
 
 // Обработка текущего URL при загрузке страницы или навигации
@@ -88,3 +111,8 @@ checkAdminAccess();
 
 // Обработка кнопок "назад/вперёд" в браузере
 window.addEventListener("popstate", handleCurrentUrl);
+
+// Обработчики событий
+menuToggle.onclick = toggleMenu;
+overlay.onclick = closeMenu;
+panel.onclick = handlePanelClick;

@@ -4,6 +4,7 @@ const btnCreateUser = document.getElementById("btnCreateUser");
 
 const userSelect = document.getElementById("userSelect");
 const btnActivateUser = document.getElementById("btnActivateUser");
+const btnInactivateUser = document.getElementById("btnInactivateUser");
 
 // Загрузка списка пользователей
 async function loadUsers() {
@@ -19,7 +20,7 @@ async function loadUsers() {
         users.forEach(user => {
             const option = document.createElement("option");
             option.value = user.id;
-            option.textContent = `${user.username}`;
+            option.textContent = `${user.username} (${user.status})`;
             userSelect.appendChild(option);
         });
 
@@ -59,17 +60,17 @@ async function createUser() {
         // Проверяем успешный ответ
         if (result?.status === "ok") {
             alert("Пользователь создан");
+
+            // Обновляем список после создания
+            await loadUsers();
+
+            // Очищаем поля
+            newUserName.value = "";
+            newUserPassword.value = "";
         } else {
             alert("Ошибка создания пользователя");
             console.error("Ошибка создания пользователя:", result);
         }
-
-        // Обновляем список после создания
-        await loadUsers();
-
-        // Очищаем поля
-        newUserName.value = "";
-        newUserPassword.value = "";
     } catch (e) {
         console.error("Ошибка создания пользователя:", e);
         alert("Ошибка создания пользователя");
@@ -77,22 +78,43 @@ async function createUser() {
 }
 
 // Активировать пользователя
-async function activateUser() {
+async function statusUser(status, successMessage) {
     const userId = Number(userSelect.value);
 
+    // Проверяем, что пользователь выбран
     if (!userId) {
         alert("Выберите пользователя");
         return;
     }
 
-    // Пока только лог, без отправки на сервер
-    console.log("Активировать пользователя:", userId);
-    alert("Пользователь выбран, активация пока только в console.log");
+    try {
+        // Отправляем запрос на активацию (изменение статуса)
+        const result = await apiProtected(`/api/auth/users/admin/${userId}`, {
+            method: "PATCH",
+            body: {
+                status: status
+            }
+        });
+
+        // Проверяем успешный ответ
+        if (result?.status === "ok") {
+            alert(successMessage);
+
+            // Обновляем список после создания
+            await loadUsers();
+        } else {
+            alert("Ошибка изменения статуса пользователя");
+        }
+    } catch (e) {
+        console.error("Ошибка изменения статуса:", e);
+        alert("Ошибка изменения статуса пользователя");
+    }
 }
 
 // Обработчики
 btnCreateUser.addEventListener("click", createUser);
-btnActivateUser.addEventListener("click", activateUser);
+btnActivateUser.addEventListener("click", () => statusUser("active", "Пользователь активирован"));
+btnInactivateUser.addEventListener("click", () => statusUser("inactive", "Пользователь деактивирован"));
 
 // Автозагрузка
 loadUsers();
