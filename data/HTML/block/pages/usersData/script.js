@@ -1,3 +1,4 @@
+const menuContainer = document.getElementById("menuContainer");
 const panel = document.getElementById("regPanel");
 const overlay = document.getElementById("overlay");
 const menuToggle = document.getElementById("menuToggle");
@@ -6,24 +7,34 @@ const menuToggle = document.getElementById("menuToggle");
 
 // Открытие/закрытие меню
 function toggleMenu() {
-    panel.classList.add("active");
-    overlay.style.display = "block";
+    const isActive = menuContainer.classList.toggle("active");
+    
+    // Меняем стрелку
+    menuToggle.textContent = isActive ? "<" : ">";
+    
+    if (isActive) {
+        overlay.style.display = "block";
+    } else {
+        overlay.style.display = "none";
+    }
 }
 
 // Закрытие меню при клике на оверлей
 function closeMenu() {
-    panel.classList.remove("active");
+    menuContainer.classList.remove("active");
     overlay.style.display = "none";
+    menuToggle.textContent = ">";
 }
 
 // Обработка клика по ссылкам внутри панели
 function handlePanelClick(e) {
     // ищем ссылку с data-link
     const link = e.target.closest("a[data-link='true']");
-    if (!link || !panel.contains(link)) return;
+    if (!link || (!panel.contains(link) && !document.getElementById("regDiv")?.contains(link))) return;
 
     // отменяем стандартный переход
     e.preventDefault();
+    e.stopPropagation();
 
     // парсим URL
     const { url, action, data } = urlStrBr(link.href);
@@ -39,7 +50,7 @@ function handlePanelClick(e) {
     loadBlock(`pages/${url}/${data}`, targetId);
 
     // закрытие на мобильных
-    if (window.innerWidth <= 768 && panel.classList.contains("active")) {
+    if (window.innerWidth <= 768 && menuContainer.classList.contains("active")) {
         const a = e.target.closest("a");
         if (a && panel.contains(a)) {
             closeMenu();
@@ -54,7 +65,11 @@ function handleCurrentUrl() {
 
     // Если есть параметр sPage, загружаем соответствующий блок
     if (action === "sPage") {
-        loadBlock(`pages/${url}/${data}`, "regDiv");
+        const targetId =
+            data?.startsWith("users/") && document.getElementById("usersPageBlock")
+                ? "usersPageBlock"
+                : "regDiv";
+        loadBlock(`pages/${url}/${data}`, targetId);
     }
 }
 
@@ -96,7 +111,7 @@ async function checkAdminAccess() {
 
         // Если прав нет, удаляем ссылки на админские страницы
         if (!hasAdmin) {
-            panel.querySelectorAll('a[href*="sPage=users"]').forEach(el => el.remove());
+            panel.querySelectorAll('a[is-admin="true"]').forEach(el => el.remove());
         }
     } catch (e) {
         console.error(e);
@@ -115,4 +130,5 @@ window.addEventListener("popstate", handleCurrentUrl);
 // Обработчики событий
 menuToggle.onclick = toggleMenu;
 overlay.onclick = closeMenu;
-panel.onclick = handlePanelClick;
+menuContainer.onclick = handlePanelClick;
+document.getElementById("regDiv")?.addEventListener("click", handlePanelClick);
