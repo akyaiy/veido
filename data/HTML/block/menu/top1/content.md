@@ -13,7 +13,7 @@
         <!-- <li><a href="/users" data-link="true" data-target="content">Юзер</a></li>
         <li><a href="/login" data-link="true" data-target="content">Вход</a></li> -->
         <!-- <li><a href="/userSlava" data-link="true" data-target="content">Пользователи</a> -->
-        <li><a href="/usersData/?sPage=users" data-link="true" data-target="content">Персональный кабинет</a></li>
+        <li><a href="/usersData/?sPage=profile" data-link="true" data-target="content">Персональный кабинет</a></li>
         <!-- <li><a href="/gpt" data-link="true" data-target="content">GPT</a></li> -->
         <li><a href="/ACL" data-link="true" data-target="content">ACL</a></li>
         <!-- <li><a href="/userSlava/popup" data-link="true" data-target="content">Сообщения popup</a></li> -->

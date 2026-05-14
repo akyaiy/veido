@@ -5,6 +5,108 @@ const menuToggle = document.getElementById("menuToggle");
 
 
 
+// Массив для конфигурации меню
+let menuConfig = [
+    { path: "profile", title: "Профиль" },
+    { path: "data", title: "Ресурсы", isAdmin: true },
+    {
+        path: "users",
+        title: "Пользователи",
+        isAdmin: true,
+        children: [
+            { path: "create", title: "Создание", isAdmin: true },
+            { path: "users", title: "Редактирование", isAdmin: true }
+        ]
+    }
+];
+
+// Сборка меню из конфигурации menuConfig
+function buildMenu() {
+
+    // кнопка открытия/закрытия меню
+    menuToggle.onclick = toggleMenu;
+
+    // очистка контейнера перед пересборкой
+    panel.innerHTML = "";
+    panel.appendChild(menuToggle);
+
+    menuConfig.forEach(item => {
+
+        // проверка доступа для админских пунктов
+        if (item.isAdmin && !window.isAdmin) return;
+
+        // обычный пункт меню
+        if (item.path && !item.children) {
+
+            const wrapper = document.createElement("div");
+            wrapper.className = "menu-item";
+
+            const a = document.createElement("a");
+
+            a.href = `/usersData/?sPage=${item.path}`;
+            a.dataset.link = "true";
+            a.dataset.target = "regDiv";
+            a.textContent = item.title;
+
+            wrapper.appendChild(a);
+            panel.appendChild(wrapper);
+            return;
+        }
+
+        // группа меню
+        const groupWrapper = document.createElement("div");
+        groupWrapper.className = "menu-item";
+
+        const title = document.createElement("div");
+        title.className = "tree-title";
+        title.textContent = item.title;
+
+        groupWrapper.appendChild(title);
+
+        // рекурсивная отрисовка вложенных элементов
+        function render(children, parentPath = "", depth = 0) {
+
+            children.forEach(child => {
+
+                // проверка доступа на уровне элемента
+                if (child.isAdmin && !window.isAdmin) return;
+
+                // формирование полного пути (учёт вложенности)
+                const fullPath = parentPath
+                    ? `${parentPath}/${child.path}`
+                    : child.path;
+
+                const row = document.createElement("div");
+                row.className = "menu-row menu-item";
+
+                // визуальный отступ для вложенности
+                row.style.paddingLeft = `${depth * 12}px`;
+
+                const a = document.createElement("a");
+                a.href = `/usersData/?sPage=${fullPath}`;
+                a.dataset.link = "true";
+                a.dataset.target = "regDiv";
+                a.textContent = child.title;
+
+                row.appendChild(document.createTextNode("- "));
+                row.appendChild(a);
+
+                groupWrapper.appendChild(row);
+
+                // обработка вложенных уровней
+                if (child.children) {
+                    render(child.children, fullPath, depth + 1);
+                }
+            });
+        }
+
+        render(item.children || [], item.path || "", 1);
+
+        panel.appendChild(groupWrapper);
+    });
+}
+
+
 // Открытие/закрытие меню
 function toggleMenu() {
     const isActive = menuContainer.classList.toggle("active");
@@ -108,21 +210,30 @@ async function checkAdminAccess() {
 
         // Проверяем наличие админской роли
         const hasAdmin = roles.some(r => r.name && r.name.toLowerCase().includes('admin'));
+        window.isAdmin = hasAdmin;
 
         // Если прав нет, удаляем ссылки на админские страницы
         if (!hasAdmin) {
-            panel.querySelectorAll('a[is-admin="true"]').forEach(el => el.remove());
+            panel.querySelectorAll('[is-admin="true"]').forEach(el => el.remove());
         }
     } catch (e) {
+        window.isAdmin = false;
         console.error(e);
     }
 }
 
 
+
 // Инициализация при загрузке страницы
-handleCurrentUrl();
-// Проверка прав пользователя
-checkAdminAccess();
+async function init() {
+    // Проверка прав пользователя
+    await checkAdminAccess();
+    // Сборка меню
+    await buildMenu();
+    // Обработка текущего URL
+    await handleCurrentUrl();
+}
+init();
 
 // Обработка кнопок "назад/вперёд" в браузере
 window.addEventListener("popstate", handleCurrentUrl);

@@ -26,8 +26,30 @@
     padding: 20px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
     flex-shrink: 0;
+}
+
+#usersPageMenu {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+#usersPageMenu .tree-title {
+    font-weight: 600;
+}
+
+#usersPageMenu > div:not(.tree-title) {
+    padding-left: 20px;
+    text-indent: -8px;
+}
+
+.menu-item, .tree-title {
+    padding-bottom: 5px;
+}
+
+.menu-row {
+    padding-left: 10px;
 }
 
 /* Правая нижняя колонка */
