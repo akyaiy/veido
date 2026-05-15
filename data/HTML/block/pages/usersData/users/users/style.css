@@ -13,13 +13,16 @@
 /* Основной контент (оба блока) */
 #usersPage > div:nth-child(2),
 #usersPage > div:nth-child(3) {
+    display: flex;
+    flex-direction: column;
     gap: 8px;
     padding: 10px 20px 20px 15px;
 }
 
 /* Заголовки блоков */
 #registerBlock > div:first-child,
-#activateBlock > div:first-child {
+#activateBlock > div:first-child,
+#userDataBlock > div:first-child {
     font-weight: bold;
     padding: 5px;
 }
@@ -27,6 +30,38 @@
 /* Поля */
 #newUserName,
 #newUserPassword,
-#userSelect {
+#userSelect,
+#usernameInput,
+#userStatusInput,
+#userRolesInput {
     padding: 5px;
+}
+
+/* Скрытые поля режима редактирования */
+#usernameInput,
+#userStatusInput,
+#userRolesInput,
+#btnSaveUser,
+#btnCancelUser {
+    display: none;
+}
+
+/* Список ролей */
+#userRoles {
+    margin: 5px 0 0 15px;
+    padding: 0;
+}
+
+/* Элементы управления ролями */
+#userRoles li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Кнопки действий */
+#userActions {
+    display: flex;
+    gap: 8px;
+    padding-top: 8px;
 }

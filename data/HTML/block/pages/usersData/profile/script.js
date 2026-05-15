@@ -13,9 +13,7 @@ async function loadProfile() {
         document.getElementById("username").textContent = data.username ?? "-";
 
         // Заполнение активного статуса
-        let activeText = "-";
-        if (data.status === "active") activeText = "Да";
-        else if (data.status) activeText = "Нет";
+        let activeText = data.status ?? "-";
         document.getElementById("userActive").textContent = activeText;
 
         // Запрос к ролям текущего пользователя
