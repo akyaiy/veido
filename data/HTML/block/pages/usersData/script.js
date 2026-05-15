@@ -27,7 +27,6 @@ function buildMenu() {
     menuToggle.onclick = toggleMenu;
 
     // очистка контейнера перед пересборкой
-    panel.innerHTML = "";
     panel.appendChild(menuToggle);
 
     menuConfig.forEach(item => {
@@ -82,13 +81,19 @@ function buildMenu() {
                 // визуальный отступ для вложенности
                 row.style.paddingLeft = `${depth * 12}px`;
 
+                // добавляем "тире" для обозначения вложенности
+                const dash = document.createElement("span");
+                dash.textContent = "-";
+                dash.style.marginRight = "4px";
+
+                // ссылка на элемент
                 const a = document.createElement("a");
                 a.href = `/usersData/?sPage=${fullPath}`;
                 a.dataset.link = "true";
                 a.dataset.target = "regDiv";
                 a.textContent = child.title;
 
-                row.appendChild(document.createTextNode("- "));
+                row.appendChild(dash);
                 row.appendChild(a);
 
                 groupWrapper.appendChild(row);
@@ -112,7 +117,7 @@ function toggleMenu() {
     const isActive = menuContainer.classList.toggle("active");
     
     // Меняем стрелку
-    menuToggle.textContent = isActive ? "<" : ">";
+    menuToggle.textContent = isActive ? "x" : ">";
     
     if (isActive) {
         overlay.style.display = "block";

@@ -5,6 +5,7 @@
 
 <div id="menuContainer" class="menu-container">
     <div id="regPanel">
+        <div id="regPanelName">Древо сайта</div>
         <button id="menuToggle" class="menu-toggle">></button>
     </div>
 </div>

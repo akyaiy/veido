@@ -27,6 +27,16 @@
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
+
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+#regPanelName {
+    display: none;
+    font-size: 22px;
+    margin-bottom: 20px;
+    font-weight: bold;
 }
 
 #usersPageMenu {
@@ -50,6 +60,11 @@
 
 .menu-row {
     padding-left: 10px;
+}
+
+.menu-row a {
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 
 /* Правая нижняя колонка */
@@ -111,6 +126,7 @@
 
     .menu-container.active {
         left: 0;
+        max-width: 70%;
     }
 
     /* Кнопка меню */
@@ -119,10 +135,9 @@
         position: absolute;
         height: 50px;
         top: 150px;
-        right: -75px;
+        right: -64px;
         border: none;
-        background: #e0e0e0;
-        padding: 0;
+        padding: 7px !important;
         font-size: 24px;
         cursor: pointer;
         border-radius: 0 8px 8px 0 !important;
@@ -134,14 +149,18 @@
 
     /* Боковая панель */
     #regPanel {
+        font-size: 18px;
         display: flex;
         width: 100%;
         height: 100%;
-        background: #f0f0f0;
-        padding: 20px;
+        background: rgba(240, 240, 240, 0.95);
+        padding: 30px 20px 20px 20px;
         flex-direction: column;
-        gap: 10px;
         overflow-y: auto;
+    }
+
+    #regPanelName {
+        display: block;
     }
 
     .menu-container.active .menu-toggle {
@@ -152,16 +171,21 @@
         z-index: 102;
         right: 0px;
         border-radius: 8px 0 0 8px !important;
+        background: rgba(0, 0, 0, 0);
     }
 
     .menu-container.active #regPanel {
         position: relative;
-        top: 1%;
-        height: 93%;
+        top: 2%;
+        height: 87%;
     }
 
     .menu-container.active ~ #overlay {
         display: block;
+    }
+
+    .menu-item, .tree-title {
+        padding-bottom: 8px;
     }
 
     @keyframes slideIn {
