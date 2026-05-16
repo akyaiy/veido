@@ -4,7 +4,7 @@
 
 <!-- Список пользователей -->
 <div id="activateBlock">
-    <div>Редактирование пользователей</div>
+    <div>Список пользователей</div>
     <select id="userSelect"></select>
 </div>
 
@@ -21,6 +21,7 @@
         <select id="userStatusInput">
             <option value="active">active</option>
             <option value="inactive">inactive</option>
+            <option value="unactive">unactive</option>
         </select>
     </div>
     <div>
@@ -28,11 +29,15 @@
         <ul id="userRoles"></ul>
         <select id="userRolesInput"></select>
     </div>
+    <div id="userPasswordBlock">Сменить пороль: 
+        <input id="userPasswordInput" type="password">
+    </div>
     <!-- Кнопки редактирования -->
     <div id="userActions">
         <button id="btnEditUser" type="button">Редактировать</button>
-        <button id="btnSaveUser" type="button">Сохранить</button>
         <button id="btnCancelUser" type="button">Отменить</button>
+        <button id="btnDeleteUser" type="button">Удалить пользователя</button>
+        <button id="btnSaveUser" type="button">Сохранить</button>
     </div>
 </div>
 

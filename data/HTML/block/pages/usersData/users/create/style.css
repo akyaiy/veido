@@ -1,3 +1,4 @@
+/* Главный блок */
 #usersPage {
     background: #eee;
     padding: 10px;
@@ -10,7 +11,7 @@
     padding: 10px 10px 5px 10px;
 }
 
-/* Основной контент (оба блока) */
+/* Основной контент */
 #usersPage > div:nth-child(2),
 #usersPage > div:nth-child(3) {
     gap: 8px;

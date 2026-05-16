@@ -9,6 +9,9 @@ const userRolesInput = document.getElementById("userRolesInput");
 const btnEditUser = document.getElementById("btnEditUser");
 const btnSaveUser = document.getElementById("btnSaveUser");
 const btnCancelUser = document.getElementById("btnCancelUser");
+const btnDeleteUser = document.getElementById("btnDeleteUser");
+const userPasswordBlock = document.getElementById("userPasswordBlock");
+const userPasswordInput = document.getElementById("userPasswordInput");
 
 let currentUser = null;
 let currentUserRoles = [];
@@ -205,7 +208,9 @@ function setEditMode(enabled) {
     userStatus.style.display = isEditMode ? "none" : "inline";
     userStatusInput.style.display = isEditMode ? "inline-block" : "none";
     userRolesInput.style.display = isEditMode ? "inline-block" : "none";
+    userPasswordBlock.style.display = isEditMode ? "block" : "none";
     btnEditUser.style.display = isEditMode ? "none" : "inline-block";
+    btnDeleteUser.style.display = isEditMode ? "inline-block" : "none";
     btnSaveUser.style.display = isEditMode ? "inline-block" : "none";
     btnCancelUser.style.display = isEditMode ? "inline-block" : "none";
 
@@ -223,6 +228,7 @@ function cancelEditMode() {
     editedRoleIds = currentUserRoles.map(role => Number(role.id));
     usernameInput.value = currentUser?.username ?? "";
     userStatusInput.value = currentUser?.status ?? "inactive";
+    userPasswordInput.value = "";
     setEditMode(false);
 }
 
@@ -240,6 +246,7 @@ async function enableEditMode() {
     // Заполняем поля текущими значениями
     usernameInput.value = currentUser.username ?? "";
     userStatusInput.value = currentUser.status ?? "inactive";
+    userPasswordInput.value = "";
     editedRoleIds = currentUserRoles.map(role => Number(role.id));
     setEditMode(true);
 }
@@ -252,6 +259,7 @@ async function saveUserData() {
     const currentRoleIds = currentUserRoles.map(role => Number(role.id));
     const rolesToAdd = editedRoleIds.filter(roleId => !currentRoleIds.includes(roleId));
     const rolesToRemove = currentRoleIds.filter(roleId => !editedRoleIds.includes(roleId));
+    const nextPassword = userPasswordInput.value.trim();
 
     // Проверяем, что пользователь выбран
     if (!selectedUserId) {
@@ -278,8 +286,14 @@ async function saveUserData() {
     }
 
     // Если изменений нет - просто выходим из режима
-    if (Object.keys(body).length === 0 && rolesToAdd.length === 0 && rolesToRemove.length === 0) {
+    if (Object.keys(body).length === 0 && rolesToAdd.length === 0 && rolesToRemove.length === 0 && !nextPassword) {
         setEditMode(false);
+        return;
+    }
+
+    // Подтверждаем сохранение изменений
+    const isConfirmed = confirm("Сохранить изменения пользователя?");
+    if (!isConfirmed) {
         return;
     }
 
@@ -294,6 +308,22 @@ async function saveUserData() {
             // Проверяем успешный ответ
             if (result?.status !== "ok") {
                 alert("Ошибка сохранения данных пользователя");
+                return;
+            }
+        }
+
+        // Меняем пароль пользователя
+        if (nextPassword) {
+            const passwordResult = await apiProtected(`/api/auth/users/admin/${selectedUserId}/password`, {
+                method: "PATCH",
+                body: {
+                    newPassword: nextPassword
+                }
+            });
+
+            // Проверяем успешный ответ
+            if (passwordResult?.status !== "ok") {
+                alert("Ошибка смены пороля");
                 return;
             }
         }
@@ -323,10 +353,46 @@ async function saveUserData() {
     }
 }
 
+// Удаление пользователя
+async function deleteUser() {
+    const selectedUserId = Number(userSelect.value);
+
+    // Проверяем, что пользователь выбран
+    if (!selectedUserId) {
+        alert("Выберите пользователя");
+        return;
+    }
+
+    // Подтверждаем удаление пользователя
+    const isConfirmed = confirm(`Удалить пользователя "${currentUser?.username ?? ""}"?`);
+    if (!isConfirmed) {
+        return;
+    }
+
+    try {
+        const result = await apiProtected(`/api/auth/users/admin/${selectedUserId}`, {
+            method: "DELETE"
+        });
+
+        // Проверяем успешный ответ
+        if (result?.status !== "ok") {
+            alert("Ошибка удаления пользователя");
+            return;
+        }
+
+        alert("Пользователь удален");
+        await loadUsers();
+    } catch (e) {
+        console.error("Ошибка удаления пользователя:", e);
+        alert("Ошибка удаления пользователя");
+    }
+}
+
 // Обработчики
 btnEditUser.addEventListener("click", enableEditMode);
 btnSaveUser.addEventListener("click", saveUserData);
 btnCancelUser.addEventListener("click", cancelEditMode);
+btnDeleteUser.addEventListener("click", deleteUser);
 userRolesInput.addEventListener("change", addRoleToEdit);
 userSelect.addEventListener("change", loadSelectedUser);
 

@@ -1,3 +1,4 @@
+/* Главный блок */
 #usersPage {
     background: #eee;
     padding: 10px;
@@ -10,7 +11,7 @@
     padding: 10px 10px 5px 10px;
 }
 
-/* Основной контент (оба блока) */
+/* Основной контент */
 #usersPage > div:nth-child(2),
 #usersPage > div:nth-child(3) {
     display: flex;
@@ -24,30 +25,36 @@
 #activateBlock > div:first-child,
 #userDataBlock > div:first-child {
     font-weight: bold;
-    /* padding: 5px; */
 }
 
-/* Поля */
+/* Поля для редактирования */
 #newUserName,
 #newUserPassword,
 #userSelect,
 #usernameInput,
 #userStatusInput,
-#userRolesInput {
+#userRolesInput,
+#userPasswordInput {
     padding: 5px;
+}
+
+#usernameInput,
+#userStatusInput,
+#userRolesInput,
+#userPasswordBlock,
+#btnSaveUser,
+#btnCancelUser,
+#btnDeleteUser {
+    display: none;
 }
 
 #userRolesInput {
     margin-top: 10px;
 }
 
-/* Скрытые поля режима редактирования */
-#usernameInput,
-#userStatusInput,
-#userRolesInput,
-#btnSaveUser,
-#btnCancelUser {
-    display: none;
+#userPasswordBlock {
+    margin-top: 6px;
+    line-height: 1.8;
 }
 
 /* Список ролей */
@@ -59,7 +66,6 @@
     gap: 4px;
 }
 
-/* Элементы управления ролями */
 #userRoles li {
     display: flex;
     align-items: center;
