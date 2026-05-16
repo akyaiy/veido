@@ -24,12 +24,12 @@ async function loadProfile() {
         rolesEl.innerHTML = "";
         if (roles && Array.isArray(roles)) {
             roles.forEach(r => {
-                const li = document.createElement("li");
-                li.textContent = r.name;
+                const li = document.createElement("div");
+                li.textContent = "• " + r.name;
                 rolesEl.appendChild(li);
             });
         } else {
-            rolesEl.innerHTML = "<li>-</li>";
+            rolesEl.innerHTML = "<div>-</div>";
         }
 
     } catch (e) {

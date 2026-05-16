@@ -7,21 +7,21 @@
 #usersPage > div:first-child {
     font-size: 24px;
     font-weight: bold;
-    padding: 10px;
+    padding: 10px 10px 5px 10px;
 }
 
 /* Основной контент (оба блока) */
 #usersPage > div:nth-child(2),
 #usersPage > div:nth-child(3) {
     gap: 8px;
-    padding: 10px 20px 20px 15px;
+    padding: 10px 20px 10px 15px;
 }
 
 /* Заголовки блоков */
 #registerBlock > div:first-child,
 #activateBlock > div:first-child {
     font-weight: bold;
-    padding: 5px;
+    padding-bottom: 5px;
 }
 
 /* Поля */

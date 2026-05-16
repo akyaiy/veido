@@ -7,7 +7,7 @@
 #usersPage > div:first-child {
     font-size: 24px;
     font-weight: bold;
-    padding: 10px;
+    padding: 10px 10px 5px 10px;
 }
 
 /* Основной контент (оба блока) */
@@ -16,7 +16,7 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    padding: 10px 20px 20px 15px;
+    padding: 10px 20px 10px 15px;
 }
 
 /* Заголовки блоков */
@@ -24,7 +24,7 @@
 #activateBlock > div:first-child,
 #userDataBlock > div:first-child {
     font-weight: bold;
-    padding: 5px;
+    /* padding: 5px; */
 }
 
 /* Поля */
@@ -35,6 +35,10 @@
 #userStatusInput,
 #userRolesInput {
     padding: 5px;
+}
+
+#userRolesInput {
+    margin-top: 10px;
 }
 
 /* Скрытые поля режима редактирования */
@@ -48,8 +52,11 @@
 
 /* Список ролей */
 #userRoles {
+    display: flex;
+    flex-direction: column;
     margin: 5px 0 0 15px;
     padding: 0;
+    gap: 4px;
 }
 
 /* Элементы управления ролями */
@@ -64,4 +71,9 @@
     display: flex;
     gap: 8px;
     padding-top: 8px;
+}
+
+.btnRemoveRole {
+    padding: 2px 4px !important;
+    margin-left: 8px;
 }

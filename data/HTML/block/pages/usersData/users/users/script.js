@@ -110,28 +110,29 @@ function renderUserRoles() {
         : currentUserRoles;
 
     if (roles.length === 0) {
-        const li = document.createElement("li");
-        li.textContent = "-";
-        userRoles.appendChild(li);
+        const div = document.createElement("div");
+        div.textContent = "-";
+        userRoles.appendChild(div);
         return;
     }
 
     roles.forEach(role => {
-        const li = document.createElement("li");
+        const div = document.createElement("div");
         const roleName = document.createElement("span");
-        roleName.textContent = role.name;
-        li.appendChild(roleName);
+        roleName.textContent = "• " + role.name;
+        div.appendChild(roleName);
 
         // В режиме редактирования добавляем удаление роли
         if (isEditMode) {
             const btnRemoveRole = document.createElement("button");
+            btnRemoveRole.className = "btnRemoveRole";
             btnRemoveRole.type = "button";
             btnRemoveRole.textContent = "-";
             btnRemoveRole.onclick = () => removeRoleFromEdit(role.id);
-            li.appendChild(btnRemoveRole);
+            div.appendChild(btnRemoveRole);
         }
 
-        userRoles.appendChild(li);
+        userRoles.appendChild(div);
     });
 }
 

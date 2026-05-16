@@ -6,7 +6,7 @@
         <div>Статус: <span id="userActive">-</span></div>
         <div>
             Роли:
-            <ul id="userRoles"></ul>
+            <div id="userRoles"></div>
         </div>
     </div>
 </div>
