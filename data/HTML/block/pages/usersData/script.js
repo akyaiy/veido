@@ -1,21 +1,31 @@
+// Главный контейнеры
 const menuContainer = document.getElementById("menuContainer");
+const regDiv = document.getElementById("regDiv");
+
+// Элементы панели
 const panel = document.getElementById("regPanel");
 const overlay = document.getElementById("overlay");
 const menuToggle = document.getElementById("menuToggle");
 
+// Точка переключения для мобильного меню
+const mobileBreakpoint = 768;
 
+
+
+// === Создание меню ===
 
 // Массив для конфигурации меню
 let menuConfig = [
-    { path: "profile", title: "Профиль" },
-    { path: "data", title: "Ресурсы", isAdmin: true },
+    { path: "profile", title: "Профиль", target: "regDiv" },
+    { path: "data", title: "Ресурсы", isAdmin: true, target: "regDiv" },
     {
         path: "users",
         title: "Пользователи",
         isAdmin: true,
+        target: "regDiv",
         children: [
-            { path: "create", title: "Создание", isAdmin: true },
-            { path: "users", title: "Редактирование", isAdmin: true }
+            { path: "create", title: "Создание", isAdmin: true, target: "regDiv" },
+            { path: "users", title: "Редактирование", isAdmin: true, target: "regDiv" }
         ]
     }
 ];
@@ -44,7 +54,7 @@ function buildMenu() {
 
             a.href = `/usersData/?sPage=${item.path}`;
             a.dataset.link = "true";
-            a.dataset.target = "regDiv";
+            a.dataset.target = item.target;
             a.textContent = item.title;
 
             wrapper.appendChild(a);
@@ -90,7 +100,7 @@ function buildMenu() {
                 const a = document.createElement("a");
                 a.href = `/usersData/?sPage=${fullPath}`;
                 a.dataset.link = "true";
-                a.dataset.target = "regDiv";
+                a.dataset.target = child.target;
                 a.textContent = child.title;
 
                 row.appendChild(dash);
@@ -111,19 +121,13 @@ function buildMenu() {
     });
 }
 
-
 // Открытие/закрытие меню
 function toggleMenu() {
     const isActive = menuContainer.classList.toggle("active");
     
-    // Меняем стрелку
+    // Меняем стрелку и отображение
     menuToggle.textContent = isActive ? "x" : ">";
-    
-    if (isActive) {
-        overlay.style.display = "block";
-    } else {
-        overlay.style.display = "none";
-    }
+    overlay.style.display = isActive ? "block" : "none";
 }
 
 // Закрытие меню при клике на оверлей
@@ -137,7 +141,7 @@ function closeMenu() {
 function handlePanelClick(e) {
     // ищем ссылку с data-link
     const link = e.target.closest("a[data-link='true']");
-    if (!link || (!panel.contains(link) && !document.getElementById("regDiv")?.contains(link))) return;
+    if (!link || (!panel.contains(link) && !regDiv.contains(link))) return;
 
     // отменяем стандартный переход
     e.preventDefault();
@@ -157,7 +161,7 @@ function handlePanelClick(e) {
     loadBlock(`pages/${url}/${data}`, targetId);
 
     // закрытие на мобильных
-    if (window.innerWidth <= 768 && menuContainer.classList.contains("active")) {
+    if (window.innerWidth <= mobileBreakpoint && menuContainer.classList.contains("active")) {
         const a = e.target.closest("a");
         if (a && panel.contains(a)) {
             closeMenu();
@@ -166,20 +170,19 @@ function handlePanelClick(e) {
 }
 
 
+
+// === Обработка URL ===
+
 // Обработка текущего URL при загрузке страницы или навигации
 function handleCurrentUrl() {
     const { url, action, data } = urlStrBr(window.location.href);
 
     // Если есть параметр sPage, загружаем соответствующий блок
     if (action === "sPage") {
-        const targetId =
-            data?.startsWith("users/") && document.getElementById("usersPageBlock")
-                ? "usersPageBlock"
-                : "regDiv";
+        const targetId = "regDiv";
         loadBlock(`pages/${url}/${data}`, targetId);
     }
 }
-
 
 // Парсинг URL в структуру { url, action, data }
 function urlStrBr(url){
@@ -206,6 +209,9 @@ function urlStrBr(url){
 }
 
 
+
+// === Проверка прав пользователя ===
+
 // Проверка прав пользователя (админ или нет)
 async function checkAdminAccess() {
     try {
@@ -231,11 +237,8 @@ async function checkAdminAccess() {
 
 // Инициализация при загрузке страницы
 async function init() {
-    // Проверка прав пользователя
     await checkAdminAccess();
-    // Сборка меню
     await buildMenu();
-    // Обработка текущего URL
     await handleCurrentUrl();
 }
 init();
@@ -243,8 +246,10 @@ init();
 // Обработка кнопок "назад/вперёд" в браузере
 window.addEventListener("popstate", handleCurrentUrl);
 
-// Обработчики событий
+// Отоброжение меню
 menuToggle.onclick = toggleMenu;
 overlay.onclick = closeMenu;
+
+// Клик по ссылкам внутри панели и блока
 menuContainer.onclick = handlePanelClick;
-document.getElementById("regDiv")?.addEventListener("click", handlePanelClick);
+regDiv.addEventListener("click", handlePanelClick);

@@ -1,5 +1,8 @@
+// Поля для нового пользователя
 const newUserName = document.getElementById("newUserName");
 const newUserPassword = document.getElementById("newUserPassword");
+
+// Кнопки действий
 const btnCreateUser = document.getElementById("btnCreateUser");
 
 // Создание пользователя

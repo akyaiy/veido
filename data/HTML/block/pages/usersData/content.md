@@ -3,10 +3,10 @@
 # Персональный кабинет
 </div>
 
-<div id="menuContainer" class="menu-container">
+<div id="menuContainer">
     <div id="regPanel">
         <div id="regPanelName">Древо сайта</div>
-        <button id="menuToggle" class="menu-toggle">></button>
+        <button id="menuToggle">></button>
     </div>
 </div>
 

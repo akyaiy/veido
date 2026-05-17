@@ -1,4 +1,13 @@
+// Список пользователей
 const userSelect = document.getElementById("userSelect");
+
+// Данные всех пользователей
+let allRoles = [];
+
+// Режим редактирования
+let isEditMode = false;
+
+// Данные пользователя
 const userId = document.getElementById("userId");
 const username = document.getElementById("username");
 const usernameInput = document.getElementById("usernameInput");
@@ -6,18 +15,22 @@ const userStatus = document.getElementById("userStatus");
 const userStatusInput = document.getElementById("userStatusInput");
 const userRoles = document.getElementById("userRoles");
 const userRolesInput = document.getElementById("userRolesInput");
-const btnEditUser = document.getElementById("btnEditUser");
-const btnSaveUser = document.getElementById("btnSaveUser");
-const btnCancelUser = document.getElementById("btnCancelUser");
-const btnDeleteUser = document.getElementById("btnDeleteUser");
 const userPasswordBlock = document.getElementById("userPasswordBlock");
 const userPasswordInput = document.getElementById("userPasswordInput");
 
 let currentUser = null;
 let currentUserRoles = [];
-let allRoles = [];
 let editedRoleIds = [];
-let isEditMode = false;
+
+// Кнопки управления
+const btnEditUser = document.getElementById("btnEditUser");
+const btnSaveUser = document.getElementById("btnSaveUser");
+const btnCancelUser = document.getElementById("btnCancelUser");
+const btnDeleteUser = document.getElementById("btnDeleteUser");
+
+
+
+// === Загрузка данных ===
 
 // Загрузка списка пользователей
 async function loadUsers(selectedUserId = Number(userSelect.value)) {
@@ -173,30 +186,9 @@ function renderAvailableRoles() {
     userRolesInput.value = "";
 }
 
-// Добавляем роль в список редактирования
-function addRoleToEdit() {
-    const roleId = Number(userRolesInput.value);
 
-    // Проверяем, что роль выбрана
-    if (!roleId) {
-        return;
-    }
 
-    // Если роли ещё нет - добавляем
-    if (!editedRoleIds.includes(roleId)) {
-        editedRoleIds.push(roleId);
-    }
-
-    renderUserRoles();
-    renderAvailableRoles();
-}
-
-// Удаляем роль из списка редактирования
-function removeRoleFromEdit(roleId) {
-    editedRoleIds = editedRoleIds.filter(id => Number(id) !== Number(roleId));
-    renderUserRoles();
-    renderAvailableRoles();
-}
+// === Редактирование данных пользователя ===
 
 // Включение и выключение режима редактирования
 function setEditMode(enabled) {
@@ -250,6 +242,35 @@ async function enableEditMode() {
     editedRoleIds = currentUserRoles.map(role => Number(role.id));
     setEditMode(true);
 }
+
+// Добавляем роль в список редактирования
+function addRoleToEdit() {
+    const roleId = Number(userRolesInput.value);
+
+    // Проверяем, что роль выбрана
+    if (!roleId) {
+        return;
+    }
+
+    // Если роли ещё нет - добавляем
+    if (!editedRoleIds.includes(roleId)) {
+        editedRoleIds.push(roleId);
+    }
+
+    renderUserRoles();
+    renderAvailableRoles();
+}
+
+// Удаляем роль из списка редактирования
+function removeRoleFromEdit(roleId) {
+    editedRoleIds = editedRoleIds.filter(id => Number(id) !== Number(roleId));
+    renderUserRoles();
+    renderAvailableRoles();
+}
+
+
+
+// === Глобальные действия с пользователем ===
 
 // Сохранение данных пользователя
 async function saveUserData() {
@@ -388,14 +409,22 @@ async function deleteUser() {
     }
 }
 
-// Обработчики
-btnEditUser.addEventListener("click", enableEditMode);
-btnSaveUser.addEventListener("click", saveUserData);
-btnCancelUser.addEventListener("click", cancelEditMode);
-btnDeleteUser.addEventListener("click", deleteUser);
-userRolesInput.addEventListener("change", addRoleToEdit);
+
+
+// Загрузка данных
 userSelect.addEventListener("change", loadSelectedUser);
 
-// Автозагрузка
+// Режим редактирования
+btnEditUser.addEventListener("click", enableEditMode);
+btnCancelUser.addEventListener("click", cancelEditMode);
+
+// Изменение данных пользователя
+userRolesInput.addEventListener("change", addRoleToEdit);
+
+// Глобальные действия с пользователем
+btnSaveUser.addEventListener("click", saveUserData);
+btnDeleteUser.addEventListener("click", deleteUser);
+
+// Автозагрузка списка пользователей
 loadUsers();
 userSelect.addEventListener("mousedown", () => loadUsers());
