@@ -25,7 +25,7 @@
         </select>
     </div>
     <div>
-        Роли:
+        Группы:
         <ul id="userRoles"></ul>
         <select id="userRolesInput"></select>
     </div>

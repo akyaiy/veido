@@ -5,7 +5,7 @@
         <div>Имя: <span id="username">-</span></div>
         <div>Статус: <span id="userActive">-</span></div>
         <div>
-            Роли:
+            Группы:
             <div id="userRoles"></div>
         </div>
     </div>
