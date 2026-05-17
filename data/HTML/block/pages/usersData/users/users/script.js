@@ -1,3 +1,6 @@
+// Главные контейнеры
+const activateBlock = document.getElementById("activateBlock");
+
 // Список пользователей
 const userSelect = document.getElementById("userSelect");
 
@@ -207,7 +210,7 @@ function setEditMode(enabled) {
     btnCancelUser.style.display = isEditMode ? "inline-block" : "none";
 
     // Блокируем верхнее управление во время редактирования
-    userSelect.disabled = isEditMode;
+    activateBlock.style.display = isEditMode ? "none" : "";
 
     // Перерисовываем роли после смены режима
     renderUserRoles();

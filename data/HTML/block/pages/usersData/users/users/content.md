@@ -36,8 +36,8 @@
     <div id="userActions">
         <button id="btnEditUser" type="button">Редактировать</button>
         <button id="btnCancelUser" type="button">Отменить</button>
-        <button id="btnDeleteUser" type="button">Удалить пользователя</button>
         <button id="btnSaveUser" type="button">Сохранить</button>
+        <button id="btnDeleteUser" type="button">Удалить пользователя</button>
     </div>
 </div>
 

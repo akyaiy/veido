@@ -19,8 +19,7 @@
 }
 
 /* Заголовки блоков */
-#registerBlock > div:first-child,
-#activateBlock > div:first-child {
+#registerBlock > div:first-child {
     font-weight: bold;
     padding-bottom: 5px;
 }
