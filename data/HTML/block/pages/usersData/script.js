@@ -14,23 +14,24 @@ const mobileBreakpoint = 768;
 
 // === Создание меню ===
 
-// Массив для конфигурации меню
-let menuConfig = [
-    { path: "profile", title: "Профиль", target: "regDiv" },
-    { path: "data", title: "Ресурсы", isAdmin: true, target: "regDiv" },
+// Данные древа страниц
+let treeConfig = [
+    { name: "profile", title: "Профиль", isAdmin: false, target: "regDiv", default: true },
+    { name: "data", title: "Ресурсы", isAdmin: true, target: "regDiv" },
     {
-        path: "users",
+        name: "users",
         title: "Пользователи",
         isAdmin: true,
         target: "regDiv",
         children: [
-            { path: "create", title: "Создание", isAdmin: true, target: "regDiv" },
-            { path: "users", title: "Редактирование", isAdmin: true, target: "regDiv" }
+            { name: "create", title: "Создание", isAdmin: true, target: "regDiv" },
+            { name: "users", title: "Редактирование", isAdmin: true, target: "regDiv" }
         ]
     }
 ];
+const defaulTargetId = "regDiv";
 
-// Сборка меню из конфигурации menuConfig
+// Сборка меню из конфигурации treeConfig
 function buildMenu() {
 
     // кнопка открытия/закрытия меню
@@ -39,20 +40,20 @@ function buildMenu() {
     // очистка контейнера перед пересборкой
     panel.appendChild(menuToggle);
 
-    menuConfig.forEach(item => {
+    treeConfig.forEach(item => {
 
         // проверка доступа для админских пунктов
         if (item.isAdmin && !window.isAdmin) return;
 
         // обычный пункт меню
-        if (item.path && !item.children) {
+        if (item.name && !item.children) {
 
             const wrapper = document.createElement("div");
             wrapper.className = "menu-item";
 
             const a = document.createElement("a");
 
-            a.href = `/usersData/?sPage=${item.path}`;
+            a.href = `/usersData/?sPage=${item.name}`;
             a.dataset.link = "true";
             a.dataset.target = item.target;
             a.textContent = item.title;
@@ -82,8 +83,8 @@ function buildMenu() {
 
                 // формирование полного пути (учёт вложенности)
                 const fullPath = parentPath
-                    ? `${parentPath}/${child.path}`
-                    : child.path;
+                    ? `${parentPath}/${child.name}`
+                    : child.name;
 
                 const row = document.createElement("div");
                 row.className = "menu-row menu-item";
@@ -115,7 +116,7 @@ function buildMenu() {
             });
         }
 
-        render(item.children || [], item.path || "", 1);
+        render(item.children, item.name, 1);
 
         panel.appendChild(groupWrapper);
     });
@@ -173,15 +174,43 @@ function handlePanelClick(e) {
 
 // === Обработка URL ===
 
+// Проверка доступности страницы по treeConfig
+function hasPageAccess(pagePath, items = treeConfig, parentPath = "") {
+    return items.some(item => {
+        // проверка прав доступа для админских страниц
+        if (item.isAdmin && !window.isAdmin) return false;
+
+        // формируем полный путь для текущего элемента
+        const fullPath = parentPath
+            ? `${parentPath}/${item.name}`
+            : item.name;
+
+        // точное совпадение пути
+        if (fullPath === pagePath) return true;
+
+        // если есть дети, проверяем их рекурсивно
+        if (item.children) {
+            return hasPageAccess(pagePath, item.children, fullPath);
+        }
+
+        return false;
+    });
+}
+
 // Обработка текущего URL при загрузке страницы или навигации
 function handleCurrentUrl() {
     const { url, action, data } = urlStrBr(window.location.href);
+    const defaultPage = treeConfig.find(item => item.default)?.name;
+
+    // Если страница недоступна - загружаем дефолтную
+    if (action !== "sPage" || !data || !hasPageAccess(data)) {
+        history.replaceState(null, "", `/${url}/?sPage=${defaultPage}`);
+        loadBlock(`pages/${url}/${defaultPage}`, defaulTargetId);
+        return;
+    }
 
     // Если есть параметр sPage, загружаем соответствующий блок
-    if (action === "sPage") {
-        const targetId = "regDiv";
-        loadBlock(`pages/${url}/${data}`, targetId);
-    }
+    loadBlock(`pages/${url}/${data}`, defaulTargetId);
 }
 
 // Парсинг URL в структуру { url, action, data }
