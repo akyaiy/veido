@@ -49,7 +49,7 @@ async function onLoginClick() {
 
         username.value = "";
         password.value = "";
-
+        await location.reload();
     } catch (e) {
         switch (e.message) {
             case "INVALID_CREDENTIALS":
@@ -63,7 +63,6 @@ async function onLoginClick() {
         }
     }
     await initUser();
-    await location.reload();
 }
 
 /* ------------------- Кнопки ------------------- */

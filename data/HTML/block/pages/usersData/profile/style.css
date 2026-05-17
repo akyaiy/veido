@@ -27,3 +27,29 @@
     padding: 0;
     gap: 4px;
 }
+
+/* Поля редактирования */
+#usernameInput,
+#userOldPasswordInput,
+#userPasswordInput {
+    padding: 5px;
+}
+
+#usernameInput,
+#userPasswordBlock,
+#btnSaveUser,
+#btnCancelUser {
+    display: none;
+}
+
+#userPasswordBlock {
+    margin-top: 6px;
+    line-height: 1.8;
+}
+
+/* Кнопки действий */
+#userActions {
+    display: flex;
+    gap: 8px;
+    padding-top: 8px;
+}
