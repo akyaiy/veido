@@ -62,12 +62,14 @@ async function onLoginClick() {
                 UIComponents.showAlert("Ошибка при логине");
         }
     }
-    initUser();
+    await initUser();
+    await location.reload();
 }
 
 /* ------------------- Кнопки ------------------- */
 logout_btn.onclick = async () => {
     await userLogout();   // вызываем существующую функцию
-    initUser();           // делаем своё
+    await initUser();           // делаем своё
 };
 login_btn.onclick = onLoginClick;
+document.onkeydown = (e) => { (e.key === 'Enter') && onLoginClick(); };
