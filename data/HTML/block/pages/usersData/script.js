@@ -4,6 +4,7 @@ const regDiv = document.getElementById("regDiv");
 
 // Элементы панели
 const panel = document.getElementById("regPanel");
+const regPanelContent = document.getElementById("regPanelContent");
 const overlay = document.getElementById("overlay");
 const menuToggle = document.getElementById("menuToggle");
 
@@ -37,9 +38,6 @@ function buildMenu() {
     // кнопка открытия/закрытия меню
     menuToggle.onclick = toggleMenu;
 
-    // очистка контейнера перед пересборкой
-    panel.appendChild(menuToggle);
-
     treeConfig.forEach(item => {
 
         // проверка доступа для админских пунктов
@@ -59,7 +57,7 @@ function buildMenu() {
             a.textContent = item.title;
 
             wrapper.appendChild(a);
-            panel.appendChild(wrapper);
+            regPanelContent.appendChild(wrapper);
             return;
         }
 
@@ -118,7 +116,7 @@ function buildMenu() {
 
         render(item.children, item.name, 1);
 
-        panel.appendChild(groupWrapper);
+        regPanelContent.appendChild(groupWrapper);
     });
 }
 

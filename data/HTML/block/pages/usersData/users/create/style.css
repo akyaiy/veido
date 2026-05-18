@@ -1,27 +1,8 @@
-/* Главный блок */
-#usersPage {
-    background: #eee;
-    padding: 10px;
-}
-
-/* Заголовок */
-#usersPage > div:first-child {
-    font-size: 24px;
-    font-weight: bold;
-    padding: 10px 10px 5px 10px;
-}
-
 /* Основной контент */
-#usersPage > div:nth-child(2),
-#usersPage > div:nth-child(3) {
+#usersPage .blockContent,
+#usersPage .blockContent {
     gap: 8px;
-    padding: 10px 20px 10px 15px;
-}
-
-/* Заголовки блоков */
-#registerBlock > div:first-child {
-    font-weight: bold;
-    padding-bottom: 5px;
+    padding: 10px 15px 10px 15px;
 }
 
 /* Поля */

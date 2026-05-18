@@ -1,3 +1,3 @@
 <div id="dataPage">
-    <div>Мои ресурсы</div>
+    <div class="mainBlockName">Мои ресурсы</div>
 </div>
