@@ -32,9 +32,7 @@
             <ul id="userRoles"></ul>
             <select id="userRolesInput"></select>
         </div>
-        <div id="userPasswordBlock" class="pass-wrap">Сменить пороль: 
-            <input id="userPasswordInput" type="password">
-        </div>
+        <div id="passwordBlockContainer"></div>
         <!-- Кнопки редактирования -->
         <div id="userActions">
             <button id="btnEditUser" type="button">Редактировать</button>

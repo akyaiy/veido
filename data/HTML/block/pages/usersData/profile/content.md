@@ -13,10 +13,7 @@
                 Группы:
                 <div id="userRoles"></div>
             </div>
-            <div id="userPasswordBlock" class="pass-wrap">Сменить пороль: 
-                <br>Старый пороль: <input id="userOldPasswordInput" type="password">
-                <br>Новый пороль: <input id="userPasswordInput" type="password">
-            </div>
+            <div id="passwordBlockContainer"></div>
             <div id="userActions">
                 <button id="btnEditUser" type="button">Редактировать</button>
                 <button id="btnCancelUser" type="button">Отменить</button>

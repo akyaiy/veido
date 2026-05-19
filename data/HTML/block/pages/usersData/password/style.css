@@ -1,0 +1,11 @@
+/* основной блок  */
+.passwordForm {
+    padding-left: 10px;
+}
+
+/* формы */
+#profilePasswordMode,
+#adminPasswordMode {
+    flex-direction: column;
+    gap: 8px;
+}

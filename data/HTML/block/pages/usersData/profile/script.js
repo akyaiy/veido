@@ -1,11 +1,9 @@
 // Главные контейнеры
-const userPasswordBlock = document.getElementById("userPasswordBlock");
+const passwordBlockContainer = document.getElementById("passwordBlockContainer");
 
 // Данные пользователя
 const username = document.getElementById("username");
 const usernameInput = document.getElementById("usernameInput");
-const userOldPasswordInput = document.getElementById("userOldPasswordInput");
-const userPasswordInput = document.getElementById("userPasswordInput");
 
 let currentUser = null;
 let currentUserRoles = [];
@@ -17,6 +15,7 @@ const btnCancelUser = document.getElementById("btnCancelUser");
 
 // Режим редактирования
 let isEditMode = false;
+
 
 
 
@@ -84,7 +83,6 @@ function setEditMode(enabled) {
     // Переключаем отображение редактируемых полей
     username.style.display = isEditMode ? "none" : "inline";
     usernameInput.style.display = isEditMode ? "inline-block" : "none";
-    userPasswordBlock.style.display = isEditMode ? "block" : "none";
     btnEditUser.style.display = isEditMode ? "none" : "inline-block";
     btnSaveUser.style.display = isEditMode ? "inline-block" : "none";
     btnCancelUser.style.display = isEditMode ? "inline-block" : "none";
@@ -94,9 +92,9 @@ function setEditMode(enabled) {
 function cancelEditMode() {
     // Возвращаем исходные значения пользователя
     usernameInput.value = currentUser?.username ?? "";
-    userOldPasswordInput.value = "";
-    userPasswordInput.value = "";
     setEditMode(false);
+    // Очищаем контейнер пароля
+    passwordBlockContainer.innerHTML = "";
 }
 
 // Переход в режим редактирования
@@ -109,8 +107,6 @@ function enableEditMode() {
 
     // Заполняем поля текущими значениями
     usernameInput.value = currentUser.username ?? "";
-    userOldPasswordInput.value = "";
-    userPasswordInput.value = "";
     setEditMode(true);
 }
 
@@ -120,9 +116,11 @@ function enableEditMode() {
 
 // Сохранение данных профиля
 async function saveProfileData() {
+    if (passwordBlockContainer?.children.length > 0) {
+        return;
+    }
+
     const nextUsername = usernameInput.value.trim();
-    const oldPassword = userOldPasswordInput.value.trim();
-    const newPassword = userPasswordInput.value.trim();
     const body = {};
 
     // Проверяем, что имя заполнено
@@ -131,21 +129,13 @@ async function saveProfileData() {
         return;
     }
 
-    // Проверяем, что пароль заполнен корректно
-    if (oldPassword || newPassword) {
-        if (!oldPassword || !newPassword) {
-            alert("Заполните оба поля пароля");
-            return;
-        }
-    }
-
     // Добавляем имя, если оно изменилось
     if (nextUsername !== (currentUser?.username ?? "")) {
         body.name = nextUsername;
     }
 
-    // Если изменений нет - просто выходим из режима
-    if (Object.keys(body).length === 0 && !oldPassword && !newPassword) {
+    // Не отправляем PATCH без изменений, иначе сервер вернет 400.
+    if (Object.keys(body).length === 0) {
         setEditMode(false);
         return;
     }
@@ -158,45 +148,39 @@ async function saveProfileData() {
 
     try {
         // Сохраняем имя пользователя
-        if (Object.keys(body).length > 0) {
-            const result = await apiProtected('/api/auth/me', {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(body)
-            });
+        const result = await apiProtected('/api/auth/me', {
+            method: 'PATCH',
+            body: body
+        });
 
-            // Проверяем успешный ответ
-            if (result?.status !== 'ok') {
-                alert('Ошибка сохранения профиля');
-                return;
-            }
-        }
-
-        // Меняем пароль пользователя
-        if (oldPassword && newPassword) {
-            const passwordResult = await apiProtected('/api/auth/me/password', {
-                method: 'PATCH',
-                body: {
-                    oldPassword: oldPassword,
-                    newPassword: newPassword
-                }
-            });
-
-            // Проверяем успешный ответ
-            if (passwordResult?.status !== 'ok') {
-                alert('Ошибка смены пороля');
-                return;
-            }
+        // Проверяем успешный ответ
+        if (result?.status !== 'ok') {
+            alert('Ошибка сохранения профиля');
+            return;
         }
 
         alert('Данные профиля сохранены');
+
+        // Перезагружаем данные профиля
         await loadProfile();
     } catch (e) {
         console.error('Ошибка сохранения профиля:', e);
         alert('Ошибка сохранения профиля');
     }
+}
+
+// Открыть форму смены пароля
+function showPasswordForm() {
+    // Сохраняем текущую страницу в tempStore для возврата
+    window.tempStore = window.tempStore || {};
+    window.tempStore.passwordMode = 'profile';
+    window.tempStore.previousPage = 'profile';
+    window.tempStore.passwordSaveButtonId = 'btnSaveUser';
+    window.tempStore.passwordCancelButtonId = 'btnCancelUser';
+    window.tempStore.passwordContainerId = 'passwordBlockContainer';
+    
+    // Подгружаем блок пароля
+    loadBlock('pages/usersData/password', 'passwordBlockContainer');
 }
 
 
@@ -207,6 +191,7 @@ btnEditUser.addEventListener("click", enableEditMode);
 // Глобальные действия с пользователем
 btnSaveUser.addEventListener("click", saveProfileData);
 btnCancelUser.addEventListener("click", cancelEditMode);
+btnEditUser.addEventListener("click", showPasswordForm);
 
 // Автозагрузка данных профиля
 loadProfile();

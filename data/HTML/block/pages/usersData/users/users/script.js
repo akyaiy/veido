@@ -1,5 +1,6 @@
 // Главные контейнеры
 const activateBlock = document.getElementById("activateBlock");
+const passwordBlockContainer = document.getElementById("passwordBlockContainer");
 
 // Список пользователей
 const userSelect = document.getElementById("userSelect");
@@ -18,8 +19,6 @@ const userStatus = document.getElementById("userStatus");
 const userStatusInput = document.getElementById("userStatusInput");
 const userRoles = document.getElementById("userRoles");
 const userRolesInput = document.getElementById("userRolesInput");
-const userPasswordBlock = document.getElementById("userPasswordBlock");
-const userPasswordInput = document.getElementById("userPasswordInput");
 
 let currentUser = null;
 let currentUserRoles = [];
@@ -203,7 +202,6 @@ function setEditMode(enabled) {
     userStatus.style.display = isEditMode ? "none" : "inline";
     userStatusInput.style.display = isEditMode ? "inline-block" : "none";
     userRolesInput.style.display = isEditMode ? "inline-block" : "none";
-    userPasswordBlock.style.display = isEditMode ? "block" : "none";
     btnEditUser.style.display = isEditMode ? "none" : "inline-block";
     btnDeleteUser.style.display = isEditMode ? "inline-block" : "none";
     btnSaveUser.style.display = isEditMode ? "inline-block" : "none";
@@ -223,8 +221,9 @@ function cancelEditMode() {
     editedRoleIds = currentUserRoles.map(role => Number(role.id));
     usernameInput.value = currentUser?.username ?? "";
     userStatusInput.value = currentUser?.status ?? "inactive";
-    userPasswordInput.value = "";
     setEditMode(false);
+    // Очищаем контейнер пароля
+    passwordBlockContainer.innerHTML = "";
 }
 
 // Переход в режим редактирования
@@ -241,7 +240,6 @@ async function enableEditMode() {
     // Заполняем поля текущими значениями
     usernameInput.value = currentUser.username ?? "";
     userStatusInput.value = currentUser.status ?? "inactive";
-    userPasswordInput.value = "";
     editedRoleIds = currentUserRoles.map(role => Number(role.id));
     setEditMode(true);
 }
@@ -277,13 +275,16 @@ function removeRoleFromEdit(roleId) {
 
 // Сохранение данных пользователя
 async function saveUserData() {
+    if (passwordBlockContainer?.children.length > 0) {
+        return;
+    }
+
     const selectedUserId = Number(userSelect.value);
     const nextUsername = usernameInput.value.trim();
     const nextStatus = userStatusInput.value;
     const currentRoleIds = currentUserRoles.map(role => Number(role.id));
     const rolesToAdd = editedRoleIds.filter(roleId => !currentRoleIds.includes(roleId));
     const rolesToRemove = currentRoleIds.filter(roleId => !editedRoleIds.includes(roleId));
-    const nextPassword = userPasswordInput.value.trim();
 
     // Проверяем, что пользователь выбран
     if (!selectedUserId) {
@@ -310,7 +311,7 @@ async function saveUserData() {
     }
 
     // Если изменений нет - просто выходим из режима
-    if (Object.keys(body).length === 0 && rolesToAdd.length === 0 && rolesToRemove.length === 0 && !nextPassword) {
+    if (Object.keys(body).length === 0 && rolesToAdd.length === 0 && rolesToRemove.length === 0) {
         setEditMode(false);
         return;
     }
@@ -336,22 +337,6 @@ async function saveUserData() {
             }
         }
 
-        // Меняем пароль пользователя
-        if (nextPassword) {
-            const passwordResult = await apiProtected(`/api/auth/users/admin/${selectedUserId}/password`, {
-                method: "PATCH",
-                body: {
-                    newPassword: nextPassword
-                }
-            });
-
-            // Проверяем успешный ответ
-            if (passwordResult?.status !== "ok") {
-                alert("Ошибка смены пороля");
-                return;
-            }
-        }
-
         // Добавляем новые роли пользователю
         for (const roleId of rolesToAdd) {
             await apiProtected(`/api/acl-admin/users/${selectedUserId}/roles`, {
@@ -369,12 +354,28 @@ async function saveUserData() {
             });
         }
 
+        // Перезагружаем данные пользователя
         alert("Данные пользователя сохранены");
         await loadUsers(selectedUserId);
     } catch (e) {
         console.error("Ошибка сохранения данных пользователя:", e);
         alert("Ошибка сохранения данных пользователя");
     }
+}
+
+// Открыть форму смены пароля
+function showPasswordForm() {
+    // Сохраняем контекст для подгруженного блока
+    window.tempStore = window.tempStore || {};
+    window.tempStore.passwordMode = 'admin';
+    window.tempStore.userId = Number(userSelect.value);
+    window.tempStore.previousPage = 'users/users';
+    window.tempStore.passwordSaveButtonId = 'btnSaveUser';
+    window.tempStore.passwordCancelButtonId = 'btnCancelUser';
+    window.tempStore.passwordContainerId = 'passwordBlockContainer';
+    
+    // Подгружаем блок пароля
+    loadBlock('pages/usersData/password', 'passwordBlockContainer');
 }
 
 // Удаление пользователя
@@ -427,6 +428,7 @@ userRolesInput.addEventListener("change", addRoleToEdit);
 // Глобальные действия с пользователем
 btnSaveUser.addEventListener("click", saveUserData);
 btnDeleteUser.addEventListener("click", deleteUser);
+btnEditUser.addEventListener("click", showPasswordForm);
 
 // Автозагрузка списка пользователей
 loadUsers();
