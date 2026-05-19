@@ -4,7 +4,9 @@
         <div class="blockName">Создание пользователей</div>
         <div class="blockContent">
             <input id="newUserName" type="text" placeholder="Имя">
-            <input id="newUserPassword" type="password" placeholder="Пароль">
+            <div class="pass-wrap">
+                <input id="newUserPassword" type="password" placeholder="Пароль">
+            </div>
             <button id="btnCreateUser" type="button">Создать пользователя</button>
         </div>
     </div>

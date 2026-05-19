@@ -1,23 +1,4 @@
-/* Основной контент */
-#usersPage .blockContent,
-#usersPage .blockContent {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 10px 15px 10px 15px;
-}
-
-/* Поля для редактирования */
-#newUserName,
-#newUserPassword,
-#userSelect,
-#usernameInput,
-#userStatusInput,
-#userRolesInput,
-#userPasswordInput {
-    padding: 5px;
-}
-
+/* Скрытые элементы */
 #usernameInput,
 #userStatusInput,
 #userRolesInput,
@@ -30,11 +11,6 @@
 
 #userRolesInput {
     margin-top: 10px;
-}
-
-#userPasswordBlock {
-    margin-top: 6px;
-    line-height: 1.8;
 }
 
 /* Список ролей */

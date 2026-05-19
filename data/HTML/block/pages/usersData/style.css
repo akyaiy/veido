@@ -25,7 +25,7 @@
     gap: 0;
 }
 
-/* Левая нижняя колонка */
+/* Контейнер меню */
 #menuContainer {
     border-right: 1px solid #cccccc;
     padding: 15px 25px 10px 10px;
@@ -69,7 +69,7 @@
     word-break: break-word;
 }
 
-/* Правая нижняя колонка */
+/* Основный блок */
 .mainBlockName {
     font-size: 24px;
     font-weight: bold;
@@ -107,11 +107,34 @@
     padding-top: 15px;
     padding-left: 5px;
 }
+
 .blockName {
     font-weight: bold;
+    padding-bottom: 5px;
 }
+
 .blockContent {
-    padding-left: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+}
+
+/* Поля для редактирования */
+input[type="text"],
+input[type="password"],
+select {
+    padding: 5px;
+}
+
+/* Обёртка для полей пароля */
+.pass-wrap {
+    line-height: 1.8;
+}
+
+/* Скрытые элементы по умолчанию */
+.hidden {
+    display: none;
 }
 
 /* Адаптация под мобильные устройства */
