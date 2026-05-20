@@ -5,7 +5,7 @@
         <div class="blockContent">
             <input id="newUserName" type="text" placeholder="Имя">
             <div class="pass-wrap">
-                <input id="newUserPassword" type="password" placeholder="Пароль">
+                <input id="newUserPassword" type="password" placeholder="Пароль" autocomplete="new-password">
             </div>
             <button id="btnCreateUser" type="button">Создать пользователя</button>
         </div>
