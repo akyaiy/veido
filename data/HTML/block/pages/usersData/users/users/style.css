@@ -37,7 +37,8 @@
     position: absolute;
     margin-left: 76px;
     min-width: 100px;
-    border: 1px solid #888;
+    border: 1px solid #ccc;
+    border-radius: 8px;
     background: #fff;
     padding: 2px 0;
     z-index: 5;

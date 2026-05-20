@@ -112,11 +112,18 @@ function enableEditMode() {
 
 
 
+// Проверка, что форма пароля пустая
+function isEmptyPasswordBlock() {
+    const inputs = passwordBlockContainer.querySelectorAll("input");
+    return Array.from(inputs).every(input => !input.value.trim());
+}
+
+
 // === Глобальные действия с пользователем ===
 
 // Сохранение данных профиля
 async function saveProfileData() {
-    if (passwordBlockContainer?.children.length > 0) {
+    if (passwordBlockContainer?.children.length > 0 && !isEmptyPasswordBlock()) {
         return;
     }
 

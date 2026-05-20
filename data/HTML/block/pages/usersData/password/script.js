@@ -107,15 +107,17 @@ async function savePassword() {
     const newPassword = mode === "admin" ? (values[0] || "") : (values[1] || "");
     const repeatPassword = mode === "admin" ? (values[1] || "") : (values[2] || "");
 
-    // Проверяем ввод нового пароля
-    if (!newPassword) {
-        alert("Введите новый пароль");
-        return;
-    }
-
     // Проверяем повтор нового пароля
     if (newPassword !== repeatPassword) {
         alert("Пароли не совпадают");
+        return;
+    }
+
+    // если пусто, то отмена
+    if (mode === "profile" && !oldPassword && !newPassword && !repeatPassword) {
+        return;
+    }
+    if (mode === "admin" && !newPassword && !repeatPassword) {
         return;
     }
 

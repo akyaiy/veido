@@ -220,7 +220,6 @@ function cancelEditMode() {
     setEditMode(false);
     // Очищаем контейнер пароля
     passwordBlockContainer.innerHTML = "";
-    passwordBlockContainer.style.display = "none";
     userRolesInput.style.display = "none";
 }
 
@@ -270,11 +269,18 @@ function removeRoleFromEdit(roleId) {
 
 
 
+// Проверка, что форма пароля пустая
+function isEmptyPasswordBlock() {
+    const inputs = passwordBlockContainer.querySelectorAll("input");
+    return Array.from(inputs).every(input => !input.value.trim());
+}
+
+
 // === Глобальные действия с пользователем ===
 
 // Сохранение данных пользователя
 async function saveUserData() {
-    if (passwordBlockContainer?.children.length > 0) {
+    if (passwordBlockContainer?.children.length > 0 && !isEmptyPasswordBlock()) {
         return;
     }
 
