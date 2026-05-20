@@ -4,8 +4,8 @@
         <div class="blockName">Мои данные</div>
         <div class="blockContent">
             <div>ID: <span id="userId">-</span></div>
-            <div>Имя: 
-                <span id="username">-</span>
+            <div>Имя:
+                <span id="username">-</span><br>
                 <input id="usernameInput" type="text">
             </div>
             <div>Статус: <span id="userActive">-</span></div>

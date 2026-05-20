@@ -4,27 +4,52 @@
 #userRolesInput,
 #btnSaveUser,
 #btnCancelUser,
-#btnDeleteUser {
+#btnDeleteUser,
+#userRolesAdd {
     display: none;
 }
 
-#userRolesInput {
-    margin-top: 10px;
+/* Список ролей */
+#userRolesContainer {
+    border-radius: 8px;
+    margin: 5px 0 0 10px;
+    width: fit-content;
 }
 
-/* Список ролей */
 #userRoles {
     display: flex;
     flex-direction: column;
-    margin: 5px 0 0 15px;
     padding: 0;
     gap: 4px;
 }
 
-#userRoles li {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+#userRoles div {
+    width: fit-content;
+}
+
+#userRolesAdd {
+    width: 70px;
+    padding: 0px;
+    margin-top: 5px;
+}
+
+#userRolesInput {
+    position: absolute;
+    margin-left: 76px;
+    min-width: 100px;
+    border: 1px solid #888;
+    background: #fff;
+    padding: 2px 0;
+    z-index: 5;
+}
+
+#userRolesInput div {
+    padding: 3px 6px;
+    cursor: pointer;
+}
+
+#userRolesInput div:hover {
+    background: #eee;
 }
 
 /* Кнопки действий */

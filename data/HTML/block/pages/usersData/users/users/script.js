@@ -1,6 +1,7 @@
 // Главные контейнеры
 const activateBlock = document.getElementById("activateBlock");
 const passwordBlockContainer = document.getElementById("passwordBlockContainer");
+const userRolesContainer = document.getElementById("userRolesContainer");
 
 // Список пользователей
 const userSelect = document.getElementById("userSelect");
@@ -18,6 +19,7 @@ const usernameInput = document.getElementById("usernameInput");
 const userStatus = document.getElementById("userStatus");
 const userStatusInput = document.getElementById("userStatusInput");
 const userRoles = document.getElementById("userRoles");
+const userRolesAdd = document.getElementById("userRolesAdd");
 const userRolesInput = document.getElementById("userRolesInput");
 
 let currentUser = null;
@@ -137,7 +139,7 @@ function renderUserRoles() {
     roles.forEach(role => {
         const div = document.createElement("div");
         const roleName = document.createElement("span");
-        roleName.textContent = "• " + role.name;
+        roleName.textContent = role.name;
         div.appendChild(roleName);
 
         // В режиме редактирования добавляем удаление роли
@@ -171,21 +173,14 @@ async function loadAllRoles() {
 function renderAvailableRoles() {
     userRolesInput.innerHTML = "";
 
-    const emptyOption = document.createElement("option");
-    emptyOption.value = "";
-    emptyOption.textContent = "Выберите роль";
-    userRolesInput.appendChild(emptyOption);
-
     allRoles
         .filter(role => !editedRoleIds.includes(Number(role.id)))
         .forEach(role => {
-            const option = document.createElement("option");
-            option.value = role.id;
-            option.textContent = role.name;
-            userRolesInput.appendChild(option);
+            const div = document.createElement("div");
+            div.dataset.roleId = role.id;
+            div.textContent = role.name;
+            userRolesInput.appendChild(div);
         });
-
-    userRolesInput.value = "";
 }
 
 
@@ -198,10 +193,11 @@ function setEditMode(enabled) {
 
     // Переключаем отображение редактируемых полей
     username.style.display = isEditMode ? "none" : "inline";
+    userRolesAdd.style.display = isEditMode ? "inline-block" : "none";
     usernameInput.style.display = isEditMode ? "inline-block" : "none";
     userStatus.style.display = isEditMode ? "none" : "inline";
     userStatusInput.style.display = isEditMode ? "inline-block" : "none";
-    userRolesInput.style.display = isEditMode ? "inline-block" : "none";
+    userRolesInput.style.display = "none";
     btnEditUser.style.display = isEditMode ? "none" : "inline-block";
     btnDeleteUser.style.display = isEditMode ? "inline-block" : "none";
     btnSaveUser.style.display = isEditMode ? "inline-block" : "none";
@@ -224,6 +220,8 @@ function cancelEditMode() {
     setEditMode(false);
     // Очищаем контейнер пароля
     passwordBlockContainer.innerHTML = "";
+    passwordBlockContainer.style.display = "none";
+    userRolesInput.style.display = "none";
 }
 
 // Переход в режим редактирования
@@ -245,8 +243,8 @@ async function enableEditMode() {
 }
 
 // Добавляем роль в список редактирования
-function addRoleToEdit() {
-    const roleId = Number(userRolesInput.value);
+function addRoleToEdit(roleId) {
+    roleId = Number(roleId);
 
     // Проверяем, что роль выбрана
     if (!roleId) {
@@ -260,6 +258,7 @@ function addRoleToEdit() {
 
     renderUserRoles();
     renderAvailableRoles();
+    userRolesInput.style.display = "none";
 }
 
 // Удаляем роль из списка редактирования
@@ -419,6 +418,39 @@ async function deleteUser() {
 
 
 
+// === Действия с выбором ролей ===
+
+// Открытие и закрытие списка ролей для добавления
+function toggleUserRolesInput(e) {
+    e.stopPropagation();
+
+    if (!isEditMode) {
+        return;
+    }
+
+    userRolesInput.style.display =
+        userRolesInput.style.display === "block" ? "none" : "block";
+}
+
+// Выбор роли для добавления
+function handleUserRolesInputClick(e) {
+    const roleItem = e.target.closest("[data-role-id]");
+    if (!roleItem) {
+        return;
+    }
+
+    addRoleToEdit(roleItem.dataset.roleId);
+}
+
+// Скрытие списка ролей при клике вне его
+function handleDocumentClick(e) {
+    if (!userRolesContainer.contains(e.target)) {
+        userRolesInput.style.display = "none";
+    }
+}
+
+
+
 // Загрузка данных
 userSelect.addEventListener("change", loadSelectedUser);
 
@@ -426,8 +458,10 @@ userSelect.addEventListener("change", loadSelectedUser);
 btnEditUser.addEventListener("click", enableEditMode);
 btnCancelUser.addEventListener("click", cancelEditMode);
 
-// Изменение данных пользователя
-userRolesInput.addEventListener("change", addRoleToEdit);
+// Действия с ролями
+userRolesAdd.addEventListener("click", toggleUserRolesInput);
+userRolesInput.addEventListener("click", handleUserRolesInputClick);
+document.addEventListener("click", handleDocumentClick);
 
 // Глобальные действия с пользователем
 btnSaveUser.addEventListener("click", saveUserData);

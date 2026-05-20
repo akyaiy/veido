@@ -16,11 +16,11 @@
     <div class="blockContent">
         <div>ID: <span id="userId">-</span></div>
         <div>Имя: 
-            <span id="username">-</span>
+            <span id="username">-</span><br>
             <input id="usernameInput" type="text">
         </div>
         <div>Статус: 
-            <span id="userStatus">-</span>
+            <span id="userStatus">-</span><br>
             <select id="userStatusInput">
                 <option value="active">active</option>
                 <option value="inactive">inactive</option>
@@ -29,8 +29,11 @@
         </div>
         <div>
             Группы:
-            <ul id="userRoles"></ul>
-            <select id="userRolesInput"></select>
+            <div id="userRolesContainer">
+                <div id="userRolesInput"></div>
+                <div id="userRoles"></div>
+                <button id="userRolesAdd">+</button>
+            </div>
         </div>
         <div id="passwordBlockContainer"></div>
         <!-- Кнопки редактирования -->
