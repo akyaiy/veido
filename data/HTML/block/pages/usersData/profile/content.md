@@ -1,5 +1,5 @@
 <div id="profilePage">
-    <div class="mainBlockName">Профиль</div>
+    <div class="mainBlockName">Мой профиль</div>
     <div class="blockPage">
         <div class="blockName">Мои данные</div>
         <div class="blockContent">

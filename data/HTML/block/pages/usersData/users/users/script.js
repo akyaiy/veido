@@ -364,15 +364,19 @@ async function saveUserData() {
 }
 
 // Открыть форму смены пароля
-function showPasswordForm() {
+async function showPasswordForm() {
     // Сохраняем контекст для подгруженного блока
-    window.tempStore = window.tempStore || {};
-    window.tempStore.passwordMode = 'admin';
-    window.tempStore.userId = Number(userSelect.value);
-    window.tempStore.previousPage = 'users/users';
-    window.tempStore.passwordSaveButtonId = 'btnSaveUser';
-    window.tempStore.passwordCancelButtonId = 'btnCancelUser';
-    window.tempStore.passwordContainerId = 'passwordBlockContainer';
+    await window.tempStore.store({
+        passwordMode: "admin",
+        userId: Number(userSelect.value),
+        passwordSaveButtonId: "btnSaveUser",
+        passwordCancelButtonId: "btnCancelUser",
+        passwordContainerId: "passwordBlockContainer"
+    }, {
+        recipient: "usersDataPassword",
+        ttlMs: 5000,
+        destroyOnRead: true
+    });
     
     // Подгружаем блок пароля
     loadBlock('pages/usersData/password', 'passwordBlockContainer');

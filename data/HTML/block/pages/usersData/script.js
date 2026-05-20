@@ -17,8 +17,8 @@ const mobileBreakpoint = 768;
 
 // Данные древа страниц
 let treeConfig = [
-    { name: "profile", title: "Профиль", isAdmin: false, target: "regDiv", default: true },
-    { name: "data", title: "Ресурсы", isAdmin: true, target: "regDiv" },
+    { name: "profile", title: "Мой профиль", isAdmin: false, target: "regDiv", default: true },
+    { name: "data", title: "Мои ресурсы", isAdmin: true, target: "regDiv" },
     {
         name: "users",
         title: "Пользователи",

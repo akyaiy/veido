@@ -170,14 +170,18 @@ async function saveProfileData() {
 }
 
 // Открыть форму смены пароля
-function showPasswordForm() {
-    // Сохраняем текущую страницу в tempStore для возврата
-    window.tempStore = window.tempStore || {};
-    window.tempStore.passwordMode = 'profile';
-    window.tempStore.previousPage = 'profile';
-    window.tempStore.passwordSaveButtonId = 'btnSaveUser';
-    window.tempStore.passwordCancelButtonId = 'btnCancelUser';
-    window.tempStore.passwordContainerId = 'passwordBlockContainer';
+async function showPasswordForm() {
+    // Сохраняем контекст для подгруженного блока
+    await window.tempStore.store({
+        passwordMode: "profile",
+        passwordSaveButtonId: "btnSaveUser",
+        passwordCancelButtonId: "btnCancelUser",
+        passwordContainerId: "passwordBlockContainer"
+    }, {
+        recipient: "usersDataPassword",
+        ttlMs: 5000,
+        destroyOnRead: true
+    });
     
     // Подгружаем блок пароля
     loadBlock('pages/usersData/password', 'passwordBlockContainer');
