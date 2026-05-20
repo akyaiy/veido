@@ -5,15 +5,17 @@ const adminPasswordMode = document.getElementById("adminPasswordMode");
 // Поля для редактирования пароля
 const userOldPasswordInput = document.getElementById("userOldPasswordInput");
 const profileNewPasswordInput = document.getElementById("profileNewPasswordInput");
+const profileRepeatPasswordInput = document.getElementById("profileRepeatPasswordInput");
 const adminNewPasswordInput = document.getElementById("adminNewPasswordInput");
+const adminRepeatPasswordInput = document.getElementById("adminRepeatPasswordInput");
 
 const TEMP_STORE_RECIPIENT = "usersDataPassword";
 
 let passwordContext = null;
 
 const passwordInputs = {
-    profile: [userOldPasswordInput, profileNewPasswordInput],
-    admin: [adminNewPasswordInput]
+    profile: [userOldPasswordInput, profileNewPasswordInput, profileRepeatPasswordInput],
+    admin: [adminNewPasswordInput, adminRepeatPasswordInput]
 };
 
 
@@ -103,10 +105,17 @@ async function savePassword() {
     const values = getPasswordValues(mode);
     const oldPassword = mode === "profile" ? (values[0] || "") : "";
     const newPassword = mode === "admin" ? (values[0] || "") : (values[1] || "");
+    const repeatPassword = mode === "admin" ? (values[1] || "") : (values[2] || "");
 
     // Проверяем ввод нового пароля
     if (!newPassword) {
         alert("Введите новый пароль");
+        return;
+    }
+
+    // Проверяем повтор нового пароля
+    if (newPassword !== repeatPassword) {
+        alert("Пароли не совпадают");
         return;
     }
 
