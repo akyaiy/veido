@@ -1,0 +1,71 @@
+/* Сообщение */
+#usersDataMessage {
+    display: none;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto auto;
+    gap: 10px;
+
+    margin: 0 0 12px 0;
+    padding: 10px 12px;
+
+    border: 1px solid #bfbfbf;
+    background: #fff;
+    position: relative;
+}
+
+/* Отображение сообщения */
+#usersDataMessage.show {
+    display: grid;
+}
+
+/* Заголовок сообщения */
+#usersDataMessageTitle {
+    font-weight: bold;
+    grid-column: 1 / -1;
+    font-size: 20px;
+}
+
+/* Типы сообщения */
+#usersDataMessage.success {
+    border-color: #7aa77a;
+    background: #f6fff6;
+}
+
+#usersDataMessage.error {
+    border-color: #c97d7d;
+    background: #fff5f5;
+}
+
+#usersDataMessage.confirm {
+    border-color: #bfbfbf;
+}
+
+/* Текст сообщения */
+#usersDataMessageText {
+    flex: 1;
+    white-space: pre-wrap;
+    grid-column: 1;
+}
+
+/* Кнопки confirm */
+#usersDataMessageActions {
+    display: none;
+    grid-column: 1;
+}
+
+#usersDataMessage.confirm #usersDataMessageActions {
+    display: flex;
+    gap: 6px;
+}
+
+/* Кнопка закрытия */
+#usersDataMessage.confirm #usersDataMessageClose {
+    display: none;
+}
+
+#usersDataMessageClose {
+    padding: 0 6px;
+    position: absolute;
+    top: 5px;
+    right: 5px;
+}

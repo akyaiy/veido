@@ -1,6 +1,7 @@
 // Главный контейнеры
 const menuContainer = document.getElementById("menuContainer");
 const regDiv = document.getElementById("regDiv");
+const messageBlockContainer = document.getElementById("messageBlockContainer");
 
 // Элементы панели
 const panel = document.getElementById("regPanel");
@@ -291,6 +292,16 @@ async function checkUser() {
 
 
 
+// === Сообщения ===
+
+function initMessageBlock() {
+    if (!messageBlockContainer) {
+        return;
+    }
+
+    loadBlock("pages/usersData/elements/message", "messageBlockContainer");
+}
+
 // === Сообщение об авторизации ===
 
 // Переадресация на страницу входа
@@ -303,6 +314,7 @@ function loginRedirect(event) {
 
 // Инициализация при загрузке страницы
 async function init() {
+    initMessageBlock();
     checkUserStatus = await checkUser();
     await buildMenu();
     if (checkUserStatus) {

@@ -106,7 +106,7 @@ function cancelEditMode() {
 function enableEditMode() {
     // Проверяем, что данные пользователя загружены
     if (!currentUser) {
-        alert("Ошибка загрузки профиля");
+        window.showUsersDataMessage("Ошибка загрузки профиля", "error");
         return;
     }
 
@@ -141,7 +141,7 @@ async function saveProfileData() {
 
     // Проверяем, что имя заполнено
     if (!nextUsername) {
-        alert("Введите имя пользователя");
+        window.showUsersDataMessage("Введите имя пользователя", "error");
         return;
     }
 
@@ -157,7 +157,7 @@ async function saveProfileData() {
     }
 
     // Подтверждаем сохранение изменений
-    const isConfirmed = confirm("Сохранить изменения профиля?");
+    const isConfirmed = await window.confirmUsersDataMessage("Сохранить изменения профиля?");
     if (!isConfirmed) {
         return;
     }
@@ -171,17 +171,17 @@ async function saveProfileData() {
 
         // Проверяем успешный ответ
         if (result?.status !== 'ok') {
-            alert('Ошибка сохранения профиля');
+            window.showUsersDataMessage("Ошибка сохранения профиля", "error");
             return;
         }
 
-        alert('Данные профиля сохранены');
+        window.showUsersDataMessage("Данные профиля сохранены", "success");
 
         // Перезагружаем данные профиля
         await loadProfile();
     } catch (e) {
         console.error('Ошибка сохранения профиля:', e);
-        alert('Ошибка сохранения профиля');
+        window.showUsersDataMessage("Ошибка сохранения профиля", "error");
     }
 }
 

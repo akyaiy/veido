@@ -14,7 +14,7 @@ async function createUser() {
 
         // Простая проверка
         if (!name || !password) {
-            alert("Введите имя и пароль");
+            window.showUsersDataMessage("Введите имя и пароль", "error");
             return;
         }
 
@@ -30,18 +30,18 @@ async function createUser() {
 
         // Проверяем успешный ответ
         if (result?.status === "ok") {
-            alert("Пользователь создан");
+            window.showUsersDataMessage("Пользователь создан", "success");
 
             // Очищаем поля
             newUserName.value = "";
             newUserPassword.value = "";
         } else {
-            alert("Ошибка создания пользователя");
+            window.showUsersDataMessage("Ошибка создания пользователя", "error");
             console.error("Ошибка создания пользователя:", result);
         }
     } catch (e) {
         console.error("Ошибка создания пользователя:", e);
-        alert("Ошибка создания пользователя");
+        window.showUsersDataMessage("Ошибка создания пользователя", "error");
     }
 }
 

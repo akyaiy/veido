@@ -64,7 +64,7 @@ async function loadUsers(selectedUserId = Number(userSelect.value)) {
         }
     } catch (e) {
         console.error("Ошибка загрузки пользователей:", e);
-        alert("Ошибка загрузки списка пользователей");
+        window.showUsersDataMessage("Ошибка загрузки списка пользователей", "error");
     }
 }
 
@@ -88,7 +88,7 @@ async function loadSelectedUser() {
         fillUserData(currentUser, currentUserRoles);
     } catch (e) {
         console.error("Ошибка загрузки данных пользователя:", e);
-        alert("Ошибка загрузки данных пользователя");
+        window.showUsersDataMessage("Ошибка загрузки данных пользователя", "error");
     }
 }
 
@@ -166,7 +166,7 @@ async function loadAllRoles() {
         renderAvailableRoles();
     } catch (e) {
         console.error("Ошибка загрузки ролей:", e);
-        alert("Ошибка загрузки списка ролей");
+        window.showUsersDataMessage("Ошибка загрузки списка ролей", "error");
     }
 }
 
@@ -235,7 +235,7 @@ function cancelEditMode() {
 async function enableEditMode() {
     // Проверяем, что данные пользователя загружены
     if (!currentUser) {
-        alert("Выберите пользователя");
+        window.showUsersDataMessage("Выберите пользователя", "error");
         return;
     }
 
@@ -331,13 +331,13 @@ async function saveUserData() {
 
     // Проверяем, что пользователь выбран
     if (!selectedUserId) {
-        alert("Выберите пользователя");
+        window.showUsersDataMessage("Выберите пользователя", "error");
         return;
     }
 
     // Проверяем, что имя заполнено
     if (!nextUsername) {
-        alert("Введите имя пользователя");
+        window.showUsersDataMessage("Введите имя пользователя", "error");
         return;
     }
 
@@ -360,7 +360,7 @@ async function saveUserData() {
     }
 
     // Подтверждаем сохранение изменений
-    const isConfirmed = confirm("Сохранить изменения пользователя?");
+    const isConfirmed = await window.confirmUsersDataMessage("Сохранить изменения пользователя?");
     if (!isConfirmed) {
         return;
     }
@@ -375,7 +375,7 @@ async function saveUserData() {
 
             // Проверяем успешный ответ
             if (result?.status !== "ok") {
-                alert("Ошибка сохранения данных пользователя");
+                window.showUsersDataMessage("Ошибка сохранения данных пользователя", "error");
                 return;
             }
         }
@@ -398,11 +398,11 @@ async function saveUserData() {
         }
 
         // Перезагружаем данные пользователя
-        alert("Данные пользователя сохранены");
+        window.showUsersDataMessage("Данные пользователя сохранены", "success");
         await loadUsers(selectedUserId);
     } catch (e) {
         console.error("Ошибка сохранения данных пользователя:", e);
-        alert("Ошибка сохранения данных пользователя");
+        window.showUsersDataMessage("Ошибка сохранения данных пользователя", "error");
     }
 }
 
@@ -431,12 +431,12 @@ async function deleteUser() {
 
     // Проверяем, что пользователь выбран
     if (!selectedUserId) {
-        alert("Выберите пользователя");
+        window.showUsersDataMessage("Выберите пользователя", "error");
         return;
     }
 
     // Подтверждаем удаление пользователя
-    const isConfirmed = confirm(`Удалить пользователя "${currentUser?.username ?? ""}"?`);
+    const isConfirmed = await window.confirmUsersDataMessage(`Удалить пользователя "${currentUser?.username ?? ""}"?`);
     if (!isConfirmed) {
         return;
     }
@@ -448,15 +448,15 @@ async function deleteUser() {
 
         // Проверяем успешный ответ
         if (result?.status !== "ok") {
-            alert("Ошибка удаления пользователя");
+            window.showUsersDataMessage("Ошибка удаления пользователя", "error");
             return;
         }
 
-        alert("Пользователь удален");
+        window.showUsersDataMessage("Пользователь удален", "success");
         await loadUsers();
     } catch (e) {
         console.error("Ошибка удаления пользователя:", e);
-        alert("Ошибка удаления пользователя");
+        window.showUsersDataMessage("Ошибка удаления пользователя", "error");
     }
 }
 

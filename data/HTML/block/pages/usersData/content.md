@@ -17,6 +17,9 @@
 <!-- Фон -->
 <div id="overlay" style="display:none"></div>
 
+<!-- Сообщения -->
+<div id="messageBlockContainer" style="margin:4%;position:fixed;top:0;right:0;"></div>
+
 <!-- Основной контейнер -->
 <div id="regDiv">
     <!-- Сообщение об авторизации -->

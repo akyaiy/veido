@@ -115,7 +115,7 @@ async function savePassword() {
 
     // Проверяем повтор нового пароля
     if (newPassword !== repeatPassword) {
-        alert("Пароли не совпадают");
+        window.showUsersDataMessage("Пароли не совпадают", "error");
         return;
     }
 
@@ -133,7 +133,7 @@ async function savePassword() {
     if (mode === "profile") {
         // Проверяем ввод старого пароля
         if (!oldPassword) {
-            alert("Введите старый пароль");
+            window.showUsersDataMessage("Введите старый пароль", "error");
             return;
         }
 
@@ -144,7 +144,7 @@ async function savePassword() {
 
         // Проверяем наличие id пользователя
         if (!userId) {
-            alert("Ошибка: не указан пользователь");
+            window.showUsersDataMessage("Ошибка: не указан пользователь", "error");
             return;
         }
 
@@ -166,18 +166,18 @@ async function saveProfilePassword(oldPassword, newPassword) {
 
         // Проверяем результат запроса
         if (result?.status !== "ok") {
-            alert("Ошибка смены пароля");
+            window.showUsersDataMessage("Ошибка смены пароля", "error");
             return;
         }
 
-        alert("Пароль успешно изменен");
+        window.showUsersDataMessage("Пароль успешно изменен", "success");
 
         // Закрываем форму
         closePasswordForm();
 
     } catch (e) {
         console.error("Ошибка смены пароля:", e);
-        alert("Ошибка смены пароля");
+        window.showUsersDataMessage("Ошибка смены пароля", "error");
     }
 }
 
@@ -194,18 +194,18 @@ async function saveAdminPassword(userId, newPassword) {
 
         // Проверяем результат запроса
         if (result?.status !== "ok") {
-            alert("Ошибка смены пароля");
+            window.showUsersDataMessage("Ошибка смены пароля", "error");
             return;
         }
 
-        alert("Пароль пользователя успешно изменен");
+        window.showUsersDataMessage("Пароль пользователя успешно изменен", "success");
 
         // Закрываем форму
         closePasswordForm();
 
     } catch (e) {
         console.error("Ошибка смены пароля:", e);
-        alert("Ошибка смены пароля");
+        window.showUsersDataMessage("Ошибка смены пароля", "error");
     }
 }
 
