@@ -100,6 +100,7 @@ function fillUserData(data = null, roles = []) {
 
     // Отключаем режим редактирования при перерисовке
     setEditMode(false);
+    passwordBlockContainer.innerHTML = "";
 
     // Заполняем основные поля
     userId.textContent = data?.id ?? "-";
@@ -216,6 +217,10 @@ function setEditMode(enabled) {
 
 // Отмена редактирования пользователя
 function cancelEditMode() {
+    if (passwordBlockContainer?.children.length > 0) {
+        passwordBlockContainer.innerHTML = "";
+    }
+
     // Возвращаем исходные значения пользователя
     editedRoleIds = currentUserRoles.map(role => Number(role.id));
     usernameInput.value = currentUser?.username ?? "";
@@ -311,6 +316,10 @@ function loadStatuses(containerId, value = null) {
 async function saveUserData() {
     if (passwordBlockContainer?.children.length > 0 && !isEmptyPasswordBlock()) {
         return;
+    }
+
+    if (passwordBlockContainer?.children.length > 0 && isEmptyPasswordBlock()) {
+        btnSaveUser._skipPasswordSubmitOnce = true;
     }
 
     const selectedUserId = Number(userSelect.value);

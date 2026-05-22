@@ -101,6 +101,12 @@ async function initPasswordBlock() {
 
 // Сохранение пароля пользователя
 async function savePassword() {
+    const saveButton = getTempButton("passwordSaveButtonId");
+    if (saveButton?._skipPasswordSubmitOnce) {
+        saveButton._skipPasswordSubmitOnce = false;
+        return;
+    }
+
     const mode = passwordContext?.passwordMode;
     const values = getPasswordValues(mode);
     const oldPassword = mode === "profile" ? (values[0] || "") : "";
@@ -115,9 +121,11 @@ async function savePassword() {
 
     // если пусто, то отмена
     if (mode === "profile" && !oldPassword && !newPassword && !repeatPassword) {
+        await closePasswordForm();
         return;
     }
     if (mode === "admin" && !newPassword && !repeatPassword) {
+        await closePasswordForm();
         return;
     }
 
@@ -130,7 +138,6 @@ async function savePassword() {
         }
 
         await saveProfilePassword(oldPassword, newPassword);
-
     // Режим смены пароля администратором
     } else if (mode === "admin") {
         const userId = passwordContext?.userId;

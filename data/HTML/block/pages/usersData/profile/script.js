@@ -47,6 +47,7 @@ function fillProfileData(data = null, roles = []) {
 
     // Отключаем режим редактирования при перерисовке
     setEditMode(false);
+    passwordBlockContainer.innerHTML = "";
 
     // Заполняем основные поля
     document.getElementById("userId").textContent = data?.id ?? "-";
@@ -90,6 +91,10 @@ function setEditMode(enabled) {
 
 // Отмена редактирования профиля
 function cancelEditMode() {
+    if (passwordBlockContainer?.children.length > 0) {
+        passwordBlockContainer.innerHTML = "";
+    }
+
     // Возвращаем исходные значения пользователя
     usernameInput.value = currentUser?.username ?? "";
     setEditMode(false);
@@ -125,6 +130,10 @@ function isEmptyPasswordBlock() {
 async function saveProfileData() {
     if (passwordBlockContainer?.children.length > 0 && !isEmptyPasswordBlock()) {
         return;
+    }
+
+    if (passwordBlockContainer?.children.length > 0 && isEmptyPasswordBlock()) {
+        btnSaveUser._skipPasswordSubmitOnce = true;
     }
 
     const nextUsername = usernameInput.value.trim();
