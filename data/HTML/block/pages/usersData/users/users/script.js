@@ -209,6 +209,9 @@ function setEditMode(enabled) {
     // Перерисовываем роли после смены режима
     renderUserRoles();
     renderAvailableRoles();
+
+    // Загружаем статусы пользователей
+    loadStatuses("userStatusInput", userStatus.textContent);
 }
 
 // Отмена редактирования пользователя
@@ -267,13 +270,39 @@ function removeRoleFromEdit(roleId) {
     renderAvailableRoles();
 }
 
-
-
 // Проверка, что форма пароля пустая
 function isEmptyPasswordBlock() {
     const inputs = passwordBlockContainer.querySelectorAll("input");
     return Array.from(inputs).every(input => !input.value.trim());
 }
+
+// Загрузка статусов пользователей
+function loadStatuses(containerId, value = null) {
+    const element = document.getElementById(containerId);
+    element.innerHTML = "";
+
+    // Получаем список статусов пользователей из глобальной переменной
+    const userStatuses = [...window.userStatuses];
+
+    // если value не входит в список — добавляем первым
+    if (value && !userStatuses.includes(value)) {
+        userStatuses.unshift(value);
+    }
+
+    userStatuses.forEach(status => {
+        const option = document.createElement("option");
+
+        // Устанавливаем значение и текст для каждого статуса
+        option.value = status;
+        option.textContent = status;
+
+        element.appendChild(option);
+    });
+
+    // Устанавливаем переданное значение, если оно есть
+    element.value = value;
+}
+
 
 
 // === Глобальные действия с пользователем ===

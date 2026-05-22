@@ -21,11 +21,7 @@
         </div>
         <div>Статус: 
             <span id="userStatus">-</span><br>
-            <select id="userStatusInput">
-                <option value="active">active</option>
-                <option value="inactive">inactive</option>
-                <option value="unactive">unactive</option>
-            </select>
+            <select id="userStatusInput"></select>
         </div>
         <div>
             Группы:

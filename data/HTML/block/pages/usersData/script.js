@@ -18,6 +18,9 @@ const mobileBreakpoint = 768;
 // Статус пользователя
 let checkUserStatus = false;
 
+// Статусы пользователей
+window.userStatuses = ["active", "non-active"];
+
 
 
 // === Создание меню ===

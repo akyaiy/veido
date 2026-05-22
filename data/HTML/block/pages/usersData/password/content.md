@@ -1,6 +1,6 @@
 <div class="blockContent" style="padding: 0;">
     
-<div>Изменить пороль:</div>
+<div>Изменить пароль:</div>
 
 <div class="passwordForm">
 

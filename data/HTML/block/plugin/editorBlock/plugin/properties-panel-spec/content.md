@@ -5,7 +5,7 @@
 <label data-target="input textarea select">Тип: <select data-prop="input-type">
     <option value="text">текст</option>
     <option value="email">почта</option>
-    <option value="password">пороль</option>
+    <option value="password">пароль</option>
     <option value="number">число</option>
 </select></label>
 <label data-target="table">Строки: <input type="number" min="1" step="1" data-prop="table-rows" value="1"></label>
