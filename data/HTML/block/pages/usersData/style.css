@@ -137,6 +137,11 @@ select {
     display: none;
 }
 
+/* Сообщение об авторизации */
+#authMessage {
+    display: none;
+}
+
 /* Адаптация под мобильные устройства */
 @media (max-width: 720px) {
     /* Контейнер меню */

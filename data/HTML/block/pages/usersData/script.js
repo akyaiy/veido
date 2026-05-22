@@ -8,8 +8,15 @@ const regPanelContent = document.getElementById("regPanelContent");
 const overlay = document.getElementById("overlay");
 const menuToggle = document.getElementById("menuToggle");
 
+// Сообщение об авторизации
+const authMessage = document.getElementById('authMessage');
+const authMessageLogin = document.getElementById('authMessageLogin');
+
 // Точка переключения для мобильного меню
 const mobileBreakpoint = 768;
+
+// Статус пользователя
+let checkUserStatus = false;
 
 
 
@@ -138,6 +145,12 @@ function closeMenu() {
 
 // Обработка клика по ссылкам внутри панели
 function handlePanelClick(e) {
+    // Если пользователь не авторизован, перенаправляем на страницу входа
+    if (checkUserStatus === false) {
+        loadBlock("pages/login", "content");
+        return;
+    }
+
     // ищем ссылку с data-link
     const link = e.target.closest("a[data-link='true']");
     if (!link || (!panel.contains(link) && !regDiv.contains(link))) return;
@@ -237,11 +250,21 @@ function urlStrBr(url){
 
 
 
-// === Проверка прав пользователя ===
+// === Проверка пользователя ===
 
-// Проверка прав пользователя (админ или нет)
-async function checkAdminAccess() {
+// Проверка пользователя и его ролей
+async function checkUser() {
     try {
+        // Проверяем авторизацию пользователя
+        const me = await apiProtected('/api/auth/me', { method: 'GET' });
+
+        // Если пользователь не авторизован
+        if (!me || !me.data) {
+            window.isAdmin = false;
+            authMessage.style.display = 'block';
+            return false;
+        }
+
         // Запрашиваем список ролей текущего пользователя
         const res = await apiProtected('/api/acl-admin/me/roles?limit=100', { method: 'GET' });
         const roles = res || [];
@@ -254,19 +277,34 @@ async function checkAdminAccess() {
         if (!hasAdmin) {
             panel.querySelectorAll('[is-admin="true"]').forEach(el => el.remove());
         }
+
+        return true;
     } catch (e) {
         window.isAdmin = false;
         console.error(e);
+        return false;
     }
+}
+
+
+
+// === Сообщение об авторизации ===
+
+// Переадресация на страницу входа
+function loginRedirect(event) {
+    event.preventDefault();
+    loadBlock("pages/login", "content");
 }
 
 
 
 // Инициализация при загрузке страницы
 async function init() {
-    await checkAdminAccess();
+    checkUserStatus = await checkUser();
     await buildMenu();
-    await handleCurrentUrl();
+    if (checkUserStatus) {
+        await handleCurrentUrl();
+    }
 }
 init();
 
@@ -280,3 +318,6 @@ overlay.onclick = closeMenu;
 // Клик по ссылкам внутри панели и блока
 menuContainer.onclick = handlePanelClick;
 regDiv.addEventListener("click", handlePanelClick);
+
+// Сообщение об авторизации
+authMessageLogin.addEventListener("click", loginRedirect);
