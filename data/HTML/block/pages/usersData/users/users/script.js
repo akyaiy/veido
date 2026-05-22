@@ -422,7 +422,7 @@ async function showPasswordForm() {
     });
     
     // Подгружаем блок пароля
-    loadBlock('pages/usersData/password', 'passwordBlockContainer');
+    loadBlock('pages/usersData/elements/password', 'passwordBlockContainer');
 }
 
 // Удаление пользователя
