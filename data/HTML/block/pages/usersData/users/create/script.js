@@ -14,7 +14,7 @@ async function createUser() {
 
         // Простая проверка
         if (!name || !password) {
-            window.showUsersDataMessage("Введите имя и пароль", "error");
+            window.tempStore.messageAPI.showUsersDataMessage("Введите имя и пароль", "error");
             return;
         }
 
@@ -30,18 +30,18 @@ async function createUser() {
 
         // Проверяем успешный ответ
         if (result?.status === "ok") {
-            window.showUsersDataMessage("Пользователь создан", "success");
+            window.tempStore.messageAPI.showUsersDataMessage("Пользователь создан", "success");
 
             // Очищаем поля
             newUserName.value = "";
             newUserPassword.value = "";
         } else {
-            window.showUsersDataMessage("Ошибка создания пользователя", "error");
+            window.tempStore.messageAPI.showUsersDataMessage("Ошибка создания пользователя", "error");
             console.error("Ошибка создания пользователя:", result);
         }
     } catch (e) {
         console.error("Ошибка создания пользователя:", e);
-        window.showUsersDataMessage("Ошибка создания пользователя", "error");
+        window.tempStore.messageAPI.showUsersDataMessage("Ошибка создания пользователя", "error");
     }
 }
 

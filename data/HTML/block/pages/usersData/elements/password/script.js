@@ -115,7 +115,7 @@ async function savePassword() {
 
     // Проверяем повтор нового пароля
     if (newPassword !== repeatPassword) {
-        window.showUsersDataMessage("Пароли не совпадают", "error");
+        window.tempStore.messageAPI.showUsersDataMessage("Пароли не совпадают", "error");
         return;
     }
 
@@ -133,7 +133,7 @@ async function savePassword() {
     if (mode === "profile") {
         // Проверяем ввод старого пароля
         if (!oldPassword) {
-            window.showUsersDataMessage("Введите старый пароль", "error");
+            window.tempStore.messageAPI.showUsersDataMessage("Введите старый пароль", "error");
             return;
         }
 
@@ -144,7 +144,7 @@ async function savePassword() {
 
         // Проверяем наличие id пользователя
         if (!userId) {
-            window.showUsersDataMessage("Ошибка: не указан пользователь", "error");
+            window.tempStore.messageAPI.showUsersDataMessage("Ошибка: не указан пользователь", "error");
             return;
         }
 
@@ -166,18 +166,18 @@ async function saveProfilePassword(oldPassword, newPassword) {
 
         // Проверяем результат запроса
         if (result?.status !== "ok") {
-            window.showUsersDataMessage("Ошибка смены пароля", "error");
+            window.tempStore.messageAPI.showUsersDataMessage("Ошибка смены пароля", "error");
             return;
         }
 
-        window.showUsersDataMessage("Пароль успешно изменен", "success");
+        window.tempStore.messageAPI.showUsersDataMessage("Пароль успешно изменен", "success");
 
         // Закрываем форму
         closePasswordForm();
 
     } catch (e) {
         console.error("Ошибка смены пароля:", e);
-        window.showUsersDataMessage("Ошибка смены пароля", "error");
+        window.tempStore.messageAPI.showUsersDataMessage("Ошибка смены пароля", "error");
     }
 }
 
@@ -194,18 +194,18 @@ async function saveAdminPassword(userId, newPassword) {
 
         // Проверяем результат запроса
         if (result?.status !== "ok") {
-            window.showUsersDataMessage("Ошибка смены пароля", "error");
+            window.tempStore.messageAPI.showUsersDataMessage("Ошибка смены пароля", "error");
             return;
         }
 
-        window.showUsersDataMessage("Пароль пользователя успешно изменен", "success");
+        window.tempStore.messageAPI.showUsersDataMessage("Пароль пользователя успешно изменен", "success");
 
         // Закрываем форму
         closePasswordForm();
 
     } catch (e) {
         console.error("Ошибка смены пароля:", e);
-        window.showUsersDataMessage("Ошибка смены пароля", "error");
+        window.tempStore.messageAPI.showUsersDataMessage("Ошибка смены пароля", "error");
     }
 }
 

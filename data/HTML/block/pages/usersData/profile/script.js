@@ -106,7 +106,7 @@ function cancelEditMode() {
 function enableEditMode() {
     // Проверяем, что данные пользователя загружены
     if (!currentUser) {
-        window.showUsersDataMessage("Ошибка загрузки профиля", "error");
+        window.tempStore.messageAPI.showUsersDataMessage("Ошибка загрузки профиля", "error");
         return;
     }
 
@@ -141,7 +141,7 @@ async function saveProfileData() {
 
     // Проверяем, что имя заполнено
     if (!nextUsername) {
-        window.showUsersDataMessage("Введите имя пользователя", "error");
+        window.tempStore.messageAPI.showUsersDataMessage("Введите имя пользователя", "error");
         return;
     }
 
@@ -157,7 +157,7 @@ async function saveProfileData() {
     }
 
     // Подтверждаем сохранение изменений
-    const isConfirmed = await window.confirmUsersDataMessage("Сохранить изменения профиля?");
+    const isConfirmed = await window.tempStore.messageAPI.confirmUsersDataMessage("Сохранить изменения профиля?");
     if (!isConfirmed) {
         return;
     }
@@ -171,17 +171,17 @@ async function saveProfileData() {
 
         // Проверяем успешный ответ
         if (result?.status !== 'ok') {
-            window.showUsersDataMessage("Ошибка сохранения профиля", "error");
+            window.tempStore.messageAPI.showUsersDataMessage("Ошибка сохранения профиля", "error");
             return;
         }
 
-        window.showUsersDataMessage("Данные профиля сохранены", "success");
+        window.tempStore.messageAPI.showUsersDataMessage("Данные профиля сохранены", "success");
 
         // Перезагружаем данные профиля
         await loadProfile();
     } catch (e) {
         console.error('Ошибка сохранения профиля:', e);
-        window.showUsersDataMessage("Ошибка сохранения профиля", "error");
+        window.tempStore.messageAPI.showUsersDataMessage("Ошибка сохранения профиля", "error");
     }
 }
 

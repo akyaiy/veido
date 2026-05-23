@@ -107,10 +107,12 @@ function confirmUsersDataMessage(text) {
 
 
 
-// Экспорт функций для глобального доступа
-window.showUsersDataMessage = showUsersDataMessage;
-window.hideUsersDataMessage = hideUsersDataMessage;
-window.confirmUsersDataMessage = confirmUsersDataMessage;
+// Экспорт функций через tempStore
+window.tempStore.messageAPI = {
+    showUsersDataMessage,
+    hideUsersDataMessage,
+    confirmUsersDataMessage
+};
 
 // Закрытие сообщения
 usersDataMessageClose.addEventListener("click", hideUsersDataMessage);
