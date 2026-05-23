@@ -5,6 +5,7 @@ const userRolesContainer = document.getElementById("userRolesContainer");
 
 // Список пользователей
 const userSelect = document.getElementById("userSelect");
+const userSelectChoice = document.getElementById("userSelectChoice");
 
 // Данные всех пользователей
 let allRoles = [];
@@ -17,7 +18,9 @@ const userId = document.getElementById("userId");
 const username = document.getElementById("username");
 const usernameInput = document.getElementById("usernameInput");
 const userStatus = document.getElementById("userStatus");
+const userStatusInputContainer = document.getElementById("userStatusInputContainer");
 const userStatusInput = document.getElementById("userStatusInput");
+const userStatusInputChoice = document.getElementById("userStatusInputChoice");
 const userRoles = document.getElementById("userRoles");
 const userRolesAdd = document.getElementById("userRolesAdd");
 const userRolesInput = document.getElementById("userRolesInput");
@@ -48,16 +51,31 @@ async function loadUsers(selectedUserId = Number(userSelect.value)) {
 
         // Заполняем список пользователей
         users.forEach(user => {
-            const option = document.createElement("option");
-            option.value = user.id;
+            const option = document.createElement("div");
+            option.dataset.value = user.id;
             option.textContent = `${user.username} (${user.status})`;
+
+            option.onclick = () => {
+                userSelectChoice.dataset.value = user.id;
+                userSelectChoice.textContent = option.textContent;
+                loadSelectedUser();
+                userSelect.classList.remove("open");
+            };
+
             userSelect.appendChild(option);
         });
 
         // Если список не пустой - выбираем нужного пользователя
         if (users.length > 0) {
+            // Проверяем, что выбранный пользователь есть в новом списке
             const hasSelectedUser = users.some(user => Number(user.id) === Number(selectedUserId));
-            userSelect.value = hasSelectedUser ? String(selectedUserId) : String(users[0].id);
+            userSelectChoice.dataset.value = hasSelectedUser ? String(selectedUserId) : String(users[0].id);
+
+            // отображаем выбранного пользователь есть в списке
+            const selected = hasSelectedUser ? selectedUserId : users[0].id;
+            const selectedUser = users.find(u => Number(u.id) === Number(selected));
+            if (selectedUser) userSelectChoice.textContent = `${selectedUser.username} (${selectedUser.status})`;
+
             await loadSelectedUser();
         } else {
             fillUserData();
@@ -70,7 +88,7 @@ async function loadUsers(selectedUserId = Number(userSelect.value)) {
 
 // Загрузка данных выбранного пользователя
 async function loadSelectedUser() {
-    const selectedUserId = Number(userSelect.value);
+    const selectedUserId = Number(userSelectChoice.dataset.value);
 
     // Проверяем, что пользователь выбран
     if (!selectedUserId) {
@@ -107,7 +125,8 @@ function fillUserData(data = null, roles = []) {
     username.textContent = data?.username ?? "-";
     usernameInput.value = data?.username ?? "";
     userStatus.textContent = data?.status ?? "-";
-    userStatusInput.value = data?.status ?? "inactive";
+    userStatusInputChoice.dataset.value = data?.status ?? "inactive";
+    userStatusInputChoice.textContent = data?.status ?? "-";
 
     // Заполняем список ролей
     renderUserRoles();
@@ -197,7 +216,7 @@ function setEditMode(enabled) {
     userRolesAdd.style.display = isEditMode ? "inline-block" : "none";
     usernameInput.style.display = isEditMode ? "inline-block" : "none";
     userStatus.style.display = isEditMode ? "none" : "inline";
-    userStatusInput.style.display = isEditMode ? "inline-block" : "none";
+    userStatusInputContainer.style.display = isEditMode ? "inline-block" : "none";
     userRolesInput.style.display = "none";
     btnEditUser.style.display = isEditMode ? "none" : "inline-block";
     btnDeleteUser.style.display = isEditMode ? "inline-block" : "none";
@@ -224,7 +243,7 @@ function cancelEditMode() {
     // Возвращаем исходные значения пользователя
     editedRoleIds = currentUserRoles.map(role => Number(role.id));
     usernameInput.value = currentUser?.username ?? "";
-    userStatusInput.value = currentUser?.status ?? "inactive";
+    userStatusInputChoice.textContent = currentUser?.status ?? "-";
     setEditMode(false);
     // Очищаем контейнер пароля
     passwordBlockContainer.innerHTML = "";
@@ -244,7 +263,7 @@ async function enableEditMode() {
 
     // Заполняем поля текущими значениями
     usernameInput.value = currentUser.username ?? "";
-    userStatusInput.value = currentUser.status ?? "inactive";
+    userStatusInputChoice.textContent = currentUser.status ?? "-";
     editedRoleIds = currentUserRoles.map(role => Number(role.id));
     setEditMode(true);
 }
@@ -295,11 +314,18 @@ function loadStatuses(containerId, value = null) {
     }
 
     userStatuses.forEach(status => {
-        const option = document.createElement("option");
+        const option = document.createElement("div");
 
         // Устанавливаем значение и текст для каждого статуса
         option.value = status;
         option.textContent = status;
+
+        // Обработчик клика для выбора статуса
+        option.onclick = () => {
+            userStatusInputChoice.dataset.value = status;
+            userStatusInputChoice.textContent = status;
+            userStatusInput.classList.remove("open");
+        };
 
         element.appendChild(option);
     });
@@ -322,9 +348,9 @@ async function saveUserData() {
         btnSaveUser._skipPasswordSubmitOnce = true;
     }
 
-    const selectedUserId = Number(userSelect.value);
+    const selectedUserId = Number(userSelectChoice.dataset.value);
     const nextUsername = usernameInput.value.trim();
-    const nextStatus = userStatusInput.value;
+    const nextStatus = userStatusInputChoice.dataset.value;
     const currentRoleIds = currentUserRoles.map(role => Number(role.id));
     const rolesToAdd = editedRoleIds.filter(roleId => !currentRoleIds.includes(roleId));
     const rolesToRemove = currentRoleIds.filter(roleId => !editedRoleIds.includes(roleId));
@@ -411,7 +437,7 @@ async function showPasswordForm() {
     // Сохраняем контекст для подгруженного блока
     await window.tempStore.store({
         passwordMode: "admin",
-        userId: Number(userSelect.value),
+        userId: Number(userSelectChoice.dataset.value),
         passwordSaveButtonId: "btnSaveUser",
         passwordCancelButtonId: "btnCancelUser",
         passwordContainerId: "passwordBlockContainer"
@@ -427,7 +453,7 @@ async function showPasswordForm() {
 
 // Удаление пользователя
 async function deleteUser() {
-    const selectedUserId = Number(userSelect.value);
+    const selectedUserId = Number(userSelectChoice.dataset.value);
 
     // Проверяем, что пользователь выбран
     if (!selectedUserId) {
@@ -495,8 +521,41 @@ function handleDocumentClick(e) {
 
 
 
+// === Функии для кастомного списка с выбором ===
+
+// открыть/закрыть список
+function toggleSelect(listId) {
+    const list = document.getElementById(listId);
+    list.style.display = list.style.display === "block" ? "none" : "block";
+}
+
+// выбрать значение
+function setSelectValue(choiceId, listId, value, text) {
+    const choice = document.getElementById(choiceId);
+    const list = document.getElementById(listId);
+
+    choice.dataset.value = value;
+    choice.textContent = text;
+
+    list.style.display = "none";
+}
+
+// Скрытие списка при клике вне его
+document.addEventListener("click", function (e) {
+    document.querySelectorAll(".selectContainer").forEach(container => {
+        if (!container.contains(e.target)) {
+            const list = container.querySelector(".selectList");
+            if (list) {
+                list.classList.remove("open");
+            }
+        }
+    });
+});
+
+
+
 // Загрузка данных
-userSelect.addEventListener("change", loadSelectedUser);
+userSelect.addEventListener("click", loadSelectedUser);
 
 // Режим редактирования
 btnEditUser.addEventListener("click", enableEditMode);
@@ -514,4 +573,12 @@ btnEditUser.addEventListener("click", showPasswordForm);
 
 // Автозагрузка списка пользователей
 loadUsers();
-userSelect.addEventListener("mousedown", () => loadUsers());
+userSelectChoice.addEventListener("click", () => loadUsers());
+
+// Открытие и закрытие списков
+userSelectChoice.addEventListener("click", () => {
+    userSelect.classList.toggle("open");
+});
+userStatusInputChoice.addEventListener("click", () => {
+    userStatusInput.classList.toggle("open");
+});

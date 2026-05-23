@@ -6,7 +6,10 @@
 <div id="activateBlock" class="blockPage">
     <div class="blockName">Список пользователей</div>
     <div class="blockContent">
-        <select id="userSelect"></select>
+        <div id="userSelectContainer" class="selectContainer">
+            <div id="userSelectChoice" class="selectChoice"></div>
+            <div id="userSelect" class="selectList"></div>
+        </div>
     </div>
 </div>
 
@@ -21,7 +24,10 @@
         </div>
         <div>Статус: 
             <span id="userStatus">-</span><br>
-            <select id="userStatusInput"></select>
+            <div id="userStatusInputContainer" class="selectContainer">
+                <div id="userStatusInputChoice" class="selectChoice"></div>
+                <div id="userStatusInput" class="selectList"></div>
+            </div>
         </div>
         <div>
             Группы:

@@ -1,6 +1,5 @@
 /* Скрытые элементы */
 #usernameInput,
-#userStatusInput,
 #userRolesInput,
 #btnSaveUser,
 #btnCancelUser,
@@ -42,6 +41,9 @@
     background: #fff;
     padding: 2px 0;
     z-index: 5;
+
+    max-height: 200px;
+    overflow-y: auto;
 }
 
 #userRolesInput div {
