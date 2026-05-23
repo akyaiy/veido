@@ -152,7 +152,6 @@ async function saveProfileData() {
 
     // Не отправляем PATCH без изменений, иначе сервер вернет 400.
     if (Object.keys(body).length === 0) {
-        setEditMode(false);
         return;
     }
 

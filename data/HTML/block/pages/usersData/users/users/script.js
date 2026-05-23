@@ -382,6 +382,7 @@ async function saveUserData() {
     // Если изменений нет - просто выходим из режима
     if (Object.keys(body).length === 0 && rolesToAdd.length === 0 && rolesToRemove.length === 0) {
         setEditMode(false);
+        passwordBlockContainer.innerHTML = "";
         return;
     }
 
