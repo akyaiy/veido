@@ -1,0 +1,11 @@
+/* Главные контейнеры */
+#leftPanel {
+    display: flex;
+}
+
+
+/* Вкладки */
+.elementsTab {
+    border-bottom: 1px solid #ccc;
+    padding: 10px;
+}

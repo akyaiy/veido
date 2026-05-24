@@ -1,0 +1,13 @@
+/* Холст SVG */
+#svgCanvas {
+    border: 1px solid #ccc;
+    border-top: none;
+    height: calc(100% - 2px);
+}
+
+
+
+/* Хранилище SVG */
+#svgStorage {
+    display: none;
+}

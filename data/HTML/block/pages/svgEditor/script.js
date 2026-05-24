@@ -1,0 +1,1 @@
+loadBlock("plugin/svgEditor", "content");

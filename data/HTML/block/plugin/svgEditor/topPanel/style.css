@@ -1,0 +1,46 @@
+/* Главные контейнеры */
+#topPanel {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #ccc;
+    width: auto;
+    padding: 10px;
+}
+
+#tabsMenuContainer {
+    position: relative;
+    display: inline-block;
+    flex: 0 0 auto;
+}
+
+#tabs {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    width: 100%;
+}
+
+/* Вкладки */
+#tabsMenu {
+    display: none;
+    position: absolute;
+    top: 20px;
+    left: 0;
+    border: 1px solid #ccc;
+    background: #fff;
+}
+
+#tabsMenu.active {
+    display: flex;
+    flex-direction: column;
+}
+
+.tab {
+    cursor: pointer;
+    white-space: nowrap;
+    padding: 3px 6px;
+}
+
+.tab:hover {
+    background: #f0f0f0;
+}
