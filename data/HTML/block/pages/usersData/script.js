@@ -20,7 +20,7 @@ const mobileBreakpoint = 768;
 let checkUserStatus = false;
 
 // Статусы пользователей
-window.userStatuses = ["active", "non-active"];
+window.userStatuses = ["active", "non-active", "no data"];
 
 
 
