@@ -15,12 +15,16 @@
 
 #tabs {
     display: flex;
+    gap: 5px;
     flex: 1;
     align-items: center;
     width: 100%;
+    margin: 0px 10px;
 }
 
-/* Вкладки */
+
+
+/* Вкладки меню */
 #tabsMenu {
     display: none;
     position: absolute;
@@ -35,12 +39,28 @@
     flex-direction: column;
 }
 
-.tab {
+.tabMenu {
     cursor: pointer;
     white-space: nowrap;
     padding: 3px 6px;
 }
 
-.tab:hover {
+.tabMenu:hover {
     background: #f0f0f0;
+}
+
+
+
+/* Вкладки svg блоков */
+.svgTab {
+    display: flex;
+    font-size: 14px;
+    padding: 2px 4px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+.svgTabClose {
+    user-select: none;
+    margin-left: 5px;
+    cursor: pointer;
 }
