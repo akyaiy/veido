@@ -201,16 +201,34 @@ function onPointerDown(e) {
     const rect = svg.getBoundingClientRect();
 
     // стороны
-    const onLeft = e.clientX >= rect.left - edgeSize && e.clientX <= rect.left + edgeSize;
-    const onRight = e.clientX >= rect.right - edgeSize && e.clientX <= rect.right + edgeSize;
-    const onTop = e.clientY >= rect.top - edgeSize && e.clientY <= rect.top + edgeSize;
-    const onBottom = e.clientY >= rect.bottom - edgeSize && e.clientY <= rect.bottom + edgeSize;
+    let onLeft = e.clientX >= rect.left - edgeSize && e.clientX <= rect.left + edgeSize;
+    let onRight = e.clientX >= rect.right - edgeSize && e.clientX <= rect.right + edgeSize;
+    let onTop = e.clientY >= rect.top - edgeSize && e.clientY <= rect.top + edgeSize;
+    let onBottom = e.clientY >= rect.bottom - edgeSize && e.clientY <= rect.bottom + edgeSize;
 
     // углы
     const onTL = Math.abs(e.clientX - rect.left) < cornerSize && Math.abs(e.clientY - rect.top) < cornerSize;
     const onTR = Math.abs(e.clientX - rect.right) < cornerSize && Math.abs(e.clientY - rect.top) < cornerSize;
     const onBL = Math.abs(e.clientX - rect.left) < cornerSize && Math.abs(e.clientY - rect.bottom) < cornerSize;
     const onBR = Math.abs(e.clientX - rect.right) < cornerSize && Math.abs(e.clientY - rect.bottom) < cornerSize;
+
+    // угловой режим делает боковые флаги активными
+    if (onTL) {
+        onLeft = true;
+        onTop = true;
+    }
+    if (onTR) {
+        onRight = true;
+        onTop = true;
+    }
+    if (onBL) {
+        onLeft = true;
+        onBottom = true;
+    }
+    if (onBR) {
+        onRight = true;
+        onBottom = true;
+    }
 
     // ничего не попали
     if (!onLeft && !onRight && !onTop && !onBottom && !onTL && !onTR && !onBL && !onBR) return;
@@ -220,6 +238,8 @@ function onPointerDown(e) {
         svg,
         startX: e.clientX,
         startY: e.clientY,
+        mouseStartX: e.clientX,
+        mouseStartY: e.clientY,
         startW: svg.width.baseVal.value,
         startH: svg.height.baseVal.value,
         onLeft,
@@ -270,17 +290,18 @@ function onPointerMove(e) {
     if (!resizing) return;
 
     // Вычисляем новые размеры
-    const dx = e.clientX - (resizing.startRect.right);
-    const dy = e.clientY - (resizing.startRect.bottom);
+    let k = 2;
+    const dx = e.clientX - resizing.mouseStartX;
+    const dy = e.clientY - resizing.mouseStartY;
 
     let newW = resizing.startW;
     let newH = resizing.startH;
 
-    if (resizing.onRight) newW = resizing.startW + dx;
-    if (resizing.onBottom) newH = resizing.startH + dy;
+    if (resizing.onRight) newW = resizing.startW + dx * k;
+    if (resizing.onBottom) newH = resizing.startH + dy * k;
 
-    if (resizing.onLeft) newW = resizing.startW - dx;
-    if (resizing.onTop) newH = resizing.startH - dy;
+    if (resizing.onLeft) newW = resizing.startW - dx * k;
+    if (resizing.onTop) newH = resizing.startH - dy * k;
 
     resizing.svg.setAttribute("width", Math.max(20, newW));
     resizing.svg.setAttribute("height", Math.max(20, newH));
