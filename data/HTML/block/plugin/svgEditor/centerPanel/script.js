@@ -3,6 +3,84 @@
 // Главный холст
 const canvas = document.getElementById("svgCanvas");
 
+// Выбранный элемент
+let selectedElement = null;
+
+
+// === Выделение ===
+
+// Выделение элемента
+function selectElement(el) {
+    // Выделяем новый элемент
+    selectedElement = el;
+    updateSelectionBox();
+}
+
+// Обновление рамки выделения
+function updateSelectionBox() {
+    if (!selectedElement) return;
+
+    const svg = canvas.querySelector("svg");
+    const techLayer = svg.children[1];
+
+    techLayer.innerHTML = "";
+
+    const bbox = getTransformedBBox(selectedElement);
+
+    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+
+    // Изменение координат и размеров рамки
+    rect.setAttribute("x", bbox.x);
+    rect.setAttribute("y", bbox.y);
+    rect.setAttribute("width", bbox.width);
+    rect.setAttribute("height", bbox.height);
+
+    rect.setAttribute("fill", "none");
+    rect.setAttribute("stroke", "#4285f4");
+    rect.setAttribute("stroke-width", "1");
+
+    techLayer.appendChild(rect);
+}
+
+// Получение координат и размеров элемента с учетом трансформаций
+function getTransformedBBox(el) {
+    const svg = canvas.querySelector("svg");
+    const bbox = el.getBBox();
+    const ctm = el.getCTM();
+    if (!ctm) return bbox;
+
+    // Преобразуем углы рамки элемента с помощью матрицы трансформации
+    const p1 = svg.createSVGPoint();
+    p1.x = bbox.x; p1.y = bbox.y;
+    const p2 = svg.createSVGPoint();
+    p2.x = bbox.x + bbox.width; p2.y = bbox.y + bbox.height;
+
+    // Применяем матрицу трансформации к углам
+    const t1 = p1.matrixTransform(ctm);
+    const t2 = p2.matrixTransform(ctm);
+
+    return {
+        x: Math.min(t1.x, t2.x),
+        y: Math.min(t1.y, t2.y),
+        width: Math.abs(t2.x - t1.x),
+        height: Math.abs(t2.y - t1.y)
+    };
+}
+
+// Выделение элемента при нажатии (pointerdown)
+canvas.addEventListener("pointerdown", (e) => {
+    const svg = canvas.querySelector("svg");
+    const firstG = svg.children[0];
+    const techLayer = svg.children[1];
+
+    if (firstG.contains(e.target)) {
+        selectElement(e.target);
+    } else {
+        selectedElement = null;
+        techLayer.innerHTML = "";
+    }
+});
+
 
 
 // === Взаимодействие c элементами ===
@@ -62,6 +140,11 @@ function onPointerMoveEl(e) {
         dragging.el.setAttribute("transform", `translate(${x} ${y})`);
         dragging.el.dataset.x = x;
         dragging.el.dataset.y = y;
+
+        // Обновляем рамку выделения если элемент выделен
+        if (selectedElement === dragging.el) {
+            updateSelectionBox();
+        }
         return;
     }
 
@@ -74,6 +157,11 @@ function onPointerMoveEl(e) {
     dragging.el.style.top = top + "px";
     dragging.el.dataset.x = left;
     dragging.el.dataset.y = top;
+
+    // Обновляем рамку выделения если элемент выделен
+    if (selectedElement === dragging.el) {
+        updateSelectionBox();
+    }
 }
 
 // Отпускание элемента

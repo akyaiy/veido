@@ -38,9 +38,6 @@ document.addEventListener("click", (event) => {
 
 // Загрузка svg блока по url и создание для него вкладки
 async function loadSvg(url) {
-    // Загрузка svg блока
-    await loadBlock(url, canvasId);
-
     // Вычисление следующего свободного номера для блока svg
     const used = new Set();
 
@@ -57,8 +54,20 @@ async function loadSvg(url) {
     svgBlock.className = svgBlockClass;
     svgBlock.dataset.num = num;
     svgBlock.dataset.url = url;
+    svgBlock.id = "svgTab" + num;
     svgBlock.textContent = canvas.innerHTML;
     storage.appendChild(svgBlock);
+    
+    // Загрузка svg блока
+    await loadBlock(url, svgBlock.id);
+
+    // Копирование содержимого svg блока в главный холст
+    const srcSvg = document.getElementById(svgBlock.id).querySelector("svg");
+    const dstSvg = canvas.querySelector("svg");
+    dstSvg.children[0].replaceChildren(...srcSvg.cloneNode(true).childNodes);
+    for (const attr of srcSvg.attributes) {
+        dstSvg.setAttribute(attr.name, attr.value);
+    }
 
     // Создание нового блока для svg
     const svgTab = document.createElement("div");
@@ -66,6 +75,7 @@ async function loadSvg(url) {
     svgTab.className = "svgTab";
     svgTab.dataset.num = num;
 
+    // Кнопка закрытия вкладки
     const svgTabclose = document.createElement("div");
     svgTabclose.textContent = "×";
     svgTabclose.className = "svgTabClose";

@@ -1,5 +1,10 @@
 <!-- Редактируемое поле -->
-<div id="svgCanvas"></div>
+<div id="svgCanvas">
+    <svg>
+        <g></g>
+        <g></g>
+    </svg>
+</div>
 
 <!-- Хранение svg блков -->
 <div id="svgStorage"></div>
