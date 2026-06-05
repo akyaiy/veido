@@ -10,9 +10,10 @@ const storage = document.getElementById("svgStorage");
 const tabs = document.getElementById("tabs");
 const svgBlockClass = "svgBlock";
 
-// Загрузка тест блока
-document.addEventListener("svgEditorBlocksLoaded", () => {
-    loadSvg("plugin/svgEditor/test");
+// Загрузка тест блоков
+document.addEventListener("svgEditorBlocksLoaded", async () => {
+    await loadSvg("plugin/svgEditor/test/test1");
+    await loadSvg("plugin/svgEditor/test/test2");
 });
 
 
@@ -34,7 +35,7 @@ document.addEventListener("click", (event) => {
 
 
 
-// === Загрузка svg блоков редактора ===
+// === Работа с svg блоками ===
 
 // Загрузка svg блока по url и создание для него вкладки
 async function loadSvg(url) {
@@ -61,25 +62,76 @@ async function loadSvg(url) {
     // Загрузка svg блока
     await loadBlock(url, svgBlock.id);
 
-    // Копирование содержимого svg блока в главный холст
-    const srcSvg = document.getElementById(svgBlock.id).querySelector("svg");
-    const dstSvg = canvas.querySelector("svg");
-    dstSvg.children[0].replaceChildren(...srcSvg.cloneNode(true).childNodes);
-    for (const attr of srcSvg.attributes) {
-        dstSvg.setAttribute(attr.name, attr.value);
-    }
-
     // Создание нового блока для svg
     const svgTab = document.createElement("div");
-    svgTab.textContent = url.split("/").pop();
     svgTab.className = "svgTab";
     svgTab.dataset.num = num;
+
+    // Название вкладки
+    const svgTabTitle = document.createElement("div");
+    svgTabTitle.textContent = url.split("/").pop();
+    svgTabTitle.className = "svgTabTitle";
+    svgTab.addEventListener("click", () => openSvgBlock(num));
 
     // Кнопка закрытия вкладки
     const svgTabclose = document.createElement("div");
     svgTabclose.textContent = "×";
     svgTabclose.className = "svgTabClose";
+    svgTabclose.addEventListener("click", (event) => closeSvgBlock(num, event));
 
+    svgTab.appendChild(svgTabTitle);
     svgTab.appendChild(svgTabclose);
     tabs.appendChild(svgTab);
+
+    // Открываем загруженный блок через функцию после добавления вкладки
+    openSvgBlock(num);
+}
+
+// Открытие svg блока на канве и выделение соответствующей вкладки
+function openSvgBlock(num) {
+    const svgBlock = storage.querySelector(`.${svgBlockClass}[data-num="${num}"]`);
+    if (!svgBlock) return;
+
+    // Получаем svg из блока и канвы
+    const srcSvg = document.getElementById(svgBlock.id)?.querySelector("svg");
+    const dstSvg = canvas.querySelector("svg");
+    if (!srcSvg || !dstSvg) return;
+
+    // Копируем все дочерние элементы и атрибуты из srcSvg в dstSvg
+    dstSvg.children[0].replaceChildren(...srcSvg.cloneNode(true).childNodes);
+    for (const attr of srcSvg.attributes) {
+        dstSvg.setAttribute(attr.name, attr.value);
+    }
+
+    // Выделение активной вкладки
+    tabs.querySelectorAll(".svgTab").forEach((tab) => {
+        tab.classList.toggle("active", tab.dataset.num === String(num));
+    });
+}
+
+// Закрытие svg блока и удаление соответствующей вкладки
+function closeSvgBlock(num, event) {
+    event?.stopPropagation();
+
+    // Удаление вкладки и блока svg
+    const tab = tabs.querySelector(`.svgTab[data-num="${num}"]`);
+    if (tab) tab.remove();
+
+    // Удаление блока svg из хранилища
+    const svgBlock = storage.querySelector(`.${svgBlockClass}[data-num="${num}"]`);
+    if (svgBlock) svgBlock.remove();
+
+    // Если остались другие вкладки, открываем последнюю из них
+    const remainingTabs = Array.from(tabs.querySelectorAll(".svgTab"));
+    if (remainingTabs.length) {
+        const maxNum = Math.max(...remainingTabs.map((tab) => parseInt(tab.dataset.num, 10)));
+        openSvgBlock(maxNum);
+        return;
+    }
+
+    // Если вкладок не осталось, очищаем канву
+    const dstSvg = canvas.querySelector("svg");
+    if (dstSvg) {
+        dstSvg.children[0].replaceChildren();
+    }
 }
