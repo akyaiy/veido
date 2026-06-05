@@ -14,6 +14,7 @@ let selectedElements = [];
 let lassoActive = false
 let lassoStart = null
 let lassoRect = null
+let lassoMoved = false
 
 // проверка на область изменения размера
 function isResizeHandle(e, svg) {
@@ -51,12 +52,13 @@ function selectElements(e) {
 
     // запоминаем стартовую точку
     lassoStart = { x: e.clientX, y: e.clientY }
+    lassoMoved = false
 
-    // очищаем текущее выделение
-    selectedElements = []
-
-    // очищаем технический слой
-    techLayer.innerHTML = ""
+    // очищаем текущее выделение, если Shift не зажат
+    if (!e.shiftKey) {
+        selectedElements = []
+        techLayer.innerHTML = ""
+    }
 
     // создаем прямоугольник визуального выделения
     lassoRect = document.createElementNS("http://www.w3.org/2000/svg", "rect")
@@ -78,6 +80,7 @@ function onLassoMove(e) {
     // если лассо не активно - ничего не делаем
     if (!lassoActive || !lassoRect) return
 
+    lassoMoved = true
     const svg = canvas.querySelector("svg")
     const svgRect = svg.getBoundingClientRect()
 
@@ -115,6 +118,17 @@ function onLassoUp(e) {
 
     const elements = firstG.children
 
+    // если не было реального перемещения и Shift нажат — оставляем старое выделение
+    if (!lassoMoved && e.shiftKey) {
+        if (lassoRect && lassoRect.parentNode) {
+            lassoRect.parentNode.removeChild(lassoRect)
+        }
+        lassoActive = false
+        lassoStart = null
+        lassoRect = null
+        return
+    }
+
     // добавляем новые элементы в существующий массив
     if (!selectedElements) {
         selectedElements = []
@@ -145,7 +159,19 @@ function onLassoUp(e) {
 }
 
 // Выделение элемента
-function selectElement(el) {
+function selectElement(el, append = false) {
+    // если Shift зажат - добавляем к выделению, иначе выделяем только этот элемент
+    if (append) {
+        if (!Array.isArray(selectedElements)) {
+            selectedElements = []
+        }
+        if (!selectedElements.includes(el)) {
+            selectedElements.push(el)
+        }
+        updateSelectionBox();
+        return;
+    }
+
     // если элемент уже в выбранных — не сбрасываем выделение
     if (Array.isArray(selectedElements) && selectedElements.includes(el)) {
         updateSelectionBox();
@@ -224,7 +250,7 @@ canvas.addEventListener("pointerdown", (e) => {
 
     // если клик по элементу - одиночное выделение
     if (firstG.contains(e.target)) {
-        selectElement(e.target);
+        selectElement(e.target, e.shiftKey);
         return;
     }
 
