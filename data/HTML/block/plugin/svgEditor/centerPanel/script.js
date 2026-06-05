@@ -137,9 +137,13 @@ function onLassoUp(e) {
     for (const el of elements) {
         const bbox = el.getBoundingClientRect()
 
-        // если элемент хотя бы немного пересекается с рамкой - добавляем
+        // если элемент хотя бы немного пересекается с рамкой
         const intersects = !(bbox.right < x1 || bbox.left > x2 || bbox.bottom < y1 || bbox.top > y2)
-        if (intersects) {
+        if (!intersects) continue
+
+        if (e.shiftKey) {
+            toggleSelection(el)
+        } else if (!selectedElements.includes(el)) {
             selectedElements.push(el)
         }
     }
@@ -158,16 +162,26 @@ function onLassoUp(e) {
     lassoRect = null
 }
 
+// Переключение выделения элемента
+function toggleSelection(el) {
+    if (!Array.isArray(selectedElements)) {
+        selectedElements = []
+    }
+
+    // если элемент уже выделен - убираем его из выделения, иначе добавляем
+    const index = selectedElements.indexOf(el)
+    if (index >= 0) {
+        selectedElements.splice(index, 1)
+    } else {
+        selectedElements.push(el)
+    }
+}
+
 // Выделение элемента
 function selectElement(el, append = false) {
-    // если Shift зажат - добавляем к выделению, иначе выделяем только этот элемент
+    // если Shift зажат - переключаем выделение для элемента
     if (append) {
-        if (!Array.isArray(selectedElements)) {
-            selectedElements = []
-        }
-        if (!selectedElements.includes(el)) {
-            selectedElements.push(el)
-        }
+        toggleSelection(el)
         updateSelectionBox();
         return;
     }
@@ -185,7 +199,15 @@ function selectElement(el, append = false) {
 
 // Обновление рамки выделения
 function updateSelectionBox() {
-    if (!selectedElements || (Array.isArray(selectedElements) && selectedElements.length === 0)) return;
+    // если нет выделения - очищаем технический слой и выходим
+    if (!selectedElements || (Array.isArray(selectedElements) && selectedElements.length === 0)) {
+        const svg = canvas.querySelector("svg");
+        if (svg) {
+            const techLayer = svg.children[1];
+            if (techLayer) techLayer.innerHTML = "";
+        }
+        return;
+    }
 
     const svg = canvas.querySelector("svg");
     const techLayer = svg.children[1];
@@ -272,7 +294,7 @@ function onPointerDownEl(e) {
     if (!svg.contains(e.target) || e.target === svg) {
         return;
     }
-    if (resizing) return;
+    if (resizing || isResizeHandle(e, svg)) return;
 
     const el = e.target;
 
@@ -443,6 +465,10 @@ function onPointerDown(e) {
 
     // ничего не попали
     if (!onLeft && !onRight && !onTop && !onBottom && !onTL && !onTR && !onBL && !onBR) return;
+
+    // Сбрасываем выделение при начале изменения размера
+    selectedElements = [];
+    svg.children[1].innerHTML = "";
 
     resizing = {
         startRect: svg.getBoundingClientRect(),

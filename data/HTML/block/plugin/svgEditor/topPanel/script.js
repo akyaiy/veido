@@ -103,6 +103,15 @@ function openSvgBlock(num) {
         dstSvg.setAttribute(attr.name, attr.value);
     }
 
+    // Очищаем технический слой от старых рамок выделения
+    const techLayer = dstSvg.children[1];
+    if (techLayer) {
+        techLayer.innerHTML = "";
+    }
+
+    // Сбрасываем выделение при открытии новой вкладки
+    selectedElements = []
+
     // Выделение активной вкладки
     tabs.querySelectorAll(".svgTab").forEach((tab) => {
         tab.classList.toggle("active", tab.dataset.num === String(num));

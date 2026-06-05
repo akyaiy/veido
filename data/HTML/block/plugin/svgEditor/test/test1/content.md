@@ -1,6 +1,5 @@
 <svg width="600" height="400">
     <g id="background">
-        <rect x="0" y="0" width="600" height="400" fill="#f0f0f0" />
         <rect x="20" y="20" width="560" height="360" fill="#ffffff" stroke="#cccccc" />
     </g>
     <g id="grid">
