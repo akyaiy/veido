@@ -8,6 +8,52 @@ let selectedElements = [];
 
 
 
+// === Синхронизация между холстом и svg блоками ===
+
+// Запись первого g и атрибутов svg в активный svg блок
+function saveCanvasToActiveBlock() {
+    const svg = canvas.querySelector("svg")
+    const firstG = svg?.children[0]
+    const storage = document.getElementById("svgStorage")
+    const activeTab = document.querySelector("#tabs .svgTab.active")
+    if (!svg || !firstG || !storage || !activeTab) return
+
+    const svgBlock = storage.querySelector(".svgBlock[data-num=\"" + activeTab.dataset.num + "\"]")
+    const storageSvg = svgBlock?.querySelector("svg")
+    if (!storageSvg) return
+
+    // копируем атрибуты svg
+    for (const attr of svg.attributes) {
+        storageSvg.setAttribute(attr.name, attr.value)
+    }
+
+    // очищаем svg и вставляем только первый g
+    storageSvg.innerHTML = ""
+    storageSvg.appendChild(firstG.cloneNode(true))
+}
+
+// Отслеживание изменения холста
+const canvasObserver = new MutationObserver(() => {
+    saveCanvasToActiveBlock()
+})
+
+function observeCanvasSvg() {
+    const svg = canvas.querySelector("svg")
+    if (!svg) return
+
+    canvasObserver.disconnect()
+    canvasObserver.observe(svg, {
+        childList: true,
+        attributes: true,
+        subtree: true,
+        characterData: true
+    })
+}
+
+observeCanvasSvg()
+
+
+
 // === Выделение ===
 
 // состояние лассо
@@ -15,6 +61,10 @@ let lassoActive = false
 let lassoStart = null
 let lassoRect = null
 let lassoMoved = false
+
+// состояние изменения размера выделения
+let elementResizing = null
+const selectionHandleSize = 8
 
 // проверка на область изменения размера
 function isResizeHandle(e, svg) {
@@ -40,6 +90,9 @@ function selectElements(e) {
     const svg = canvas.querySelector("svg")
     const firstG = svg.children[0]
     const techLayer = svg.children[1]
+
+    // если клик по квадрату изменения размера - лассо не запускается
+    if (e.target.dataset && e.target.dataset.resizeHandle) return
 
     // если клик по элементу - лассо не запускается
     if (firstG.contains(e.target)) return
@@ -215,6 +268,7 @@ function updateSelectionBox() {
     techLayer.innerHTML = "";
 
     const elements = Array.isArray(selectedElements) ? selectedElements : [selectedElements];
+    const selectionBox = getSelectionBBox(elements);
 
     for (const el of elements) {
         const bbox = getTransformedBBox(el);
@@ -234,8 +288,80 @@ function updateSelectionBox() {
         rect.setAttribute("fill", "none");
         rect.setAttribute("stroke", "#4285f4");
         rect.setAttribute("stroke-width", "1");
+        rect.setAttribute("pointer-events", "none");
 
         techLayer.appendChild(rect);
+    }
+
+    if (selectionBox) {
+        addSelectionHandles(selectionBox, techLayer);
+    }
+}
+
+// Получение общей рамки выделения
+function getSelectionBBox(elements) {
+    // Инициализируем координаты рамки бесконечностями для корректного сравнения
+    let x1 = Infinity;
+    let y1 = Infinity;
+    let x2 = -Infinity;
+    let y2 = -Infinity;
+
+    // Проходим по всем элементам и вычисляем общую рамку, учитывая трансформации
+    for (const el of elements) {
+        const bbox = getTransformedBBox(el);
+
+        x1 = Math.min(x1, bbox.x);
+        y1 = Math.min(y1, bbox.y);
+        x2 = Math.max(x2, bbox.x + bbox.width);
+        y2 = Math.max(y2, bbox.y + bbox.height);
+    }
+
+    if (!isFinite(x1) || !isFinite(y1) || !isFinite(x2) || !isFinite(y2)) return null;
+
+    return {
+        x: x1,
+        y: y1,
+        width: x2 - x1,
+        height: y2 - y1
+    };
+}
+
+// Добавление квадратов изменения размера
+function addSelectionHandles(bbox, techLayer) {
+    const x = bbox.x;
+    const y = bbox.y;
+    const w = bbox.width;
+    const h = bbox.height;
+    const s = selectionHandleSize;
+
+    // 8 точек: по углам и по центру каждой стороны
+    const handles = [
+        { name: "tl", x, y, cursor: "nwse-resize" },
+        { name: "tm", x: x + w / 2, y, cursor: "ns-resize" },
+        { name: "tr", x: x + w, y, cursor: "nesw-resize" },
+        { name: "mr", x: x + w, y: y + h / 2, cursor: "ew-resize" },
+        { name: "br", x: x + w, y: y + h, cursor: "nwse-resize" },
+        { name: "bm", x: x + w / 2, y: y + h, cursor: "ns-resize" },
+        { name: "bl", x, y: y + h, cursor: "nesw-resize" },
+        { name: "ml", x, y: y + h / 2, cursor: "ew-resize" }
+    ];
+
+    // Создаем и добавляем квадраты для каждой точки
+    for (const item of handles) {
+        const handle = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+
+        handle.setAttribute("x", item.x - s / 2);
+        handle.setAttribute("y", item.y - s / 2);
+        handle.setAttribute("width", s);
+        handle.setAttribute("height", s);
+        handle.setAttribute("fill", "#ffffff");
+        handle.setAttribute("stroke", "#4285f4");
+        handle.setAttribute("stroke-width", "1");
+        handle.setAttribute("pointer-events", "all");
+        handle.dataset.resizeHandle = item.name;
+        handle.style.cursor = item.cursor;
+
+        techLayer.appendChild(handle);
     }
 }
 
@@ -264,11 +390,137 @@ function getTransformedBBox(el) {
     };
 }
 
+// Получение точки мыши в координатах svg
+function getSvgPoint(e, svg) {
+    const point = svg.createSVGPoint();
+    point.x = e.clientX;
+    point.y = e.clientY;
+
+    const matrix = svg.getScreenCTM();
+    if (!matrix) return { x: e.clientX, y: e.clientY };
+
+    return point.matrixTransform(matrix.inverse());
+}
+
+// Начало изменения размера выделения
+function startElementResize(e, handle) {
+    const svg = canvas.querySelector("svg");
+    if (!svg) return;
+
+    const elements = Array.isArray(selectedElements) ? selectedElements : [selectedElements];
+    const selectionBox = getSelectionBBox(elements);
+    if (!selectionBox) return;
+
+    // Сохраняем состояние изменения размера
+    elementResizing = {
+        pointerId: e.pointerId,
+        handle,
+        startPoint: getSvgPoint(e, svg),
+        startBox: selectionBox,
+        items: elements.map((el) => ({
+            el,
+            transform: el.getAttribute("transform") || ""
+        }))
+    };
+
+    e.preventDefault();
+    e.stopImmediatePropagation();
+
+    try {
+        canvas.setPointerCapture(e.pointerId);
+    } catch (err) {}
+
+    canvas.addEventListener("pointermove", onElementResizeMove);
+    canvas.addEventListener("pointerup", onElementResizeUp);
+    canvas.addEventListener("pointercancel", onElementResizeUp);
+    canvas.addEventListener("lostpointercapture", onElementResizeUp);
+}
+
+// Получение новой рамки при изменении размера
+function getResizedBox(startBox, handle, dx, dy) {
+    let x = startBox.x;
+    let y = startBox.y;
+    let width = startBox.width;
+    let height = startBox.height;
+
+    // Изменяем координаты и размеры в зависимости от активного квадрата
+    if (handle.includes("l")) {
+        x = startBox.x + dx;
+        width = startBox.width - dx;
+    }
+    if (handle.includes("r")) {
+        width = startBox.width + dx;
+    }
+    if (handle.includes("t")) {
+        y = startBox.y + dy;
+        height = startBox.height - dy;
+    }
+    if (handle.includes("b")) {
+        height = startBox.height + dy;
+    }
+
+    return { x, y, width, height };
+}
+
+// Изменение размера выделения
+function onElementResizeMove(e) {
+    if (!elementResizing || e.pointerId !== elementResizing.pointerId) return;
+
+    const svg = canvas.querySelector("svg");
+    if (!svg) return;
+
+    e.preventDefault();
+
+    // Вычисляем новую рамку на основе движения мыши и активного квадрата
+    const point = getSvgPoint(e, svg);
+    const dx = point.x - elementResizing.startPoint.x;
+    const dy = point.y - elementResizing.startPoint.y;
+    const box = getResizedBox(elementResizing.startBox, elementResizing.handle, dx, dy);
+
+    // Вычисляем масштаб и трансформацию для каждого элемента внутри рамки
+    const sx = elementResizing.startBox.width ? box.width / elementResizing.startBox.width : 1;
+    const sy = elementResizing.startBox.height ? box.height / elementResizing.startBox.height : 1;
+    const tx = box.x - elementResizing.startBox.x * sx;
+    const ty = box.y - elementResizing.startBox.y * sy;
+    const matrix = `matrix(${sx} 0 0 ${sy} ${tx} ${ty})`;
+
+    // Применяем трансформацию к каждому элементу внутри рамки
+    for (const item of elementResizing.items) {
+        item.el.setAttribute("transform", `${matrix} ${item.transform}`.trim());
+    }
+
+    updateSelectionBox();
+}
+
+// Завершение изменения размера выделения
+function onElementResizeUp(e) {
+    if (!elementResizing || e.pointerId !== elementResizing.pointerId) return;
+
+    try {
+        canvas.releasePointerCapture(e.pointerId);
+    } catch (err) {}
+
+    canvas.removeEventListener("pointermove", onElementResizeMove);
+    canvas.removeEventListener("pointerup", onElementResizeUp);
+    canvas.removeEventListener("pointercancel", onElementResizeUp);
+    canvas.removeEventListener("lostpointercapture", onElementResizeUp);
+
+    elementResizing = null;
+    updateSelectionBox();
+}
+
+
 // Выделение элемента при нажатии (pointerdown)
 canvas.addEventListener("pointerdown", (e) => {
     const svg = canvas.querySelector("svg");
     const firstG = svg.children[0];
     const techLayer = svg.children[1];
+
+    // если клик по квадрату изменения размера - растягиваем выделение
+    if (e.target.dataset && e.target.dataset.resizeHandle) {
+        startElementResize(e, e.target.dataset.resizeHandle);
+        return;
+    }
 
     // если клик по элементу - одиночное выделение
     if (firstG.contains(e.target)) {
@@ -291,9 +543,11 @@ let dragging = null;
 function onPointerDownEl(e) {
     const svg = canvas.querySelector("svg");
 
+    // если клик по фону или самому svg - не начинаем перетаскивание
     if (!svg.contains(e.target) || e.target === svg) {
         return;
     }
+    if (elementResizing || (e.target.dataset && e.target.dataset.resizeHandle)) return;
     if (resizing || isResizeHandle(e, svg)) return;
 
     const el = e.target;
@@ -304,19 +558,19 @@ function onPointerDownEl(e) {
         el.setPointerCapture(e.pointerId);
     } catch (err) {}
 
-    // Получаем текущий translate для SVG элемента
-    const match = (el.getAttribute("transform") || "").match(/translate\(([-0-9.]+)[, ]+([-0-9.]+)\)/);
+    // Получаем текущие данные элемента
     const rect = el.getBoundingClientRect();
+    const transform = el.getAttribute("transform") || "";
+    const startPoint = getSvgPoint(e, svg);
 
+    // Проверяем, входит ли элемент в текущее выделение
     const selected = Array.isArray(selectedElements) && selectedElements.includes(el);
     const selectedItems = selected ? selectedElements.map((sel) => {
-        const selMatch = (sel.getAttribute("transform") || "").match(/translate\(([-0-9.]+)[, ]+([-0-9.]+)\)/);
         const selRect = sel.getBoundingClientRect();
         return {
             el: sel,
             isSVG: sel instanceof SVGElement,
-            offsetX: selMatch ? parseFloat(selMatch[1]) : 0,
-            offsetY: selMatch ? parseFloat(selMatch[2]) : 0,
+            transform: sel.getAttribute("transform") || "",
             left: parseFloat(sel.style.left) || selRect.left,
             top: parseFloat(sel.style.top) || selRect.top
         };
@@ -328,9 +582,9 @@ function onPointerDownEl(e) {
         pointerId: e.pointerId,
         startX: e.clientX,
         startY: e.clientY,
+        startPoint,
         isSVG: el instanceof SVGElement,
-        offsetX: match ? parseFloat(match[1]) : 0,
-        offsetY: match ? parseFloat(match[2]) : 0,
+        transform,
         elLeft: rect.left,
         elTop: rect.top,
         selected,
@@ -344,25 +598,28 @@ function onPointerMoveEl(e) {
 
     e.preventDefault();
 
-    const dx = e.clientX - dragging.startX;
-    const dy = e.clientY - dragging.startY;
+    let dx = e.clientX - dragging.startX;
+    let dy = e.clientY - dragging.startY;
 
     // Перемещение SVG элемента через transform
     if (dragging.isSVG) {
+        const svg = canvas.querySelector("svg");
+        if (!svg) return;
+
+        const point = getSvgPoint(e, svg);
+        dx = point.x - dragging.startPoint.x;
+        dy = point.y - dragging.startPoint.y;
+
         if (dragging.selected && dragging.selectedItems.length) {
             for (const item of dragging.selectedItems) {
-                const x = item.offsetX + dx;
-                const y = item.offsetY + dy;
-                item.el.setAttribute("transform", `translate(${x} ${y})`);
-                item.el.dataset.x = x;
-                item.el.dataset.y = y;
+                item.el.setAttribute("transform", `translate(${dx} ${dy}) ${item.transform}`.trim());
+                item.el.dataset.x = dx;
+                item.el.dataset.y = dy;
             }
         } else {
-            const x = dragging.offsetX + dx;
-            const y = dragging.offsetY + dy;
-            dragging.el.setAttribute("transform", `translate(${x} ${y})`);
-            dragging.el.dataset.x = x;
-            dragging.el.dataset.y = y;
+            dragging.el.setAttribute("transform", `translate(${dx} ${dy}) ${dragging.transform}`.trim());
+            dragging.el.dataset.x = dx;
+            dragging.el.dataset.y = dy;
         }
 
         if (dragging.selected) {
@@ -430,6 +687,7 @@ const cornerSize = 6;
 function onPointerDown(e) {
     const svg = canvas.querySelector("svg");
     if (!svg) return;
+    if (elementResizing || (e.target.dataset && e.target.dataset.resizeHandle)) return;
 
     const rect = svg.getBoundingClientRect();
 
@@ -468,7 +726,8 @@ function onPointerDown(e) {
 
     // Сбрасываем выделение при начале изменения размера
     selectedElements = [];
-    svg.children[1].innerHTML = "";
+    const techLayer = svg.children[1];
+    if (techLayer) techLayer.innerHTML = "";
 
     resizing = {
         startRect: svg.getBoundingClientRect(),
@@ -496,6 +755,7 @@ function onPointerDown(e) {
 function onPointerMove(e) {
     const svg = canvas.querySelector("svg");
     if (!svg) return;
+    if (elementResizing) return;
 
     const rect = svg.getBoundingClientRect();
 
