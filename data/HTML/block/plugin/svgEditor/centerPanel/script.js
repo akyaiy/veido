@@ -14,9 +14,25 @@ let selectedElements = [];
 let lassoActive = false
 let lassoStart = null
 let lassoRect = null
-let lassoSvg = null
-let lassoLayer = null
-let lassoRoot = null
+
+// проверка на область изменения размера
+function isResizeHandle(e, svg) {
+    const rect = svg.getBoundingClientRect()
+
+    // стороны
+    const onLeft = e.clientX >= rect.left - edgeSize && e.clientX <= rect.left + edgeSize
+    const onRight = e.clientX >= rect.right - edgeSize && e.clientX <= rect.right + edgeSize
+    const onTop = e.clientY >= rect.top - edgeSize && e.clientY <= rect.top + edgeSize
+    const onBottom = e.clientY >= rect.bottom - edgeSize && e.clientY <= rect.bottom + edgeSize
+
+    // углы
+    const onTL = Math.abs(e.clientX - rect.left) < cornerSize && Math.abs(e.clientY - rect.top) < cornerSize
+    const onTR = Math.abs(e.clientX - rect.right) < cornerSize && Math.abs(e.clientY - rect.top) < cornerSize
+    const onBL = Math.abs(e.clientX - rect.left) < cornerSize && Math.abs(e.clientY - rect.bottom) < cornerSize
+    const onBR = Math.abs(e.clientX - rect.right) < cornerSize && Math.abs(e.clientY - rect.bottom) < cornerSize
+
+    return onLeft || onRight || onTop || onBottom || onTL || onTR || onBL || onBR
+}
 
 // запуск лассо
 function selectElements(e) {
@@ -27,16 +43,14 @@ function selectElements(e) {
     // если клик по элементу - лассо не запускается
     if (firstG.contains(e.target)) return
 
+    // если клик по зоне изменения размера - лассо не запускается
+    if (isResizeHandle(e, svg)) return
+
     // включаем режим лассо
     lassoActive = true
 
     // запоминаем стартовую точку
     lassoStart = { x: e.clientX, y: e.clientY }
-
-    // сохраняем ссылки на svg и слои
-    lassoSvg = svg
-    lassoLayer = techLayer
-    lassoRoot = firstG
 
     // очищаем текущее выделение
     selectedElements = []
@@ -64,14 +78,14 @@ function onLassoMove(e) {
     // если лассо не активно - ничего не делаем
     if (!lassoActive || !lassoRect) return
 
+    const svg = canvas.querySelector("svg")
+    const svgRect = svg.getBoundingClientRect()
+
     // вычисляем координаты прямоугольника
     const x = Math.min(lassoStart.x, e.clientX)
     const y = Math.min(lassoStart.y, e.clientY)
     const w = Math.abs(e.clientX - lassoStart.x)
     const h = Math.abs(e.clientY - lassoStart.y)
-
-    // получаем позицию svg на экране
-    const svgRect = lassoSvg.getBoundingClientRect()
 
     // обновляем позицию рамки
     lassoRect.setAttribute("x", x - svgRect.left)
@@ -89,13 +103,17 @@ function onLassoUp(e) {
     canvas.removeEventListener("pointermove", onLassoMove)
     canvas.removeEventListener("pointerup", onLassoUp)
 
+    const svg = canvas.querySelector("svg")
+    const firstG = svg.children[0]
+    const techLayer = svg.children[1]
+
     // вычисляем границы выделения
     const x1 = Math.min(lassoStart.x, e.clientX)
     const y1 = Math.min(lassoStart.y, e.clientY)
     const x2 = Math.max(lassoStart.x, e.clientX)
     const y2 = Math.max(lassoStart.y, e.clientY)
 
-    const elements = lassoRoot.children
+    const elements = firstG.children
 
     // добавляем новые элементы в существующий массив
     if (!selectedElements) {
@@ -105,17 +123,15 @@ function onLassoUp(e) {
     for (const el of elements) {
         const bbox = el.getBoundingClientRect()
 
-        const cx = bbox.left + bbox.width / 2
-        const cy = bbox.top + bbox.height / 2
-
-        // если центр элемента внутри рамки - добавляем
-        if (cx >= x1 && cx <= x2 && cy >= y1 && cy <= y2) {
+        // если элемент хотя бы немного пересекается с рамкой - добавляем
+        const intersects = !(bbox.right < x1 || bbox.left > x2 || bbox.bottom < y1 || bbox.top > y2)
+        if (intersects) {
             selectedElements.push(el)
         }
     }
 
     // очищаем визуальный слой
-    lassoLayer.innerHTML = ""
+    techLayer.innerHTML = ""
 
     // обновляем рамку если есть что выделено
     if (selectedElements.length) {
@@ -126,9 +142,6 @@ function onLassoUp(e) {
     lassoActive = false
     lassoStart = null
     lassoRect = null
-    lassoSvg = null
-    lassoLayer = null
-    lassoRoot = null
 }
 
 // Выделение элемента
@@ -160,11 +173,15 @@ function updateSelectionBox() {
 
         const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
 
+        // если объект очень тонкий (например линия), делаем рамку минимум в 1px
+        const width = Math.max(1, bbox.width);
+        const height = Math.max(1, bbox.height);
+
         // Изменение координат и размеров рамки
         rect.setAttribute("x", bbox.x);
         rect.setAttribute("y", bbox.y);
-        rect.setAttribute("width", bbox.width);
-        rect.setAttribute("height", bbox.height);
+        rect.setAttribute("width", width);
+        rect.setAttribute("height", height);
 
         rect.setAttribute("fill", "none");
         rect.setAttribute("stroke", "#4285f4");
@@ -214,6 +231,7 @@ canvas.addEventListener("pointerdown", (e) => {
     // иначе запускаем лассо (передаём event)
     selectElements(e);
 });
+
 
 
 // === Взаимодействие c элементами ===
