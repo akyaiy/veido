@@ -6,6 +6,16 @@
 
 /* Вкладки */
 .elementsTab {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
     border-bottom: 1px solid #ccc;
-    padding: 10px;
+    padding: 7px;
+}
+.buttonSvg {
+    width: 20px;
+    height: 20px;
+}
+.buttonSvg.active {
+    background: #e0e0e0;
 }

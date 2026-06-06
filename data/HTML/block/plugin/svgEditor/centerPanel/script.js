@@ -87,6 +87,7 @@ function isResizeHandle(e, svg) {
 
 // запуск лассо
 function selectElements(e) {
+    if (window.modeSvgEditor !== "selection") return;
     const svg = canvas.querySelector("svg")
     const firstG = svg.children[0]
     const techLayer = svg.children[1]
@@ -404,6 +405,7 @@ function getSvgPoint(e, svg) {
 
 // Начало изменения размера выделения
 function startElementResize(e, handle) {
+    if (window.modeSvgEditor !== "selection") return;
     const svg = canvas.querySelector("svg");
     if (!svg) return;
 
@@ -512,6 +514,7 @@ function onElementResizeUp(e) {
 
 // Выделение элемента при нажатии (pointerdown)
 canvas.addEventListener("pointerdown", (e) => {
+    if (window.modeSvgEditor !== "selection") return;
     const svg = canvas.querySelector("svg");
     const firstG = svg.children[0];
     const techLayer = svg.children[1];
@@ -541,6 +544,7 @@ let dragging = null;
 
 // Нажатие на элемент
 function onPointerDownEl(e) {
+    if (window.modeSvgEditor !== "selection") return;
     const svg = canvas.querySelector("svg");
 
     // если клик по фону или самому svg - не начинаем перетаскивание
@@ -594,6 +598,7 @@ function onPointerDownEl(e) {
 
 // Перемещение элемента
 function onPointerMoveEl(e) {
+    if (window.modeSvgEditor !== "selection") return;
     if (!dragging || e.pointerId !== dragging.pointerId) return;
 
     e.preventDefault();
@@ -685,6 +690,7 @@ const cornerSize = 6;
 
 // Нажатие на холст
 function onPointerDown(e) {
+    if (window.modeSvgEditor !== "selection") return;
     const svg = canvas.querySelector("svg");
     if (!svg) return;
     if (elementResizing || (e.target.dataset && e.target.dataset.resizeHandle)) return;
@@ -753,6 +759,7 @@ function onPointerDown(e) {
 
 // Перемещение курсора
 function onPointerMove(e) {
+    if (window.modeSvgEditor !== "selection") return;
     const svg = canvas.querySelector("svg");
     if (!svg) return;
     if (elementResizing) return;
