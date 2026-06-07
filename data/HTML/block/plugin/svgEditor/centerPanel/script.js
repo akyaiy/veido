@@ -6,30 +6,151 @@ const canvas = document.getElementById("svgCanvas");
 // Выбранный элемент
 let selectedElements = [];
 
+// Состояние трансформации канвы
+let svgCanvasTransform = { tx: 0, ty: 0, scale: 1 };
+
+// Получение слоев из SVG
+function getContentLayer(svg) { return svg?.children[1]; }
+function getOverlayLayer(svg) { return svg?.children[2]; }
+function getBorderLayer(svg) { return svg?.children[0]; }
+
+// Применение текущей трансформации к канве
+function applySvgEditorCanvasTransform(svg) {
+    if (!svg) return;
+    const transform = `translate(${svgCanvasTransform.tx} ${svgCanvasTransform.ty}) scale(${svgCanvasTransform.scale})`;
+    const borderLayer = getBorderLayer(svg);
+    const contentLayer = getContentLayer(svg);
+    if (borderLayer) borderLayer.setAttribute("transform", transform);
+    if (contentLayer) contentLayer.setAttribute("transform", transform);
+}
+
+// Обновление трансформации канвы и рамки при изменении размера окна
+function updateSvgEditorCanvasTransform(state) {
+    svgCanvasTransform.tx = state.tx ?? svgCanvasTransform.tx;
+    svgCanvasTransform.ty = state.ty ?? svgCanvasTransform.ty;
+    svgCanvasTransform.scale = state.scale ?? svgCanvasTransform.scale;
+    const svg = canvas.querySelector("svg");
+    if (svg) applySvgEditorCanvasTransform(svg);
+}
+
+
+// === Передвежение по холсту ===
+
+// Масштабирование канвы колесом мыши с Ctrl
+function onCanvasWheel(e) {
+    if (!e.ctrlKey) return;
+    const svg = canvas.querySelector("svg");
+    if (!svg) return;
+
+    e.preventDefault();
+
+    const delta = Math.sign(e.deltaY) * -0.1;
+    const nextScale = Math.min(10, Math.max(0.1, svgCanvasTransform.scale * (1 + delta)));
+    const point = getSvgPoint(e, svg);
+    const prevScale = svgCanvasTransform.scale;
+    const tx = svgCanvasTransform.tx;
+    const ty = svgCanvasTransform.ty;
+    const cx = point.x;
+    const cy = point.y;
+
+    svgCanvasTransform.scale = nextScale;
+    svgCanvasTransform.tx = cx - ((cx - tx) / prevScale) * nextScale;
+    svgCanvasTransform.ty = cy - ((cy - ty) / prevScale) * nextScale;
+
+    applySvgEditorCanvasTransform(svg);
+    updateSelectionBox();
+}
+
+// Запрет контекстного меню при Ctrl + правая кнопка мыши для перемещения канвы
+canvas.addEventListener("wheel", onCanvasWheel, { passive: false });
+canvas.addEventListener("contextmenu", (e) => {
+    if (e.ctrlKey) {
+        e.preventDefault();
+    }
+});
+
+// Начало перемещения канвы по Ctrl + правая кнопка мыши
+function startCanvasPanning(e, svg) {
+    if (!e.ctrlKey || e.button !== 2 || !svg) return false;
+    const firstG = getContentLayer(svg);
+    if (firstG && firstG.contains(e.target)) return false;
+
+    // Сохраняем состояние перемещения канвы
+    canvasPanning = {
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+        startTx: svgCanvasTransform.tx,
+        startTy: svgCanvasTransform.ty,
+        scale: svgCanvasTransform.scale
+    };
+
+    try {
+        canvas.setPointerCapture(e.pointerId);
+    } catch (err) {}
+
+    return true;
+}
+
+// Обновление позиции канвы при перемещении мыши
+function updateCanvasPanning(e) {
+    if (!canvasPanning || e.pointerId !== canvasPanning.pointerId) return;
+    e.preventDefault();
+
+    // Вычисляем смещение с учетом масштаба
+    const dx = e.clientX - canvasPanning.startX;
+    const dy = e.clientY - canvasPanning.startY;
+    const scale = canvasPanning.scale || 1;
+
+    // Обновляем трансформацию канвы с учетом масштаба
+    svgCanvasTransform.tx = canvasPanning.startTx + dx / scale;
+    svgCanvasTransform.ty = canvasPanning.startTy + dy / scale;
+
+    const svg = canvas.querySelector("svg");
+    if (svg) applySvgEditorCanvasTransform(svg);
+    updateSelectionBox();
+}
+
+function stopCanvasPanning(e) {
+    if (!canvasPanning || e.pointerId !== canvasPanning.pointerId) return;
+
+    try {
+        canvas.releasePointerCapture(e.pointerId);
+    } catch (err) {}
+
+    canvasPanning = null;
+}
 
 
 // === Синхронизация между холстом и svg блоками ===
 
 // Запись первого g и атрибутов svg в активный svg блок
 function saveCanvasToActiveBlock() {
-    const svg = canvas.querySelector("svg")
-    const firstG = svg?.children[0]
-    const storage = document.getElementById("svgStorage")
-    const activeTab = document.querySelector("#tabs .svgTab.active")
-    if (!svg || !firstG || !storage || !activeTab) return
+    const svg = canvas.querySelector("svg");
+    const firstG = getContentLayer(svg);
+    const storage = document.getElementById("svgStorage");
+    const activeTab = document.querySelector("#tabs .svgTab.active");
+    if (!svg || !firstG || !storage || !activeTab) return;
 
-    const svgBlock = storage.querySelector(".svgBlock[data-num=\"" + activeTab.dataset.num + "\"]")
-    const storageSvg = svgBlock?.querySelector("svg")
-    if (!storageSvg) return
+    const svgBlock = storage.querySelector(".svgBlock[data-num=\"" + activeTab.dataset.num + "\"]");
+    const storageSvg = svgBlock?.querySelector("svg");
+    if (!storageSvg) return;
 
-    // копируем атрибуты svg
-    for (const attr of svg.attributes) {
-        storageSvg.setAttribute(attr.name, attr.value)
-    }
+    // НАДЕЖНЫЙ МЕТОД: Берем оригинальные размеры из самого storageSvg, а не из канвы
+    const origW = storageSvg.getAttribute("width");
+    const origH = storageSvg.getAttribute("height");
 
-    // очищаем svg и вставляем только первый g
-    storageSvg.innerHTML = ""
-    storageSvg.appendChild(firstG.cloneNode(true))
+    // Принудительно удерживаем корректные размеры в хранилище
+    storageSvg.setAttribute("width", origW);
+    storageSvg.setAttribute("height", origH);
+    storageSvg.setAttribute("viewBox", `0 0 ${origW} ${origH}`);
+
+    // Очищаем старое содержимое в хранилище перед записью
+    storageSvg.innerHTML = "";
+
+    // Копируем только чистые фигуры из первого g (без текстовых узлов и без самого <g>)
+    const elementsToSave = Array.from(firstG.cloneNode(true).children);
+    storageSvg.append(...elementsToSave);
 }
 
 // Отслеживание изменения холста
@@ -89,8 +210,8 @@ function isResizeHandle(e, svg) {
 function selectElements(e) {
     if (window.modeSvgEditor !== "selection") return;
     const svg = canvas.querySelector("svg")
-    const firstG = svg.children[0]
-    const techLayer = svg.children[1]
+    const firstG = getContentLayer(svg)
+    const techLayer = getOverlayLayer(svg)
 
     // если клик по квадрату изменения размера - лассо не запускается
     if (e.target.dataset && e.target.dataset.resizeHandle) return
@@ -108,8 +229,8 @@ function selectElements(e) {
     lassoStart = { x: e.clientX, y: e.clientY }
     lassoMoved = false
 
-    // очищаем текущее выделение, если Shift не зажат
-    if (!e.shiftKey) {
+    // очищаем текущее выделение, если Shift или Ctrl не зажаты
+    if (!e.shiftKey && !e.ctrlKey) {
         selectedElements = []
         techLayer.innerHTML = ""
     }
@@ -161,8 +282,8 @@ function onLassoUp(e) {
     canvas.removeEventListener("pointerup", onLassoUp)
 
     const svg = canvas.querySelector("svg")
-    const firstG = svg.children[0]
-    const techLayer = svg.children[1]
+    const firstG = getContentLayer(svg)
+    const techLayer = getOverlayLayer(svg)
 
     // вычисляем границы выделения
     const x1 = Math.min(lassoStart.x, e.clientX)
@@ -233,7 +354,7 @@ function toggleSelection(el) {
 
 // Выделение элемента
 function selectElement(el, append = false) {
-    // если Shift зажат - переключаем выделение для элемента
+    // если Shift или Ctrl зажаты - переключаем выделение для элемента
     if (append) {
         toggleSelection(el)
         updateSelectionBox();
@@ -257,14 +378,14 @@ function updateSelectionBox() {
     if (!selectedElements || (Array.isArray(selectedElements) && selectedElements.length === 0)) {
         const svg = canvas.querySelector("svg");
         if (svg) {
-            const techLayer = svg.children[1];
+            const techLayer = getOverlayLayer(svg);
             if (techLayer) techLayer.innerHTML = "";
         }
         return;
     }
 
     const svg = canvas.querySelector("svg");
-    const techLayer = svg.children[1];
+    const techLayer = getOverlayLayer(svg);
 
     techLayer.innerHTML = "";
 
@@ -300,7 +421,7 @@ function updateSelectionBox() {
 }
 
 // Получение общей рамки выделения
-function getSelectionBBox(elements) {
+function getSelectionBBox(elements, groupInverse) {
     // Инициализируем координаты рамки бесконечностями для корректного сравнения
     let x1 = Infinity;
     let y1 = Infinity;
@@ -309,7 +430,7 @@ function getSelectionBBox(elements) {
 
     // Проходим по всем элементам и вычисляем общую рамку, учитывая трансформации
     for (const el of elements) {
-        const bbox = getTransformedBBox(el);
+        const bbox = getTransformedBBox(el, groupInverse);
 
         x1 = Math.min(x1, bbox.x);
         y1 = Math.min(y1, bbox.y);
@@ -367,7 +488,7 @@ function addSelectionHandles(bbox, techLayer) {
 }
 
 // Получение координат и размеров элемента с учетом трансформаций
-function getTransformedBBox(el) {
+function getTransformedBBox(el, groupInverse) {
     const svg = canvas.querySelector("svg");
     const bbox = el.getBBox();
     const ctm = el.getCTM();
@@ -380,8 +501,13 @@ function getTransformedBBox(el) {
     p2.x = bbox.x + bbox.width; p2.y = bbox.y + bbox.height;
 
     // Применяем матрицу трансформации к углам
-    const t1 = p1.matrixTransform(ctm);
-    const t2 = p2.matrixTransform(ctm);
+    let t1 = p1.matrixTransform(ctm);
+    let t2 = p2.matrixTransform(ctm);
+
+    if (groupInverse) {
+        t1 = t1.matrixTransform(groupInverse);
+        t2 = t2.matrixTransform(groupInverse);
+    }
 
     return {
         x: Math.min(t1.x, t2.x),
@@ -409,16 +535,22 @@ function startElementResize(e, handle) {
     const svg = canvas.querySelector("svg");
     if (!svg) return;
 
+    const group = getContentLayer(svg);
+    const groupInverse = group?.getCTM()?.inverse() || null;
     const elements = Array.isArray(selectedElements) ? selectedElements : [selectedElements];
-    const selectionBox = getSelectionBBox(elements);
+    const selectionBox = getSelectionBBox(elements, groupInverse);
     if (!selectionBox) return;
+
+    const point = getSvgPoint(e, svg);
+    const startPoint = groupInverse ? point.matrixTransform(groupInverse) : point;
 
     // Сохраняем состояние изменения размера
     elementResizing = {
         pointerId: e.pointerId,
         handle,
-        startPoint: getSvgPoint(e, svg),
+        startPoint,
         startBox: selectionBox,
+        groupInverse,
         items: elements.map((el) => ({
             el,
             transform: el.getAttribute("transform") || ""
@@ -473,10 +605,11 @@ function onElementResizeMove(e) {
 
     e.preventDefault();
 
-    // Вычисляем новую рамку на основе движения мыши и активного квадрата
+    const groupInverse = elementResizing.groupInverse;
     const point = getSvgPoint(e, svg);
-    const dx = point.x - elementResizing.startPoint.x;
-    const dy = point.y - elementResizing.startPoint.y;
+    const localPoint = groupInverse ? point.matrixTransform(groupInverse) : point;
+    const dx = localPoint.x - elementResizing.startPoint.x;
+    const dy = localPoint.y - elementResizing.startPoint.y;
     const box = getResizedBox(elementResizing.startBox, elementResizing.handle, dx, dy);
 
     // Вычисляем масштаб и трансформацию для каждого элемента внутри рамки
@@ -511,13 +644,17 @@ function onElementResizeUp(e) {
     updateSelectionBox();
 }
 
-
 // Выделение элемента при нажатии (pointerdown)
 canvas.addEventListener("pointerdown", (e) => {
     if (window.modeSvgEditor !== "selection") return;
     const svg = canvas.querySelector("svg");
-    const firstG = svg.children[0];
-    const techLayer = svg.children[1];
+    const firstG = getContentLayer(svg);
+    const techLayer = getOverlayLayer(svg);
+
+    // перемещение канвы по Ctrl + правая кнопка мыши
+    if (startCanvasPanning(e, svg)) {
+        return;
+    }
 
     // если клик по квадрату изменения размера - растягиваем выделение
     if (e.target.dataset && e.target.dataset.resizeHandle) {
@@ -527,7 +664,7 @@ canvas.addEventListener("pointerdown", (e) => {
 
     // если клик по элементу - одиночное выделение
     if (firstG.contains(e.target)) {
-        selectElement(e.target, e.shiftKey);
+        selectElement(e.target, e.shiftKey || e.ctrlKey);
         return;
     }
 
@@ -541,16 +678,17 @@ canvas.addEventListener("pointerdown", (e) => {
 
 // Текущее перетаскиваемое состояние
 let dragging = null;
+let canvasPanning = null;
 
 // Нажатие на элемент
 function onPointerDownEl(e) {
     if (window.modeSvgEditor !== "selection") return;
     const svg = canvas.querySelector("svg");
+    if (!svg) return;
 
-    // если клик по фону или самому svg - не начинаем перетаскивание
-    if (!svg.contains(e.target) || e.target === svg) {
-        return;
-    }
+    const firstG = getContentLayer(svg);
+    // двигать можно только элементы из первого слоя
+    if (!firstG || !firstG.contains(e.target)) return;
     if (elementResizing || (e.target.dataset && e.target.dataset.resizeHandle)) return;
     if (resizing || isResizeHandle(e, svg)) return;
 
@@ -677,6 +815,11 @@ canvas.addEventListener("pointerup", onPointerUpEl);
 canvas.addEventListener("pointercancel", onPointerUpEl);
 canvas.addEventListener("lostpointercapture", onPointerUpEl);
 
+canvas.addEventListener("pointermove", updateCanvasPanning);
+canvas.addEventListener("pointerup", stopCanvasPanning);
+canvas.addEventListener("pointercancel", stopCanvasPanning);
+canvas.addEventListener("lostpointercapture", stopCanvasPanning);
+
 
 
 // === Взаимодействие c холстом ===
@@ -732,7 +875,7 @@ function onPointerDown(e) {
 
     // Сбрасываем выделение при начале изменения размера
     selectedElements = [];
-    const techLayer = svg.children[1];
+    const techLayer = getOverlayLayer(svg);
     if (techLayer) techLayer.innerHTML = "";
 
     resizing = {
@@ -816,8 +959,13 @@ function onPointerUp() {
     resizing = false;
 }
 
-// Подключение
-canvas.addEventListener("pointerdown", onPointerDown);
-canvas.addEventListener("pointermove", onPointerMove);
-canvas.addEventListener("pointerup", onPointerUp);
-canvas.addEventListener("pointercancel", onPointerUp);
+// Привязка событий к rect внутри третьей группы
+// document.addEventListener("openSvgBlock", () => {
+//     const borderPath = canvas.querySelector("svg")?.querySelector("#borderPath");
+//     if (!borderPath) return;
+
+//     borderPath.addEventListener("pointerdown", onPointerDown);
+//     borderPath.addEventListener("pointermove", onPointerMove);
+//     borderPath.addEventListener("pointerup", onPointerUp);
+//     borderPath.addEventListener("pointercancel", onPointerUp);
+// });

@@ -16,6 +16,30 @@ document.addEventListener("svgEditorBlocksLoaded", async () => {
     await loadSvg("plugin/svgEditor/test/test2");
 });
 
+// Получение слоев из SVG
+function getContentLayer(svg) { return svg?.children[1]; }
+function getOverlayLayer(svg) { return svg?.children[2]; }
+function getBorderLayer(svg) { return svg?.children[0]; }
+
+// Применение текущей трансформации к канве
+function applySvgEditorCanvasTransform(svg) {
+    if (!svg) return;
+    const transform = `translate(${svgCanvasTransform.tx} ${svgCanvasTransform.ty}) scale(${svgCanvasTransform.scale})`;
+    const borderLayer = getBorderLayer(svg);
+    const contentLayer = getContentLayer(svg);
+    if (borderLayer) borderLayer.setAttribute("transform", transform);
+    if (contentLayer) contentLayer.setAttribute("transform", transform);
+}
+
+// Обновление трансформации канвы и рамки при изменении размера окна
+function updateSvgEditorCanvasTransform(state) {
+    svgCanvasTransform.tx = state.tx ?? svgCanvasTransform.tx;
+    svgCanvasTransform.ty = state.ty ?? svgCanvasTransform.ty;
+    svgCanvasTransform.scale = state.scale ?? svgCanvasTransform.scale;
+    const svg = canvas.querySelector("svg");
+    if (svg) applySvgEditorCanvasTransform(svg);
+}
+
 
 
 // === Вкладки меню ===
@@ -97,25 +121,57 @@ function openSvgBlock(num) {
     const dstSvg = canvas.querySelector("svg");
     if (!srcSvg || !dstSvg) return;
 
-    // Копируем все дочерние элементы и атрибуты из srcSvg в dstSvg
-    dstSvg.children[0].replaceChildren(...srcSvg.cloneNode(true).childNodes);
-    for (const attr of srcSvg.attributes) {
-        dstSvg.setAttribute(attr.name, attr.value);
-    }
+    // Получаем размеры оригинального листа
+    const w = parseFloat(srcSvg.getAttribute("width"));
+    const h = parseFloat(srcSvg.getAttribute("height"));
+
+    // Делаем основную канву бесконечной
+    dstSvg.setAttribute("width", "100%");
+    dstSvg.setAttribute("height", "100%");
+    dstSvg.removeAttribute("viewBox");
+
+    // Высчитываем координаты для центрирования листа на экране
+    const rect = dstSvg.getBoundingClientRect();
+    const tx = Math.max(0, (rect.width - w) / 2);
+    const ty = Math.max(0, (rect.height - h) / 2);
+
+    // Копируем дочерние элементы в второй g вместе с белым фоном
+    const drawGroup = dstSvg.children[1];
+    drawGroup.replaceChildren(...srcSvg.cloneNode(true).childNodes);
+    drawGroup.setAttribute("transform", `translate(${tx}, ${ty})`);
 
     // Очищаем технический слой от старых рамок выделения
-    const techLayer = dstSvg.children[1];
+    const techLayer = dstSvg.children[0];
     if (techLayer) {
         techLayer.innerHTML = "";
+        dstSvg.children[2].innerHTML = "";
+        techLayer.setAttribute("transform", `translate(${tx}, ${ty})`);
+        if (typeof window.updateSvgEditorCanvasTransform === "function") {
+            window.updateSvgEditorCanvasTransform({ tx, ty, scale: 1 });
+        }
+
+        // Рисуем рамку вокруг листа
+        const borderPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+
+        borderPath.setAttribute("d", `M 0 0 H ${w} V ${h} H 0 Z`);
+
+        borderPath.setAttribute("fill", "none");
+        borderPath.setAttribute("stroke", "#b0b0b0");
+        borderPath.setAttribute("stroke-width", "1");
+
+        borderPath.setAttribute("id", "borderPath");
+        techLayer.appendChild(borderPath);
     }
 
     // Сбрасываем выделение при открытии новой вкладки
-    selectedElements = []
+    selectedElements = [];
 
     // Выделение активной вкладки
     tabs.querySelectorAll(".svgTab").forEach((tab) => {
         tab.classList.toggle("active", tab.dataset.num === String(num));
     });
+        
+    document.dispatchEvent(new Event("openSvgBlock"));
 }
 
 // Закрытие svg блока и удаление соответствующей вкладки
@@ -141,6 +197,6 @@ function closeSvgBlock(num, event) {
     // Если вкладок не осталось, очищаем канву
     const dstSvg = canvas.querySelector("svg");
     if (dstSvg) {
-        dstSvg.children[0].replaceChildren();
+        dstSvg.children[1].replaceChildren();
     }
 }

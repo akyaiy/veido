@@ -79,10 +79,10 @@ function getSvgPoint(e, svg) {
 
 // функция получения или создания группы для рисования
 function getDrawGroup(svg) {
-    let group = svg.children[0];
+    let group = svg.children[1];
     if (!group || group.nodeName.toLowerCase() !== "g") {
         group = document.createElementNS(svg.namespaceURI || "http://www.w3.org/2000/svg", "g");
-        svg.insertBefore(group, svg.firstChild);
+        svg.insertBefore(group, svg.children[1] || svg.firstChild);
     }
     return group;
 }
