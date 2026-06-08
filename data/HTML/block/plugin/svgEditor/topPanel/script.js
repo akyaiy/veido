@@ -21,25 +21,6 @@ function getContentLayer(svg) { return svg?.children[1]; }
 function getOverlayLayer(svg) { return svg?.children[2]; }
 function getBorderLayer(svg) { return svg?.children[0]; }
 
-// Применение текущей трансформации к канве
-function applySvgEditorCanvasTransform(svg) {
-    if (!svg) return;
-    const transform = `translate(${svgCanvasTransform.tx} ${svgCanvasTransform.ty}) scale(${svgCanvasTransform.scale})`;
-    const borderLayer = getBorderLayer(svg);
-    const contentLayer = getContentLayer(svg);
-    if (borderLayer) borderLayer.setAttribute("transform", transform);
-    if (contentLayer) contentLayer.setAttribute("transform", transform);
-}
-
-// Обновление трансформации канвы и рамки при изменении размера окна
-function updateSvgEditorCanvasTransform(state) {
-    svgCanvasTransform.tx = state.tx ?? svgCanvasTransform.tx;
-    svgCanvasTransform.ty = state.ty ?? svgCanvasTransform.ty;
-    svgCanvasTransform.scale = state.scale ?? svgCanvasTransform.scale;
-    const svg = canvas.querySelector("svg");
-    if (svg) applySvgEditorCanvasTransform(svg);
-}
-
 
 
 // === Вкладки меню ===
@@ -146,9 +127,6 @@ function openSvgBlock(num) {
         techLayer.innerHTML = "";
         dstSvg.children[2].innerHTML = "";
         techLayer.setAttribute("transform", `translate(${tx}, ${ty})`);
-        if (typeof window.updateSvgEditorCanvasTransform === "function") {
-            window.updateSvgEditorCanvasTransform({ tx, ty, scale: 1 });
-        }
 
         // Рисуем рамку вокруг листа
         const borderPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
