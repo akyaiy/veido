@@ -65,8 +65,8 @@ let pressStartTime = 0;
 let lastClickPoint = null;
 let pathBaseD = "";
 
-// функция получения координат клика относительно svg
-function getSvgPoint(e, svg) {
+// функция получения координат клика относительно svg или группы внутри svg
+function getSvgPoint(e, svg, group = null) {
     const point = svg.createSVGPoint();
     point.x = e.clientX;
     point.y = e.clientY;
@@ -74,7 +74,13 @@ function getSvgPoint(e, svg) {
     const matrix = svg.getScreenCTM();
     if (!matrix) return { x: e.clientX, y: e.clientY };
 
-    return point.matrixTransform(matrix.inverse());
+    const svgPoint = point.matrixTransform(matrix.inverse());
+    if (!group) return svgPoint;
+
+    const groupCTM = group.getCTM();
+    if (!groupCTM) return svgPoint;
+
+    return svgPoint.matrixTransform(groupCTM.inverse());
 }
 
 // функция получения или создания группы для рисования
@@ -92,7 +98,7 @@ function startAddModeDraw(e) {
     if (window.modeSvgEditor !== "add" || !currentAddElement) return;
     if (!svgCanvasSvg) return;
 
-    const point = getSvgPoint(e, svgCanvasSvg);
+    const point = getSvgPoint(e, svgCanvasSvg, getDrawGroup(svgCanvasSvg));
     if (!point) return;
 
     // запоминаем время нажатия для проверки на быстрый клик
@@ -113,33 +119,15 @@ function startAddModeDraw(e) {
         lastClickPoint = point;
 
         // если режим rect или ломаная линия то делаем несокол отрезков по клику
-        if (currentAddElement === "rect") {
+        if (currentAddElement === "line") {
             addModeStart = point;
             const group = getDrawGroup(svgCanvasSvg);
             const el = document.createElementNS("http://www.w3.org/2000/svg", currentAddElement);
 
             // делаем белый контур черный фон
-            el.setAttribute("fill", "#000");
-            el.setAttribute("stroke", "#fff");
+            el.setAttribute("stroke", "#000");
             el.setAttribute("stroke-width", "1");
-            el.setAttribute("x", point.x);
-            el.setAttribute("y", point.y);
-            el.setAttribute("width", 1);
-            el.setAttribute("height", 1);
 
-            group.appendChild(el);
-            addModePreview = el;
-            e.preventDefault();
-            return;
-        } else if (currentAddElement === "line") {
-            addModeStart = point;
-            const group = getDrawGroup(svgCanvasSvg);
-            const el = document.createElementNS("http://www.w3.org/2000/svg", currentAddElement);
-
-            // делаем белый контур черный фон
-            el.setAttribute("fill", "#000");
-            el.setAttribute("stroke", "#fff");
-            el.setAttribute("stroke-width", "1");
             el.setAttribute("x1", point.x);
             el.setAttribute("y1", point.y);
             el.setAttribute("x2", point.x);
@@ -166,31 +154,44 @@ function startAddModeDraw(e) {
     const group = getDrawGroup(svgCanvasSvg);
     const el = document.createElementNS("http://www.w3.org/2000/svg", currentAddElement);
 
-    // делаем белый контур черный фон
-    el.setAttribute("fill", "#000");
-    el.setAttribute("stroke", "#fff");
-    el.setAttribute("stroke-width", "1");
-
     // устанавливаем начальные атрибуты в зависимости от типа элемента
     switch (currentAddElement) {
         case "rect":
+            el.setAttribute("fill", "#ffffff");
+            el.setAttribute("stroke", "#000000");
+            el.setAttribute("stroke-width", "1");
+
             el.setAttribute("x", point.x);
             el.setAttribute("y", point.y);
             el.setAttribute("width", 1);
             el.setAttribute("height", 1);
             break;
+            
         case "circle":
+            el.setAttribute("fill", "#ffffff");
+            el.setAttribute("stroke", "#000000");
+            el.setAttribute("stroke-width", "1");
+
             el.setAttribute("cx", point.x);
             el.setAttribute("cy", point.y);
             el.setAttribute("r", 1);
             break;
+
         case "line":
+            el.setAttribute("stroke", "#000");
+            el.setAttribute("stroke-width", "1");
+
             el.setAttribute("x1", point.x);
             el.setAttribute("y1", point.y);
             el.setAttribute("x2", point.x);
             el.setAttribute("y2", point.y);
             break;
+
         case "path":
+            el.setAttribute("fill", "#ffffff");
+            el.setAttribute("stroke", "#000000");
+            el.setAttribute("stroke-width", "1");
+
             pathBaseD = `M ${point.x} ${point.y}`;
             el.setAttribute("d", `${pathBaseD} L ${point.x} ${point.y}`);
             break;
@@ -222,7 +223,7 @@ function updateAddModePreview(e) {
     if (!addModeActive || !addModePreview || !addModeType) return;
     if (!svgCanvasSvg) return;
 
-    const point = getSvgPoint(e, svgCanvasSvg);
+    const point = getSvgPoint(e, svgCanvasSvg, getDrawGroup(svgCanvasSvg));
     const dx = point.x - addModeStart.x;
     const dy = point.y - addModeStart.y;
 

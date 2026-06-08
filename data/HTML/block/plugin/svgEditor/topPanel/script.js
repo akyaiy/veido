@@ -130,14 +130,11 @@ function openSvgBlock(num) {
 
         // Рисуем рамку вокруг листа
         const borderPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
-
         borderPath.setAttribute("d", `M 0 0 H ${w} V ${h} H 0 Z`);
-
-        borderPath.setAttribute("fill", "none");
-        borderPath.setAttribute("stroke", "#b0b0b0");
+        borderPath.setAttribute("fill", "#ffffff");
         borderPath.setAttribute("stroke-width", "1");
-
         borderPath.setAttribute("id", "borderPath");
+        borderPath.style.filter = "drop-shadow(0 1px 2.5px rgba(0,0,0,0.25))";
         techLayer.appendChild(borderPath);
     }
 
