@@ -4,7 +4,7 @@
 const canvas = document.getElementById("svgCanvas");
 
 // Выбранный элемент
-let selectedElements = [];
+window.selectedElementsSvg = [];
 
 // Получение слоев из SVG
 function getContentLayer(svg) { return svg?.children[1]; }
@@ -266,7 +266,7 @@ function selectElements(e) {
 
     // очищаем текущее выделение, если Shift или Ctrl не зажаты
     if (!e.shiftKey && !e.ctrlKey) {
-        selectedElements = []
+        window.selectedElementsSvg = []
         techLayer.innerHTML = ""
     }
 
@@ -340,8 +340,8 @@ function onLassoUp(e) {
     }
 
     // добавляем новые элементы в существующий массив
-    if (!selectedElements) {
-        selectedElements = []
+    if (!window.selectedElementsSvg) {
+        window.selectedElementsSvg = []
     }
 
     for (const el of elements) {
@@ -353,8 +353,8 @@ function onLassoUp(e) {
 
         if (e.shiftKey) {
             toggleSelection(el)
-        } else if (!selectedElements.includes(el)) {
-            selectedElements.push(el)
+        } else if (!window.selectedElementsSvg.includes(el)) {
+            window.selectedElementsSvg.push(el)
         }
     }
 
@@ -362,7 +362,7 @@ function onLassoUp(e) {
     techLayer.innerHTML = ""
 
     // обновляем рамку если есть что выделено
-    if (selectedElements.length) {
+    if (window.selectedElementsSvg.length) {
         updateSelectionBox()
     }
 
@@ -374,16 +374,16 @@ function onLassoUp(e) {
 
 // Переключение выделения элемента
 function toggleSelection(el) {
-    if (!Array.isArray(selectedElements)) {
-        selectedElements = []
+    if (!Array.isArray(window.selectedElementsSvg)) {
+        window.selectedElementsSvg = []
     }
 
     // если элемент уже выделен - убираем его из выделения, иначе добавляем
-    const index = selectedElements.indexOf(el)
+    const index = window.selectedElementsSvg.indexOf(el)
     if (index >= 0) {
-        selectedElements.splice(index, 1)
+        window.selectedElementsSvg.splice(index, 1)
     } else {
-        selectedElements.push(el)
+        window.selectedElementsSvg.push(el)
     }
 }
 
@@ -397,20 +397,20 @@ function selectElement(el, append = false) {
     }
 
     // если элемент уже в выбранных — не сбрасываем выделение
-    if (Array.isArray(selectedElements) && selectedElements.includes(el)) {
+    if (Array.isArray(window.selectedElementsSvg) && window.selectedElementsSvg.includes(el)) {
         updateSelectionBox();
         return;
     }
 
     // Выделяем новый элемент
-    selectedElements = [el];
+    window.selectedElementsSvg = [el];
     updateSelectionBox();
 }
 
 // Обновление рамки выделения
 function updateSelectionBox() {
     // если нет выделения - очищаем технический слой и выходим
-    if (!selectedElements || (Array.isArray(selectedElements) && selectedElements.length === 0)) {
+    if (!window.selectedElementsSvg || (Array.isArray(window.selectedElementsSvg) && window.selectedElementsSvg.length === 0)) {
         const svg = canvas.querySelector("svg");
         if (svg) {
             const techLayer = getOverlayLayer(svg);
@@ -424,7 +424,7 @@ function updateSelectionBox() {
 
     techLayer.innerHTML = "";
 
-    const elements = Array.isArray(selectedElements) ? selectedElements : [selectedElements];
+    const elements = Array.isArray(window.selectedElementsSvg) ? window.selectedElementsSvg : [window.selectedElementsSvg];
     const selectionBox = getSelectionBBox(elements);
 
     for (const el of elements) {
@@ -572,7 +572,7 @@ function startElementResize(e, handle) {
 
     const group = getContentLayer(svg);
     const groupInverse = group?.getCTM()?.inverse() || null;
-    const elements = Array.isArray(selectedElements) ? selectedElements : [selectedElements];
+    const elements = Array.isArray(window.selectedElementsSvg) ? window.selectedElementsSvg : [window.selectedElementsSvg];
     const selectionBox = getSelectionBBox(elements, groupInverse);
     if (!selectionBox) return;
 
@@ -749,8 +749,8 @@ function onPointerDownEl(e) {
     const startPoint = groupInverse ? getSvgPoint(e, svg).matrixTransform(groupInverse) : getSvgPoint(e, svg);
 
     // Проверяем, входит ли элемент в текущее выделение
-    const selected = Array.isArray(selectedElements) && selectedElements.includes(el);
-    const selectedItems = selected ? selectedElements.map((sel) => {
+    const selected = Array.isArray(window.selectedElementsSvg) && window.selectedElementsSvg.includes(el);
+    const selectedItems = selected ? window.selectedElementsSvg.map((sel) => {
         const selRect = sel.getBoundingClientRect();
         return {
             el: sel,
@@ -913,7 +913,7 @@ function onPointerDown(e) {
     if (!onLeft && !onRight && !onTop && !onBottom && !onTL && !onTR && !onBL && !onBR) return;
 
     // Сбрасываем выделение при начале изменения размера
-    selectedElements = [];
+    window.selectedElementsSvg = [];
     const techLayer = getOverlayLayer(svg);
     if (techLayer) techLayer.innerHTML = "";
 

@@ -1,20 +1,44 @@
 /* Главные контейнеры */
 #rightPanel {
-    display: flex;
     width: 20%;
     flex-direction: column;
 }
 
+#rightPanel input, #rightPanel select {
+    display: block;
+    padding: 2px 3px;
+}
+#rightPanel hr  {
+    width: 100%;
+}
+
 
 /* Вкладки */
-#propertiesTabs {
+#propertiesTabs {    
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 5px;
+    width: 100%;
+    box-sizing: border-box;
+    align-items: flex-start;
     border-bottom: 1px solid #ccc;
     padding: 10px;
-    height: max-content;
+    overflow-x: auto;
+    overflow-y: hidden;
 }
 
 .propertiesTab {
     cursor: pointer;
+    display: flex;
+    font-size: 14px;
+    padding: 2px 4px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    white-space: nowrap;
+    flex: 0 0 auto;
+}
+.propertiesTab.active {
+    background: #e0e0e0;
 }
 
 
@@ -23,4 +47,15 @@
 #propertiesContent {
     padding: 10px;
     overflow: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    height: 77%;
+}
+#propertiesContent div {
+    display: flex;
+    gap: 5px;
+    flex-direction: column;
+}
+#propertiesContent > div > div:first-child {
+    font-weight: bold;
 }
