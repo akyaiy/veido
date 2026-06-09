@@ -3,9 +3,6 @@
 // Главный холст
 const canvas = document.getElementById("svgCanvas");
 
-// Выбранный элемент
-window.selectedElementsSvg = [];
-
 // Получение слоев из SVG
 function getContentLayer(svg) { return svg?.children[1]; }
 function getOverlayLayer(svg) { return svg?.children[2]; }

@@ -1,5 +1,11 @@
 // === Общие ===
 
+// Выбранный элемент
+window.selectedElementsSvg = [];
+
+// глобальный режим редактора
+window.modeSvgEditor = "selection";
+
 
 // === Загрузка блоков редактора ===
 

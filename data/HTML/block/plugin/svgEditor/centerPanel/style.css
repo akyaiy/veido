@@ -1,8 +1,10 @@
 /* Холст SVG */
 #svgCanvas {
+    box-sizing: border-box;
     border: 1px solid #ccc;
     border-top: none;
-    height: calc(75vh - 2px);
+    width: 100%;
+    height: 100%;
 }
 
 /* SVG элементы */
@@ -10,6 +12,7 @@
     width: 100%;
     height: 100%;
     background-color: #e4e4e4;
+    display: block;
 }
 
 

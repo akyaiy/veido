@@ -4,9 +4,6 @@
 const svgCanvas = document.getElementById("svgCanvas");
 const svgCanvasSvg = svgCanvas.querySelector("svg");
 
-// глобальный режим редактора
-window.modeSvgEditor = "selection";
-
 // глобальный тип элемента для режима добавления
 let currentAddElement = null;
 

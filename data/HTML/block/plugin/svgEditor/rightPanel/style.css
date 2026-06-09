@@ -49,7 +49,6 @@
     overflow: auto;
     overflow-y: auto;
     overflow-x: hidden;
-    height: 77%;
 }
 #propertiesContent div {
     display: flex;

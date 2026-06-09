@@ -1,23 +1,13 @@
+/* Главные контейнеры */
 main {
     width: 100%;
 }
 
 #editor {
-    height: 80vh !important;
-}
-
-
-
-/* Главные контейнеры */
-#editor {
     display: flex;
     flex-direction: column;
-    height: 100vh;
-}
-
-#mainContainer {
-    display: flex;
-    flex: 1;
+    height: 80vh;
+    overflow: hidden;
 }
 
 
@@ -31,26 +21,27 @@ main {
 
 
 
-/* Верхняя панель */
+/* Под контейнеры */
 #topPanel {
     width: 100%;
+    flex-shrink: 0;
 }
 
+#mainContainer {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
 
-
-/* Левая панель */
-/* #leftPanel {
-} */
-
-
-
-/* Правая панель */
-/* #rightPanel {
-} */
-
-
-
-/* Центральная панель */
+#leftPanel {
+    flex-shrink: 0;
+    overflow-y: auto;
+}
+#rightPanel {
+    flex-shrink: 0;
+    overflow-y: auto;
+}
 #centerPanel {
     flex: 1;
     overflow: auto;

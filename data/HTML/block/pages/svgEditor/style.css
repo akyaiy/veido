@@ -9,11 +9,21 @@ main {
     display: flex;
     flex-direction: column;
     height: 100vh;
+    min-height: 0;
+    overflow: hidden;
 }
 
 #mainContainer {
     display: flex;
     flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+#leftPanel,
+#centerPanel,
+#rightPanel {
+    min-height: 0;
 }
 
 
