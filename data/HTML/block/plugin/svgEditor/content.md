@@ -7,7 +7,5 @@
     <div id="centerPanel">centerPanel</div>
     <div id="rightPanel">rightPanel</div>
 </div>
-
-<div id="colorPickerSvg"></div>
     
 </div>

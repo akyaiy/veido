@@ -1,3 +1,14 @@
+// === Общие элементы ===
+
+// функция загрузки блоков колорпикера для разных ролей цвета
+async function loadColorPicker() {
+    await loadBlock("plugin/colorPicker", "svgPropFillColorPicker");
+    await loadBlock("plugin/colorPicker", "svgPropStrokeColorPicker");
+}
+loadColorPicker();
+
+
+
 // === Настройки стилей элементов ===
 
 // Словарь соответствия ID инпутов и атрибутов SVG

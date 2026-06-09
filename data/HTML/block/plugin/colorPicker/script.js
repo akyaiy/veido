@@ -1,20 +1,25 @@
 // === Общие элементы ===
 
+// Получение текущего блока и роли цвета из атрибутов data
+const currentScript = document.currentScript;
+const root = document.getElementById(currentScript.dataset.dynamic);
+const colorRole = root?.dataset.colorRole || null;
+
 // интерфейс
-const cpWrapper = document.getElementById("colorPickerWrapper");
-const cpPreview = document.getElementById("colorPickerPreview");
-const cpFormatSelect = document.getElementById("colorPickerFormatSelect");
-const cpInputField = document.getElementById("colorPickerOutputField");
+const cpWrapper = root.querySelector(".colorPickerWrapper");
+const cpPreview = root.querySelector(".colorPickerPreview");
+const cpFormatSelect = root.querySelector(".colorPickerFormatSelect");
+const cpInputField = root.querySelector(".colorPickerOutputField");
 
 // canvas выбора цвета
-const cpCanvas = document.getElementById("colorPickerCanvas");
+const cpCanvas = root.querySelector(".colorPickerCanvas");
 const cpCtx = cpCanvas.getContext("2d");
-const cpCursor = document.getElementById("colorPickerCursor");
+const cpCursor = root.querySelector(".colorPickerCursor");
 
 // оттенок
-const cpRunHue = document.getElementById("colorPickerHue");
+const cpRunHue = root.querySelector(".colorPickerHue");
 const cpHueCtx = cpRunHue.getContext("2d");
-const hpHueCursor = document.getElementById("colorPickerHueCursor");
+const hpHueCursor = root.querySelector(".colorPickerHueCursor");
 
 // состояние цвета
 let cpCurrentHue = 0;
@@ -164,7 +169,10 @@ function openColorPicker(triggerEl, startValue, onColorEvent) {
 function updateInterface(r, g, b, flag, updateInput = true) {
     const hex = rgbToHex(r, g, b);
     cpPreview.style.backgroundColor = hex;
-    document.querySelectorAll(".colorPickerTrigger").forEach((el) => {
+    const triggers = colorRole
+        ? document.querySelectorAll(`.colorPickerTrigger[data-color-role="${colorRole}"]`)
+        : document.querySelectorAll(".colorPickerTrigger");
+    triggers.forEach((el) => {
         el.style.backgroundColor = hex;
     });
     if (updateInput) {
@@ -270,7 +278,8 @@ cpInputField.addEventListener("input", (e) => {
 cpFormatSelect.addEventListener("change", () => updateInterface(lastRgb[0], lastRgb[1], lastRgb[2], "change", true));
 
 document.addEventListener("click", (e) => {
-    const trigger = e.target.closest(".colorPickerTrigger");
+    if (!colorRole) return;
+    const trigger = e.target.closest(`.colorPickerTrigger[data-color-role="${colorRole}"]`);
     if (!trigger) return;
     openColorPicker(trigger, rgbToHex(lastRgb[0], lastRgb[1], lastRgb[2]), null);
 });
