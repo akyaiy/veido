@@ -7,6 +7,7 @@ window.selectedElementsSvg = [];
 window.modeSvgEditor = "selection";
 
 
+
 // === Загрузка блоков редактора ===
 
 // Название блоков для редактора
@@ -26,5 +27,8 @@ async function loadEditorBlocks() {
 
     // Событие, сигнализирующее о том, что блоки редактора загружены
     document.dispatchEvent(new Event("svgEditorBlocksLoaded"));
+    
+    // Загрузка окна выбора цвета
+    await loadBlock("plugin/colorPicker", "colorPickerSvg");
 }
 loadEditorBlocks();

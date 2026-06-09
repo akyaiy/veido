@@ -1,0 +1,118 @@
+/* обёртка цветового пикера */
+#colorPickerWrapper {
+    position: absolute;
+    width: 250px;
+    background: #ffffff;
+    border: 1px solid #ccc;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    padding: 10px;
+    box-sizing: border-box;
+    font-family: sans-serif;
+    user-select: none;
+}
+
+/* скрытие */
+.hidden {
+    display: none !important;
+}
+
+/* курсор выбора цвета */
+.cpCursorCommon {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 2px #000;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+#colorPickerCursor {
+    left: 100%;
+    top: 0%;
+}
+
+
+
+/* контейнер canvas выбора цвета */
+#colorPickerCanvasContainer {
+    position: relative;
+    cursor: crosshair;
+    margin-bottom: 10px;
+}
+
+#colorPickerCanvas {
+    display: block;
+    width: 100%;
+    height: 150px;
+}
+
+
+
+/* управление */
+#colorPickerControls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+/* предпросмотр цвета */
+#colorPickerPreview {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #f00;
+    box-shadow: inset 0 0 3px rgba(0,0,0,0.2);
+    flex-shrink: 0;
+}
+
+/* hue */
+.cpHueContainer {
+    position: relative;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    height: 14px;
+}
+
+#colorPickerHue {
+    display: block;
+    width: 100%;
+    height: 14px;
+    border-radius: 5px;
+    background: transparent;
+    outline: none;
+    cursor: pointer;
+}
+
+#colorPickerHueCursor {
+    top: 50%;
+    left: 0%;
+}
+
+
+
+/* нижняя часть */
+.cpBottomSection {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#colorPickerFormatSelect {
+    padding: 4px;
+    font-size: 12px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    outline: none;
+}
+
+#colorPickerOutputField {
+    flex: 1;
+    padding: 4px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    font-size: 12px;
+    text-align: center;
+}

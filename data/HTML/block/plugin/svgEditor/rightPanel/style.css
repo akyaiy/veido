@@ -4,10 +4,6 @@
     flex-direction: column;
 }
 
-#rightPanel input, #rightPanel select {
-    display: block;
-    padding: 2px 3px;
-}
 #rightPanel hr  {
     width: 100%;
 }
@@ -50,11 +46,26 @@
     overflow-y: auto;
     overflow-x: hidden;
 }
-#propertiesContent div {
+
+#propertiesContent > div > div:first-child {
+    font-weight: bold;
+}
+#propertiesContent > div > div:not(:first-child) {
+    display: grid;
+    grid-template-columns: 1fr 60%;
+    align-items: center;
+    gap: 8px;
+}
+
+#propertiesContent > div {
     display: flex;
     gap: 5px;
     flex-direction: column;
 }
-#propertiesContent > div > div:first-child {
-    font-weight: bold;
+
+#propertiesContent > div > div > input, 
+#propertiesContent > div > div > select {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 2px 3px;
 }

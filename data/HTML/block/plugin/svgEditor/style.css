@@ -19,6 +19,15 @@ main {
     cursor: pointer;
 }
 
+.colorPickerTrigger {
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: rgb(255, 0, 0);
+    cursor: pointer;
+    height: 20px;
+    padding: 2px 3px;
+}
+
 
 
 /* Под контейнеры */
