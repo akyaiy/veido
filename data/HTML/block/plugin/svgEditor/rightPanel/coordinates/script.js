@@ -5,74 +5,205 @@ const inputY = document.getElementById("svgPropY");
 const inputW = document.getElementById("svgPropW");
 const inputH = document.getElementById("svgPropH");
 const inputR = document.getElementById("svgPropR");
-const inputX1 = document.getElementById("svgPropX1");
-const inputY1 = document.getElementById("svgPropY1");
-const inputX2 = document.getElementById("svgPropX2");
-const inputY2 = document.getElementById("svgPropY2");
-const inputD = document.getElementById("svgPropD");
+
+// Общая карта: какие группы и поля размеров относятся к какому элементу
+const elementVisibilityMap = {
+    "*": { groups: ["svgGroupPosition", "svgGroupSize"], fields: ["svgPropX", "svgPropY", "svgPropW", "svgPropH"] },
+    "rect": { groups: ["svgGroupPosition", "svgGroupSize"], fields: ["svgPropX", "svgPropY", "svgPropW", "svgPropH"] },
+    "circle": { groups: ["svgGroupPosition", "svgGroupSize"], fields: ["svgPropX", "svgPropY", "svgPropR"] },
+    "line": { groups: ["svgGroupLine"], fields: [] },
+    "path": { groups: ["svgGroupLine"], fields: [] }
+};
+
+// Расчет общего bounding box для группы выделенных элементов
+function getSelectionBBox() {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    
+    selectedElementsSvg.forEach(el => {
+        let x = 0, y = 0, w = 0, h = 0;
+        const tag = el.tagName.toLowerCase();
+        
+        if (tag === "rect") {
+            x = parseFloat(el.getAttribute("x")) || 0;
+            y = parseFloat(el.getAttribute("y")) || 0;
+            w = parseFloat(el.getAttribute("width")) || 0;
+            h = parseFloat(el.getAttribute("height")) || 0;
+        } else if (tag === "circle") {
+            const r = parseFloat(el.getAttribute("r")) || 0;
+            x = (parseFloat(el.getAttribute("cx")) || 0) - r;
+            y = (parseFloat(el.getAttribute("cy")) || 0) - r;
+            w = r * 2;
+            h = r * 2;
+        } else if (tag === "line") {
+            const x1 = parseFloat(el.getAttribute("x1")) || 0;
+            const x2 = parseFloat(el.getAttribute("x2")) || 0;
+            const y1 = parseFloat(el.getAttribute("y1")) || 0;
+            const y2 = parseFloat(el.getAttribute("y2")) || 0;
+            x = Math.min(x1, x2);
+            y = Math.min(y1, y2);
+            w = Math.abs(x2 - x1);
+            h = Math.abs(y2 - y1);
+        } else {
+            try { const box = el.getBBox(); x = box.x; y = box.y; w = box.width; h = box.height; } catch(e) {}
+        }
+        
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x + w > maxX) maxX = x + w;
+        if (y + h > maxY) maxY = y + h;
+    });
+
+    return minX === Infinity ? { x: 0, y: 0, width: 0, height: 0 } : { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+}
+
+// Изменение геометрии нескольких элементов относительно общего контура
+function applyMultiGeometryChange(id, newVal) {
+    const box = getSelectionBBox();
+    if (box.width === 0 || box.height === 0) return;
+
+    selectedElementsSvg.forEach(el => {
+        const tag = el.tagName.toLowerCase();
+        
+        if (id === "svgPropX" || id === "svgPropY") {
+            const delta = newVal - (id === "svgPropX" ? box.x : box.y);
+            if (["rect", "image"].includes(tag)) {
+                const attr = id === "svgPropX" ? "x" : "y";
+                el.setAttribute(attr, (parseFloat(el.getAttribute(attr)) || 0) + delta);
+            } else if (tag === "circle") {
+                const attr = id === "svgPropX" ? "cx" : "cy";
+                el.setAttribute(attr, (parseFloat(el.getAttribute(attr)) || 0) + delta);
+            } else if (tag === "line") {
+                if (id === "svgPropX") {
+                    el.setAttribute("x1", (parseFloat(el.getAttribute("x1")) || 0) + delta);
+                    el.setAttribute("x2", (parseFloat(el.getAttribute("x2")) || 0) + delta);
+                } else {
+                    el.setAttribute("y1", (parseFloat(el.getAttribute("y1")) || 0) + delta);
+                    el.setAttribute("y2", (parseFloat(el.getAttribute("y2")) || 0) + delta);
+                }
+            }
+        } else if (id === "svgPropW" || id === "svgPropH") {
+            const ratio = newVal / (id === "svgPropW" ? box.width : box.height);
+            if (["rect", "image"].includes(tag)) {
+                if (id === "svgPropW") {
+                    let x = parseFloat(el.getAttribute("x")) || 0;
+                    el.setAttribute("x", box.x + (x - box.x) * ratio);
+                    el.setAttribute("width", (parseFloat(el.getAttribute("width")) || 0) * ratio);
+                } else {
+                    let y = parseFloat(el.getAttribute("y")) || 0;
+                    el.setAttribute("y", box.y + (y - box.y) * ratio);
+                    el.setAttribute("height", (parseFloat(el.getAttribute("height")) || 0) * ratio);
+                }
+            } else if (tag === "circle") {
+                let cx = parseFloat(el.getAttribute("cx")) || 0;
+                let cy = parseFloat(el.getAttribute("cy")) || 0;
+                let r = parseFloat(el.getAttribute("r")) || 0;
+                if (id === "svgPropW") {
+                    el.setAttribute("cx", box.x + (cx - box.x) * ratio);
+                    el.setAttribute("r", r * ratio);
+                } else {
+                    el.setAttribute("cy", box.y + (cy - box.y) * ratio);
+                    el.setAttribute("r", r * ratio);
+                }
+            }
+        }
+    });
+}
+
+// Переключение видимости блоков свойств на основе выделения
+function updatePropertiesVisibility() {
+    const allGroupIds = new Set();
+    const allFieldIds = new Set();
+
+    Object.values(elementVisibilityMap).forEach(config => {
+        (config.groups || []).forEach(id => allGroupIds.add(id));
+        (config.fields || []).forEach(id => allFieldIds.add(id));
+    });
+
+    allGroupIds.forEach(id => {
+        const group = document.getElementById(id);
+        if (group) group.style.display = "none";
+    });
+    allFieldIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el.parentNode) el.parentNode.style.display = "none";
+    });
+
+    const tag = (!selectedElementsSvg || selectedElementsSvg.length === 0)
+        ? "*"
+        : (selectedElementsSvg.length > 1
+            ? "*"
+            : (selectedElementsSvg[0].localName ? selectedElementsSvg[0].localName.toLowerCase() : selectedElementsSvg[0].tagName.toLowerCase()));
+    const config = elementVisibilityMap[tag];
+    if (!config) return;
+
+    (config.groups || []).forEach(gId => {
+        const group = document.getElementById(gId);
+        if (group) group.style.display = "grid";
+    });
+    (config.fields || []).forEach(fId => {
+        const el = document.getElementById(fId);
+        if (el && el.parentNode) el.parentNode.style.display = "grid";
+    });
+}
 
 // Обновление SVG при изменении базовых инпутов
 function onGeometryInputChange(e) {
     if (!selectedElementsSvg || selectedElementsSvg.length === 0) return;
     
     const id = e.target.id;
-    const val = e.target.value;
+    const val = parseFloat(e.target.value) || 0;
 
-    selectedElementsSvg.forEach(el => {
-        const tag = el.tagName.toLowerCase();
+    if (selectedElementsSvg.length > 1) {
+        applyMultiGeometryChange(id, val);
+        return;
+    }
 
-        if (["rect", "image", "foreignObject"].includes(tag)) {
-            if (id === "svgPropX") el.setAttribute("x", val);
-            if (id === "svgPropY") el.setAttribute("y", val);
-            if (id === "svgPropW") el.setAttribute("width", val);
-            if (id === "svgPropH") el.setAttribute("height", val);
-        } else if (tag === "circle") {
-            if (id === "svgPropX") el.setAttribute("cx", val);
-            if (id === "svgPropY") el.setAttribute("cy", val);
-            if (id === "svgPropR") el.setAttribute("r", val);
-        } else if (tag === "line") {
-            if (id === "svgPropX1") el.setAttribute("x1", val);
-            if (id === "svgPropY1") el.setAttribute("y1", val);
-            if (id === "svgPropX2") el.setAttribute("x2", val);
-            if (id === "svgPropY2") el.setAttribute("y2", val);
-        } else if (tag === "path") {
-            if (id === "svgPropD") el.setAttribute("d", val);
-        }
-    });
+    const el = selectedElementsSvg[0];
+    const tag = el.tagName.toLowerCase();
+
+    if (["rect", "image", "foreignObject"].includes(tag)) {
+        if (id === "svgPropX") el.setAttribute("x", val);
+        if (id === "svgPropY") el.setAttribute("y", val);
+        if (id === "svgPropW") el.setAttribute("width", val);
+        if (id === "svgPropH") el.setAttribute("height", val);
+    } else if (tag === "circle") {
+        if (id === "svgPropX") el.setAttribute("cx", val);
+        if (id === "svgPropY") el.setAttribute("cy", val);
+        if (id === "svgPropR") el.setAttribute("r", val);
+    }
 }
 
 // Привязываем события стандартным инпутам
-[inputX, inputY, inputW, inputH, inputR, inputX1, inputY1, inputX2, inputY2, inputD].forEach(inp => {
+[inputX, inputY, inputW, inputH, inputR].forEach(inp => {
     if (inp) inp.addEventListener("input", onGeometryInputChange);
 });
 
-// Синхронизация первых двух точек для polyline/polygon через стандартные инпуты
-[inputX1, inputY1, inputX2, inputY2].forEach((inp, idx) => {
-    if (!inp) return;
-    inp.addEventListener("input", (e) => {
-        selectedElementsSvg.forEach(el => {
-            if (["polyline", "polygon"].includes(el.tagName.toLowerCase())) {
-                let pts = (el.getAttribute("points") || "").trim().split(/[\s,]+/).filter(Boolean);
-                pts[idx] = e.target.value;
-                el.setAttribute("points", pts.join(" "));
-            }
-        });
-    });
+document.addEventListener("click", () => { updatePropertiesVisibility(); });
+
+requestAnimationFrame(() => {
+    updateGeometryInputs();
 });
 
 // Чтение данных из SVG в инпуты
 function updateGeometryInputs() {
-    // Сначала переключаем видимость блоков свойств
-    if (typeof updatePropertiesVisibility === "function") {
-        updatePropertiesVisibility();
-    }
+    updatePropertiesVisibility();
 
     if (!selectedElementsSvg || selectedElementsSvg.length === 0) return;
+    
+    document.querySelectorAll(".dynamic-node-field").forEach(el => el.remove());
+
+    if (selectedElementsSvg.length > 1) {
+        const box = getSelectionBBox();
+        if (inputX) inputX.value = Math.round(box.x);
+        if (inputY) inputY.value = Math.round(box.y);
+        if (inputW) inputW.value = Math.round(box.width);
+        if (inputH) inputH.value = Math.round(box.height);
+        return;
+    }
+
     const firstEl = selectedElementsSvg[0];
     const tag = firstEl.tagName.toLowerCase();
-
-    // Удаляем старые динамические инпуты дополнительных точек, если они есть
-    document.querySelectorAll(".dynamic-point-field").forEach(el => el.remove());
+    const btnAdd = document.getElementById("svgAddNode");
 
     if (["rect", "image", "foreignObject"].includes(tag)) {
         if (inputX) inputX.value = firstEl.getAttribute("x") || 0;
@@ -84,52 +215,41 @@ function updateGeometryInputs() {
         if (inputY) inputY.value = firstEl.getAttribute("cy") || 0;
         if (inputR) inputR.value = firstEl.getAttribute("r") || 0;
     } else if (tag === "line") {
-        if (inputX1) inputX1.value = firstEl.getAttribute("x1") || 0;
-        if (inputY1) inputY1.value = firstEl.getAttribute("y1") || 0;
-        if (inputX2) inputX2.value = firstEl.getAttribute("x2") || 0;
-        if (inputY2) inputY2.value = firstEl.getAttribute("y2") || 0;
-    } else if (["polyline", "polygon"].includes(tag)) {
-        const pointsAttr = firstEl.getAttribute("points") || "";
-        const points = pointsAttr.trim().split(/[\s,]+/).filter(Boolean);
-        
-        // Первые 2 точки пишем в стандартные X1, Y1, X2, Y2
-        if (inputX1) inputX1.value = points[0] || 0;
-        if (inputY1) inputY1.value = points[1] || 0;
-        if (inputX2) inputX2.value = points[2] || 0;
-        if (inputY2) inputY2.value = points[3] || 0;
-
-        // Для 3-й и последующих точек создаем инпуты на лету перед кнопкой "+"
-        const btnAdd = document.getElementById("svgLineAddPoint");
-        if (btnAdd) {
-            let pointNum = 2;
-            for (let i = 4; i < points.length; i += 2) {
-                pointNum++;
-                const currentIdx = i;
-
-                const div = document.createElement("div");
-                div.className = "dynamic-point-field";
-                div.innerHTML = `
-                    <div>X${pointNum} <input type="number" value="${points[currentIdx] || 0}" data-idx="${currentIdx}"></div>
-                    <div>Y${pointNum} <input type="number" value="${points[currentIdx + 1] || 0}" data-idx="${currentIdx + 1}"></div>
-                `;
-
-                div.querySelectorAll("input").forEach(dynamicInp => {
-                    dynamicInp.addEventListener("input", (e) => {
-                        const idx = parseInt(e.target.dataset.idx);
-                        selectedElementsSvg.forEach(poly => {
-                            if (["polyline", "polygon"].includes(poly.tagName.toLowerCase())) {
-                                let pts = (poly.getAttribute("points") || "").trim().split(/[\s,]+/).filter(Boolean);
-                                pts[idx] = e.target.value;
-                                poly.setAttribute("points", pts.join(" "));
-                            }
-                        });
-                    });
-                });
-
-                btnAdd.before(div);
-            }
-        }
+        const pts = ["1", "2"];
+        pts.forEach((p, idx) => {
+            const div = document.createElement("div");
+            div.className = "dynamic-node-field";
+            div.innerHTML = `
+                <button class="node-remove-btn">-</button>
+                X <input type="number" class="node-x" value="${firstEl.getAttribute("x" + p) || 0}">
+                Y <input type="number" class="node-y" value="${firstEl.getAttribute("y" + p) || 0}">
+            `;
+            div.querySelector(".node-x").addEventListener("input", (e) => firstEl.setAttribute("x" + p, e.target.value));
+            div.querySelector(".node-y").addEventListener("input", (e) => firstEl.setAttribute("y" + p, e.target.value));
+            div.querySelector(".node-remove-btn").addEventListener("click", () => { firstEl.remove(); updateGeometryInputs(); });
+            if (btnAdd) btnAdd.before(div);
+        });
     } else if (tag === "path") {
-        if (inputD) inputD.value = firstEl.getAttribute("d") || "";
+        const dAttr = firstEl.getAttribute("d") || "";
+        const commands = dAttr.match(/[a-df-z][^a-df-z]*/ig) || [];
+        
+        commands.forEach((cmd, i) => {
+            const div = document.createElement("div");
+            div.className = "dynamic-node-field";
+            div.innerHTML = `
+                <button class="node-remove-btn">-</button>
+                <input type="text" class="node-cmd" value="${cmd.trim()}">
+            `;
+            div.querySelector(".node-cmd").addEventListener("input", (e) => {
+                commands[i] = e.target.value;
+                firstEl.setAttribute("d", commands.join(" "));
+            });
+            div.querySelector(".node-remove-btn").addEventListener("click", () => {
+                commands.splice(i, 1);
+                firstEl.setAttribute("d", commands.join(" "));
+                updateGeometryInputs();
+            });
+            if (btnAdd) btnAdd.before(div);
+        });
     }
 }

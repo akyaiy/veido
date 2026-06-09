@@ -4,6 +4,7 @@
 async function loadColorPicker() {
     await loadBlock("plugin/colorPicker", "svgPropFillColorPicker");
     await loadBlock("plugin/colorPicker", "svgPropStrokeColorPicker");
+    attachColorPickerSync();
 }
 loadColorPicker();
 
@@ -11,11 +12,11 @@ loadColorPicker();
 
 // === Настройки стилей элементов ===
 
-// Словарь соответствия ID инпутов и атрибутов SVG
+// Словарь соответствия ID элементов и атрибутов SVG
 const stylePropMap = {
-    "svgPropFill": "fill",
+    "svgPropFillColor": "fill",
     "svgPropFillOpacity": "fill-opacity",
-    "svgPropStroke": "stroke",
+    "svgPropStrokeColor": "stroke",
     "svgPropStrokeWidth": "stroke-width",
     "svgPropStrokeDasharray": "stroke-dasharray",
     "svgPropStrokeOpacity": "stroke-opacity"
@@ -35,15 +36,7 @@ function onStyleInputChange(e) {
     });
 }
 
-// Привязываем обработчики ко всем инпутам из словаря
-Object.keys(stylePropMap).forEach(id => {
-    const el = document.getElementById(id);
-    if (el) {
-        el.addEventListener("input", onStyleInputChange);
-    }
-});
-
-// Чтение данных из выделенного элемента в инпуты
+// Чтение данных из выделенного элемента в интерфейс
 function updateColorInputs() {
     if (!selectedElementsSvg || selectedElementsSvg.length === 0) return;
     
@@ -56,21 +49,53 @@ function updateColorInputs() {
     const strokeDasharray = firstEl.getAttribute("stroke-dasharray");
     const strokeOpacity = firstEl.getAttribute("stroke-opacity");
 
-    const inputFill = document.getElementById("svgPropFill");
-    if (inputFill) inputFill.value = fill;
+    const triggerFill = document.getElementById("svgPropFillColor");
+    if (triggerFill && fill) triggerFill.style.backgroundColor = fill;
 
-    const inputStroke = document.getElementById("svgPropStroke");
-    if (inputStroke) inputStroke.value = stroke;
+    const triggerStroke = document.getElementById("svgPropStrokeColor");
+    if (triggerStroke && stroke) triggerStroke.style.backgroundColor = stroke;
 
     const inputFillOp = document.getElementById("svgPropFillOpacity");
-    if (inputFillOp) inputFillOp.value = fillOpacity;
+    if (inputFillOp) inputFillOp.value = fillOpacity || "";
 
     const inputStrokeW = document.getElementById("svgPropStrokeWidth");
-    if (inputStrokeW) inputStrokeW.value = strokeWidth;
+    if (inputStrokeW) inputStrokeW.value = strokeWidth || "";
 
     const inputStrokeDash = document.getElementById("svgPropStrokeDasharray");
-    if (inputStrokeDash) inputStrokeDash.value = strokeDasharray;
+    if (inputStrokeDash) inputStrokeDash.value = strokeDasharray || "none";
 
     const inputStrokeOp = document.getElementById("svgPropStrokeOpacity");
-    if (inputStrokeOp) inputStrokeOp.value = strokeOpacity;
+    if (inputStrokeOp) inputStrokeOp.value = strokeOpacity || "";
+}
+
+// Привязываем обработчики ко всем инпутам из словаря
+Object.keys(stylePropMap).forEach(id => {
+    const el = document.getElementById(id);
+    if (el && (el.tagName === "INPUT" || el.tagName === "SELECT")) {
+        el.addEventListener("input", onStyleInputChange);
+    }
+});
+
+function attachColorPickerSync() {
+    const triggers = ["svgPropFillColor", "svgPropStrokeColor"].map(id => document.getElementById(id)).filter(Boolean);
+    if (!triggers.length) return;
+
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            if (mutation.type !== "attributes" || mutation.attributeName !== "style") return;
+            const trigger = mutation.target;
+            if (!trigger.classList.contains("colorPickerTrigger")) return;
+
+            const color = trigger.style.backgroundColor || getComputedStyle(trigger).backgroundColor;
+            if (!color) return;
+
+            const attr = trigger.id === "svgPropFillColor" ? "fill" : "stroke";
+            if (!selectedElementsSvg || selectedElementsSvg.length === 0) return;
+
+            selectedElementsSvg.forEach(el => el.setAttribute(attr, color));
+            updateColorInputs();
+        });
+    });
+
+    triggers.forEach(trigger => observer.observe(trigger, { attributes: true, attributeFilter: ["style"] }));
 }

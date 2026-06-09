@@ -2,9 +2,8 @@
     <div>Заливка</div>
     <div>Цвет: <div id="svgPropFillColor" class="colorPickerTrigger" data-color-role="svgPropFillColor"></div></div>
     <div>Прозрачность: <input type="number" id="svgPropFillOpacity"></div>
-</div>
-
 <hr>
+</div>
 
 <div id="svgGroupStroke">
     <div>Граница</div>
