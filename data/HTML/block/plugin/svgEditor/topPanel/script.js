@@ -139,7 +139,16 @@ function openSvgBlock(num) {
     }
 
     // Сбрасываем выделение при открытии новой вкладки
-    selectedElements = [];
+    if (!Array.isArray(window.selectedElementsSvg)) {
+        window.selectedElementsSvg = [];
+    } else {
+        window.selectedElementsSvg.length = 0;
+    }
+
+    // Удаляем рамки старого выделения
+    const activeSvg = canvas.querySelector("svg");
+    const overlayLayer = activeSvg ? activeSvg.children[2] : null;
+    if (overlayLayer) overlayLayer.innerHTML = "";
 
     // Выделение активной вкладки
     tabs.querySelectorAll(".svgTab").forEach((tab) => {

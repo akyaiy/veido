@@ -384,23 +384,46 @@ function toggleSelection(el) {
     }
 }
 
+// Получение максимально верхнего прямого ребенка firstG
+function getTopLevelElement(el) {
+    const svg = canvas.querySelector("svg");
+    if (!svg) return el;
+    
+    const firstG = getContentLayer(svg);
+    if (!firstG) return el;
+    
+    // если это уже прямой ребенок firstG - возвращаем его
+    if (el.parentNode === firstG) return el;
+    
+    // проходим вверх по родителям пока не найдем прямого ребенка firstG
+    let current = el;
+    while (current && current.parentNode !== firstG) {
+        current = current.parentNode;
+    }
+    
+    return current || el;
+}
+
 // Выделение элемента
 function selectElement(el, append = false) {
+    // находим максимально верхний прямой ребенок firstG
+    const topEl = getTopLevelElement(el);
+    
     // если Shift или Ctrl зажаты - переключаем выделение для элемента
     if (append) {
-        toggleSelection(el)
+        toggleSelection(topEl)
         updateSelectionBox();
         return;
     }
 
     // если элемент уже в выбранных — не сбрасываем выделение
-    if (Array.isArray(window.selectedElementsSvg) && window.selectedElementsSvg.includes(el)) {
+    if (Array.isArray(window.selectedElementsSvg) && window.selectedElementsSvg.includes(topEl)) {
         updateSelectionBox();
         return;
     }
 
     // Выделяем новый элемент
-    window.selectedElementsSvg = [el];
+    window.selectedElementsSvg = [topEl];
     updateSelectionBox();
 }
 
@@ -731,7 +754,7 @@ function onPointerDownEl(e) {
     if (elementResizing || (e.target.dataset && e.target.dataset.resizeHandle)) return;
     if (resizing || isResizeHandle(e, svg)) return;
 
-    const el = e.target;
+    const el = getTopLevelElement(e.target);
     const groupInverse = firstG?.getCTM()?.inverse() || null;
 
     e.preventDefault();
@@ -745,18 +768,18 @@ function onPointerDownEl(e) {
     const transform = el.getAttribute("transform") || "";
     const startPoint = groupInverse ? getSvgPoint(e, svg).matrixTransform(groupInverse) : getSvgPoint(e, svg);
 
-    // Проверяем, входит ли элемент в текущее выделение
-    const selected = Array.isArray(window.selectedElementsSvg) && window.selectedElementsSvg.includes(el);
-    const selectedItems = selected ? window.selectedElementsSvg.map((sel) => {
-        const selRect = sel.getBoundingClientRect();
-        return {
-            el: sel,
-            isSVG: sel instanceof SVGElement,
-            transform: sel.getAttribute("transform") || "",
-            left: parseFloat(sel.style.left) || selRect.left,
-            top: parseFloat(sel.style.top) || selRect.top
-        };
-    }) : [];
+    // Всегда используем все выделенные элементы для движения
+    const selectedItems = Array.isArray(window.selectedElementsSvg) && window.selectedElementsSvg.length > 0 ?
+        window.selectedElementsSvg.map((sel) => {
+            const selRect = sel.getBoundingClientRect();
+            return {
+                el: sel,
+                isSVG: sel instanceof SVGElement,
+                transform: sel.getAttribute("transform") || "",
+                left: parseFloat(sel.style.left) || selRect.left,
+                top: parseFloat(sel.style.top) || selRect.top
+            };
+        }) : [];
 
     // Сохраняем начальные данные перетаскивания
     dragging = {
@@ -770,7 +793,7 @@ function onPointerDownEl(e) {
         transform,
         elLeft: rect.left,
         elTop: rect.top,
-        selected,
+        selected: selectedItems.length > 0,
         selectedItems
     };
 }
