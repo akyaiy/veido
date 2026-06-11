@@ -9,12 +9,15 @@ const elementVisibilityMap = {
     "path": { groups: ["svgGroupPosition", "svgGroupLine"], fields: ["svgPropX", "svgPropY", "svgAddNode"] }
 };
 
-// Ссылки на инпуты
+// Инпуты
 const inputX = document.getElementById("svgPropX");
 const inputY = document.getElementById("svgPropY");
 const inputW = document.getElementById("svgPropW");
 const inputH = document.getElementById("svgPropH");
 const inputR = document.getElementById("svgPropR");
+
+// Кнопки
+const btnAddNode = document.getElementById("svgAddNode");
 
 
 
@@ -149,8 +152,6 @@ function applyMultiGeometryChange(id, newVal) {
     });
 }
 
-
-
 // Обновление SVG при изменении базовых инпутов
 function onGeometryInputChange(e) {
     if (!selectedElementsSvg || selectedElementsSvg.length === 0) return;
@@ -247,7 +248,7 @@ function onGeometryInputChange(e) {
 
 
 
-// === UI синхронизация и видимость ===
+// === Интерфейс ===
 
 // Чтение данных из SVG в инпуты
 function updateGeometryInputs() {
@@ -255,7 +256,7 @@ function updateGeometryInputs() {
 
     if (!selectedElementsSvg || selectedElementsSvg.length === 0) return;
     
-    document.querySelectorAll(".dynamic-node-field").forEach(el => el.remove());
+    document.querySelectorAll(".dynamicNodeField").forEach(el => el.remove());
 
     if (selectedElementsSvg.length > 1) {
         const box = getSelectionBBox();
@@ -286,18 +287,37 @@ function updateGeometryInputs() {
             if (inputY) inputY.value = Math.round(box.y);
         } catch (e) {}
     } else if (tag === "line") {
-        const pts = ["1", "2"];
-        pts.forEach((p, idx) => {
+        const pts = [];
+        let i = 1;
+        while (firstEl.hasAttribute("x" + i) || firstEl.hasAttribute("y" + i)) {
+            pts.push({
+                x: firstEl.getAttribute("x" + i) || "0",
+                y: firstEl.getAttribute("y" + i) || "0"
+            });
+            i++;
+        }
+        
+        if (pts.length === 0) {
+            pts.push({ x: firstEl.getAttribute("x1") || "0", y: firstEl.getAttribute("y1") || "0" });
+            pts.push({ x: firstEl.getAttribute("x2") || "0", y: firstEl.getAttribute("y2") || "0" });
+        }
+        
+        pts.forEach((pt, idx) => {
             const div = document.createElement("div");
-            div.className = "dynamic-node-field";
+            div.className = "dynamicNodeField";
             div.innerHTML = `
-                <button class="node-remove-btn">-</button>
-                X <input type="number" class="node-x" value="${firstEl.getAttribute("x" + p) || 0}">
-                Y <input type="number" class="node-y" value="${firstEl.getAttribute("y" + p) || 0}">
+                ${idx + 1} 
+                <input type="text" class="nodeCoords" value="x ${pt.x} y ${pt.y}"> 
+                <button class="nodeRemoveBtn">×</button>
             `;
-            div.querySelector(".node-x").addEventListener("input", (e) => firstEl.setAttribute("x" + p, e.target.value));
-            div.querySelector(".node-y").addEventListener("input", (e) => firstEl.setAttribute("y" + p, e.target.value));
-            div.querySelector(".node-remove-btn").addEventListener("click", () => { firstEl.remove(); updateGeometryInputs(); });
+            
+            div.querySelector(".nodeCoords").addEventListener("input", (e) => {
+                handleLineInput(firstEl, idx, e.target.value);
+            });
+            
+            div.querySelector(".nodeRemoveBtn").addEventListener("click", () => {
+                removeLineNode(firstEl, pts, idx);
+            });
             
             document.getElementById("svgGroupLine").appendChild(div);
         });
@@ -307,29 +327,108 @@ function updateGeometryInputs() {
         
         commands.forEach((cmd, i) => {
             const div = document.createElement("div");
-            div.className = "dynamic-node-field";
+            div.className = "dynamicNodeField";
             div.innerHTML = `
-                <button class="node-remove-btn">-</button>
-                <input type="text" class="node-cmd" value="${cmd.trim()}">
+                ${i + 1}
+                <input type="text" class="nodeCmd" value="${cmd.trim()}">
+                <button class="nodeRemoveBtn">×</button>
             `;
-            div.querySelector(".node-cmd").addEventListener("input", (e) => {
-                commands[i] = e.target.value;
-                firstEl.setAttribute("d", commands.join(" "));
+            
+            div.querySelector(".nodeCmd").addEventListener("input", (e) => {
+                handlePathInput(firstEl, commands, i, e.target.value);
             });
-            div.querySelector(".node-remove-btn").addEventListener("click", () => {
-                commands.splice(i, 1);
-                firstEl.setAttribute("d", commands.join(" "));
-                updateGeometryInputs();
+            
+            div.querySelector(".nodeRemoveBtn").addEventListener("click", () => {
+                removePathNode(firstEl, commands, i);
             });
 
             document.getElementById("svgGroupLine").appendChild(div);
         });
     }
+
+    // Переносим кнопку добавления ноды в самый конец контейнера
+    const container = document.getElementById("svgGroupLine");
+    if (container && btnAddNode) {
+        const btnWrapper = btnAddNode.parentNode;
+        if (btnWrapper && btnWrapper !== container && btnWrapper.parentNode === container) {
+            container.appendChild(btnWrapper);
+        }
+    }
 }
 
-requestAnimationFrame(() => {
+updateGeometryInputs();
+
+document.addEventListener("svgSelectionChanged", () => {
     updateGeometryInputs();
 });
+
+
+
+// === Редактирование структуры SVG (точки линии и команды пути) ===
+
+// Изменение координат точки
+function handleLineInput(el, idx, value) {
+    const match = value.match(/x\s*([-0-9.]+)\s*y\s*([-0-9.]+)/i);
+    if (match) {
+        el.setAttribute("x" + (idx + 1), match[1]);
+        el.setAttribute("y" + (idx + 1), match[2]);
+    }
+}
+
+// Удаление точки
+function removeLineNode(el, pts, idx) {
+    if (pts.length <= 2) {
+        el.remove();
+    } else {
+        pts.splice(idx, 1);
+        pts.forEach((p, newIdx) => {
+            el.setAttribute("x" + (newIdx + 1), p.x);
+            el.setAttribute("y" + (newIdx + 1), p.y);
+        });
+        el.removeAttribute("x" + (pts.length + 1));
+        el.removeAttribute("y" + (pts.length + 1));
+    }
+    updateGeometryInputs();
+}
+
+// Изменение отдельной команды пути
+function handlePathInput(el, commands, i, value) {
+    commands[i] = value;
+    el.setAttribute("d", commands.join(" "));
+}
+
+// Удаление конкретной команды из массива по индексу
+function removePathNode(el, commands, i) {
+    commands.splice(i, 1);
+    el.setAttribute("d", commands.join(" "));
+    updateGeometryInputs();
+}
+
+// Добавление новой точки в line/path (редактирование структуры SVG)
+function addNodeToPathOrLine() {
+    if (!selectedElementsSvg || selectedElementsSvg.length !== 1) return;
+
+    const el = selectedElementsSvg[0];
+    const tag = el.tagName.toLowerCase();
+
+    if (tag === "line") {
+        let i = 1;
+        while (el.hasAttribute("x" + i) || el.hasAttribute("y" + i)) {
+            i++;
+        }
+        el.setAttribute("x" + i, "100");
+        el.setAttribute("y" + i, "100");
+        updateGeometryInputs();
+    } else if (tag === "path") {
+        const dAttr = el.getAttribute("d") || "";
+        const commands = dAttr.match(/[a-df-z][^a-df-z]*/ig) || [];
+        commands.push("L 100 100");
+        el.setAttribute("d", commands.join(" "));
+        updateGeometryInputs();
+    }
+}
+
+btnAddNode.addEventListener("click", addNodeToPathOrLine);
 
 
 

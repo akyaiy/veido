@@ -47,20 +47,24 @@
     overflow-x: hidden;
 }
 
+#propertiesContent > div {
+    display: flex;
+    gap: 5px;
+    flex-direction: column;
+}
+#propertiesContent > div:not(:last-child) {
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #ccc;
+}
+
 #propertiesContent > div > div:first-child {
     font-weight: bold;
 }
 #propertiesContent > div > div:not(:first-child) {
     display: grid;
-    grid-template-columns: 1fr 60%;
+    grid-template-columns: 1fr 60% minmax(0, min-content);
     align-items: center;
-    gap: 8px;
-}
-
-#propertiesContent > div {
-    display: flex;
-    gap: 5px;
-    flex-direction: column;
 }
 
 #propertiesContent > div > div > input, 
