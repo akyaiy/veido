@@ -8,11 +8,11 @@ const inputR = document.getElementById("svgPropR");
 
 // Общая карта: какие группы и поля размеров относятся к какому элементу
 const elementVisibilityMap = {
-    "*": { groups: ["svgGroupPosition", "svgGroupSize"], fields: ["svgPropX", "svgPropY", "svgPropW", "svgPropH"] },
+    "g": { groups: ["svgGroupPosition"], fields: ["svgPropX", "svgPropY"] },
     "rect": { groups: ["svgGroupPosition", "svgGroupSize"], fields: ["svgPropX", "svgPropY", "svgPropW", "svgPropH"] },
     "circle": { groups: ["svgGroupPosition", "svgGroupSize"], fields: ["svgPropX", "svgPropY", "svgPropR"] },
-    "line": { groups: ["svgGroupLine"], fields: [] },
-    "path": { groups: ["svgGroupLine"], fields: [] }
+    "line": { groups: ["svgGroupPosition", "svgGroupLine"], fields: ["svgPropX", "svgPropY", "svgAddNode"] },
+    "path": { groups: ["svgGroupPosition", "svgGroupLine"], fields: ["svgPropX", "svgPropY", "svgAddNode"] }
 };
 
 // Расчет общего bounding box для группы выделенных элементов
@@ -109,6 +109,40 @@ function applyMultiGeometryChange(id, newVal) {
     });
 }
 
+// Получение общих групп и полей для всего выделения
+function getVisibilityConfigForSelection() {
+    if (!selectedElementsSvg || selectedElementsSvg.length === 0) return null;
+
+    // Собираем массив тегов всех элементов
+    const tags = selectedElementsSvg
+        .map(el => el.localName ? el.localName.toLowerCase() : el.tagName ? el.tagName.toLowerCase() : null)
+        .filter(Boolean);
+    if (!tags.length) return null;
+
+    // Базовый конфиг первого элемента
+    const firstConfig = elementVisibilityMap[tags[0]];
+    if (!firstConfig) return null;
+
+    // Для одного элемента возвращаем его свойства
+    if (tags.length === 1) {
+        return { groups: firstConfig.groups || [], fields: firstConfig.fields || [] };
+    }
+
+    // Ищем только общие группы для всех тегов
+    const commonGroups = tags.slice(1).reduce((common, tag) => {
+        const config = elementVisibilityMap[tag] || { groups: [], fields: [] };
+        return common.filter(id => config.groups && config.groups.includes(id));
+    }, [...firstConfig.groups || []]);
+
+    // Ищем только общие поля для всех тегов
+    const commonFields = tags.slice(1).reduce((common, tag) => {
+        const config = elementVisibilityMap[tag] || { groups: [], fields: [] };
+        return common.filter(id => config.fields && config.fields.includes(id));
+    }, [...firstConfig.fields || []]);
+
+    return { groups: commonGroups, fields: commonFields };
+}
+
 // Переключение видимости блоков свойств на основе выделения
 function updatePropertiesVisibility() {
     const allGroupIds = new Set();
@@ -128,12 +162,7 @@ function updatePropertiesVisibility() {
         if (el && el.parentNode) el.parentNode.style.display = "none";
     });
 
-    const tag = (!selectedElementsSvg || selectedElementsSvg.length === 0)
-        ? "*"
-        : (selectedElementsSvg.length > 1
-            ? "*"
-            : (selectedElementsSvg[0].localName ? selectedElementsSvg[0].localName.toLowerCase() : selectedElementsSvg[0].tagName.toLowerCase()));
-    const config = elementVisibilityMap[tag];
+    const config = getVisibilityConfigForSelection();
     if (!config) return;
 
     (config.groups || []).forEach(gId => {
@@ -143,6 +172,27 @@ function updatePropertiesVisibility() {
     (config.fields || []).forEach(fId => {
         const el = document.getElementById(fId);
         if (el && el.parentNode) el.parentNode.style.display = "grid";
+    });
+
+    // Если группа содержит поля, но ни одно из них не видно, скрываем группу.
+    (config.groups || []).forEach(gId => {
+        const group = document.getElementById(gId);
+        if (!group) return;
+
+        const groupFields = Array.from(group.querySelectorAll("input[id], select[id], textarea[id]"))
+            .map(el => el.id)
+            .filter(id => allFieldIds.has(id));
+
+        if (groupFields.length === 0) return; // в группе нет полей, оставляем её
+
+        const visibleFieldExists = groupFields.some(fieldId => {
+            const fieldEl = document.getElementById(fieldId);
+            return fieldEl && fieldEl.parentNode && fieldEl.parentNode.style.display !== "none";
+        });
+
+        if (!visibleFieldExists) {
+            group.style.display = "none";
+        }
     });
 }
 
@@ -203,7 +253,6 @@ function updateGeometryInputs() {
 
     const firstEl = selectedElementsSvg[0];
     const tag = firstEl.tagName.toLowerCase();
-    const btnAdd = document.getElementById("svgAddNode");
 
     if (["rect", "image", "foreignObject"].includes(tag)) {
         if (inputX) inputX.value = firstEl.getAttribute("x") || 0;
@@ -227,7 +276,6 @@ function updateGeometryInputs() {
             div.querySelector(".node-x").addEventListener("input", (e) => firstEl.setAttribute("x" + p, e.target.value));
             div.querySelector(".node-y").addEventListener("input", (e) => firstEl.setAttribute("y" + p, e.target.value));
             div.querySelector(".node-remove-btn").addEventListener("click", () => { firstEl.remove(); updateGeometryInputs(); });
-            if (btnAdd) btnAdd.before(div);
         });
     } else if (tag === "path") {
         const dAttr = firstEl.getAttribute("d") || "";
@@ -249,7 +297,6 @@ function updateGeometryInputs() {
                 firstEl.setAttribute("d", commands.join(" "));
                 updateGeometryInputs();
             });
-            if (btnAdd) btnAdd.before(div);
         });
     }
 }

@@ -436,6 +436,10 @@ function updateSelectionBox() {
             const techLayer = getOverlayLayer(svg);
             if (techLayer) techLayer.innerHTML = "";
         }
+
+        document.dispatchEvent(new CustomEvent("svgSelectionChanged", {
+            detail: { selectedElements: [] }
+        }));
         return;
     }
 
@@ -473,6 +477,10 @@ function updateSelectionBox() {
     if (selectionBox) {
         addSelectionHandles(selectionBox, techLayer);
     }
+
+    document.dispatchEvent(new CustomEvent("svgSelectionChanged", {
+        detail: { selectedElements: Array.isArray(window.selectedElementsSvg) ? window.selectedElementsSvg.slice() : [window.selectedElementsSvg] }
+    }));
 }
 
 // Получение общей рамки выделения

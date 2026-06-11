@@ -69,7 +69,7 @@
     box-sizing: border-box;
     padding: 2px 3px;
 }
-#propertiesContent > div > button {
+#propertiesContent > div > div > button {
     width: 30px;
     box-sizing: border-box;
     padding: 2px 3px;

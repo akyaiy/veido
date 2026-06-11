@@ -15,5 +15,5 @@
 
 <div id="svgGroupLine">
     <div>Узлы</div>
-    <button id="svgAddNode">+</button>
+    <div><button id="svgAddNode">+</button></div>
 </div>
