@@ -185,7 +185,7 @@ function startAddModeDraw(e) {
             break;
 
         case "path":
-            el.setAttribute("fill", "#ffffff");
+            el.setAttribute("fill", "none");
             el.setAttribute("stroke", "#000000");
             el.setAttribute("stroke-width", "1");
 
