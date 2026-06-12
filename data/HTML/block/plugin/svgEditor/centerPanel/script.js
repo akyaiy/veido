@@ -325,8 +325,8 @@ function onLassoUp(e) {
 
     const elements = firstG.children
 
-    // если не было реального перемещения и Shift нажат — оставляем старое выделение
-    if (!lassoMoved && e.shiftKey) {
+    // если не было реального перемещения - не выбираем элементы (выбирать будет selectElement)
+    if (!lassoMoved) {
         if (lassoRect && lassoRect.parentNode) {
             lassoRect.parentNode.removeChild(lassoRect)
         }
@@ -482,6 +482,11 @@ function updateSelectionBox() {
         detail: { selectedElements: Array.isArray(window.selectedElementsSvg) ? window.selectedElementsSvg.slice() : [window.selectedElementsSvg] }
     }));
 }
+
+// Обновление выделения при изменении элементов из rightPanel
+document.addEventListener("svgElementsChanged", () => {
+    updateSelectionBox();
+});
 
 // Получение общей рамки выделения
 function getSelectionBBox(elements, groupInverse) {

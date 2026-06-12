@@ -2,12 +2,18 @@
 
 // Общая карта: какие группы и поля размеров относятся к какому элементу
 const elementVisibilityMap = {
+    "-": { groups: ["svgGroupPosition"], fields: ["svgPropX", "svgPropY"] },
     "g": { groups: ["svgGroupPosition"], fields: ["svgPropX", "svgPropY"] },
     "rect": { groups: ["svgGroupPosition", "svgGroupSize"], fields: ["svgPropX", "svgPropY", "svgPropW", "svgPropH"] },
     "circle": { groups: ["svgGroupPosition", "svgGroupSize"], fields: ["svgPropX", "svgPropY", "svgPropR"] },
     "line": { groups: ["svgGroupPosition", "svgGroupLine"], fields: ["svgPropX", "svgPropY"] },
     "path": { groups: ["svgGroupPosition", "svgGroupLine"], fields: ["svgPropX", "svgPropY", "svgAddNode"] }
 };
+
+// Группы
+const svgGroupLine = document.getElementById("svgGroupLine");
+const svgGroupPosition = document.getElementById("svgGroupPosition");
+const svgGroupSize = document.getElementById("svgGroupSize");
 
 // Инпуты
 const inputX = document.getElementById("svgPropX");
@@ -150,6 +156,9 @@ function applyMultiGeometryChange(id, newVal) {
             }
         }
     });
+    
+    // Диспатчим событие для обновления выделения в centerPanel
+    document.dispatchEvent(new CustomEvent("svgElementsChanged"));
 }
 
 // Обновление SVG при изменении базовых инпутов
@@ -161,6 +170,7 @@ function onGeometryInputChange(e) {
 
     if (selectedElementsSvg.length > 1) {
         applyMultiGeometryChange(id, val);
+        // Событие будет диспатчено внутри applyMultiGeometryChange
         return;
     }
 
@@ -210,6 +220,8 @@ function onGeometryInputChange(e) {
                 const newF = id === "svgPropY" ? m.f + (val - visualY) : m.f;
 
                 el.setAttribute("transform", `matrix(${m.a} ${m.b} ${m.c} ${m.d} ${newE} ${newF})`);
+                // Диспатчим событие для обновления выделения в centerPanel
+                document.dispatchEvent(new CustomEvent("svgElementsChanged"));
                 return;
             }
         } catch (err) {}
@@ -240,6 +252,9 @@ function onGeometryInputChange(e) {
             }
         } catch(err) {}
     }
+
+    // Диспатчим событие для обновления выделения в centerPanel
+    document.dispatchEvent(new CustomEvent("svgElementsChanged"));
 }
 
 [inputX, inputY, inputW, inputH, inputR].forEach(inp => {
@@ -304,11 +319,12 @@ function updateGeometryInputs() {
             
             div.querySelector(".nodeCoords").addEventListener("input", (e) => {
                 handleLineInput(firstEl, idx, e.target.value);
+                document.dispatchEvent(new CustomEvent("svgElementsChanged"));
             });
 
             setNodeFieldDragHandlers(div, firstEl, idx, "line");
             
-            document.getElementById("svgGroupLine").appendChild(div);
+            svgGroupLine.appendChild(div);
         });
     } else if (tag === "path") {
         const dAttr = firstEl.getAttribute("d") || "";
@@ -327,6 +343,7 @@ function updateGeometryInputs() {
             
             div.querySelector(".nodeCmd").addEventListener("input", (e) => {
                 handlePathInput(firstEl, commands, i, e.target.value);
+                document.dispatchEvent(new CustomEvent("svgElementsChanged"));
             });
             
             div.querySelector(".nodeRemoveBtn").addEventListener("click", () => {
@@ -334,17 +351,24 @@ function updateGeometryInputs() {
             });
 
             setNodeFieldDragHandlers(div, firstEl, i, "path", commands);
-            document.getElementById("svgGroupLine").appendChild(div);
+            svgGroupLine.appendChild(div);
         });
 
         // Переносим кнопку добавления ноды в самый конец контейнера
-        const container = document.getElementById("svgGroupLine");
+        const container = svgGroupLine;
         if (container && btnAddNode) {
             const btnWrapper = btnAddNode.parentNode;
             if (btnWrapper && btnWrapper !== container && btnWrapper.parentNode === container) {
                 container.appendChild(btnWrapper);
             }
         }
+    } else {
+        // Обработка неизвестных элементов по умолчанию - показываем X/Y
+        try {
+            const box = firstEl.getBBox();
+            if (inputX) inputX.value = Math.round(box.x);
+            if (inputY) inputY.value = Math.round(box.y);
+        } catch (e) {}
     }
 }
 
@@ -377,6 +401,8 @@ function removePathNode(el, commands, i) {
     commands.splice(i, 1);
     el.setAttribute("d", commands.join(" "));
     updateGeometryInputs();
+    // Диспатчим событие для обновления выделения в centerPanel
+    document.dispatchEvent(new CustomEvent("svgElementsChanged"));
 }
 
 // Добавление новой точки в line/path (редактирование структуры SVG)
@@ -394,12 +420,16 @@ function addNodeToPathOrLine() {
         el.setAttribute("x" + i, "100");
         el.setAttribute("y" + i, "100");
         updateGeometryInputs();
+        // Диспатчим событие для обновления выделения в centerPanel
+        document.dispatchEvent(new CustomEvent("svgElementsChanged"));
     } else if (tag === "path") {
         const dAttr = el.getAttribute("d") || "";
         const commands = dAttr.match(/[a-df-z][^a-df-z]*/ig) || [];
         commands.push("L 100 100");
         el.setAttribute("d", commands.join(" "));
         updateGeometryInputs();
+        // Диспатчим событие для обновления выделения в centerPanel
+        document.dispatchEvent(new CustomEvent("svgElementsChanged"));
     }
 }
 
@@ -427,7 +457,7 @@ function setNodeFieldDragHandlers(div, el, index, tag, commands) {
         const onMouseMove = (moveEvent) => {
             if (!draggedField) return;
 
-            const container = document.getElementById("svgGroupLine");
+            const container = svgGroupLine;
             const fields = Array.from(container.querySelectorAll(".dynamicNodeField"));
 
             const targetField = fields.find(field => {
@@ -453,7 +483,7 @@ function setNodeFieldDragHandlers(div, el, index, tag, commands) {
         const onMouseUp = () => {
             if (!draggedField) return;
 
-            const container = document.getElementById("svgGroupLine");
+            const container = svgGroupLine;
             const fields = Array.from(container.querySelectorAll(".dynamicNodeField"));
             const targetIdx = fields.indexOf(draggedField);
 
@@ -464,6 +494,9 @@ function setNodeFieldDragHandlers(div, el, index, tag, commands) {
             }
 
             updateGeometryInputs();
+
+            // Диспатчим событие для обновления выделения в centerPanel
+            document.dispatchEvent(new CustomEvent("svgElementsChanged"));
 
             draggedField.style.marginTop = "";
             draggedField.style.marginBottom = "";
@@ -517,7 +550,7 @@ function getVisibilityConfigForSelection() {
         .filter(Boolean);
     if (!tags.length) return null;
 
-    const firstConfig = elementVisibilityMap[tags[0]];
+    const firstConfig = elementVisibilityMap[tags[0]] || elementVisibilityMap["-"];
     if (!firstConfig) return null;
 
     if (tags.length === 1) {
@@ -525,12 +558,12 @@ function getVisibilityConfigForSelection() {
     }
 
     const commonGroups = tags.slice(1).reduce((common, tag) => {
-        const config = elementVisibilityMap[tag] || { groups: [], fields: [] };
+        const config = elementVisibilityMap[tag] || elementVisibilityMap["-"] || { groups: [], fields: [] };
         return common.filter(id => config.groups && config.groups.includes(id));
     }, [...firstConfig.groups || []]);
 
     const commonFields = tags.slice(1).reduce((common, tag) => {
-        const config = elementVisibilityMap[tag] || { groups: [], fields: [] };
+        const config = elementVisibilityMap[tag] || elementVisibilityMap["-"] || { groups: [], fields: [] };
         return common.filter(id => config.fields && config.fields.includes(id));
     }, [...firstConfig.fields || []]);
 

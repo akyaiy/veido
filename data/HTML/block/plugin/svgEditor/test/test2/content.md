@@ -20,4 +20,5 @@
         <rect x="35" y="-20" width="40" height="40" fill="teal" />
         <ellipse cx="100" cy="0" rx="25" ry="15" fill="violet" />
     </g>
+    <ellipse cx="250" cy="150" rx="80" ry="40" fill="blue" />
 </svg>
