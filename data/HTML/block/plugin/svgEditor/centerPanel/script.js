@@ -23,7 +23,7 @@ document.addEventListener("openSvgBlock", () => {
 });
 
 // Масштабирование канвы колесом мыши с Ctrl
-function onCanvasWheel(e) {
+function onCanvasWheelScale(e) {
     if (!e.ctrlKey) return;
     const svg = canvas.querySelector("svg");
     if (!svg) return;
@@ -61,7 +61,7 @@ function onCanvasWheel(e) {
 }
 
 // Запрет контекстного меню при Ctrl + правая кнопка мыши для перемещения канвы
-canvas.addEventListener("wheel", onCanvasWheel, { passive: false });
+canvas.addEventListener("wheel", onCanvasWheelScale, { passive: false });
 canvas.addEventListener("contextmenu", (e) => {
     if (e.ctrlKey) {
         e.preventDefault();
@@ -144,6 +144,39 @@ function applySvgEditorCanvasTransform(svg) {
     if (borderLayer) borderLayer.setAttribute("transform", transform);
     if (contentLayer) contentLayer.setAttribute("transform", transform);
 }
+
+// Перемещение канвы с помощью колесика мыши
+function onCanvasWheelMove(e) {
+    const svg = canvas.querySelector("svg");
+    if (!svg) return;
+
+    e.preventDefault();
+
+    // Если трансформация канвы еще не была подхвачена, считываем ее из атрибутов слоя
+    if (svgCanvasTransform.tx === 0 && svgCanvasTransform.ty === 0) {
+        const layer = getContentLayer(svg) || getBorderLayer(svg);
+        const transformAttr = layer?.getAttribute("transform") || "";
+        const tMatch = transformAttr.match(/translate\(([^,\s]+)[,\s]+([^)]+)\)/);
+        const sMatch = transformAttr.match(/scale\(([^)]+)\)/);
+        
+        svgCanvasTransform.tx = tMatch ? parseFloat(tMatch[1]) : 0;
+        svgCanvasTransform.ty = tMatch ? parseFloat(tMatch[2]) : 0;
+        svgCanvasTransform.scale = sMatch ? parseFloat(sMatch[1]) : 1;
+    }
+
+    // Если shift зажат - вертикальная прокрутка, иначе если ctrl не зажат - горизонтальная
+    if (e.shiftKey) {
+        svgCanvasTransform.tx -= e.deltaY;
+    } else if (!e.ctrlKey) {
+        svgCanvasTransform.ty -= e.deltaY;
+    }
+
+    applySvgEditorCanvasTransform(svg);
+    updateSelectionBox();
+}
+
+// Добавляем обработчик колесика мыши для прокрутки канвы
+canvas.addEventListener("wheel", onCanvasWheelMove);
 
 
 
