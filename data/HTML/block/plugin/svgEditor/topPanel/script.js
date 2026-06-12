@@ -27,6 +27,9 @@ function getBorderLayer(svg) { return svg?.children[0]; }
 const tabsIcon = document.getElementById("tabsIcon");
 const tabsMenu = document.getElementById("tabsMenu");
 
+// Элементы вкладок
+const tabNew = document.getElementById("tabNew");
+
 // Открытие и закрытие меню
 tabsIcon.addEventListener("click", () => {
     tabsMenu.classList.toggle("active");
@@ -38,12 +41,15 @@ document.addEventListener("click", (event) => {
     }
 });
 
+// Создание новой вкладки
+tabNew.addEventListener("click", () => { loadSvg() });
+
 
 
 // === Работа с svg блоками ===
 
 // Загрузка svg блока по url и создание для него вкладки
-async function loadSvg(url) {
+async function loadSvg(url=null) {
     // Вычисление следующего свободного номера для блока svg
     const used = new Set();
 
@@ -65,7 +71,12 @@ async function loadSvg(url) {
     storage.appendChild(svgBlock);
     
     // Загрузка svg блока
-    await loadBlock(url, svgBlock.id);
+    if (url) {
+        svgBlock.textContent = canvas.innerHTML;
+        await loadBlock(url, svgBlock.id);
+    } else {
+        svgBlock.innerHTML = `<svg width="800" height="600" xmlns="http://www.w3.org/2000/svg"></svg>`;
+    }
 
     // Создание нового блока для svg
     const svgTab = document.createElement("div");
@@ -74,7 +85,11 @@ async function loadSvg(url) {
 
     // Название вкладки
     const svgTabTitle = document.createElement("div");
-    svgTabTitle.textContent = url.split("/").pop();
+    if (url) {
+        svgTabTitle.textContent = url.split("/").pop();
+    } else {
+        svgTabTitle.textContent = "*new";
+    }
     svgTabTitle.className = "svgTabTitle";
     svgTab.addEventListener("click", () => openSvgBlock(num));
 
@@ -98,7 +113,7 @@ function openSvgBlock(num) {
     if (!svgBlock) return;
 
     // Получаем svg из блока и канвы
-    const srcSvg = document.getElementById(svgBlock.id)?.querySelector("svg");
+    const srcSvg = svgBlock.querySelector("svg");;
     const dstSvg = canvas.querySelector("svg");
     if (!srcSvg || !dstSvg) return;
 
