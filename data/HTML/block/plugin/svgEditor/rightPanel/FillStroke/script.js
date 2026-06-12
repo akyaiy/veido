@@ -11,6 +11,33 @@ init();
 
 
 
+// === Вкладки ===
+const tabFillStroke = document.querySelectorAll("#tabsFillStroke > div");
+
+tabFillStroke.forEach((tab) => {
+    tab.addEventListener("click", () => {
+        document.querySelectorAll(".tabFillStroke").forEach((block) => {
+            block.style.display = "none";
+        });
+
+        tabFillStroke.forEach((item) => {
+            item.classList.remove("active");
+        });
+
+        const block = document.getElementById(tab.dataset.block);
+        if (block) block.style.display = "";
+
+        tab.classList.add("active");
+    });
+});
+
+// Загружаем первую вкладку по умолчанию
+if (tabFillStroke.length) {
+    tabFillStroke[0].click();
+}
+
+
+
 // === Настройки стилей элементов ===
 
 // Словарь соответствия ID элементов и атрибутов SVG
