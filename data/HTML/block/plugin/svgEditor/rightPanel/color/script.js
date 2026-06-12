@@ -1,12 +1,13 @@
 // === Общие элементы ===
 
-// функция загрузки блоков колорпикера для разных ролей цвета
-async function loadColorPicker() {
+// Функция инициализации 
+async function init() {
     await loadBlock("plugin/colorPicker", "svgPropFillColorPicker");
     await loadBlock("plugin/colorPicker", "svgPropStrokeColorPicker");
     attachColorPickerSync();
+    updateColorInputs();
 }
-loadColorPicker();
+init();
 
 
 
@@ -37,36 +38,65 @@ function onStyleInputChange(e) {
 }
 
 // Чтение данных из выделенного элемента в интерфейс
+function getCommonAttributeValue(elements, attr) {
+    const values = elements.map(el => el.getAttribute(attr));
+    const uniqueValues = [...new Set(values)];
+    return uniqueValues.length === 1 ? uniqueValues[0] : null;
+}
+
+// Синхронизация интерфейса с атрибутами выделенного элемента
 function updateColorInputs() {
-    if (!selectedElementsSvg || selectedElementsSvg.length === 0) return;
-    
-    const firstEl = selectedElementsSvg[0];
-    
-    const fill = firstEl.getAttribute("fill");
-    const fillOpacity = firstEl.getAttribute("fill-opacity");
-    const stroke = firstEl.getAttribute("stroke");
-    const strokeWidth = firstEl.getAttribute("stroke-width");
-    const strokeDasharray = firstEl.getAttribute("stroke-dasharray");
-    const strokeOpacity = firstEl.getAttribute("stroke-opacity");
+    const selected = window.selectedElementsSvg || [];
 
-    const triggerFill = document.getElementById("svgPropFillColor");
-    if (triggerFill && fill) triggerFill.style.backgroundColor = fill;
+    const fill = selected.length ? getCommonAttributeValue(selected, "fill") : null;
+    const fillOpacity = selected.length ? getCommonAttributeValue(selected, "fill-opacity") : null;
+    const stroke = selected.length ? getCommonAttributeValue(selected, "stroke") : null;
+    const strokeWidth = selected.length ? getCommonAttributeValue(selected, "stroke-width") : null;
+    const strokeDasharray = selected.length ? getCommonAttributeValue(selected, "stroke-dasharray") : null;
+    const strokeOpacity = selected.length ? getCommonAttributeValue(selected, "stroke-opacity") : null;
 
-    const triggerStroke = document.getElementById("svgPropStrokeColor");
-    if (triggerStroke && stroke) triggerStroke.style.backgroundColor = stroke;
+    // Вспомогательная функция: проверяет, отличаются ли значения атрибута у выделенных элементов
+    const hasMixedAttr = (attr) => {
+        if (selected.length <= 1) return false;
+        const firstVal = selected[0].getAttribute(attr);
+        return selected.some(el => el.getAttribute(attr) !== firstVal);
+    };
+
+    // Универсально проставляем цветовые триггеры по map (fill/stroke)
+    Object.keys(stylePropMap).forEach(id => {
+        const attr = stylePropMap[id];
+        if (attr !== 'fill' && attr !== 'stroke') return;
+        const trigger = document.getElementById(id);
+        if (!trigger) return;
+        const value = attr === 'fill' ? fill : stroke;
+        // пометка программного обновления, чтобы MutationObserver не реагировал
+        trigger.dataset._programmatic = '1';
+        trigger.style.backgroundColor = value || '';
+        setTimeout(() => { delete trigger.dataset._programmatic; }, 0);
+    });
 
     const inputFillOp = document.getElementById("svgPropFillOpacity");
-    if (inputFillOp) inputFillOp.value = fillOpacity || "";
+    if (inputFillOp) {
+        inputFillOp.value = hasMixedAttr("fill-opacity") ? "" : (fillOpacity ?? "1");
+    }
 
     const inputStrokeW = document.getElementById("svgPropStrokeWidth");
-    if (inputStrokeW) inputStrokeW.value = strokeWidth || "";
+    if (inputStrokeW) {
+        inputStrokeW.value = hasMixedAttr("stroke-width") ? "" : (stroke ? (strokeWidth ?? "1") : "0");
+    }
 
     const inputStrokeDash = document.getElementById("svgPropStrokeDasharray");
-    if (inputStrokeDash) inputStrokeDash.value = strokeDasharray || "none";
+    if (inputStrokeDash) {
+        inputStrokeDash.value = hasMixedAttr("stroke-dasharray") ? "" : (strokeDasharray ?? "none");
+    }
 
     const inputStrokeOp = document.getElementById("svgPropStrokeOpacity");
-    if (inputStrokeOp) inputStrokeOp.value = strokeOpacity || "";
+    if (inputStrokeOp) {
+        inputStrokeOp.value = hasMixedAttr("stroke-opacity") ? "" : (strokeOpacity ?? "1");
+    }
 }
+
+document.addEventListener("svgSelectionChanged", updateColorInputs);
 
 // Привязываем обработчики ко всем инпутам из словаря
 Object.keys(stylePropMap).forEach(id => {
@@ -76,8 +106,12 @@ Object.keys(stylePropMap).forEach(id => {
     }
 });
 
+// Функция для синхронизации изменений цвета из колорпикера с атрибутами SVG
 function attachColorPickerSync() {
-    const triggers = ["svgPropFillColor", "svgPropStrokeColor"].map(id => document.getElementById(id)).filter(Boolean);
+    // Находим все триггеры, перечисленные в stylePropMap (обычно цветовые)
+    const triggers = Object.keys(stylePropMap)
+        .map(id => document.getElementById(id))
+        .filter(el => el && el.classList && el.classList.contains('colorPickerTrigger'));
     if (!triggers.length) return;
 
     const observer = new MutationObserver((mutations) => {
@@ -86,12 +120,16 @@ function attachColorPickerSync() {
             const trigger = mutation.target;
             if (!trigger.classList.contains("colorPickerTrigger")) return;
 
+            // если это обновление, сделанное программно (sync from selection), пропускаем
+            if (trigger.dataset && trigger.dataset._programmatic) return;
+
             const color = trigger.style.backgroundColor || getComputedStyle(trigger).backgroundColor;
             if (!color) return;
 
             const attr = trigger.id === "svgPropFillColor" ? "fill" : "stroke";
             if (!selectedElementsSvg || selectedElementsSvg.length === 0) return;
 
+            // пользователь изменил цвет через пипетку — применяем к выделенным элементам
             selectedElementsSvg.forEach(el => el.setAttribute(attr, color));
             updateColorInputs();
         });

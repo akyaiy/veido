@@ -281,7 +281,9 @@ document.addEventListener("click", (e) => {
     if (!colorRole) return;
     const trigger = e.target.closest(`.colorPickerTrigger[data-color-role="${colorRole}"]`);
     if (!trigger) return;
-    openColorPicker(trigger, rgbToHex(lastRgb[0], lastRgb[1], lastRgb[2]), null);
+    const bgColor = getComputedStyle(trigger).backgroundColor;
+    const rgb = parseColorString(bgColor);
+    openColorPicker(trigger, rgbToHex(rgb[0], rgb[1], rgb[2]), null);
 });
 updateInterface(lastRgb[0], lastRgb[1], lastRgb[2], "init", true);
 

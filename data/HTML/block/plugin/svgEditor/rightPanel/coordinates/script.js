@@ -572,6 +572,8 @@ function getVisibilityConfigForSelection() {
 
 // Переключение видимости блоков свойств на основе выделения
 function updatePropertiesVisibility() {
+    if (!selectedElementsSvg || selectedElementsSvg.length === 0) return null;
+    
     const allGroupIds = new Set();
     const allFieldIds = new Set();
 
