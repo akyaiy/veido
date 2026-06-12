@@ -29,12 +29,12 @@ document.addEventListener("openSvgBlock", () => updateTabsVisibility());
 
 // Списки разрешенных вкладок для разных типов выделения
 const tabsVisibilityMap = {
-    "-": ["propertiesTabCoordinates"],
-    "g": ["propertiesTabCoordinates", "propertiesTabColor"],
-    "rect": ["propertiesTabCoordinates", "propertiesTabColor"],
-    "circle": ["propertiesTabCoordinates", "propertiesTabColor"],
-    "line": ["propertiesTabCoordinates", "propertiesTabColor"],
-    "path": ["propertiesTabCoordinates", "propertiesTabColor"]
+    "-": ["propertiesTabColor"],
+    "g": ["propertiesTabColor"],
+    "rect": ["propertiesTabColor"],
+    "circle": ["propertiesTabColor"],
+    "line": ["propertiesTabColor"],
+    "path": ["propertiesTabColor"]
 };
 
 // Обновление видимости вкладок при изменении выделения

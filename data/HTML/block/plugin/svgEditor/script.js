@@ -15,7 +15,8 @@ const editorBlocks = [
     "centerPanel",
     "leftPanel",
     "rightPanel",
-    "topPanel"
+    "topPanel",
+    "topPanel2"
 ];
 
 // Функция для загрузки блоков редактора 

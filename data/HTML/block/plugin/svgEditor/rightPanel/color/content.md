@@ -1,14 +1,12 @@
 <div id="svgGroupFill">
     <div>Заливка</div>
-    <div>Цвет: <div id="svgPropFillColor" class="colorPickerTrigger" data-color-role="svgPropFillColor"></div></div>
-    <div id="svgPropFillColorPicker" data-color-role="svgPropFillColor"></div>
+    <div>Цвет: <div id="svgPropFillColor" class="colorPickerTrigger" data-color-role="svgPropFillColor"></div> <div id="svgPropFillColorPicker" data-color-role="svgPropFillColor"></div></div>
     <div>Прозрачность: <input type="number" id="svgPropFillOpacity" step="0.01"></div>
 </div>
 
 <div id="svgGroupStroke">
     <div>Граница</div>
-    <div>Цвет: <div id="svgPropStrokeColor" class="colorPickerTrigger" data-color-role="svgPropStrokeColor"></div></div>
-    <div id="svgPropStrokeColorPicker" data-color-role="svgPropStrokeColor"></div>
+    <div>Цвет: <div id="svgPropStrokeColor" class="colorPickerTrigger" data-color-role="svgPropStrokeColor"></div> <div id="svgPropStrokeColorPicker" data-color-role="svgPropStrokeColor"></div></div>
     <div>Прозрачность: <input type="number" id="svgPropStrokeOpacity" step="0.01"></div>
     <div>Толщина: <input type="number" id="svgPropStrokeWidth"></div>
     <div>Пунктир:

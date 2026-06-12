@@ -1,6 +1,7 @@
 <div id="editor">
 
 <div id="topPanel">topPanel</div>
+<div id="topPanel2">topPanel2</div>
 
 <div id="mainContainer">
     <div id="leftPanel">leftPanel</div>
