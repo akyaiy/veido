@@ -751,27 +751,35 @@ function handleCanvasPointerDown(e) {
     const firstG = getContentLayer(svg);
     const techLayer = getOverlayLayer(svg);
 
-    // перемещение канвы по Ctrl + правая кнопка мыши
+    // Перемещение канвы мышкой
     if (startCanvasPanning(e, svg)) {
         return;
     }
 
     if (e.button !== 0) return;
 
-    // если клик по квадрату изменения размера - растягиваем выделение
+    // Если клик по квадрату изменения размера - начинаем изменение размера
     if (e.target.dataset && e.target.dataset.resizeHandle) {
         startElementResize(e, e.target.dataset.resizeHandle);
         return;
     }
 
-    // если клик по элементу - одиночное выделение
-    if (firstG.contains(e.target)) {
-        selectElement(e.target, e.shiftKey || e.ctrlKey);
-        return;
-    }
+    // Сохроняем данные
+    const target = e.target;
+    const isShiftOrCtrl = e.shiftKey || e.ctrlKey;
+    const originalEvent = e;
 
-    // иначе запускаем лассо (передаём event)
-    selectElements(e);
+    // Ожидание, для того чтобы другие обработчики на элементах могли сработать первыми 
+    setTimeout(() => {
+        // Если клик по элементу внутри первого слоя - выделяем его
+        if (firstG.contains(target)) {
+            selectElement(target, isShiftOrCtrl);
+            return;
+        }
+
+        // Если клик по зоне изменения размера - не запускаем лассо
+        selectElements(originalEvent);
+    }, 0);
 }
 
 // Выделение элемента при нажатии (pointerdown)

@@ -33,55 +33,43 @@ function getSelectionBBox() {
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     
     selectedElementsSvg.forEach(el => {
-        let x = 0, y = 0, w = 0, h = 0;
-        const tag = el.tagName.toLowerCase();
-        
-        if (tag === "rect") {
-            x = parseFloat(el.getAttribute("x")) || 0;
-            y = parseFloat(el.getAttribute("y")) || 0;
-            w = parseFloat(el.getAttribute("width")) || 0;
-            h = parseFloat(el.getAttribute("height")) || 0;
-        } else if (tag === "circle") {
-            const r = parseFloat(el.getAttribute("r")) || 0;
-            x = (parseFloat(el.getAttribute("cx")) || 0) - r;
-            y = (parseFloat(el.getAttribute("cy")) || 0) - r;
-            w = r * 2;
-            h = r * 2;
-        } else if (tag === "line") {
-            const x1 = parseFloat(el.getAttribute("x1")) || 0;
-            const x2 = parseFloat(el.getAttribute("x2")) || 0;
-            const y1 = parseFloat(el.getAttribute("y1")) || 0;
-            const y2 = parseFloat(el.getAttribute("y2")) || 0;
-            x = Math.min(x1, x2);
-            y = Math.min(y1, y2);
-            w = Math.abs(x2 - x1);
-            h = Math.abs(y2 - y1);
-        } else {
-            try { 
-                const box = el.getBBox(); 
-                x = box.x; 
-                y = box.y; 
-                w = box.width; 
-                h = box.height;
+        try {
+            // 1. getBBox() работает нативно для ВСЕХ тегов (rect, circle, line, path, g)
+            // Он возвращает локальные координаты элемента до применения трансформаций
+            const bbox = el.getBBox();
+            
+            // 2. Получаем полную консолидированную матрицу трансформаций элемента
+            const m = el.transform?.baseVal.numberOfItems > 0 
+                ? el.transform.baseVal.consolidate().matrix 
+                : el.ownerSVGElement.createSVGMatrix();
+            
+            // 3. Берём 4 угла локального bounding box'а
+            const corners = [
+                { x: bbox.x, y: bbox.y },
+                { x: bbox.x + bbox.width, y: bbox.y },
+                { x: bbox.x, y: bbox.y + bbox.height },
+                { x: bbox.x + bbox.width, y: bbox.y + bbox.height }
+            ];
+            
+            // 4. Пересчитываем каждый угол через матрицу в координаты холста (0,0)
+            corners.forEach(p => {
+                const tx = p.x * m.a + p.y * m.c + m.e;
+                const ty = p.x * m.b + p.y * m.d + m.f;
                 
-                // Учитываем текущий translate для точного повторного расчета (для g и path)
-                const transform = el.getAttribute("transform") || "";
-                const translateRegex = /translate\(([-0-9.]+)(?:[,\s]+([-0-9.]+))?\)/;
-                const match = transform.match(translateRegex);
-                if (match) {
-                    x += parseFloat(match[1]);
-                    y += parseFloat(match[2] || 0);
-                }
-            } catch(e) {}
+                if (tx < minX) minX = tx;
+                if (ty < minY) minY = ty;
+                if (tx > maxX) maxX = tx;
+                if (ty > maxY) maxY = ty;
+            });
+        } catch (e) {
+            // Защита на случай, если какой-то элемент ещё не отрендерен в DOM
         }
-        
-        if (x < minX) minX = x;
-        if (y < minY) minY = y;
-        if (x + w > maxX) maxX = x + w;
-        if (y + h > maxY) maxY = y + h;
     });
 
-    return minX === Infinity ? { x: 0, y: 0, width: 0, height: 0 } : { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+    // Если ничего не выделено, возвращаем нули, иначе — точный общий габаритный контейнер
+    return minX === Infinity 
+        ? { x: 0, y: 0, width: 0, height: 0 } 
+        : { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
 // Изменение геометрии нескольких элементов относительно общего контура
@@ -89,182 +77,197 @@ function applyMultiGeometryChange(id, newVal) {
     const box = getSelectionBBox();
     if (box.width === 0 || box.height === 0) return;
 
-    let vX = Infinity, vY = Infinity;
-    selectedElementsSvg.forEach(subEl => {
-        const subM = subEl.transform?.baseVal.numberOfItems ? subEl.transform.baseVal.consolidate().matrix : { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
-        const subBox = subEl.getBBox();
-        vX = Math.min(vX, subBox.x * subM.a + subM.e);
-        vY = Math.min(vY, subBox.y * subM.d + subM.f);
-    });
-
-    const dX = id === "svgPropX" ? (newVal - vX) : 0;
-    const dY = id === "svgPropY" ? (newVal - vY) : 0;
+    const dX = id === "svgPropX" ? (newVal - box.x) : 0;
+    const dY = id === "svgPropY" ? (newVal - box.y) : 0;
 
     selectedElementsSvg.forEach(el => {
         const tag = el.tagName.toLowerCase();
+        let m = el.transform?.baseVal.numberOfItems > 0 
+            ? el.transform.baseVal.consolidate().matrix 
+            : el.ownerSVGElement.createSVGMatrix();
         
         if (id === "svgPropX" || id === "svgPropY") {
-            const m = el.transform?.baseVal.numberOfItems ? el.transform.baseVal.consolidate().matrix : { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
-            if (m) {
-                el.setAttribute("transform", `matrix(${m.a} ${m.b} ${m.c} ${m.d} ${m.e + dX} ${m.f + dY})`);
-            }
+            el.setAttribute("transform", `matrix(${m.a} ${m.b} ${m.c} ${m.d} ${m.e + dX} ${m.f + dY})`);
         } else if (id === "svgPropW" || id === "svgPropH" || id === "svgPropR") {
-            let scaleX = 1, scaleY = 1;
-
-            try {
-                if (el.transform?.baseVal.numberOfItems > 0) {
-                    const m = el.transform.baseVal.consolidate().matrix;
-                    scaleX = m.a;
-                    scaleY = m.d;
-
-                    if (id === "svgPropR" && tag === "circle") {
-                        const cx = parseFloat(el.getAttribute("cx")) || 0;
-                        const cy = parseFloat(el.getAttribute("cy")) || 0;
-                        const avg = (m.a + m.d) / 2;
-
-                        if (avg > 0) {
-                            const newE = (cx * m.a + m.e) - (cx * avg);
-                            const newF = (cy * m.d + m.f) - (cy * avg);
-                            el.setAttribute("transform", `matrix(${avg} 0 0 ${avg} ${newE} ${newF})`);
-                            scaleX = avg;
-                        }
-                    }
-                }
-            } catch (err) {}
+            const targetAbs = Math.abs(newVal);
+            const targetSign = Math.sign(newVal) || 1;
 
             if (["rect", "image", "foreignObject"].includes(tag)) {
-                if (id === "svgPropW" && scaleX > 0) {
-                    el.setAttribute("width", newVal / scaleX);
-                } else if (id === "svgPropH" && scaleY > 0) {
-                    el.setAttribute("height", newVal / scaleY);
-                }
-            } else if (tag === "circle") {
-                if (id === "svgPropR" && scaleX > 0) {
-                    el.setAttribute("r", newVal / scaleX);
-                } else if (id === "svgPropW") {
-                    const currentR = parseFloat(el.getAttribute("r")) || 0;
-                    if (currentR > 0 && scaleX > 0) {
-                        el.setAttribute("r", (newVal / scaleX) / 2);
-                    }
+                if (id === "svgPropW") {
+                    const currentAbsScaleX = Math.sqrt(m.a * m.a + m.b * m.b) || 1;
+                    el.setAttribute("width", targetAbs / currentAbsScaleX);
+                    if (targetSign !== Math.sign(m.a)) { m.a = -m.a; m.b = -m.b; }
                 } else if (id === "svgPropH") {
-                    const currentR = parseFloat(el.getAttribute("r")) || 0;
-                    if (currentR > 0 && scaleY > 0) {
-                        el.setAttribute("r", (newVal / scaleY) / 2);
-                    }
+                    const currentAbsScaleY = Math.sqrt(m.c * m.c + m.d * m.d) || 1;
+                    el.setAttribute("height", targetAbs / currentAbsScaleY);
+                    if (targetSign !== Math.sign(m.d)) { m.c = -m.c; m.d = -m.d; }
+                }
+                el.setAttribute("transform", `matrix(${m.a} ${m.b} ${m.c} ${m.d} ${m.e} ${m.f})`);
+            } else if (tag === "circle") {
+                const currentAbsScale = Math.sqrt(m.a * m.a + m.b * m.b) || 1;
+                el.setAttribute("r", targetAbs / currentAbsScale);
+                if (targetSign !== Math.sign(m.a)) {
+                    m.a = -m.a; m.b = -m.b; m.c = -m.c; m.d = -m.d;
+                    el.setAttribute("transform", `matrix(${m.a} ${m.b} ${m.c} ${m.d} ${m.e} ${m.f})`);
                 }
             }
         }
     });
     
-    // Диспатчим событие для обновления выделения в centerPanel
     document.dispatchEvent(new CustomEvent("svgElementsChanged"));
 }
 
-// Обновление SVG при изменении базовых инпутов
+// Обновление SVG при изменении базовых инпутов (с поддержкой смены знака +/-)
 function onGeometryInputChange(e) {
     if (!selectedElementsSvg || selectedElementsSvg.length === 0) return;
     
     const id = e.target.id;
-    let val = parseFloat(e.target.value) || 0;
+    let val = parseFloat(e.target.value);
+    if (isNaN(val)) return;
 
     if (selectedElementsSvg.length > 1) {
         applyMultiGeometryChange(id, val);
-        // Событие будет диспатчено внутри applyMultiGeometryChange
         return;
     }
 
     const el = selectedElementsSvg[0];
     const tag = el.tagName.toLowerCase();
 
-    // Стабильное выравнивание масштаба без накопления ошибок трансформаций
+    // 1. ИЗМЕНЕНИЕ ПОЗИЦИИ (X / Y)
+    if (["svgPropX", "svgPropY"].includes(id)) {
+        let currentVisX = 0, currentVisY = 0;
+
+        if (["rect", "image", "foreignObject"].includes(tag)) {
+            const pt = getVisualPoint(el, parseFloat(el.getAttribute("x")) || 0, parseFloat(el.getAttribute("y")) || 0);
+            currentVisX = pt.x; currentVisY = pt.y;
+        } else if (tag === "circle") {
+            const pt = getVisualPoint(el, parseFloat(el.getAttribute("cx")) || 0, parseFloat(el.getAttribute("cy")) || 0);
+            currentVisX = pt.x; currentVisY = pt.y;
+        } else if (tag === "line") {
+            const pt = getVisualPoint(el, parseFloat(el.getAttribute("x1")) || 0, parseFloat(el.getAttribute("y1")) || 0);
+            currentVisX = pt.x; currentVisY = pt.y;
+        } else {
+            const box = getTransformedBBox(el);
+            currentVisX = box.x; currentVisY = box.y;
+        }
+
+        const dx = (id === "svgPropX") ? (val - currentVisX) : 0;
+        const dy = (id === "svgPropY") ? (val - currentVisY) : 0;
+
+        let m = el.transform?.baseVal.numberOfItems > 0 ? el.transform.baseVal.consolidate().matrix : el.ownerSVGElement.createSVGMatrix();
+        el.setAttribute("transform", `matrix(${m.a} ${m.b} ${m.c} ${m.d} ${m.e + dx} ${m.f + dy})`);
+        
+        document.dispatchEvent(new CustomEvent("svgElementsChanged"));
+        return;
+    }
+
+    // 2. ИЗМЕНЕНИЕ РАЗМЕРОВ ИЛИ ЗНАКА (W / H / R)
     if (["svgPropW", "svgPropH", "svgPropR"].includes(id)) {
-        let scaleX = 1, scaleY = 1;
+        let m = el.transform?.baseVal.numberOfItems > 0 ? el.transform.baseVal.consolidate().matrix : el.ownerSVGElement.createSVGMatrix();
+        
+        const targetAbs = Math.abs(val);       // Чистое значение для атрибута (всегда > 0)
+        const targetSign = Math.sign(val) || 1; // Желаемый знак (+1 или -1)
 
-        try {
-            if (el.transform?.baseVal.numberOfItems > 0) {
-                const m = el.transform.baseVal.consolidate().matrix;
-                scaleX = m.a;
-                scaleY = m.d;
+        if (["rect", "image", "foreignObject"].includes(tag)) {
+            const rectX = parseFloat(el.getAttribute("x")) || 0;
+            const rectY = parseFloat(el.getAttribute("y")) || 0;
+            const rectW = parseFloat(el.getAttribute("width")) || 0;
+            const rectH = parseFloat(el.getAttribute("height")) || 0;
 
-                if (id === "svgPropR" && tag === "circle") {
-                    const cx = parseFloat(el.getAttribute("cx")) || 0;
-                    const cy = parseFloat(el.getAttribute("cy")) || 0;
-                    const avg = (m.a + m.d) / 2;
-
-                    if (avg > 0) {
-                        const newE = (cx * m.a + m.e) - (cx * avg);
-                        const newF = (cy * m.d + m.f) - (cy * avg);
-                        el.setAttribute("transform", `matrix(${avg} 0 0 ${avg} ${newE} ${newF})`);
-                        scaleX = avg;
-                    }
+            if (id === "svgPropW") {
+                const currentScaleX = m.a || 1; 
+                el.setAttribute("width", targetAbs / Math.abs(currentScaleX));
+                
+                if (targetSign !== Math.sign(currentScaleX)) {
+                    m.a = -m.a;
+                    m.b = -m.b;
+                    // Формула дает ровно 2 * 10 = 20 при смене знака
+                    m.e += Math.sign(currentScaleX) * (2 * rectX) * Math.abs(currentScaleX);
+                }
+            } else if (id === "svgPropH") {
+                const currentScaleY = m.d || 1;
+                el.setAttribute("height", targetAbs / Math.abs(currentScaleY));
+                
+                if (targetSign !== Math.sign(currentScaleY)) {
+                    m.c = -m.c;
+                    m.d = -m.d;
+                    // Для оси Y по аналогии
+                    m.f += Math.sign(currentScaleY) * (2 * rectY) * Math.abs(currentScaleY);
                 }
             }
-        } catch (err) {}
-
-        if (id === "svgPropW" && scaleX > 0) val /= scaleX;
-        if (id === "svgPropH" && scaleY > 0) val /= scaleY;
-        if (id === "svgPropR" && scaleX > 0) val /= scaleX;
-    }
-
-    if (["svgPropX", "svgPropY"].includes(id) && tag !== "g") {
-        try {
-            const m = el.transform?.baseVal.numberOfItems ? el.transform.baseVal.consolidate().matrix : { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
-            if (m) {
-                const box = el.getBBox();
+            el.setAttribute("transform", `matrix(${m.a} ${m.b} ${m.c} ${m.d} ${m.e} ${m.f})`);
+        } else if (tag === "circle") {
+            if (id === "svgPropR") {
+                const currentAbsScaleX = Math.sqrt(m.a * m.a + m.b * m.b) || 1;
+                el.setAttribute("r", targetAbs / currentAbsScaleX);
                 
-                const visualX = box.x * m.a + m.e;
-                const visualY = box.y * m.d + m.f;
-
-                const newE = id === "svgPropX" ? m.e + (val - visualX) : m.e;
-                const newF = id === "svgPropY" ? m.f + (val - visualY) : m.f;
-
-                el.setAttribute("transform", `matrix(${m.a} ${m.b} ${m.c} ${m.d} ${newE} ${newF})`);
-                // Диспатчим событие для обновления выделения в centerPanel
-                document.dispatchEvent(new CustomEvent("svgElementsChanged"));
-                return;
+                if (targetSign !== Math.sign(m.a)) {
+                    m.a = -m.a; m.b = -m.b; m.c = -m.c; m.d = -m.d;
+                }
+                el.setAttribute("transform", `matrix(${m.a} ${m.b} ${m.c} ${m.d} ${m.e} ${m.f})`);
             }
-        } catch (err) {}
-    }
 
-    if (["rect", "image", "foreignObject"].includes(tag)) {
-        if (id === "svgPropX") el.setAttribute("x", val);
-        if (id === "svgPropY") el.setAttribute("y", val);
-        if (id === "svgPropW") el.setAttribute("width", val);
-        if (id === "svgPropH") el.setAttribute("height", val);
-    } else if (tag === "circle") {
-        if (id === "svgPropX") el.setAttribute("cx", val);
-        if (id === "svgPropY") el.setAttribute("cy", val);
-        if (id === "svgPropR") el.setAttribute("r", val);
-    } else if (tag === "g") {
-        try {
-            const box = el.getBBox();
-            const delta = val - (id === "svgPropX" ? box.x : box.y);
-            const transform = el.getAttribute("transform") || "";
-            const translateRegex = /translate\(([-0-9.]+)(?:[,\s]+([-0-9.]+))?\)/;
-            const dX = id === "svgPropX" ? delta : 0;
-            const dY = id === "svgPropY" ? delta : 0;
+        } else if (tag === "line") {
+            // Линия работает напрямую через координаты, знаки меняются инверсией матрицы
+            const currentX2 = parseFloat(el.getAttribute("x2")) || 0;
+            const currentY2 = parseFloat(el.getAttribute("y2")) || 0;
+            const p2 = getVisualPoint(el, currentX2, currentY2);
             
-            if (translateRegex.test(transform)) {
-                el.setAttribute("transform", transform.replace(translateRegex, (m, x, y) => `translate(${parseFloat(x) + dX}, ${(parseFloat(y) || 0) + dY})`));
-            } else {
-                el.setAttribute("transform", `translate(${dX}, ${dY}) ${transform}`.trim());
-            }
-        } catch(err) {}
-    }
+            const targetVisualX = (id === "svgPropW") ? val : p2.x;
+            const targetVisualY = (id === "svgPropH") ? val : p2.y;
 
-    // Диспатчим событие для обновления выделения в centerPanel
-    document.dispatchEvent(new CustomEvent("svgElementsChanged"));
+            try {
+                const inv = m.inverse();
+                const localX2 = targetVisualX * inv.a + targetVisualY * inv.c + inv.e;
+                const localY2 = targetVisualX * inv.b + targetVisualY * inv.d + inv.f;
+                el.setAttribute("x2", localX2);
+                el.setAttribute("y2", localY2);
+            } catch(err) {
+                if (id === "svgPropW") el.setAttribute("x2", val);
+                if (id === "svgPropH") el.setAttribute("y2", val);
+            }
+
+        } else {
+            // Для сложных объектов (path, g) — вычисляем коэффициент изменения (factor)
+            const box = getTransformedBBox(el);
+            const currentW = box.width || 1;
+            const currentH = box.height || 1;
+            
+            // Если знаки разные, factorX/Y автоматически станет отрицательным и отзеркалит матрицу
+            const factorX = (id === "svgPropW") ? (val / currentW) : 1;
+            const factorY = (id === "svgPropH") ? (val / currentH) : 1;
+
+            const newA = factorX * m.a;
+            const newB = factorY * m.b;
+            const newC = factorX * m.c;
+            const newD = factorY * m.d;
+            const newE = factorX * m.e + box.x * (1 - factorX);
+            const newF = factorY * m.f + box.y * (1 - factorY);
+
+            el.setAttribute("transform", `matrix(${newA} ${newB} ${newC} ${newD} ${newE} ${newF})`);
+        }
+        
+        document.dispatchEvent(new CustomEvent("svgElementsChanged"));
+    }
 }
 
 [inputX, inputY, inputW, inputH, inputR].forEach(inp => {
-    if (inp) inp.addEventListener("input", onGeometryInputChange);
+    if (!inp) return;
+
+    inp.addEventListener("blur", onGeometryInputChange);
+
+    inp.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+            inp.blur();
+        }
+    });
 });
 
 
 
 // === Интерфейс ===
 
-// Чтение данных из SVG в инпуты
+// Обновление значений инпутов на основе выделенного элемента и его трансформаций
 function updateGeometryInputs() {
     updatePropertiesVisibility();
 
@@ -272,12 +275,13 @@ function updateGeometryInputs() {
     
     document.querySelectorAll(".dynamicNodeField").forEach(el => el.remove());
 
+    // Если выделено несколько элементов, используем общий BBox (он уже с учетом transform)
     if (selectedElementsSvg.length > 1) {
         const box = getSelectionBBox();
-        if (inputX) inputX.value = Math.round(box.x);
-        if (inputY) inputY.value = Math.round(box.y);
-        if (inputW) inputW.value = Math.round(box.width);
-        if (inputH) inputH.value = Math.round(box.height);
+        if (inputX) inputX.value = box.x.toFixed(1);
+        if (inputY) inputY.value = box.y.toFixed(1);
+        if (inputW) inputW.value = box.width.toFixed(1);
+        if (inputH) inputH.value = box.height.toFixed(1);
         return;
     }
 
@@ -285,36 +289,64 @@ function updateGeometryInputs() {
     const tag = firstEl.tagName.toLowerCase();
 
     if (["rect", "image", "foreignObject"].includes(tag)) {
-        if (inputX) inputX.value = firstEl.getAttribute("x") || 0;
-        if (inputY) inputY.value = firstEl.getAttribute("y") || 0;
-        if (inputW) inputW.value = firstEl.getAttribute("width") || 0;
-        if (inputH) inputH.value = firstEl.getAttribute("height") || 0;
+        const x = parseFloat(firstEl.getAttribute("x")) || 0;
+        const y = parseFloat(firstEl.getAttribute("y")) || 0;
+        const pt = getVisualPoint(firstEl, x, y);
+        
+        // Учитываем визуальное растяжение (scale)
+        let scaleX = 1, scaleY = 1;
+        if (firstEl.transform?.baseVal.numberOfItems > 0) {
+            const m = firstEl.transform.baseVal.consolidate().matrix;
+            scaleX = m.a; 
+            scaleY = m.d;
+        }
+        
+        const w = (parseFloat(firstEl.getAttribute("width")) || 0) * scaleX;
+        const h = (parseFloat(firstEl.getAttribute("height")) || 0) * scaleY;
+
+        if (inputX) inputX.value = pt.x.toFixed(1);
+        if (inputY) inputY.value = pt.y.toFixed(1);
+        if (inputW) inputW.value = w.toFixed(1);
+        if (inputH) inputH.value = h.toFixed(1);
+
     } else if (tag === "circle") {
-        if (inputX) inputX.value = firstEl.getAttribute("cx") || 0;
-        if (inputY) inputY.value = firstEl.getAttribute("cy") || 0;
-        if (inputR) inputR.value = firstEl.getAttribute("r") || 0;
-    } else if (tag === "g") {
-        // Поддержка чтения координат одиночной группы
-        try {
-            const box = firstEl.getBBox();
-            if (inputX) inputX.value = Math.round(box.x);
-            if (inputY) inputY.value = Math.round(box.y);
-        } catch (e) {}
+        const cx = parseFloat(firstEl.getAttribute("cx")) || 0;
+        const cy = parseFloat(firstEl.getAttribute("cy")) || 0;
+        const pt = getVisualPoint(firstEl, cx, cy);
+        
+        let scaleAvg = 1;
+        if (firstEl.transform?.baseVal.numberOfItems > 0) {
+            const m = firstEl.transform.baseVal.consolidate().matrix;
+            scaleAvg = (m.a + m.d) / 2; // Усредненный масштаб для круга
+        }
+        const r = (parseFloat(firstEl.getAttribute("r")) || 0) * scaleAvg;
+
+        if (inputX) inputX.value = pt.x.toFixed(1);
+        if (inputY) inputY.value = pt.y.toFixed(1);
+        if (inputR) inputR.value = r.toFixed(1);
+
     } else if (tag === "line") {
-        if (inputX) inputX.value = firstEl.getAttribute("x") || 0;
-        if (inputY) inputY.value = firstEl.getAttribute("y") || 0;
-        if (inputW) inputW.value = firstEl.getAttribute("x2") || 0;
-        if (inputH) inputH.value = firstEl.getAttribute("y2") || 0;
-    } else if (tag === "path") {
-        if (inputX) inputX.value = firstEl.getAttribute("x") || 0;
-        if (inputY) inputY.value = firstEl.getAttribute("y") || 0;
+        // Линия использует X/Y для первой точки и W/H для второй
+        const x1 = parseFloat(firstEl.getAttribute("x1")) || 0;
+        const y1 = parseFloat(firstEl.getAttribute("y1")) || 0;
+        const p1 = getVisualPoint(firstEl, x1, y1);
+        
+        const x2 = parseFloat(firstEl.getAttribute("x2")) || 0;
+        const y2 = parseFloat(firstEl.getAttribute("y2")) || 0;
+        const p2 = getVisualPoint(firstEl, x2, y2);
+
+        if (inputX) inputX.value = p1.x.toFixed(1);
+        if (inputY) inputY.value = p1.y.toFixed(1);
+        if (inputW) inputW.value = p2.x.toFixed(1);
+        if (inputH) inputH.value = p2.y.toFixed(1);
+
     } else {
-        // Обработка неизвестных элементов по умолчанию - показываем X/Y
-        try {
-            const box = firstEl.getBBox();
-            if (inputX) inputX.value = Math.round(box.x);
-            if (inputY) inputY.value = Math.round(box.y);
-        } catch (e) {}
+        // Обработка сложных элементов (path, g) через трансформированный BBox
+        const box = getTransformedBBox(firstEl);
+        if (inputX) inputX.value = box.x.toFixed(1);
+        if (inputY) inputY.value = box.y.toFixed(1);
+        if (inputW) inputW.value = box.width.toFixed(1);
+        if (inputH) inputH.value = box.height.toFixed(1);
     }
 }
 
@@ -323,6 +355,49 @@ updateGeometryInputs();
 document.addEventListener("svgSelectionChanged", () => {
     updateGeometryInputs();
 });
+
+// Получает визуальные координаты точки с учетом трансформаций элемента
+function getVisualPoint(el, x, y) {
+    if (el.transform && el.transform.baseVal.numberOfItems > 0) {
+        const m = el.transform.baseVal.consolidate().matrix;
+        return {
+            x: x * m.a + y * m.c + m.e,
+            y: x * m.b + y * m.d + m.f
+        };
+    }
+    return { x, y };
+}
+
+// Получение BBox элемента с учетом его трансформаций 
+function getTransformedBBox(el) {
+    try {
+        const bbox = el.getBBox();
+        if (!el.transform || el.transform.baseVal.numberOfItems === 0) return bbox;
+        
+        const m = el.transform.baseVal.consolidate().matrix;
+        // Умножаем 4 угла BBox на матрицу
+        const pts = [
+            { x: bbox.x, y: bbox.y },
+            { x: bbox.x + bbox.width, y: bbox.y },
+            { x: bbox.x, y: bbox.y + bbox.height },
+            { x: bbox.x + bbox.width, y: bbox.y + bbox.height }
+        ];
+        
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        pts.forEach(p => {
+            const px = p.x * m.a + p.y * m.c + m.e;
+            const py = p.x * m.b + p.y * m.d + m.f;
+            if (px < minX) minX = px;
+            if (py < minY) minY = py;
+            if (px > maxX) maxX = px;
+            if (py > maxY) maxY = py;
+        });
+        return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+    } catch (e) {
+        return { x: 0, y: 0, width: 0, height: 0 };
+    }
+}
+
 
 
 
