@@ -242,6 +242,13 @@ canvas.addEventListener("lostpointercapture", stopCanvasPanning);
 
 // === Выделение ===
 
+// Флаг режима изменения размера
+let resizing = false;
+
+// Размер активной зоны (px)
+const edgeSize = 4;
+const cornerSize = 6;
+
 // состояние лассо
 let lassoActive = false
 let lassoStart = null
@@ -251,6 +258,11 @@ let lassoMoved = false
 // состояние изменения размера выделения
 let elementResizing = null
 const selectionHandleSize = 8
+
+// состояние редактирования path
+let pathResizing = null
+const pathNodeHandleSize = 8
+const pathControlHandleSize = 6
 
 // проверка на область изменения размера
 function isResizeHandle(e, svg) {
@@ -271,6 +283,11 @@ function isResizeHandle(e, svg) {
     return onLeft || onRight || onTop || onBottom || onTL || onTR || onBL || onBR
 }
 
+// проверка на path
+function isPathElement(el) {
+    return !!el && el.tagName && el.tagName.toLowerCase() === "path"
+}
+
 // запуск лассо
 function selectElements(e) {
     if (window.modeSvgEditor !== "selection") return;
@@ -279,7 +296,7 @@ function selectElements(e) {
     const techLayer = getOverlayLayer(svg)
 
     // если клик по квадрату изменения размера - лассо не запускается
-    if (e.target.dataset && e.target.dataset.resizeHandle) return
+    if (e.target.dataset && (e.target.dataset.resizeHandle || e.target.dataset.pathHandle)) return
 
     // если клик по элементу - лассо не запускается
     if (firstG.contains(e.target)) return
@@ -482,6 +499,17 @@ function updateSelectionBox() {
     techLayer.innerHTML = "";
 
     const elements = Array.isArray(window.selectedElementsSvg) ? window.selectedElementsSvg : [window.selectedElementsSvg];
+
+    // если выделен один path - показываем узлы и контрольные точки
+    if (elements.length === 1 && isPathElement(elements[0])) {
+        addPathSelectionHandles(elements[0], techLayer);
+
+        document.dispatchEvent(new CustomEvent("svgSelectionChanged", {
+            detail: { selectedElements: elements.slice() }
+        }));
+        return;
+    }
+
     const selectionBox = getSelectionBBox(elements);
 
     for (const el of elements) {
@@ -630,6 +658,599 @@ function getSvgPoint(e, svg) {
     return point.matrixTransform(matrix.inverse());
 }
 
+// === Path selection ===
+
+// нормализация чисел для path
+function formatSvgNumber(value) {
+    if (!isFinite(value)) return "0";
+
+    const rounded = Math.round(value * 1000) / 1000;
+    return String(rounded)
+        .replace(/\.0+$/, "")
+        .replace(/(\.\d*?)0+$/, "$1");
+}
+
+// разбор path на абсолютные команды
+function parsePathData(d) {
+    const tokens = (d || "").match(/[a-zA-Z]|[-+]?(?:\d*\.\d+|\d+)(?:e[-+]?\d+)?/gi) || [];
+    const segments = [];
+
+    let i = 0;
+    let cmd = "";
+    let x = 0;
+    let y = 0;
+    let startX = 0;
+    let startY = 0;
+    let prevCmd = "";
+    let prevC2X = 0;
+    let prevC2Y = 0;
+    let prevQX = 0;
+    let prevQY = 0;
+
+    function isCommand(token) {
+        return /^[a-zA-Z]$/.test(token);
+    }
+
+    function readNumber() {
+        return parseFloat(tokens[i++]);
+    }
+
+    while (i < tokens.length) {
+        let token = tokens[i++];
+
+        if (isCommand(token)) {
+            cmd = token;
+        } else {
+            i--;
+        }
+
+        if (!cmd) break;
+
+        const upper = cmd.toUpperCase();
+        const rel = cmd !== upper;
+
+        // Move
+        if (upper === "M") {
+            let first = true;
+
+            while (i + 1 < tokens.length && !isCommand(tokens[i]) && !isCommand(tokens[i + 1])) {
+                const nx = readNumber();
+                const ny = readNumber();
+
+                const px = rel ? x + nx : nx;
+                const py = rel ? y + ny : ny;
+
+                if (first) {
+                    segments.push({ type: "M", x: px, y: py });
+                    startX = px;
+                    startY = py;
+                    first = false;
+                } else {
+                    segments.push({ type: "L", x: px, y: py });
+                }
+
+                x = px;
+                y = py;
+                prevCmd = "L";
+            }
+
+            prevC2X = 0;
+            prevC2Y = 0;
+            prevQX = 0;
+            prevQY = 0;
+            continue;
+        }
+
+        // Line
+        if (upper === "L") {
+            while (i + 1 < tokens.length && !isCommand(tokens[i]) && !isCommand(tokens[i + 1])) {
+                const nx = readNumber();
+                const ny = readNumber();
+
+                x = rel ? x + nx : nx;
+                y = rel ? y + ny : ny;
+
+                segments.push({ type: "L", x, y });
+                prevCmd = "L";
+            }
+
+            prevC2X = 0;
+            prevC2Y = 0;
+            prevQX = 0;
+            prevQY = 0;
+            continue;
+        }
+
+        // Horizontal line
+        if (upper === "H") {
+            while (i < tokens.length && !isCommand(tokens[i])) {
+                const nx = readNumber();
+
+                x = rel ? x + nx : nx;
+                segments.push({ type: "L", x, y });
+                prevCmd = "L";
+            }
+
+            prevC2X = 0;
+            prevC2Y = 0;
+            prevQX = 0;
+            prevQY = 0;
+            continue;
+        }
+
+        // Vertical line
+        if (upper === "V") {
+            while (i < tokens.length && !isCommand(tokens[i])) {
+                const ny = readNumber();
+
+                y = rel ? y + ny : ny;
+                segments.push({ type: "L", x, y });
+                prevCmd = "L";
+            }
+
+            prevC2X = 0;
+            prevC2Y = 0;
+            prevQX = 0;
+            prevQY = 0;
+            continue;
+        }
+
+        // Cubic bezier
+        if (upper === "C") {
+            while (i + 5 < tokens.length && !isCommand(tokens[i])) {
+                const x1 = rel ? x + readNumber() : readNumber();
+                const y1 = rel ? y + readNumber() : readNumber();
+                const x2 = rel ? x + readNumber() : readNumber();
+                const y2 = rel ? y + readNumber() : readNumber();
+                const nx = rel ? x + readNumber() : readNumber();
+                const ny = rel ? y + readNumber() : readNumber();
+
+                segments.push({
+                    type: "C",
+                    x1,
+                    y1,
+                    x2,
+                    y2,
+                    x: nx,
+                    y: ny
+                });
+
+                x = nx;
+                y = ny;
+                prevCmd = "C";
+                prevC2X = x2;
+                prevC2Y = y2;
+                prevQX = 0;
+                prevQY = 0;
+            }
+
+            continue;
+        }
+
+        // Smooth cubic bezier
+        if (upper === "S") {
+            while (i + 3 < tokens.length && !isCommand(tokens[i])) {
+                const x2 = rel ? x + readNumber() : readNumber();
+                const y2 = rel ? y + readNumber() : readNumber();
+                const nx = rel ? x + readNumber() : readNumber();
+                const ny = rel ? y + readNumber() : readNumber();
+
+                const x1 = (prevCmd === "C" || prevCmd === "S") ? (2 * x - prevC2X) : x;
+                const y1 = (prevCmd === "C" || prevCmd === "S") ? (2 * y - prevC2Y) : y;
+
+                segments.push({
+                    type: "C",
+                    x1,
+                    y1,
+                    x2,
+                    y2,
+                    x: nx,
+                    y: ny
+                });
+
+                x = nx;
+                y = ny;
+                prevCmd = "C";
+                prevC2X = x2;
+                prevC2Y = y2;
+                prevQX = 0;
+                prevQY = 0;
+            }
+
+            continue;
+        }
+
+        // Quadratic bezier
+        if (upper === "Q") {
+            while (i + 3 < tokens.length && !isCommand(tokens[i])) {
+                const x1 = rel ? x + readNumber() : readNumber();
+                const y1 = rel ? y + readNumber() : readNumber();
+                const nx = rel ? x + readNumber() : readNumber();
+                const ny = rel ? y + readNumber() : readNumber();
+
+                segments.push({
+                    type: "Q",
+                    x1,
+                    y1,
+                    x: nx,
+                    y: ny
+                });
+
+                x = nx;
+                y = ny;
+                prevCmd = "Q";
+                prevQX = x1;
+                prevQY = y1;
+                prevC2X = 0;
+                prevC2Y = 0;
+            }
+
+            continue;
+        }
+
+        // Smooth quadratic bezier
+        if (upper === "T") {
+            while (i + 1 < tokens.length && !isCommand(tokens[i])) {
+                const nx = rel ? x + readNumber() : readNumber();
+                const ny = rel ? y + readNumber() : readNumber();
+
+                const x1 = (prevCmd === "Q" || prevCmd === "T") ? (2 * x - prevQX) : x;
+                const y1 = (prevCmd === "Q" || prevCmd === "T") ? (2 * y - prevQY) : y;
+
+                segments.push({
+                    type: "Q",
+                    x1,
+                    y1,
+                    x: nx,
+                    y: ny
+                });
+
+                x = nx;
+                y = ny;
+                prevCmd = "Q";
+                prevQX = x1;
+                prevQY = y1;
+                prevC2X = 0;
+                prevC2Y = 0;
+            }
+
+            continue;
+        }
+
+        // Arc
+        if (upper === "A") {
+            while (i + 6 < tokens.length && !isCommand(tokens[i])) {
+                const rx = readNumber();
+                const ry = readNumber();
+                const angle = readNumber();
+                const largeArcFlag = readNumber();
+                const sweepFlag = readNumber();
+                const nx = rel ? x + readNumber() : readNumber();
+                const ny = rel ? y + readNumber() : readNumber();
+
+                segments.push({
+                    type: "A",
+                    rx,
+                    ry,
+                    angle,
+                    largeArcFlag,
+                    sweepFlag,
+                    x: nx,
+                    y: ny
+                });
+
+                x = nx;
+                y = ny;
+                prevCmd = "A";
+                prevC2X = 0;
+                prevC2Y = 0;
+                prevQX = 0;
+                prevQY = 0;
+            }
+
+            continue;
+        }
+
+        // Close
+        if (upper === "Z") {
+            segments.push({ type: "Z" });
+            x = startX;
+            y = startY;
+            prevCmd = "Z";
+            prevC2X = 0;
+            prevC2Y = 0;
+            prevQX = 0;
+            prevQY = 0;
+            continue;
+        }
+
+        break;
+    }
+
+    return segments;
+}
+
+// сборка path из сегментов
+function serializePathData(segments) {
+    const result = [];
+
+    for (const seg of segments) {
+        if (seg.type === "M") {
+            result.push(`M ${formatSvgNumber(seg.x)} ${formatSvgNumber(seg.y)}`);
+        } else if (seg.type === "L") {
+            result.push(`L ${formatSvgNumber(seg.x)} ${formatSvgNumber(seg.y)}`);
+        } else if (seg.type === "Q") {
+            result.push(`Q ${formatSvgNumber(seg.x1)} ${formatSvgNumber(seg.y1)} ${formatSvgNumber(seg.x)} ${formatSvgNumber(seg.y)}`);
+        } else if (seg.type === "C") {
+            result.push(`C ${formatSvgNumber(seg.x1)} ${formatSvgNumber(seg.y1)} ${formatSvgNumber(seg.x2)} ${formatSvgNumber(seg.y2)} ${formatSvgNumber(seg.x)} ${formatSvgNumber(seg.y)}`);
+        } else if (seg.type === "A") {
+            result.push(`A ${formatSvgNumber(seg.rx)} ${formatSvgNumber(seg.ry)} ${formatSvgNumber(seg.angle)} ${formatSvgNumber(seg.largeArcFlag)} ${formatSvgNumber(seg.sweepFlag)} ${formatSvgNumber(seg.x)} ${formatSvgNumber(seg.y)}`);
+        } else if (seg.type === "Z") {
+            result.push("Z");
+        }
+    }
+
+    return result.join(" ");
+}
+
+// получение старта сегмента
+function getPathSegmentStartPoint(segments, index) {
+    let x = 0;
+    let y = 0;
+
+    for (let i = 0; i < index; i++) {
+        const seg = segments[i];
+        if (seg.type === "M" || seg.type === "L" || seg.type === "Q" || seg.type === "C" || seg.type === "A") {
+            x = seg.x;
+            y = seg.y;
+        } else if (seg.type === "Z") {
+            break;
+        }
+    }
+
+    return { x, y };
+}
+
+function addPathSelectionHandles(pathEl, techLayer) {
+    const svg = canvas.querySelector("svg");
+    if (!svg) return;
+
+    const d = pathEl.getAttribute("d") || "";
+    const segments = parsePathData(d);
+
+    const s = pathNodeHandleSize;
+    const c = pathControlHandleSize;
+
+    const ctm = pathEl.getCTM(); // <<< КЛЮЧЕВОЕ
+
+    function toScreen(x, y) {
+        if (!ctm) return { x, y };
+
+        const p = svg.createSVGPoint();
+        p.x = x;
+        p.y = y;
+
+        return p.matrixTransform(ctm);
+    }
+
+    let subpathStart = null;
+    let prevPoint = null;
+
+    for (let i = 0; i < segments.length; i++) {
+        const seg = segments[i];
+
+        // --- MOVE ---
+        if (seg.type === "M") {
+            const p = toScreen(seg.x, seg.y);
+
+            subpathStart = p;
+            prevPoint = p;
+
+            addPathNodeHandle(p.x, p.y, i, "node", techLayer, s);
+            continue;
+        }
+
+        // --- LINE / QUAD / CUBIC / ARC ---
+        if (["L", "Q", "C", "A"].includes(seg.type)) {
+            const p = toScreen(seg.x, seg.y);
+
+            addPathNodeHandle(p.x, p.y, i, "node", techLayer, s);
+        }
+
+        if (!prevPoint && subpathStart) {
+            prevPoint = subpathStart;
+        }
+
+        // --- QUADRATIC ---
+        if (seg.type === "Q") {
+            const c1 = toScreen(seg.x1, seg.y1);
+            const end = toScreen(seg.x, seg.y);
+
+            addPathGuideLine(prevPoint.x, prevPoint.y, c1.x, c1.y, techLayer);
+            addPathControlHandle(c1.x, c1.y, i, "control1", techLayer, c);
+
+            prevPoint = end;
+        }
+
+        // --- CUBIC ---
+        if (seg.type === "C") {
+            const c1 = toScreen(seg.x1, seg.y1);
+            const c2 = toScreen(seg.x2, seg.y2);
+            const end = toScreen(seg.x, seg.y);
+
+            addPathGuideLine(prevPoint.x, prevPoint.y, c1.x, c1.y, techLayer);
+            addPathControlHandle(c1.x, c1.y, i, "control1", techLayer, c);
+
+            addPathGuideLine(end.x, end.y, c2.x, c2.y, techLayer);
+            addPathControlHandle(c2.x, c2.y, i, "control2", techLayer, c);
+
+            prevPoint = end;
+        }
+
+        // --- CLOSE PATH ---
+        if (seg.type === "Z") {
+            prevPoint = subpathStart || prevPoint;
+        }
+    }
+}
+
+// линия между узлом и контрольной точкой
+function addPathGuideLine(x1, y1, x2, y2, techLayer) {
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+
+    line.setAttribute("x1", x1);
+    line.setAttribute("y1", y1);
+    line.setAttribute("x2", x2);
+    line.setAttribute("y2", y2);
+    line.setAttribute("stroke", "#4285f4");
+    line.setAttribute("stroke-width", "1");
+    line.setAttribute("stroke-dasharray", "3 3");
+    line.setAttribute("pointer-events", "none");
+
+    techLayer.appendChild(line);
+}
+
+// квадрат узла path
+function addPathNodeHandle(x, y, index, part, techLayer, size = pathNodeHandleSize) {
+    const handle = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+
+    handle.setAttribute("x", x - size / 2);
+    handle.setAttribute("y", y - size / 2);
+    handle.setAttribute("width", size);
+    handle.setAttribute("height", size);
+    handle.setAttribute("fill", "#ffffff");
+    handle.setAttribute("stroke", "#4285f4");
+    handle.setAttribute("stroke-width", "1");
+    handle.setAttribute("pointer-events", "all");
+    handle.dataset.pathHandle = part;
+    handle.dataset.pathIndex = index;
+    handle.style.cursor = "move";
+
+    techLayer.appendChild(handle);
+}
+
+// квадрат контрольной точки path
+function addPathControlHandle(x, y, index, part, techLayer, size = pathControlHandleSize) {
+    const handle = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+
+    handle.setAttribute("x", x - size / 2);
+    handle.setAttribute("y", y - size / 2);
+    handle.setAttribute("width", size);
+    handle.setAttribute("height", size);
+    handle.setAttribute("fill", "#ffffff");
+    handle.setAttribute("stroke", "#ff9800");
+    handle.setAttribute("stroke-width", "1");
+    handle.setAttribute("pointer-events", "all");
+    handle.dataset.pathHandle = part;
+    handle.dataset.pathIndex = index;
+    handle.style.cursor = "move";
+
+    techLayer.appendChild(handle);
+}
+
+// Начало изменения точки path
+function startPathHandleMove(e, handle) {
+    if (window.modeSvgEditor !== "selection") return;
+
+    const svg = canvas.querySelector("svg");
+    if (!svg) return;
+
+    const selected = Array.isArray(window.selectedElementsSvg) ? window.selectedElementsSvg[0] : window.selectedElementsSvg;
+    if (!selected || !isPathElement(selected)) return;
+
+    const group = getContentLayer(svg);
+    const groupInverse = group?.getCTM()?.inverse() || null;
+    const segments = parsePathData(selected.getAttribute("d") || "");
+    const point = getSvgPoint(e, svg);
+    const localPoint = groupInverse ? point.matrixTransform(groupInverse) : point;
+    const index = parseInt(handle.dataset.pathIndex, 10);
+    const part = handle.dataset.pathHandle;
+
+    if (isNaN(index) || !segments[index]) return;
+
+    pathResizing = {
+        pointerId: e.pointerId,
+        handle: part,
+        segmentIndex: index,
+        startPoint: localPoint,
+        startSegments: segments.map((seg) => ({ ...seg })),
+        pathEl: selected,
+        groupInverse
+    };
+
+    e.preventDefault();
+    e.stopImmediatePropagation();
+
+    try {
+        canvas.setPointerCapture(e.pointerId);
+    } catch (err) {}
+
+    canvas.addEventListener("pointermove", onPathHandleMove);
+    canvas.addEventListener("pointerup", onPathHandleUp);
+    canvas.addEventListener("pointercancel", onPathHandleUp);
+    canvas.addEventListener("lostpointercapture", onPathHandleUp);
+}
+
+// изменение точки path
+function onPathHandleMove(e) {
+    if (!pathResizing || e.pointerId !== pathResizing.pointerId) return;
+
+    const svg = canvas.querySelector("svg");
+    if (!svg) return;
+
+    e.preventDefault();
+
+    const point = getSvgPoint(e, svg);
+    const localPoint = pathResizing.groupInverse ? point.matrixTransform(pathResizing.groupInverse) : point;
+    const dx = localPoint.x - pathResizing.startPoint.x;
+    const dy = localPoint.y - pathResizing.startPoint.y;
+
+    const segments = pathResizing.startSegments.map((seg) => ({ ...seg }));
+    const seg = segments[pathResizing.segmentIndex];
+
+    if (!seg) return;
+
+    if (pathResizing.handle === "node") {
+        seg.x = seg.x + dx;
+        seg.y = seg.y + dy;
+    }
+
+    if (pathResizing.handle === "control1" && seg.type === "Q") {
+        seg.x1 = seg.x1 + dx;
+        seg.y1 = seg.y1 + dy;
+    }
+
+    if (pathResizing.handle === "control1" && seg.type === "C") {
+        seg.x1 = seg.x1 + dx;
+        seg.y1 = seg.y1 + dy;
+    }
+
+    if (pathResizing.handle === "control2" && seg.type === "C") {
+        seg.x2 = seg.x2 + dx;
+        seg.y2 = seg.y2 + dy;
+    }
+
+    pathResizing.pathEl.setAttribute("d", serializePathData(segments));
+    updateSelectionBox();
+}
+
+// завершение изменения точки path
+function onPathHandleUp(e) {
+    if (!pathResizing || e.pointerId !== pathResizing.pointerId) return;
+
+    try {
+        canvas.releasePointerCapture(e.pointerId);
+    } catch (err) {}
+
+    canvas.removeEventListener("pointermove", onPathHandleMove);
+    canvas.removeEventListener("pointerup", onPathHandleUp);
+    canvas.removeEventListener("pointercancel", onPathHandleUp);
+    canvas.removeEventListener("lostpointercapture", onPathHandleUp);
+
+    pathResizing = null;
+    updateSelectionBox();
+}
+
 // Начало изменения размера выделения
 function startElementResize(e, handle) {
     if (window.modeSvgEditor !== "selection") return;
@@ -750,6 +1371,12 @@ function handleCanvasPointerDown(e) {
     const svg = canvas.querySelector("svg");
     const firstG = getContentLayer(svg);
     const techLayer = getOverlayLayer(svg);
+
+    // Если клик по path handle - начинаем редактирование path
+    if (e.target.dataset && e.target.dataset.pathHandle) {
+        startPathHandleMove(e, e.target);
+        return;
+    }
 
     // Перемещение канвы мышкой
     if (startCanvasPanning(e, svg)) {
@@ -932,153 +1559,3 @@ canvas.addEventListener("pointermove", onPointerMoveEl);
 canvas.addEventListener("pointerup", onPointerUpEl);
 canvas.addEventListener("pointercancel", onPointerUpEl);
 canvas.addEventListener("lostpointercapture", onPointerUpEl);
-
-
-
-// === Взаимодействие c холстом ===
-
-// Флаг режима изменения размера
-let resizing = false;
-
-// Размер активной зоны (px)
-const edgeSize = 4;
-const cornerSize = 6;
-
-// Нажатие на холст
-function onPointerDown(e) {
-    if (window.modeSvgEditor !== "selection") return;
-    const svg = canvas.querySelector("svg");
-    if (!svg) return;
-    if (elementResizing || (e.target.dataset && e.target.dataset.resizeHandle)) return;
-
-    const rect = svg.getBoundingClientRect();
-
-    // стороны
-    let onLeft = e.clientX >= rect.left - edgeSize && e.clientX <= rect.left + edgeSize;
-    let onRight = e.clientX >= rect.right - edgeSize && e.clientX <= rect.right + edgeSize;
-    let onTop = e.clientY >= rect.top - edgeSize && e.clientY <= rect.top + edgeSize;
-    let onBottom = e.clientY >= rect.bottom - edgeSize && e.clientY <= rect.bottom + edgeSize;
-
-    // углы
-    const onTL = Math.abs(e.clientX - rect.left) < cornerSize && Math.abs(e.clientY - rect.top) < cornerSize;
-    const onTR = Math.abs(e.clientX - rect.right) < cornerSize && Math.abs(e.clientY - rect.top) < cornerSize;
-    const onBL = Math.abs(e.clientX - rect.left) < cornerSize && Math.abs(e.clientY - rect.bottom) < cornerSize;
-    const onBR = Math.abs(e.clientX - rect.right) < cornerSize && Math.abs(e.clientY - rect.bottom) < cornerSize;
-
-    // угловой режим делает боковые флаги активными
-    if (onTL) {
-        onLeft = true;
-        onTop = true;
-    }
-    if (onTR) {
-        onRight = true;
-        onTop = true;
-    }
-    if (onBL) {
-        onLeft = true;
-        onBottom = true;
-    }
-    if (onBR) {
-        onRight = true;
-        onBottom = true;
-    }
-
-    // ничего не попали
-    if (!onLeft && !onRight && !onTop && !onBottom && !onTL && !onTR && !onBL && !onBR) return;
-
-    // Сбрасываем выделение при начале изменения размера
-    window.selectedElementsSvg = [];
-    const techLayer = getOverlayLayer(svg);
-    if (techLayer) techLayer.innerHTML = "";
-
-    resizing = {
-        startRect: svg.getBoundingClientRect(),
-        svg,
-        startX: e.clientX,
-        startY: e.clientY,
-        mouseStartX: e.clientX,
-        mouseStartY: e.clientY,
-        startW: svg.width.baseVal.value,
-        startH: svg.height.baseVal.value,
-        onLeft,
-        onRight,
-        onTop,
-        onBottom,
-        onTL,
-        onTR,
-        onBL,
-        onBR
-    };
-
-    e.preventDefault();
-}
-
-// Перемещение курсора
-function onPointerMove(e) {
-    if (window.modeSvgEditor !== "selection") return;
-    const svg = canvas.querySelector("svg");
-    if (!svg) return;
-    if (elementResizing) return;
-
-    const rect = svg.getBoundingClientRect();
-
-    // стороны
-    const onLeft = Math.abs(e.clientX - rect.left) < edgeSize;
-    const onRight = Math.abs(e.clientX - rect.right) < edgeSize;
-    const onTop = Math.abs(e.clientY - rect.top) < edgeSize;
-    const onBottom = Math.abs(e.clientY - rect.bottom) < edgeSize;
-
-    // углы
-    const onTL = Math.abs(e.clientX - rect.left) < cornerSize && Math.abs(e.clientY - rect.top) < cornerSize;
-    const onTR = Math.abs(e.clientX - rect.right) < cornerSize && Math.abs(e.clientY - rect.top) < cornerSize;
-    const onBL = Math.abs(e.clientX - rect.left) < cornerSize && Math.abs(e.clientY - rect.bottom) < cornerSize;
-    const onBR = Math.abs(e.clientX - rect.right) < cornerSize && Math.abs(e.clientY - rect.bottom) < cornerSize;
-
-    // курсор (углы имеют приоритет)
-    if (onTL || onBR) {
-        svg.style.cursor = "nwse-resize";
-    } else if (onTR || onBL) {
-        svg.style.cursor = "nesw-resize";
-    } else if (onLeft || onRight) {
-        svg.style.cursor = "ew-resize";
-    } else if (onTop || onBottom) {
-        svg.style.cursor = "ns-resize";
-    } else {
-        svg.style.cursor = "default";
-    }
-
-    if (!resizing) return;
-
-    // Вычисляем новые размеры
-    let k = 2;
-    const dx = e.clientX - resizing.mouseStartX;
-    const dy = e.clientY - resizing.mouseStartY;
-
-    let newW = resizing.startW;
-    let newH = resizing.startH;
-
-    if (resizing.onRight) newW = resizing.startW + dx * k;
-    if (resizing.onBottom) newH = resizing.startH + dy * k;
-
-    if (resizing.onLeft) newW = resizing.startW - dx * k;
-    if (resizing.onTop) newH = resizing.startH - dy * k;
-
-    resizing.svg.setAttribute("width", Math.max(20, newW));
-    resizing.svg.setAttribute("height", Math.max(20, newH));
-}
-
-// Отпускание
-function onPointerUp() {
-    resizing = false;
-}
-
-// Привязка событий к rect внутри третьей группы
-// document.addEventListener("openSvgBlock", () => {
-//     const borderPath = canvas.querySelector("svg")?.querySelector("#borderPath");
-//     if (!borderPath) return;
-
-//     borderPath.addEventListener("pointerdown", onPointerDown);
-//     borderPath.addEventListener("pointermove", onPointerMove);
-//     borderPath.addEventListener("pointerup", onPointerUp);
-//     borderPath.addEventListener("pointercancel", onPointerUp);
-// });
