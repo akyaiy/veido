@@ -29,6 +29,9 @@ const tabsMenu = document.getElementById("tabsMenu");
 
 // Элементы вкладок
 const tabNew = document.getElementById("tabNew");
+const tabOpen = document.getElementById("tabOpen");
+const tabSave = document.getElementById("tabSave");
+const tabSaveAs = document.getElementById("tabSaveAs");
 
 // Открытие и закрытие меню
 tabsIcon.addEventListener("click", () => {
@@ -44,13 +47,27 @@ document.addEventListener("click", (event) => {
 // Создание новой вкладки
 tabNew.addEventListener("click", () => { loadSvg() });
 
+// Открытие svg через файл менеджер
+tabOpen.addEventListener("click", async () => {
+    await openSvgFromFileManager();
+});
+
+// Сохранение svg стандартным именем
+tabSave.addEventListener("click", async () => {
+    await saveSvgWithStandardName();
+});
+
+// Сохранение svg через файл менеджер
+tabSaveAs.addEventListener("click", async () => {
+    await saveSvgAsFileManager();
+});
+
 
 
 // === Работа с svg блоками ===
 
-// Загрузка svg блока по url и создание для него вкладки
-async function loadSvg(url=null) {
-    // Вычисление следующего свободного номера для блока svg
+// Вычисление следующего свободного номера для блока svg
+function getNextSvgNum() {
     const used = new Set();
 
     storage.querySelectorAll(`.${svgBlockClass}`).forEach((el) => {
@@ -60,6 +77,227 @@ async function loadSvg(url=null) {
 
     let num = 1;
     while (used.has(num)) num++;
+
+    return num;
+}
+
+// Получение текста текущего svg
+function getCurrentSvgText() {
+    const svg = canvas.querySelector("svg");
+    if (!svg) return "";
+
+    const borderLayer = getBorderLayer(svg);
+    const contentLayer = getContentLayer(svg);
+
+    if (!borderLayer || !contentLayer) return "";
+
+    const borderPath = borderLayer.querySelector("#borderPath");
+    if (!borderPath) return "";
+
+    const match = borderPath
+        .getAttribute("d")
+        ?.match(/M\s+0\s+0\s+H\s+([\d.]+)\s+V\s+([\d.]+)/);
+
+    if (!match) return "";
+
+    const width = match[1];
+    const height = match[2];
+
+    const exportSvg = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "svg"
+    );
+
+    exportSvg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+    exportSvg.setAttribute("width", width);
+    exportSvg.setAttribute("height", height);
+    exportSvg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+
+    Array.from(contentLayer.childNodes).forEach((node) => {
+        exportSvg.appendChild(node.cloneNode(true));
+    });
+
+    return new XMLSerializer().serializeToString(exportSvg);
+}
+
+// Получение стандартного имени файла
+function getStandardSvgFileName() {
+    return "document.svg";
+}
+
+// Получение имени файла для активной вкладки
+function getActiveSvgFileName() {
+    const activeTab = tabs.querySelector(".svgTab.active");
+    if (!activeTab) return getStandardSvgFileName();
+
+    const svgBlock = storage.querySelector(`.${svgBlockClass}[data-num="${activeTab.dataset.num}"]`);
+    if (!svgBlock) return getStandardSvgFileName();
+
+    if (svgBlock.dataset.url) {
+        const fileName = svgBlock.dataset.url.split("/").pop() || "document.svg";
+        return fileName.endsWith(".svg") ? fileName : fileName + ".svg";
+    }
+
+    const title = activeTab.querySelector(".svgTabTitle")?.textContent || "document";
+    return title.endsWith(".svg") ? title : title + ".svg";
+}
+
+// Скачивание svg как файла
+async function downloadSvgText(svgText, fileName) {
+    const blob = new Blob([svgText], { type: "image/svg+xml;charset=utf-8" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = fileName;
+    link.click();
+    URL.revokeObjectURL(link.href);
+}
+
+// Загрузка svg из файла
+async function openSvgFromFileManager() {
+    if (window.showOpenFilePicker) {
+        try {
+            const [handle] = await window.showOpenFilePicker({
+                multiple: false,
+                types: [
+                    {
+                        description: "SVG",
+                        accept: {
+                            "image/svg+xml": [".svg"]
+                        }
+                    }
+                ]
+            });
+
+            if (!handle) return;
+
+            const file = await handle.getFile();
+            const text = await file.text();
+            await loadSvgFromText(text, file.name);
+        } catch (error) {
+            return;
+        }
+
+        return;
+    }
+
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".svg,image/svg+xml";
+    input.hidden = true;
+
+    document.body.appendChild(input);
+
+    input.addEventListener("change", async () => {
+        try {
+            const file = input.files && input.files[0];
+            if (!file) return;
+
+            const text = await file.text();
+            await loadSvgFromText(text, file.name);
+        } finally {
+            input.remove();
+        }
+    }, { once: true });
+
+    input.click();
+}
+
+// Сохранение svg через файл менеджер
+async function saveSvgAsFileManager() {
+    const svgText = getCurrentSvgText();
+    if (!svgText) return;
+
+    const fileName = getActiveSvgFileName();
+
+    if (window.showSaveFilePicker) {
+        try {
+            const handle = await window.showSaveFilePicker({
+                suggestedName: fileName,
+                types: [
+                    {
+                        description: "SVG",
+                        accept: {
+                            "image/svg+xml": [".svg"]
+                        }
+                    }
+                ]
+            });
+
+            const writable = await handle.createWritable();
+            await writable.write(svgText);
+            await writable.close();
+        } catch (error) {
+            return;
+        }
+
+        return;
+    }
+
+    await downloadSvgText(svgText, fileName);
+}
+
+// Сохранение svg стандартным именем
+async function saveSvgWithStandardName() {
+    const svgText = getCurrentSvgText();
+    if (!svgText) return;
+
+    await downloadSvgText(svgText, getStandardSvgFileName());
+}
+
+// Загрузка svg из текста
+async function loadSvgFromText(svgText, fileName = null) {
+    // Вычисление следующего свободного номера для блока svg
+    const num = getNextSvgNum();
+
+    // Создание нового блока для svg
+    const svgBlock = document.createElement("div");
+    svgBlock.className = svgBlockClass;
+    svgBlock.dataset.num = num;
+    svgBlock.dataset.url = fileName || "";
+    svgBlock.id = "svgTab" + num;
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(svgText, "image/svg+xml");
+    const parsedSvg = doc.querySelector("svg");
+
+    if (!parsedSvg) return;
+
+    svgBlock.appendChild(document.importNode(parsedSvg, true));
+    storage.appendChild(svgBlock);
+
+    // Создание нового блока для svg
+    const svgTab = document.createElement("div");
+    svgTab.className = "svgTab";
+    svgTab.dataset.num = num;
+
+    // Название вкладки
+    const svgTabTitle = document.createElement("div");
+    if (fileName) {
+        svgTabTitle.textContent = fileName.replace(/\.svg$/i, "");
+    } else {
+        svgTabTitle.textContent = "*new";
+    }
+    svgTabTitle.className = "svgTabTitle";
+    svgTab.addEventListener("click", () => openSvgBlock(num));
+
+    // Кнопка закрытия вкладки
+    const svgTabclose = document.createElement("div");
+    svgTabclose.textContent = "×";
+    svgTabclose.className = "svgTabClose";
+    svgTabclose.addEventListener("click", (event) => closeSvgBlock(num, event));
+
+    svgTab.appendChild(svgTabTitle);
+    svgTab.appendChild(svgTabclose);
+    tabs.appendChild(svgTab);
+
+    // Открываем загруженный блок через функцию после добавления вкладки
+    openSvgBlock(num);
+}
+
+// Загрузка svg блока по url и создание для него вкладки
+async function loadSvg(url = null) {
+    // Вычисление следующего свободного номера для блока svg
+    const num = getNextSvgNum();
 
     // Создание нового блока для svg
     const svgBlock = document.createElement("div");
