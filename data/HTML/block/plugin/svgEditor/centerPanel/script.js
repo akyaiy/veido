@@ -1289,9 +1289,21 @@ function distToSegmentSquared(p, v, w) {
     return (p.x - closestX) ** 2 + (p.y - closestY) ** 2;
 }
 
-// создание узла по двойному клику на path 
+// таймер
+let lastPathDblClickTime = 0;
+let lastPathDblClickTarget = null;
+
+// создание узла по двойному клику на path
 function onPathDoubleClick(e) {
     if (window.modeSvgEditor !== "nodeEdit") return;
+
+    const now = performance.now();
+
+    // защита от ложных dblclick / дублей событий
+    if (now - lastPathDblClickTime > 500) {
+        lastPathDblClickTime = now;
+        lastPathDblClickTarget = e.target;
+    }
 
     const svg = canvas.querySelector("svg");
     if (!svg) return;
@@ -1299,46 +1311,46 @@ function onPathDoubleClick(e) {
     const group = getContentLayer(svg);
     if (!group) return;
 
-    const groupInverse = group.getCTM()?.inverse() || null;
     const pathEl = e.target;
 
+    // только элементы внутри content layer
     if (!group.contains(pathEl)) return;
     if (!isPathElement(pathEl)) return;
 
-    const point = getSvgPoint(e, svg);
-    const localPoint = groupInverse ? point.matrixTransform(groupInverse) : point;
+    // защита от повторного срабатывания на другом target
+    if (lastPathDblClickTarget !== pathEl) return;
 
-    const d = pathEl.getAttribute("d") || "";
-    const segments = parsePathData(d);
+    const groupInverse = group.getCTM()?.inverse() || null;
+
+    const point = getSvgPoint(e, svg);
+    const localPoint = groupInverse
+        ? point.matrixTransform(groupInverse)
+        : point;
+
+    const segments = parsePathData(pathEl.getAttribute("d") || "");
 
     let bestIndex = -1;
     let bestDist = Infinity;
 
-    // Идем начиная с 1
     for (let i = 1; i < segments.length; i++) {
-        const prevSeg = segments[i - 1];
-        const currSeg = segments[i];
+        const a = segments[i - 1];
+        const b = segments[i];
 
-        // Пропускаем команды без координат
-        if (typeof prevSeg.x !== "number" || typeof prevSeg.y !== "number" ||
-            typeof currSeg.x !== "number" || typeof currSeg.y !== "number") {
-            continue;
-        }
+        if (typeof a.x !== "number" || typeof a.y !== "number") continue;
+        if (typeof b.x !== "number" || typeof b.y !== "number") continue;
 
-        const dist = distToSegmentSquared(localPoint, prevSeg, currSeg);
+        const dist = distToSegmentSquared(localPoint, a, b);
 
         if (dist < bestDist) {
             bestDist = dist;
-            // Сохраняем индекс текущего узла. 
-            bestIndex = i; 
+            bestIndex = i;
         }
     }
 
     if (bestIndex < 0) return;
 
-    // Вставляем новый узел прямо
     segments.splice(bestIndex, 0, {
-        type: "L", 
+        type: "L",
         x: localPoint.x,
         y: localPoint.y
     });
@@ -1352,6 +1364,152 @@ function onPathDoubleClick(e) {
 
 // обработчик
 canvas.addEventListener("dblclick", onPathDoubleClick);
+
+
+
+// === искривление ребра ===
+
+let edgeDragState = null;
+
+// Вспомогательная функция: точная конвертация координат экрана в локальные координаты элемента
+function getLocalPoint(e, svg, element) {
+    const pt = svg.createSVGPoint();
+    pt.x = e.clientX;
+    pt.y = e.clientY;
+    return pt.matrixTransform(element.getScreenCTM().inverse());
+}
+
+// поиск ближайшего ребра под курсором с лимитом дистанции
+function findNearestEdge(point, segments) {
+    let bestIndex = -1;
+    let bestDist = Infinity;
+    const MAX_DIST_SQUARED = 400; // Порог в 20 локальных единиц 
+
+    for (let i = 1; i < segments.length; i++) {
+        const a = segments[i - 1];
+        const b = segments[i];
+
+        if (!a || !b) continue;
+        if (typeof a.x !== "number" || typeof a.y !== "number") continue;
+        if (typeof b.x !== "number" || typeof b.y !== "number") continue;
+
+        const dist = distToSegmentSquared(point, a, b);
+
+        // Захватываем ребро, только если клик был достаточно близко
+        if (dist < bestDist && dist <= MAX_DIST_SQUARED) {
+            bestDist = dist;
+            bestIndex = i;
+        }
+    }
+
+    return bestIndex;
+}
+
+// начало перетягивания ребра
+function onEdgePointerDown(e) {
+    if (window.modeSvgEditor !== "nodeEdit") return;
+
+    const svg = canvas.querySelector("svg");
+    if (!svg) return;
+
+    const pathEl = e.target;
+    if (!isPathElement(pathEl)) return;
+
+    // Переводим клик строго в локальные координаты самого path
+    const localPoint = getLocalPoint(e, svg, pathEl);
+
+    const segments = parsePathData(pathEl.getAttribute("d") || "");
+    const index = findNearestEdge(localPoint, segments);
+
+    if (index < 1) return;
+
+    edgeDragState = {
+        pointerId: e.pointerId,
+        pathEl,
+        svg,
+        index,
+        startPoint: localPoint, // Запоминаем точное место клика
+        startSegments: segments.map(s => ({ ...s }))
+    };
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    canvas.setPointerCapture(e.pointerId);
+
+    canvas.addEventListener("pointermove", onEdgePointerMove);
+    canvas.addEventListener("pointerup", onEdgePointerUp);
+    canvas.addEventListener("pointercancel", onEdgePointerUp);
+}
+
+// движение ребра → превращение в кривую или модификация существующей
+function onEdgePointerMove(e) {
+    if (!edgeDragState || e.pointerId !== edgeDragState.pointerId) return;
+
+    e.preventDefault();
+
+    // Получаем текущие координаты в системе самого пути
+    const localPoint = getLocalPoint(e, edgeDragState.svg, edgeDragState.pathEl);
+
+    // Глубоко копируем начальное состояние, чтобы не накапливать ошибки
+    const segments = edgeDragState.startSegments.map(s => ({ ...s }));
+    const i = edgeDragState.index;
+
+    const a = segments[i - 1];
+    const b = segments[i];
+
+    if (!a || !b) return;
+
+    const dx = localPoint.x - edgeDragState.startPoint.x;
+    const dy = localPoint.y - edgeDragState.startPoint.y;
+
+    if (b.type === "C") {
+        // Если это уже кривая, просто сдвигаем контрольные точки
+        b.x1 += dx;
+        b.y1 += dy;
+        b.x2 += dx;
+        b.y2 += dy;
+    } else {
+        // Если была линия, превращаем в кривую плавно
+        const cx1 = a.x + (b.x - a.x) / 3;
+        const cy1 = a.y + (b.y - a.y) / 3;
+
+        const cx2 = a.x + (b.x - a.x) * 2 / 3;
+        const cy2 = a.y + (b.y - a.y) * 2 / 3;
+
+        segments[i] = {
+            type: "C",
+            x1: cx1 + dx, // Прибавляем смещение курсора
+            y1: cy1 + dy,
+            x2: cx2 + dx,
+            y2: cy2 + dy,
+            x: b.x,
+            y: b.y
+        };
+    }
+
+    edgeDragState.pathEl.setAttribute("d", serializePathData(segments));
+    updateSelectionBox();
+}
+
+// завершение перетягивания ребра
+function onEdgePointerUp(e) {
+    if (!edgeDragState || e.pointerId !== edgeDragState.pointerId) return;
+
+    try {
+        canvas.releasePointerCapture(e.pointerId);
+    } catch (err) {}
+
+    canvas.removeEventListener("pointermove", onEdgePointerMove);
+    canvas.removeEventListener("pointerup", onEdgePointerUp);
+    canvas.removeEventListener("pointercancel", onEdgePointerUp);
+
+    edgeDragState = null;
+    updateSelectionBox();
+}
+
+canvas.addEventListener("pointerdown", onEdgePointerDown);
+
 
 // === Изменение размера выделения ===
 
@@ -1585,7 +1743,7 @@ function onPointerDownEl(e) {
 
 // Перемещение элемента
 function onPointerMoveEl(e) {
-    if (window.modeSvgEditor !== "selection" && window.modeSvgEditor !== "nodeEdit") return;
+    if (window.modeSvgEditor !== "selection") return;
     if (!dragging || e.pointerId !== dragging.pointerId) return;
 
     e.preventDefault();
