@@ -23,20 +23,22 @@ document.addEventListener("svgEditorBlocksLoaded", () => {
 });
 
 
-// === Режим редактирования ===
+// === Режимы редактора ===
 
-// кнопка режима выделения
+// кнопки режимов
 const selectionMode = document.getElementById("selectionMode");
+const nodeEditMode = document.getElementById("nodeEditMode");
 
 // переключение режима
-function setSelectionMode(btn) {
-    modeSvgEditor = "selection";
+function setEditorMode(btn, mode) {
+    modeSvgEditor = mode;
     currentAddElement = null;
     activeButton(btn);
 }
 
-// обработчик режима выделения
-selectionMode.addEventListener("click", () => setSelectionMode(selectionMode));
+// обработчики режимов
+selectionMode.addEventListener("click", () => setEditorMode(selectionMode, "selection"));
+nodeEditMode.addEventListener("click", () => setEditorMode(nodeEditMode, "nodeEdit"));
 
 
 

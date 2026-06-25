@@ -285,12 +285,13 @@ function isResizeHandle(e, svg) {
 
 // проверка на path
 function isPathElement(el) {
+    if (window.modeSvgEditor !== "nodeEdit") return false
     return !!el && el.tagName && el.tagName.toLowerCase() === "path"
 }
 
 // запуск лассо
 function selectElements(e) {
-    if (window.modeSvgEditor !== "selection") return;
+    if (window.modeSvgEditor !== "selection" && window.modeSvgEditor !== "nodeEdit") return;
     const svg = canvas.querySelector("svg")
     const firstG = getContentLayer(svg)
     const techLayer = getOverlayLayer(svg)
@@ -658,19 +659,20 @@ function getSvgPoint(e, svg) {
     return point.matrixTransform(matrix.inverse());
 }
 
-// === Path selection ===
+// === Выделение path ===
 
-// нормализация чисел для path
+// Нормализация числа для записи в path
 function formatSvgNumber(value) {
     if (!isFinite(value)) return "0";
 
     const rounded = Math.round(value * 1000) / 1000;
+
     return String(rounded)
         .replace(/\.0+$/, "")
         .replace(/(\.\d*?)0+$/, "$1");
 }
 
-// разбор path на абсолютные команды
+// Разбор path в массив абсолютных сегментов
 function parsePathData(d) {
     const tokens = (d || "").match(/[a-zA-Z]|[-+]?(?:\d*\.\d+|\d+)(?:e[-+]?\d+)?/gi) || [];
     const segments = [];
@@ -709,7 +711,7 @@ function parsePathData(d) {
         const upper = cmd.toUpperCase();
         const rel = cmd !== upper;
 
-        // Move
+        // Перемещение пера
         if (upper === "M") {
             let first = true;
 
@@ -722,6 +724,7 @@ function parsePathData(d) {
 
                 if (first) {
                     segments.push({ type: "M", x: px, y: py });
+
                     startX = px;
                     startY = py;
                     first = false;
@@ -741,7 +744,7 @@ function parsePathData(d) {
             continue;
         }
 
-        // Line
+        // Линия
         if (upper === "L") {
             while (i + 1 < tokens.length && !isCommand(tokens[i]) && !isCommand(tokens[i + 1])) {
                 const nx = readNumber();
@@ -761,12 +764,13 @@ function parsePathData(d) {
             continue;
         }
 
-        // Horizontal line
+        // Горизонтальная линия
         if (upper === "H") {
             while (i < tokens.length && !isCommand(tokens[i])) {
                 const nx = readNumber();
 
                 x = rel ? x + nx : nx;
+
                 segments.push({ type: "L", x, y });
                 prevCmd = "L";
             }
@@ -778,12 +782,13 @@ function parsePathData(d) {
             continue;
         }
 
-        // Vertical line
+        // Вертикальная линия
         if (upper === "V") {
             while (i < tokens.length && !isCommand(tokens[i])) {
                 const ny = readNumber();
 
                 y = rel ? y + ny : ny;
+
                 segments.push({ type: "L", x, y });
                 prevCmd = "L";
             }
@@ -795,7 +800,7 @@ function parsePathData(d) {
             continue;
         }
 
-        // Cubic bezier
+        // Кубическая кривая Безье
         if (upper === "C") {
             while (i + 5 < tokens.length && !isCommand(tokens[i])) {
                 const x1 = rel ? x + readNumber() : readNumber();
@@ -827,7 +832,7 @@ function parsePathData(d) {
             continue;
         }
 
-        // Smooth cubic bezier
+        // Сглаженная кубическая кривая Безье
         if (upper === "S") {
             while (i + 3 < tokens.length && !isCommand(tokens[i])) {
                 const x2 = rel ? x + readNumber() : readNumber();
@@ -860,7 +865,7 @@ function parsePathData(d) {
             continue;
         }
 
-        // Quadratic bezier
+        // Квадратичная кривая Безье
         if (upper === "Q") {
             while (i + 3 < tokens.length && !isCommand(tokens[i])) {
                 const x1 = rel ? x + readNumber() : readNumber();
@@ -888,7 +893,7 @@ function parsePathData(d) {
             continue;
         }
 
-        // Smooth quadratic bezier
+        // Сглаженная квадратичная кривая Безье
         if (upper === "T") {
             while (i + 1 < tokens.length && !isCommand(tokens[i])) {
                 const nx = rel ? x + readNumber() : readNumber();
@@ -917,7 +922,7 @@ function parsePathData(d) {
             continue;
         }
 
-        // Arc
+        // Дуга
         if (upper === "A") {
             while (i + 6 < tokens.length && !isCommand(tokens[i])) {
                 const rx = readNumber();
@@ -951,11 +956,13 @@ function parsePathData(d) {
             continue;
         }
 
-        // Close
+        // Замыкание контура
         if (upper === "Z") {
             segments.push({ type: "Z" });
+
             x = startX;
             y = startY;
+
             prevCmd = "Z";
             prevC2X = 0;
             prevC2Y = 0;
@@ -970,7 +977,7 @@ function parsePathData(d) {
     return segments;
 }
 
-// сборка path из сегментов
+// Сборка строки path из массива сегментов
 function serializePathData(segments) {
     const result = [];
 
@@ -993,13 +1000,14 @@ function serializePathData(segments) {
     return result.join(" ");
 }
 
-// получение старта сегмента
+// Получение начальной точки сегмента
 function getPathSegmentStartPoint(segments, index) {
     let x = 0;
     let y = 0;
 
     for (let i = 0; i < index; i++) {
         const seg = segments[i];
+
         if (seg.type === "M" || seg.type === "L" || seg.type === "Q" || seg.type === "C" || seg.type === "A") {
             x = seg.x;
             y = seg.y;
@@ -1015,14 +1023,18 @@ function addPathSelectionHandles(pathEl, techLayer) {
     const svg = canvas.querySelector("svg");
     if (!svg) return;
 
+    // Получаем данные path
     const d = pathEl.getAttribute("d") || "";
     const segments = parsePathData(d);
 
+    // Размеры узлов и контрольных точек
     const s = pathNodeHandleSize;
     const c = pathControlHandleSize;
 
-    const ctm = pathEl.getCTM(); // <<< КЛЮЧЕВОЕ
+    // Матрица трансформации path с учётом всех родительских transform
+    const ctm = pathEl.getCTM();
 
+    // Преобразование координат path в координаты SVG
     function toScreen(x, y) {
         if (!ctm) return { x, y };
 
@@ -1033,13 +1045,16 @@ function addPathSelectionHandles(pathEl, techLayer) {
         return p.matrixTransform(ctm);
     }
 
+    // Начальная точка текущего контура
     let subpathStart = null;
+
+    // Предыдущая узловая точка
     let prevPoint = null;
 
     for (let i = 0; i < segments.length; i++) {
         const seg = segments[i];
 
-        // --- MOVE ---
+        // Начало нового контура
         if (seg.type === "M") {
             const p = toScreen(seg.x, seg.y);
 
@@ -1050,18 +1065,19 @@ function addPathSelectionHandles(pathEl, techLayer) {
             continue;
         }
 
-        // --- LINE / QUAD / CUBIC / ARC ---
+        // Конечная точка линии, кривой или дуги
         if (["L", "Q", "C", "A"].includes(seg.type)) {
             const p = toScreen(seg.x, seg.y);
 
             addPathNodeHandle(p.x, p.y, i, "node", techLayer, s);
         }
 
+        // Если предыдущая точка отсутствует, используем начало контура
         if (!prevPoint && subpathStart) {
             prevPoint = subpathStart;
         }
 
-        // --- QUADRATIC ---
+        // Квадратичная кривая Безье
         if (seg.type === "Q") {
             const c1 = toScreen(seg.x1, seg.y1);
             const end = toScreen(seg.x, seg.y);
@@ -1072,7 +1088,7 @@ function addPathSelectionHandles(pathEl, techLayer) {
             prevPoint = end;
         }
 
-        // --- CUBIC ---
+        // Кубическая кривая Безье
         if (seg.type === "C") {
             const c1 = toScreen(seg.x1, seg.y1);
             const c2 = toScreen(seg.x2, seg.y2);
@@ -1087,7 +1103,7 @@ function addPathSelectionHandles(pathEl, techLayer) {
             prevPoint = end;
         }
 
-        // --- CLOSE PATH ---
+        // Замыкание контура
         if (seg.type === "Z") {
             prevPoint = subpathStart || prevPoint;
         }
@@ -1150,7 +1166,7 @@ function addPathControlHandle(x, y, index, part, techLayer, size = pathControlHa
 
 // Начало изменения точки path
 function startPathHandleMove(e, handle) {
-    if (window.modeSvgEditor !== "selection") return;
+    if (window.modeSvgEditor !== "nodeEdit") return;
 
     const svg = canvas.querySelector("svg");
     if (!svg) return;
@@ -1253,7 +1269,7 @@ function onPathHandleUp(e) {
 
 // Начало изменения размера выделения
 function startElementResize(e, handle) {
-    if (window.modeSvgEditor !== "selection") return;
+    if (window.modeSvgEditor !== "selection" && window.modeSvgEditor !== "nodeEdit") return;
     const svg = canvas.querySelector("svg");
     if (!svg) return;
 
@@ -1367,7 +1383,7 @@ function onElementResizeUp(e) {
 }
 
 function handleCanvasPointerDown(e) {
-    if (window.modeSvgEditor !== "selection") return;
+    if (window.modeSvgEditor !== "selection" && window.modeSvgEditor !== "nodeEdit") return;
     const svg = canvas.querySelector("svg");
     const firstG = getContentLayer(svg);
     const techLayer = getOverlayLayer(svg);
@@ -1425,7 +1441,7 @@ let canvasPanning = null;
 // Нажатие на элемент
 function onPointerDownEl(e) {
     if (e.button !== 0) return;
-    if (window.modeSvgEditor !== "selection") return;
+    if (window.modeSvgEditor !== "selection" && window.modeSvgEditor !== "nodeEdit") return;
     const svg = canvas.querySelector("svg");
     if (!svg) return;
 
@@ -1481,7 +1497,7 @@ function onPointerDownEl(e) {
 
 // Перемещение элемента
 function onPointerMoveEl(e) {
-    if (window.modeSvgEditor !== "selection") return;
+    if (window.modeSvgEditor !== "selection" && window.modeSvgEditor !== "nodeEdit") return;
     if (!dragging || e.pointerId !== dragging.pointerId) return;
 
     e.preventDefault();

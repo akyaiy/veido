@@ -3,6 +3,7 @@
 <!-- Режим редактирования -->
 <div class="elementsTab open">
     <div id="selectionMode" class="buttonSvg" title="Режим выделения"><svg class="svgIcon" use="1" style="color: rgb(0, 0, 0);"><use href="./static/img/icons.svg#18x28"></use></svg></div>
+    <div id="nodeEditMode" class="buttonSvg" title="Редактирование узлов"><svg class="svgIcon" use="1" style="color: rgb(0, 0, 0);"><use href="./static/img/icons.svg#7x13"></use></svg></div>
 </div>
 
 <!-- Добавление элементов -->
