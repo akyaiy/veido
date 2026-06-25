@@ -1217,7 +1217,11 @@ function onPathHandleMove(e) {
     e.preventDefault();
 
     const point = getSvgPoint(e, svg);
-    const localPoint = pathResizing.groupInverse ? point.matrixTransform(pathResizing.groupInverse) : point;
+
+    const localPoint = pathResizing.groupInverse
+        ? point.matrixTransform(pathResizing.groupInverse)
+        : point;
+
     const dx = localPoint.x - pathResizing.startPoint.x;
     const dy = localPoint.y - pathResizing.startPoint.y;
 
@@ -1227,23 +1231,23 @@ function onPathHandleMove(e) {
     if (!seg) return;
 
     if (pathResizing.handle === "node") {
-        seg.x = seg.x + dx;
-        seg.y = seg.y + dy;
+        seg.x = pathResizing.startSegments[pathResizing.segmentIndex].x + dx;
+        seg.y = pathResizing.startSegments[pathResizing.segmentIndex].y + dy;
     }
 
     if (pathResizing.handle === "control1" && seg.type === "Q") {
-        seg.x1 = seg.x1 + dx;
-        seg.y1 = seg.y1 + dy;
+        seg.x1 = pathResizing.startSegments[pathResizing.segmentIndex].x1 + dx;
+        seg.y1 = pathResizing.startSegments[pathResizing.segmentIndex].y1 + dy;
     }
 
     if (pathResizing.handle === "control1" && seg.type === "C") {
-        seg.x1 = seg.x1 + dx;
-        seg.y1 = seg.y1 + dy;
+        seg.x1 = pathResizing.startSegments[pathResizing.segmentIndex].x1 + dx;
+        seg.y1 = pathResizing.startSegments[pathResizing.segmentIndex].y1 + dy;
     }
 
     if (pathResizing.handle === "control2" && seg.type === "C") {
-        seg.x2 = seg.x2 + dx;
-        seg.y2 = seg.y2 + dy;
+        seg.x2 = pathResizing.startSegments[pathResizing.segmentIndex].x2 + dx;
+        seg.y2 = pathResizing.startSegments[pathResizing.segmentIndex].y2 + dy;
     }
 
     pathResizing.pathEl.setAttribute("d", serializePathData(segments));
@@ -1266,6 +1270,90 @@ function onPathHandleUp(e) {
     pathResizing = null;
     updateSelectionBox();
 }
+
+// Высчитоваем нужный сегмент
+function distToSegmentSquared(p, v, w) {
+    const l2 = (w.x - v.x) ** 2 + (w.y - v.y) ** 2;
+    // Если начало и конец отрезка совпадают, возвращаем расстояние до точки
+    if (l2 === 0) return (p.x - v.x) ** 2 + (p.y - v.y) ** 2; 
+    
+    // Находим проекцию точки на прямую, заданную отрезком, и ограничиваем ее концами отрезка
+    let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+    t = Math.max(0, Math.min(1, t)); 
+    
+    // Координаты ближайшей точки на отрезке
+    const closestX = v.x + t * (w.x - v.x);
+    const closestY = v.y + t * (w.y - v.y);
+    
+    // Возвращаем квадрат расстояния до этой точки
+    return (p.x - closestX) ** 2 + (p.y - closestY) ** 2;
+}
+
+// создание узла по двойному клику на path 
+function onPathDoubleClick(e) {
+    if (window.modeSvgEditor !== "nodeEdit") return;
+
+    const svg = canvas.querySelector("svg");
+    if (!svg) return;
+
+    const group = getContentLayer(svg);
+    if (!group) return;
+
+    const groupInverse = group.getCTM()?.inverse() || null;
+    const pathEl = e.target;
+
+    if (!group.contains(pathEl)) return;
+    if (!isPathElement(pathEl)) return;
+
+    const point = getSvgPoint(e, svg);
+    const localPoint = groupInverse ? point.matrixTransform(groupInverse) : point;
+
+    const d = pathEl.getAttribute("d") || "";
+    const segments = parsePathData(d);
+
+    let bestIndex = -1;
+    let bestDist = Infinity;
+
+    // Идем начиная с 1
+    for (let i = 1; i < segments.length; i++) {
+        const prevSeg = segments[i - 1];
+        const currSeg = segments[i];
+
+        // Пропускаем команды без координат
+        if (typeof prevSeg.x !== "number" || typeof prevSeg.y !== "number" ||
+            typeof currSeg.x !== "number" || typeof currSeg.y !== "number") {
+            continue;
+        }
+
+        const dist = distToSegmentSquared(localPoint, prevSeg, currSeg);
+
+        if (dist < bestDist) {
+            bestDist = dist;
+            // Сохраняем индекс текущего узла. 
+            bestIndex = i; 
+        }
+    }
+
+    if (bestIndex < 0) return;
+
+    // Вставляем новый узел прямо
+    segments.splice(bestIndex, 0, {
+        type: "L", 
+        x: localPoint.x,
+        y: localPoint.y
+    });
+
+    pathEl.setAttribute("d", serializePathData(segments));
+    updateSelectionBox();
+
+    e.preventDefault();
+    e.stopPropagation();
+}
+
+// обработчик
+canvas.addEventListener("dblclick", onPathDoubleClick);
+
+// === Изменение размера выделения ===
 
 // Начало изменения размера выделения
 function startElementResize(e, handle) {
