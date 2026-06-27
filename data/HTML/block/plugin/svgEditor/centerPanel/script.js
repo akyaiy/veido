@@ -659,7 +659,12 @@ function getSvgPoint(e, svg) {
     return point.matrixTransform(matrix.inverse());
 }
 
+
+
 // === Выделение path ===
+
+// активный узел
+let activePathHandle = null;
 
 // Нормализация числа для записи в path
 function formatSvgNumber(value) {
@@ -1184,6 +1189,15 @@ function startPathHandleMove(e, handle) {
 
     if (isNaN(index) || !segments[index]) return;
 
+    if (activePathHandle) {
+        activePathHandle.setAttribute("fill", "#ffffff");
+       activePathHandle.removeAttribute('data-active');
+    }
+
+    activePathHandle = handle;
+    activePathHandle.dataset.active = "1";
+    activePathHandle.setAttribute("fill", "#4285f4");
+
     pathResizing = {
         pointerId: e.pointerId,
         handle: part,
@@ -1252,6 +1266,12 @@ function onPathHandleMove(e) {
 
     pathResizing.pathEl.setAttribute("d", serializePathData(segments));
     updateSelectionBox();
+
+    activePathHandle = canvas.querySelector(`[data-path-index="${pathResizing.segmentIndex}"][data-path-handle="${pathResizing.handle}"]`);
+    if (activePathHandle) {
+        activePathHandle.dataset.active = "1";
+        activePathHandle.setAttribute("fill", "#4285f4");
+    }
 }
 
 // завершение изменения точки path
@@ -1267,8 +1287,16 @@ function onPathHandleUp(e) {
     canvas.removeEventListener("pointercancel", onPathHandleUp);
     canvas.removeEventListener("lostpointercapture", onPathHandleUp);
 
-    pathResizing = null;
     updateSelectionBox();
+
+    activePathHandle = canvas.querySelector(`[data-path-index="${pathResizing.segmentIndex}"][data-path-handle="${pathResizing.handle}"]`);
+
+    if (activePathHandle) {
+        activePathHandle.dataset.active = "1";
+        activePathHandle.setAttribute("fill", "#4285f4");
+    }
+
+    pathResizing = null;
 }
 
 // Высчитоваем нужный сегмент

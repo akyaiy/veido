@@ -9,6 +9,9 @@ const elementVisibilityMap = {
     "line": { groups: ["svgGroupPosition", "svgGroupSize"], fields: ["svgPropX", "svgPropY", "svgPropW", "svgPropH"] },
     "path": { groups: ["svgGroupPosition"], fields: ["svgPropX", "svgPropY"] }
 };
+const elementVisibilityMapSpec = {
+    "*[data-active='1']": { groups: ["svgGroupPosition"], fields: ["svgPropX", "svgPropY"] }
+};
 
 // Группы
 const svgGroupPosition = document.getElementById("svgGroupPosition");
@@ -34,16 +37,15 @@ function getSelectionBBox() {
     
     selectedElementsSvg.forEach(el => {
         try {
-            // 1. getBBox() работает нативно для ВСЕХ тегов (rect, circle, line, path, g)
             // Он возвращает локальные координаты элемента до применения трансформаций
             const bbox = el.getBBox();
             
-            // 2. Получаем полную консолидированную матрицу трансформаций элемента
+            // Получаем полную консолидированную матрицу трансформаций элемента
             const m = el.transform?.baseVal.numberOfItems > 0 
                 ? el.transform.baseVal.consolidate().matrix 
                 : el.ownerSVGElement.createSVGMatrix();
             
-            // 3. Берём 4 угла локального bounding box'а
+            // Берём 4 угла локального bounding box'а
             const corners = [
                 { x: bbox.x, y: bbox.y },
                 { x: bbox.x + bbox.width, y: bbox.y },
@@ -51,7 +53,7 @@ function getSelectionBBox() {
                 { x: bbox.x + bbox.width, y: bbox.y + bbox.height }
             ];
             
-            // 4. Пересчитываем каждый угол через матрицу в координаты холста (0,0)
+            // Пересчитываем каждый угол через матрицу в координаты холста (0,0)
             corners.forEach(p => {
                 const tx = p.x * m.a + p.y * m.c + m.e;
                 const ty = p.x * m.b + p.y * m.d + m.f;
@@ -133,8 +135,22 @@ function onGeometryInputChange(e) {
     const el = selectedElementsSvg[0];
     const tag = el.tagName.toLowerCase();
 
-    // 1. ИЗМЕНЕНИЕ ПОЗИЦИИ (X / Y)
     if (["svgPropX", "svgPropY"].includes(id)) {
+        if (getSpecConfig(document.querySelector("#svgCanvas svg > g:nth-child(3)"))) {
+            if (["rect", "image", "foreignObject"].includes(tag)) {
+                if (id === "svgPropX") el.setAttribute("x", val);
+                if (id === "svgPropY") el.setAttribute("y", val);
+            } else if (tag === "circle") {
+                if (id === "svgPropX") el.setAttribute("cx", val);
+                if (id === "svgPropY") el.setAttribute("cy", val);
+            } else if (tag === "line") {
+                if (id === "svgPropX") el.setAttribute("x1", val);
+                if (id === "svgPropY") el.setAttribute("y1", val);
+            }
+            document.dispatchEvent(new CustomEvent("svgElementsChanged"));
+            return;
+        }
+
         let currentVisX = 0, currentVisY = 0;
 
         if (["rect", "image", "foreignObject"].includes(tag)) {
@@ -161,7 +177,6 @@ function onGeometryInputChange(e) {
         return;
     }
 
-    // 2. ИЗМЕНЕНИЕ РАЗМЕРОВ ИЛИ ЗНАКА (W / H / R)
     if (["svgPropW", "svgPropH", "svgPropR"].includes(id)) {
         let m = el.transform?.baseVal.numberOfItems > 0 ? el.transform.baseVal.consolidate().matrix : el.ownerSVGElement.createSVGMatrix();
         
@@ -285,9 +300,40 @@ function updateGeometryInputs() {
         return;
     }
 
-    const firstEl = selectedElementsSvg[0];
-    const tag = firstEl.tagName.toLowerCase();
+    const spec = getSpecConfig(document.querySelector("#svgCanvas svg > g:nth-child(3)"));
+    let tag;
+    if (spec) {
+        tag = spec.tagName.toLowerCase();
+        if (["rect", "image", "foreignObject"].includes(tag)) {
+            const x = parseFloat(spec.getAttribute("x")) || 0;
+            const y = parseFloat(spec.getAttribute("y")) || 0;
+            const pt = getVisualPoint(spec, x, y);
 
+            if (inputX) inputX.value = pt.x.toFixed(1);
+            if (inputY) inputY.value = pt.y.toFixed(1);
+
+        } else if (tag === "circle") {
+            const cx = parseFloat(spec.getAttribute("cx")) || 0;
+            const cy = parseFloat(spec.getAttribute("cy")) || 0;
+            const pt = getVisualPoint(spec, cx, cy);
+
+            if (inputX) inputX.value = pt.x.toFixed(1);
+            if (inputY) inputY.value = pt.y.toFixed(1);
+
+        } else if (tag === "line") {
+            const x1 = parseFloat(spec.getAttribute("x1")) || 0;
+            const y1 = parseFloat(spec.getAttribute("y1")) || 0;
+            const p1 = getVisualPoint(spec, x1, y1);
+
+            if (inputX) inputX.value = p1.x.toFixed(1);
+            if (inputY) inputY.value = p1.y.toFixed(1);
+        }
+
+        return;
+    }
+
+    const firstEl = selectedElementsSvg[0];
+    tag = firstEl.tagName.toLowerCase();
     if (["rect", "image", "foreignObject"].includes(tag)) {
         const x = parseFloat(firstEl.getAttribute("x")) || 0;
         const y = parseFloat(firstEl.getAttribute("y")) || 0;
@@ -353,7 +399,9 @@ function updateGeometryInputs() {
 updateGeometryInputs();
 
 document.addEventListener("svgSelectionChanged", () => {
-    updateGeometryInputs();
+    setTimeout(() => {
+        updateGeometryInputs();
+    }, 10);
 });
 
 // Получает визуальные координаты точки с учетом трансформаций элемента
@@ -412,7 +460,14 @@ function getVisibilityConfigForSelection() {
         .filter(Boolean);
     if (!tags.length) return null;
 
-    const firstConfig = elementVisibilityMap[tags[0]] || elementVisibilityMap["-"];
+    const firstEl = selectedElementsSvg[0];
+
+    const specEl = getSpecConfig(document.querySelector("#svgCanvas svg > g:nth-child(3)"));
+    if (specEl) {
+        return elementVisibilityMapSpec["*[data-active='1']"];
+    }
+
+    const firstConfig = elementVisibilityMap[tags[0]] || elementVisibilityMap["-"]
     if (!firstConfig) return null;
 
     if (tags.length === 1) {
@@ -430,6 +485,20 @@ function getVisibilityConfigForSelection() {
     }, [...firstConfig.fields || []]);
 
     return { groups: commonGroups, fields: commonFields };
+}
+
+// поиск элемента по атрибуту
+function getSpecConfig(el) {
+    if (!el) return null;
+
+    const keys = Object.keys(elementVisibilityMapSpec);
+
+    for (let i = 0; i < keys.length; i++) {
+        const activeElement = el.querySelector(keys[i]);
+        if (activeElement) return activeElement;
+    }
+
+    return null;
 }
 
 // Переключение видимости блоков свойств на основе выделения
@@ -469,18 +538,13 @@ function updatePropertiesVisibility() {
         const group = document.getElementById(gId);
         if (!group) return;
 
-        const groupFields = Array.from(group.querySelectorAll("input[id], select[id], textarea[id]"))
-            .map(el => el.id)
-            .filter(id => allFieldIds.has(id));
-
-        if (groupFields.length === 0) return; 
-
-        const visibleFieldExists = groupFields.some(fieldId => {
-            const fieldEl = document.getElementById(fieldId);
+        const targetFields = config.fields || [];
+        const hasVisibleField = targetFields.some(fieldId => {
+            const fieldEl = group.querySelector(`#${fieldId}`);
             return fieldEl && fieldEl.parentNode && fieldEl.parentNode.style.display !== "none";
         });
 
-        if (!visibleFieldExists) {
+        if (!hasVisibleField) {
             group.style.display = "none";
         }
     });
