@@ -117,7 +117,7 @@ function updateCanvasPanning(e) {
 
     const svg = canvas.querySelector("svg");
     if (svg) applySvgEditorCanvasTransform(svg);
-    updateSelectionBox();
+    updateSelectionBox(true);
 }
 
 // Завершение перемещения канвы
@@ -172,7 +172,7 @@ function onCanvasWheelMove(e) {
     }
 
     applySvgEditorCanvasTransform(svg);
-    updateSelectionBox();
+    updateSelectionBox(true);
 }
 
 // Добавляем обработчик колесика мыши для прокрутки канвы
@@ -479,7 +479,7 @@ function selectElement(el, append = false) {
 }
 
 // Обновление рамки выделения
-function updateSelectionBox() {
+function updateSelectionBox(restoreHandleFlag=false) {
     // если нет выделения - очищаем технический слой и выходим
     if (!window.selectedElementsSvg || (Array.isArray(window.selectedElementsSvg) && window.selectedElementsSvg.length === 0)) {
         const svg = canvas.querySelector("svg");
@@ -504,6 +504,17 @@ function updateSelectionBox() {
     // если выделен один path - показываем узлы и контрольные точки
     if (elements.length === 1 && isPathElement(elements[0])) {
         addPathSelectionHandles(elements[0], techLayer);
+
+        if (activePathHandle && restoreHandleFlag) {
+            activePathHandle = techLayer.querySelector(
+                `[data-path-index="${activePathHandle.dataset.pathIndex}"][data-path-handle="${activePathHandle.dataset.pathHandle}"]`
+            );
+
+            if (activePathHandle) {
+                activePathHandle.dataset.active = "1";
+                activePathHandle.setAttribute("fill", "#4285f4");
+            }
+        }
 
         document.dispatchEvent(new CustomEvent("svgSelectionChanged", {
             detail: { selectedElements: elements.slice() }
@@ -547,7 +558,7 @@ function updateSelectionBox() {
 
 // Обновление выделения при изменении элементов из rightPanel
 document.addEventListener("svgElementsChanged", () => {
-    updateSelectionBox();
+    updateSelectionBox(true);
 });
 
 // Получение общей рамки выделения
@@ -1701,6 +1712,20 @@ function handleCanvasPointerDown(e) {
 
 // Выделение элемента при нажатии (pointerdown)
 canvas.addEventListener("pointerdown", (e) => {
+    const target = e.target;
+    const svg = canvas.querySelector("svg");
+    if (!svg) return;
+
+    const firstG = getContentLayer(svg);
+    const techLayer = getOverlayLayer(svg);
+
+    // Клик по элементу
+    if (firstG && firstG.contains(target) && !window.selectedElementsSvg?.includes(target)) {
+        selectElement(target, e.shiftKey);
+        return;
+    }
+
+    // Начало перетаскивания канвы
     handleCanvasPointerDown(e);
 });
 

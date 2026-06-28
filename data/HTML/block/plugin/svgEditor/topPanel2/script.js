@@ -135,18 +135,89 @@ function onGeometryInputChange(e) {
     const el = selectedElementsSvg[0];
     const tag = el.tagName.toLowerCase();
 
+    document.dispatchEvent(new CustomEvent("svgElementsChanged"));
+
     if (["svgPropX", "svgPropY"].includes(id)) {
-        if (getSpecConfig(document.querySelector("#svgCanvas svg > g:nth-child(3)"))) {
-            if (["rect", "image", "foreignObject"].includes(tag)) {
-                if (id === "svgPropX") el.setAttribute("x", val);
-                if (id === "svgPropY") el.setAttribute("y", val);
-            } else if (tag === "circle") {
-                if (id === "svgPropX") el.setAttribute("cx", val);
-                if (id === "svgPropY") el.setAttribute("cy", val);
-            } else if (tag === "line") {
-                if (id === "svgPropX") el.setAttribute("x1", val);
-                if (id === "svgPropY") el.setAttribute("y1", val);
+        // Находим активный overlay-узел (маркер)
+        const spec = getSpecConfig(document.querySelector("#svgCanvas svg > g:nth-child(3)"));
+        
+        if (spec) {
+            const specTag = spec.tagName.toLowerCase();
+            const nodeIndex = parseInt(spec.getAttribute("data-path-index"));
+            
+            const contentLayer = document.querySelector("#svgCanvas svg > g:nth-child(2)");
+            const layerCTM = contentLayer.getCTM();
+            const inv = layerCTM?.inverse();
+
+            // 1. Получаем текущие экранные координаты маркера
+            let currentScreenX = 0;
+            let currentScreenY = 0;
+
+            if (["rect", "image", "foreignObject"].includes(specTag)) {
+                currentScreenX = parseFloat(spec.getAttribute("x")) || 0;
+                currentScreenY = parseFloat(spec.getAttribute("y")) || 0;
+            } else if (specTag === "circle") {
+                currentScreenX = parseFloat(spec.getAttribute("cx")) || 0;
+                currentScreenY = parseFloat(spec.getAttribute("cy")) || 0;
+            } else if (specTag === "line") {
+                currentScreenX = parseFloat(spec.getAttribute("x1")) || 0;
+                currentScreenY = parseFloat(spec.getAttribute("y1")) || 0;
             }
+
+            // 2. Переводим текущий маркер в логические координаты сцены, чтобы узнать положение неизменяемой оси
+            const ptCurrent = spec.ownerSVGElement.createSVGPoint();
+            ptCurrent.x = currentScreenX;
+            ptCurrent.y = currentScreenY;
+            const logicalCurrent = inv ? ptCurrent.matrixTransform(inv) : ptCurrent;
+
+            // 3. Формируем новую точку: берем val для изменяемой оси и текущее значение для неизменяемой
+            const ptNew = spec.ownerSVGElement.createSVGPoint();
+            ptNew.x = id === "svgPropX" ? val : logicalCurrent.x;
+            ptNew.y = id === "svgPropY" ? val : logicalCurrent.y;
+            
+            // Переводим обратно в экранные координаты для обновления самого маркера
+            const screenPt = ptNew.matrixTransform(layerCTM);
+            
+            if (id === "svgPropX") {
+                if (["rect", "image", "foreignObject"].includes(specTag)) spec.setAttribute("x", screenPt.x);
+                else if (specTag === "circle") spec.setAttribute("cx", screenPt.x);
+            } else if (id === "svgPropY") {
+                if (["rect", "image", "foreignObject"].includes(specTag)) spec.setAttribute("y", screenPt.y);
+                else if (specTag === "circle") spec.setAttribute("cy", screenPt.y);
+            }
+
+            // 4. САМОЕ ВАЖНОЕ: Меняем геометрию основного элемента (path), которому принадлежит этот узел
+            if (tag === "path" && !isNaN(nodeIndex)) {
+                const dAttr = el.getAttribute("d") || "";
+                
+                // Ищем все пары координат (X и Y) в строке path
+                const coordRegex = /(-?\d+\.?\d*)\s+(-?\d+\.?\d*)/g;
+                let matches = [];
+                let match;
+                
+                while ((match = coordRegex.exec(dAttr)) !== null) {
+                    matches.push({
+                        text: match[0],
+                        x: parseFloat(match[1]),
+                        y: parseFloat(match[2]),
+                        index: match.index
+                    });
+                }
+
+                // Если нашли нужную точку по индексу — меняем её в строке d
+                if (matches[nodeIndex]) {
+                    const targetMatch = matches[nodeIndex];
+                    const newX = id === "svgPropX" ? val : targetMatch.x;
+                    const newY = id === "svgPropY" ? val : targetMatch.y;
+                    
+                    const updatedD = dAttr.substring(0, targetMatch.index) + 
+                                     `${newX} ${newY}` + 
+                                     dAttr.substring(targetMatch.index + targetMatch.text.length);
+                    
+                    el.setAttribute("d", updatedD);
+                }
+            }
+
             document.dispatchEvent(new CustomEvent("svgElementsChanged"));
             return;
         }
@@ -180,8 +251,8 @@ function onGeometryInputChange(e) {
     if (["svgPropW", "svgPropH", "svgPropR"].includes(id)) {
         let m = el.transform?.baseVal.numberOfItems > 0 ? el.transform.baseVal.consolidate().matrix : el.ownerSVGElement.createSVGMatrix();
         
-        const targetAbs = Math.abs(val);       // Чистое значение для атрибута (всегда > 0)
-        const targetSign = Math.sign(val) || 1; // Желаемый знак (+1 или -1)
+        const targetAbs = Math.abs(val);       
+        const targetSign = Math.sign(val) || 1; 
 
         if (["rect", "image", "foreignObject"].includes(tag)) {
             const rectX = parseFloat(el.getAttribute("x")) || 0;
@@ -194,9 +265,7 @@ function onGeometryInputChange(e) {
                 el.setAttribute("width", targetAbs / Math.abs(currentScaleX));
                 
                 if (targetSign !== Math.sign(currentScaleX)) {
-                    m.a = -m.a;
-                    m.b = -m.b;
-                    // Формула дает ровно 2 * 10 = 20 при смене знака
+                    m.a = -m.a; m.b = -m.b;
                     m.e += Math.sign(currentScaleX) * (2 * rectX) * Math.abs(currentScaleX);
                 }
             } else if (id === "svgPropH") {
@@ -204,9 +273,7 @@ function onGeometryInputChange(e) {
                 el.setAttribute("height", targetAbs / Math.abs(currentScaleY));
                 
                 if (targetSign !== Math.sign(currentScaleY)) {
-                    m.c = -m.c;
-                    m.d = -m.d;
-                    // Для оси Y по аналогии
+                    m.c = -m.c; m.d = -m.d;
                     m.f += Math.sign(currentScaleY) * (2 * rectY) * Math.abs(currentScaleY);
                 }
             }
@@ -223,7 +290,6 @@ function onGeometryInputChange(e) {
             }
 
         } else if (tag === "line") {
-            // Линия работает напрямую через координаты, знаки меняются инверсией матрицы
             const currentX2 = parseFloat(el.getAttribute("x2")) || 0;
             const currentY2 = parseFloat(el.getAttribute("y2")) || 0;
             const p2 = getVisualPoint(el, currentX2, currentY2);
@@ -243,12 +309,10 @@ function onGeometryInputChange(e) {
             }
 
         } else {
-            // Для сложных объектов (path, g) — вычисляем коэффициент изменения (factor)
             const box = getTransformedBBox(el);
             const currentW = box.width || 1;
             const currentH = box.height || 1;
             
-            // Если знаки разные, factorX/Y автоматически станет отрицательным и отзеркалит матрицу
             const factorX = (id === "svgPropW") ? (val / currentW) : 1;
             const factorY = (id === "svgPropH") ? (val / currentH) : 1;
 
@@ -278,8 +342,6 @@ function onGeometryInputChange(e) {
     });
 });
 
-
-
 // === Интерфейс ===
 
 // Обновление значений инпутов на основе выделенного элемента и его трансформаций
@@ -290,7 +352,7 @@ function updateGeometryInputs() {
     
     document.querySelectorAll(".dynamicNodeField").forEach(el => el.remove());
 
-    // Если выделено несколько элементов, используем общий BBox (он уже с учетом transform)
+    // Обработка множественного выбора
     if (selectedElementsSvg.length > 1) {
         const box = getSelectionBBox();
         if (inputX) inputX.value = box.x.toFixed(1);
@@ -300,40 +362,41 @@ function updateGeometryInputs() {
         return;
     }
 
+    // Обработка узлов
     const spec = getSpecConfig(document.querySelector("#svgCanvas svg > g:nth-child(3)"));
     let tag;
+
     if (spec) {
+
+        const layer = document.querySelector("#svgCanvas svg > g:nth-child(2)");
+        const layerCTM = layer.getCTM();
+        const inv = layerCTM?.inverse();
+        
+        const pt = spec.ownerSVGElement.createSVGPoint();
         tag = spec.tagName.toLowerCase();
+
         if (["rect", "image", "foreignObject"].includes(tag)) {
-            const x = parseFloat(spec.getAttribute("x")) || 0;
-            const y = parseFloat(spec.getAttribute("y")) || 0;
-            const pt = getVisualPoint(spec, x, y);
-
-            if (inputX) inputX.value = pt.x.toFixed(1);
-            if (inputY) inputY.value = pt.y.toFixed(1);
-
+            pt.x = parseFloat(spec.getAttribute("x")) || 0;
+            pt.y = parseFloat(spec.getAttribute("y")) || 0;
         } else if (tag === "circle") {
-            const cx = parseFloat(spec.getAttribute("cx")) || 0;
-            const cy = parseFloat(spec.getAttribute("cy")) || 0;
-            const pt = getVisualPoint(spec, cx, cy);
-
-            if (inputX) inputX.value = pt.x.toFixed(1);
-            if (inputY) inputY.value = pt.y.toFixed(1);
-
+            pt.x = parseFloat(spec.getAttribute("cx")) || 0;
+            pt.y = parseFloat(spec.getAttribute("cy")) || 0;
         } else if (tag === "line") {
-            const x1 = parseFloat(spec.getAttribute("x1")) || 0;
-            const y1 = parseFloat(spec.getAttribute("y1")) || 0;
-            const p1 = getVisualPoint(spec, x1, y1);
-
-            if (inputX) inputX.value = p1.x.toFixed(1);
-            if (inputY) inputY.value = p1.y.toFixed(1);
+            pt.x = parseFloat(spec.getAttribute("x1")) || 0;
+            pt.y = parseFloat(spec.getAttribute("y1")) || 0;
         }
+
+        const p = inv ? pt.matrixTransform(inv) : pt;
+        if (inputX) inputX.value = p.x.toFixed(1);
+        if (inputY) inputY.value = p.y.toFixed(1);
 
         return;
     }
 
+    // Обработка обычных элементов сцены (logical document coordinates)
     const firstEl = selectedElementsSvg[0];
     tag = firstEl.tagName.toLowerCase();
+
     if (["rect", "image", "foreignObject"].includes(tag)) {
         const x = parseFloat(firstEl.getAttribute("x")) || 0;
         const y = parseFloat(firstEl.getAttribute("y")) || 0;
@@ -363,7 +426,7 @@ function updateGeometryInputs() {
         let scaleAvg = 1;
         if (firstEl.transform?.baseVal.numberOfItems > 0) {
             const m = firstEl.transform.baseVal.consolidate().matrix;
-            scaleAvg = (m.a + m.d) / 2; // Усредненный масштаб для круга
+            scaleAvg = (m.a + m.d) / 2; 
         }
         const r = (parseFloat(firstEl.getAttribute("r")) || 0) * scaleAvg;
 
@@ -389,6 +452,7 @@ function updateGeometryInputs() {
     } else {
         // Обработка сложных элементов (path, g) через трансформированный BBox
         const box = getTransformedBBox(firstEl);
+        
         if (inputX) inputX.value = box.x.toFixed(1);
         if (inputY) inputY.value = box.y.toFixed(1);
         if (inputW) inputW.value = box.width.toFixed(1);
@@ -464,7 +528,8 @@ function getVisibilityConfigForSelection() {
 
     const specEl = getSpecConfig(document.querySelector("#svgCanvas svg > g:nth-child(3)"));
     if (specEl) {
-        return elementVisibilityMapSpec["*[data-active='1']"];
+        const key = Object.keys(elementVisibilityMapSpec).find(selector => specEl.matches(selector));
+        return elementVisibilityMapSpec[key];
     }
 
     const firstConfig = elementVisibilityMap[tags[0]] || elementVisibilityMap["-"]

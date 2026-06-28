@@ -34,6 +34,7 @@ function setEditorMode(btn, mode) {
     modeSvgEditor = mode;
     currentAddElement = null;
     activeButton(btn);
+    document.dispatchEvent(new CustomEvent("svgElementsChanged"));
 }
 
 // обработчики режимов
