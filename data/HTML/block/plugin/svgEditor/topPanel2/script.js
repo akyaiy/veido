@@ -9,13 +9,17 @@ const elementVisibilityMap = {
     "line": { groups: ["svgGroupPosition", "svgGroupSize"], fields: ["svgPropX", "svgPropY", "svgPropW", "svgPropH"] },
     "path": { groups: ["svgGroupPosition"], fields: ["svgPropX", "svgPropY"] }
 };
+
+// ИЗМЕНЕНО: Заменили нестабильные CSS-селекторы на текстовые ключи
 const elementVisibilityMapSpec = {
-    "*[data-active='1']": { groups: ["svgGroupPosition"], fields: ["svgPropX", "svgPropY"] }
+    "single-node": { groups: ["svgGroupPosition"], fields: ["svgPropX", "svgPropY"] },
+    "multi-nodes": { groups: ["svgGroupPathType"], fields: ["svgPathType"] }
 };
 
 // Группы
 const svgGroupPosition = document.getElementById("svgGroupPosition");
 const svgGroupSize = document.getElementById("svgGroupSize");
+const svgGroupPathType = document.getElementById("svgGroupPathType");
 
 // Инпуты
 const inputX = document.getElementById("svgPropX");
@@ -138,10 +142,10 @@ function onGeometryInputChange(e) {
     document.dispatchEvent(new CustomEvent("svgElementsChanged"));
 
     if (["svgPropX", "svgPropY"].includes(id)) {
-        // Находим активный overlay-узел (маркер)
-        const spec = getSpecConfig(document.querySelector("#svgCanvas svg > g:nth-child(3)"));
+        // передаем true, чтобы получить один DOM-элемент, если он активен
+        const spec = getSpecConfig(document.querySelector("#svgCanvas svg > g:nth-child(3)"), true);
         
-        if (spec) {
+        if (spec && typeof spec === "object") { // Проверка, что вернулся именно элемент
             const specTag = spec.tagName.toLowerCase();
             const nodeIndex = parseInt(spec.getAttribute("data-path-index"));
             
@@ -342,6 +346,8 @@ function onGeometryInputChange(e) {
     });
 });
 
+
+
 // === Интерфейс ===
 
 // Обновление значений инпутов на основе выделенного элемента и его трансформаций
@@ -362,11 +368,11 @@ function updateGeometryInputs() {
         return;
     }
 
-    // Обработка узлов
-    const spec = getSpecConfig(document.querySelector("#svgCanvas svg > g:nth-child(3)"));
+    // получаем реальный узел только для одиночного активного маркера
+    const spec = getSpecConfig(document.querySelector("#svgCanvas svg > g:nth-child(3)"), true);
     let tag;
 
-    if (spec) {
+    if (spec && typeof spec === "object") {
 
         const layer = document.querySelector("#svgCanvas svg > g:nth-child(2)");
         const layerCTM = layer.getCTM();
@@ -512,25 +518,22 @@ function getTransformedBBox(el) {
 
 
 
-
 // === Видимость интерфейса ===
 
 // Получение общих групп и полей для всего выделения
 function getVisibilityConfigForSelection() {
     if (!selectedElementsSvg || selectedElementsSvg.length === 0) return null;
 
+    // Получаем строковый ключ состояния вместо поиска селектором matches
+    const specKey = getSpecConfig(document.querySelector("#svgCanvas svg > g:nth-child(3)"));
+    if (specKey && elementVisibilityMapSpec[specKey]) {
+        return elementVisibilityMapSpec[specKey];
+    }
+
     const tags = selectedElementsSvg
         .map(el => el.localName ? el.localName.toLowerCase() : el.tagName ? el.tagName.toLowerCase() : null)
         .filter(Boolean);
     if (!tags.length) return null;
-
-    const firstEl = selectedElementsSvg[0];
-
-    const specEl = getSpecConfig(document.querySelector("#svgCanvas svg > g:nth-child(3)"));
-    if (specEl) {
-        const key = Object.keys(elementVisibilityMapSpec).find(selector => specEl.matches(selector));
-        return elementVisibilityMapSpec[key];
-    }
 
     const firstConfig = elementVisibilityMap[tags[0]] || elementVisibilityMap["-"]
     if (!firstConfig) return null;
@@ -552,15 +555,19 @@ function getVisibilityConfigForSelection() {
     return { groups: commonGroups, fields: commonFields };
 }
 
-// поиск элемента по атрибуту
-function getSpecConfig(el) {
+// Теперь функция считает количество [data-active='1'] и возвращает нужный флаг/узел
+function getSpecConfig(el, returnSingleNode = false) {
     if (!el) return null;
 
-    const keys = Object.keys(elementVisibilityMapSpec);
-
-    for (let i = 0; i < keys.length; i++) {
-        const activeElement = el.querySelector(keys[i]);
-        if (activeElement) return activeElement;
+    const activeNodes = el.querySelectorAll("*[data-active='1']");
+    
+    if (activeNodes.length === 1) {
+        if (returnSingleNode) return activeNodes[0];
+        return "single-node";
+    }
+    
+    if (activeNodes.length > 1) {
+        return "multi-nodes";
     }
 
     return null;
@@ -570,7 +577,7 @@ function getSpecConfig(el) {
 function updatePropertiesVisibility() {
     if (!selectedElementsSvg || selectedElementsSvg.length === 0) return null;
     
-    const allGroupIds = new Set();
+    const allGroupIds = new Set(["svgGroupPathType"]);
     const allFieldIds = new Set();
 
     Object.values(elementVisibilityMap).forEach(config => {
@@ -609,7 +616,7 @@ function updatePropertiesVisibility() {
             return fieldEl && fieldEl.parentNode && fieldEl.parentNode.style.display !== "none";
         });
 
-        if (!hasVisibleField) {
+        if (!hasVisibleField && gId !== "svgGroupPathType") {
             group.style.display = "none";
         }
     });

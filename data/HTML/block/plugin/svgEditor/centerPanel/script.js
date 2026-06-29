@@ -494,9 +494,10 @@ function selectElement(el, append = false) {
 }
 
 // Обновление рамки выделения
-function updateSelectionBox(restoreHandleFlag=false) {
+function updateSelectionBox(restoreHandlesFlags = false) {
     // если нет выделения - очищаем технический слой и выходим
     if (!window.selectedElementsSvg || (Array.isArray(window.selectedElementsSvg) && window.selectedElementsSvg.length === 0)) {
+        window.lastActiveEdgeIndex = null; // Сброс при потере выделения
         const svg = canvas.querySelector("svg");
         if (svg) {
             const techLayer = getOverlayLayer(svg);
@@ -520,7 +521,7 @@ function updateSelectionBox(restoreHandleFlag=false) {
     if (elements.length === 1 && isPathElement(elements[0])) {
         addPathSelectionHandles(elements[0], techLayer);
 
-        if (activePathHandle && restoreHandleFlag) {
+        if (activePathHandle && restoreHandlesFlags) {
             activePathHandle = techLayer.querySelector(
                 `[data-path-index="${activePathHandle.dataset.pathIndex}"][data-path-handle="${activePathHandle.dataset.pathHandle}"]`
             );
@@ -531,24 +532,29 @@ function updateSelectionBox(restoreHandleFlag=false) {
             }
         }
 
+        // Если есть сохраненное измененное ребро — красим СТРОГО эти 2 узла
+        if (window.lastActiveEdgeIndex !== null) {
+            highlightEdgeNodes(svg, window.lastActiveEdgeIndex);
+        }
+
         document.dispatchEvent(new CustomEvent("svgSelectionChanged", {
             detail: { selectedElements: elements.slice() }
         }));
         return;
     }
 
+    // Если выделено несколько элементов, сбрасываем подсветку ребра
+    window.lastActiveEdgeIndex = null;
+
     const selectionBox = getSelectionBBox(elements);
 
     for (const el of elements) {
         const bbox = getTransformedBBox(el);
-
         const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
 
-        // если объект очень тонкий (например линия), делаем рамку минимум в 1px
         const width = Math.max(1, bbox.width);
         const height = Math.max(1, bbox.height);
 
-        // Изменение координат и размеров рамки
         rect.setAttribute("x", bbox.x);
         rect.setAttribute("y", bbox.y);
         rect.setAttribute("width", width);
@@ -1232,7 +1238,7 @@ function startPathHandleMove(e, handle) {
         startSegments: segments.map((seg) => ({ ...seg })),
         pathEl: selected,
         groupInverse,
-        lastEvent: e // <- ИЗМЕНЕНИЕ 1: сохраняем событие для внешнего вызова при зуме холста
+        lastEvent: e 
     };
 
     e.preventDefault();
@@ -1256,11 +1262,11 @@ function onPathHandleMove(e) {
     if (!svg) return;
 
     e.preventDefault();
-    pathResizing.lastEvent = e; // <- ИЗМЕНЕНИЕ 2: обновляем событие в процессе движения
+    pathResizing.lastEvent = e; 
 
     const point = getSvgPoint(e, svg);
 
-    // ИЗМЕНЕНИЕ 3: Вычисляем инверсию матрицы динамически, чтобы узел не "улетал" при прокрутке колесиком мыши
+    // Вычисляем инверсию матрицы динамически, чтобы узел не "улетал" при прокрутке колесиком мыши
     const group = getContentLayer(svg);
     const currentInverse = group?.getCTM()?.inverse() || null;
     const localPoint = currentInverse ? point.matrixTransform(currentInverse) : point;
@@ -1310,7 +1316,7 @@ function onPathHandleMove(e) {
             ownX = seg.x; ownY = seg.y;
         }
 
-        if (ownX !== null && ownY !== null) {
+        /* if (ownX !== null && ownY !== null) {
             const distToOwnNode = Math.sqrt((targetX - ownX) ** 2 + (targetY - ownY) ** 2);
             if (distToOwnNode <= snapDistance) {
                 bestDist = distToOwnNode;
@@ -1337,7 +1343,7 @@ function onPathHandleMove(e) {
                     isMutated = true;
                 }
             }
-        }
+        } */
     }
 
     // Если со своим узлом не слиплись, проверяем прилипание к остальным точкам на сцене
@@ -1523,6 +1529,8 @@ canvas.addEventListener("dblclick", onPathDoubleClick);
 // === искривление ребра ===
 
 let edgeDragState = null;
+// Глобальный флаг: хранит индекс ребра ТОЛЬКО если идет или только что закончилось искривление
+window.lastActiveEdgeIndex = null; 
 
 // Вспомогательная функция: точная конвертация координат экрана в локальные координаты элемента
 function getLocalPoint(e, svg, element) {
@@ -1532,26 +1540,54 @@ function getLocalPoint(e, svg, element) {
     return pt.matrixTransform(element.getScreenCTM().inverse());
 }
 
+// Вспомогательная функция: выделение строго двух узлов, образующих текущее ребро
+function highlightEdgeNodes(svg, index) {
+    if (index === null || index === undefined || index < 1) return;
+    
+    const techLayer = getOverlayLayer(svg);
+    if (!techLayer) return;
+    
+    const n1 = techLayer.querySelector(`[data-path-index="${index - 1}"][data-path-handle="node"]`);
+    const n2 = techLayer.querySelector(`[data-path-index="${index}"][data-path-handle="node"]`);
+    
+    if (n1) {
+        n1.setAttribute("fill", "#4285f4");
+        n1.dataset.active = "1";
+    }
+    if (n2) {
+        n2.setAttribute("fill", "#4285f4");
+        n2.dataset.active = "1";
+    }
+}
+
 // начало перетягивания ребра
 function onEdgePointerDown(e) {
-    if (window.modeSvgEditor !== "nodeEdit") return;
+    if (window.modeSvgEditor !== "nodeEdit") {
+        window.lastActiveEdgeIndex = null; // убираем выделение, если режим не тот
+        return;
+    }
 
     const svg = canvas.querySelector("svg");
     if (!svg) return;
 
     const pathEl = e.target;
-    if (!isPathElement(pathEl)) return;
+    
+    // Если кликнули не по path (например, по холсту), полностью убираем подсветку 2 точек
+    if (!isPathElement(pathEl)) {
+        window.lastActiveEdgeIndex = null;
+        updateSelectionBox();
+        return;
+    }
 
     // Переводим клик строго в локальные координаты самого path
     const localPoint = getLocalPoint(e, svg, pathEl);
-
     const segments = parsePathData(pathEl.getAttribute("d") || "");
     
     let index = -1;
     let bestDist = Infinity;
     let t = 0.5;
 
-    // Поиск ближайшего ребра и точного коэффициента t с учетом кривизны Q и C
+    // Поиск ближайшего ребра
     for (let i = 1; i < segments.length; i++) {
         const a = segments[i - 1];
         const b = segments[i];
@@ -1560,7 +1596,6 @@ function onEdgePointerDown(e) {
         if (typeof a.x !== "number" || typeof a.y !== "number") continue;
         if (typeof b.x !== "number" || typeof b.y !== "number") continue;
 
-        // Проверяем 20 точек вдоль геометрии сегмента для точного поиска
         for (let k = 0; k <= 20; k++) {
             const sampleT = k / 20;
             let sx, sy;
@@ -1588,17 +1623,24 @@ function onEdgePointerDown(e) {
         }
     }
 
-    // Захватываем ребро, только если клик был в разумных пределах (допускаем до 40 локальных единиц)
-    if (index < 1 || bestDist > 1600) return;
+    // Если клик мимо ребра — сбрасываем подсветку точек
+    if (index < 1 || bestDist > 1600) {
+        window.lastActiveEdgeIndex = null;
+        updateSelectionBox();
+        return;
+    }
+
+    // Фиксируем ребро
+    window.lastActiveEdgeIndex = index;
 
     edgeDragState = {
         pointerId: e.pointerId,
         pathEl,
         svg,
         index,
-        startPoint: localPoint, // Запоминаем точное место клика
+        startPoint: localPoint,
         startSegments: segments.map(s => ({ ...s })),
-        t // Запоминаем точный коэффициент близости к краям
+        t
     };
 
     e.preventDefault();
@@ -1606,21 +1648,21 @@ function onEdgePointerDown(e) {
 
     canvas.setPointerCapture(e.pointerId);
 
+    // Обновляем слой и красим строго 2 узла ребра
+    updateSelectionBox(); 
+
     canvas.addEventListener("pointermove", onEdgePointerMove);
     canvas.addEventListener("pointerup", onEdgePointerUp);
     canvas.addEventListener("pointercancel", onEdgePointerUp);
 }
 
-// движение ребра → превращение в кривую или модификация существующей
+// движение ребра
 function onEdgePointerMove(e) {
     if (!edgeDragState || e.pointerId !== edgeDragState.pointerId) return;
 
     e.preventDefault();
 
-    // Получаем текущие координаты в системе самого пути
     const localPoint = getLocalPoint(e, edgeDragState.svg, edgeDragState.pathEl);
-
-    // Глубоко копируем начальное состояние, чтобы не накапливать ошибки
     const segments = edgeDragState.startSegments.map(s => ({ ...s }));
     const i = edgeDragState.index;
 
@@ -1635,27 +1677,19 @@ function onEdgePointerMove(e) {
     let cx1, cy1, cx2, cy2;
 
     if (b.type === "C") {
-        // Если это уже кубическая кривая, берем ее точки
-        cx1 = b.x1;
-        cy1 = b.y1;
-        cx2 = b.x2;
-        cy2 = b.y2;
+        cx1 = b.x1; cy1 = b.y1; cx2 = b.x2; cy2 = b.y2;
     } else if (b.type === "Q") {
-        // Если была квадратичная, превращаем в кубическую C
         cx1 = a.x + (2 / 3) * (b.x1 - a.x);
         cy1 = a.y + (2 / 3) * (b.y1 - a.y);
         cx2 = b.x + (2 / 3) * (b.x1 - b.x);
         cy2 = b.y + (2 / 3) * (b.y1 - b.y);
     } else {
-        // Если была линия, считаем начальные точки для кривой
         cx1 = a.x + (b.x - a.x) / 3;
         cy1 = a.y + (b.y - a.y) / 3;
-
         cx2 = a.x + (b.x - a.x) * 2 / 3;
         cy2 = a.y + (b.y - a.y) * 2 / 3;
     }
 
-    // Рассчитываем веса деформации сторон (в центре оба равны 1)
     const w1 = 2 * (1 - edgeDragState.t);
     const w2 = 2 * edgeDragState.t;
 
@@ -1673,7 +1707,7 @@ function onEdgePointerMove(e) {
     updateSelectionBox();
 }
 
-// завершение перетягивания ребра
+// завершение изменения ребра
 function onEdgePointerUp(e) {
     if (!edgeDragState || e.pointerId !== edgeDragState.pointerId) return;
 
@@ -1690,6 +1724,14 @@ function onEdgePointerUp(e) {
 }
 
 canvas.addEventListener("pointerdown", onEdgePointerDown);
+
+
+// Находим вашу существующую startPathHandleMove и добавляем в самое начало сброс ребра:
+const originalStartPathHandleMove = startPathHandleMove;
+startPathHandleMove = function(e, handle) {
+    window.lastActiveEdgeIndex = null;
+    originalStartPathHandleMove(e, handle);
+};
 
 
 
