@@ -1418,32 +1418,6 @@ function getLocalPoint(e, svg, element) {
     return pt.matrixTransform(element.getScreenCTM().inverse());
 }
 
-// поиск ближайшего ребра под курсором с лимитом дистанции
-function findNearestEdge(point, segments) {
-    let bestIndex = -1;
-    let bestDist = Infinity;
-    const MAX_DIST_SQUARED = 400; // Порог в 20 локальных единиц 
-
-    for (let i = 1; i < segments.length; i++) {
-        const a = segments[i - 1];
-        const b = segments[i];
-
-        if (!a || !b) continue;
-        if (typeof a.x !== "number" || typeof a.y !== "number") continue;
-        if (typeof b.x !== "number" || typeof b.y !== "number") continue;
-
-        const dist = distToSegmentSquared(point, a, b);
-
-        // Захватываем ребро, только если клик был достаточно близко
-        if (dist < bestDist && dist <= MAX_DIST_SQUARED) {
-            bestDist = dist;
-            bestIndex = i;
-        }
-    }
-
-    return bestIndex;
-}
-
 // начало перетягивания ребра
 function onEdgePointerDown(e) {
     if (window.modeSvgEditor !== "nodeEdit") return;
@@ -1458,9 +1432,50 @@ function onEdgePointerDown(e) {
     const localPoint = getLocalPoint(e, svg, pathEl);
 
     const segments = parsePathData(pathEl.getAttribute("d") || "");
-    const index = findNearestEdge(localPoint, segments);
+    
+    let index = -1;
+    let bestDist = Infinity;
+    let t = 0.5;
 
-    if (index < 1) return;
+    // Поиск ближайшего ребра и точного коэффициента t с учетом кривизны Q и C
+    for (let i = 1; i < segments.length; i++) {
+        const a = segments[i - 1];
+        const b = segments[i];
+
+        if (!a || !b) continue;
+        if (typeof a.x !== "number" || typeof a.y !== "number") continue;
+        if (typeof b.x !== "number" || typeof b.y !== "number") continue;
+
+        // Проверяем 20 точек вдоль геометрии сегмента для точного поиска
+        for (let k = 0; k <= 20; k++) {
+            const sampleT = k / 20;
+            let sx, sy;
+
+            if (b.type === "Q") {
+                const mt = 1 - sampleT;
+                sx = mt * mt * a.x + 2 * mt * sampleT * b.x1 + sampleT * sampleT * b.x;
+                sy = mt * mt * a.y + 2 * mt * sampleT * b.y1 + sampleT * sampleT * b.y;
+            } else if (b.type === "C") {
+                const mt = 1 - sampleT;
+                sx = mt * mt * mt * a.x + 3 * mt * mt * sampleT * b.x1 + 3 * mt * sampleT * sampleT * b.x2 + sampleT * sampleT * sampleT * b.x;
+                sy = mt * mt * mt * a.y + 3 * mt * mt * sampleT * b.y1 + 3 * mt * sampleT * sampleT * b.y2 + sampleT * sampleT * sampleT * b.y;
+            } else {
+                sx = a.x + (b.x - a.x) * sampleT;
+                sy = a.y + (b.y - a.y) * sampleT;
+            }
+
+            const dist = (localPoint.x - sx) ** 2 + (localPoint.y - sy) ** 2;
+
+            if (dist < bestDist) {
+                bestDist = dist;
+                index = i;
+                t = sampleT;
+            }
+        }
+    }
+
+    // Захватываем ребро, только если клик был в разумных пределах (допускаем до 40 локальных единиц)
+    if (index < 1 || bestDist > 1600) return;
 
     edgeDragState = {
         pointerId: e.pointerId,
@@ -1468,7 +1483,8 @@ function onEdgePointerDown(e) {
         svg,
         index,
         startPoint: localPoint, // Запоминаем точное место клика
-        startSegments: segments.map(s => ({ ...s }))
+        startSegments: segments.map(s => ({ ...s })),
+        t // Запоминаем точный коэффициент близости к краям
     };
 
     e.preventDefault();
@@ -1502,30 +1518,42 @@ function onEdgePointerMove(e) {
     const dx = localPoint.x - edgeDragState.startPoint.x;
     const dy = localPoint.y - edgeDragState.startPoint.y;
 
+    let cx1, cy1, cx2, cy2;
+
     if (b.type === "C") {
-        // Если это уже кривая, просто сдвигаем контрольные точки
-        b.x1 += dx;
-        b.y1 += dy;
-        b.x2 += dx;
-        b.y2 += dy;
+        // Если это уже кубическая кривая, берем ее точки
+        cx1 = b.x1;
+        cy1 = b.y1;
+        cx2 = b.x2;
+        cy2 = b.y2;
+    } else if (b.type === "Q") {
+        // Если была квадратичная, превращаем в кубическую C
+        cx1 = a.x + (2 / 3) * (b.x1 - a.x);
+        cy1 = a.y + (2 / 3) * (b.y1 - a.y);
+        cx2 = b.x + (2 / 3) * (b.x1 - b.x);
+        cy2 = b.y + (2 / 3) * (b.y1 - b.y);
     } else {
-        // Если была линия, превращаем в кривую плавно
-        const cx1 = a.x + (b.x - a.x) / 3;
-        const cy1 = a.y + (b.y - a.y) / 3;
+        // Если была линия, считаем начальные точки для кривой
+        cx1 = a.x + (b.x - a.x) / 3;
+        cy1 = a.y + (b.y - a.y) / 3;
 
-        const cx2 = a.x + (b.x - a.x) * 2 / 3;
-        const cy2 = a.y + (b.y - a.y) * 2 / 3;
-
-        segments[i] = {
-            type: "C",
-            x1: cx1 + dx, // Прибавляем смещение курсора
-            y1: cy1 + dy,
-            x2: cx2 + dx,
-            y2: cy2 + dy,
-            x: b.x,
-            y: b.y
-        };
+        cx2 = a.x + (b.x - a.x) * 2 / 3;
+        cy2 = a.y + (b.y - a.y) * 2 / 3;
     }
+
+    // Рассчитываем веса деформации сторон (в центре оба равны 1)
+    const w1 = 2 * (1 - edgeDragState.t);
+    const w2 = 2 * edgeDragState.t;
+
+    segments[i] = {
+        type: "C",
+        x1: cx1 + dx * w1,
+        y1: cy1 + dy * w1,
+        x2: cx2 + dx * w2,
+        y2: cy2 + dy * w2,
+        x: b.x,
+        y: b.y
+    };
 
     edgeDragState.pathEl.setAttribute("d", serializePathData(segments));
     updateSelectionBox();
@@ -1548,6 +1576,7 @@ function onEdgePointerUp(e) {
 }
 
 canvas.addEventListener("pointerdown", onEdgePointerDown);
+
 
 
 // === Изменение размера выделения ===
