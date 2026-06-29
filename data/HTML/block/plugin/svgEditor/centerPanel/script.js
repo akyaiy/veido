@@ -1255,24 +1255,121 @@ function onPathHandleMove(e) {
 
     if (!seg) return;
 
+    // Определяем стартовые координаты ручки (до сдвига)
+    let startX = 0, startY = 0;
     if (pathResizing.handle === "node") {
-        seg.x = pathResizing.startSegments[pathResizing.segmentIndex].x + dx;
-        seg.y = pathResizing.startSegments[pathResizing.segmentIndex].y + dy;
+        startX = pathResizing.startSegments[pathResizing.segmentIndex].x;
+        startY = pathResizing.startSegments[pathResizing.segmentIndex].y;
+    } else if (pathResizing.handle === "control1") {
+        startX = pathResizing.startSegments[pathResizing.segmentIndex].x1;
+        startY = pathResizing.startSegments[pathResizing.segmentIndex].y1;
+    } else if (pathResizing.handle === "control2") {
+        startX = pathResizing.startSegments[pathResizing.segmentIndex].x2;
+        startY = pathResizing.startSegments[pathResizing.segmentIndex].y2;
     }
 
-    if (pathResizing.handle === "control1" && seg.type === "Q") {
-        seg.x1 = pathResizing.startSegments[pathResizing.segmentIndex].x1 + dx;
-        seg.y1 = pathResizing.startSegments[pathResizing.segmentIndex].y1 + dy;
+    // Теоретические новые координаты за мышкой
+    let targetX = startX + dx;
+    let targetY = startY + dy;
+
+    // Прилипание
+    let snapX = targetX;
+    let snapY = targetY;
+    let bestDist = Infinity;
+    const snapDistance = 1;
+    let isMutated = false; 
+
+    // Прилипание
+    if (pathResizing.handle === "control1" || pathResizing.handle === "control2") {
+        let ownX = null, ownY = null;
+        
+        if (pathResizing.handle === "control1") {
+            // control1 привязан к концу предыдущего сегмента (или к M, если он первый)
+            const prevSeg = pathResizing.segmentIndex > 0 ? segments[pathResizing.segmentIndex - 1] : segments[0];
+            if (prevSeg) { ownX = prevSeg.x; ownY = prevSeg.y; }
+        } else if (pathResizing.handle === "control2") {
+            // control2 привязан к конечному узлу текущего сегмента
+            ownX = seg.x; ownY = seg.y;
+        }
+
+        if (ownX !== null && ownY !== null) {
+            const distToOwnNode = Math.sqrt((targetX - ownX) ** 2 + (targetY - ownY) ** 2);
+            if (distToOwnNode <= snapDistance) {
+                bestDist = distToOwnNode;
+                snapX = ownX;
+                snapY = ownY;
+
+                if (seg.type === "C") {
+                    // Из Кубической (C) делаем Квадратичную (Q)
+                    seg.type = "Q";
+                    if (pathResizing.handle === "control1") {
+                        // Если убрали первый ус, то второй (x2, y2) становится единственным усом (x1, y1)
+                        seg.x1 = seg.x2;
+                        seg.y1 = seg.y2;
+                    }
+                    // Если убрали второй ус, x1 и y1 остаются на месте
+                    delete seg.x2;
+                    delete seg.y2;
+                    isMutated = true;
+                } else if (seg.type === "Q" && pathResizing.handle === "control1") {
+                    // Из Квадратичной (Q) делаем Линию (L)
+                    seg.type = "L";
+                    delete seg.x1;
+                    delete seg.y1;
+                    isMutated = true;
+                }
+            }
+        }
     }
 
-    if (pathResizing.handle === "control1" && seg.type === "C") {
-        seg.x1 = pathResizing.startSegments[pathResizing.segmentIndex].x1 + dx;
-        seg.y1 = pathResizing.startSegments[pathResizing.segmentIndex].y1 + dy;
+    // Если со своим узлом не слиплись, проверяем прилипание к остальным точкам на сцене
+    if (bestDist === Infinity) {
+        const group = getContentLayer(svg);
+        if (group) {
+            const paths = group.querySelectorAll("path");
+            for (const p of paths) {
+                const pSegs = parsePathData(p.getAttribute("d") || "");
+                
+                for (let i = 0; i < pSegs.length; i++) {
+                    const s = pSegs[i];
+                    
+                    const checkSnap = (px, py, isNode, isCtrl1, isCtrl2) => {
+                        if (typeof px !== "number" || typeof py !== "number") return;
+                        
+                        if (p === pathResizing.pathEl && i === pathResizing.segmentIndex) {
+                            if (pathResizing.handle === "node" && isNode) return;
+                            if (pathResizing.handle === "control1" && isCtrl1) return;
+                            if (pathResizing.handle === "control2" && isCtrl2) return;
+                        }
+
+                        const dist = Math.sqrt((targetX - px) ** 2 + (targetY - py) ** 2);
+                        if (dist < bestDist && dist <= snapDistance) {
+                            bestDist = dist;
+                            snapX = px;
+                            snapY = py;
+                        }
+                    };
+
+                    checkSnap(s.x, s.y, true, false, false);
+                    checkSnap(s.x1, s.y1, false, true, false);
+                    checkSnap(s.x2, s.y2, false, false, true);
+                }
+            }
+        }
     }
 
-    if (pathResizing.handle === "control2" && seg.type === "C") {
-        seg.x2 = pathResizing.startSegments[pathResizing.segmentIndex].x2 + dx;
-        seg.y2 = pathResizing.startSegments[pathResizing.segmentIndex].y2 + dy;
+    // Применяем новые координаты, только если сегмент не изменил тип
+    if (!isMutated) {
+        if (pathResizing.handle === "node") {
+            seg.x = snapX;
+            seg.y = snapY;
+        } else if (pathResizing.handle === "control1" && (seg.type === "Q" || seg.type === "C")) {
+            seg.x1 = snapX;
+            seg.y1 = snapY;
+        } else if (pathResizing.handle === "control2" && seg.type === "C") {
+            seg.x2 = snapX;
+            seg.y2 = snapY;
+        }
     }
 
     pathResizing.pathEl.setAttribute("d", serializePathData(segments));
