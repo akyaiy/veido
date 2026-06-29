@@ -58,6 +58,11 @@ function onCanvasWheelScale(e) {
 
     applySvgEditorCanvasTransform(svg);
     updateSelectionBox();
+    
+    // Принудительно обновляем позицию элемента под новым масштабом
+    if (dragging && dragging.lastEvent) onPointerMoveEl(dragging.lastEvent);
+    // Принудительно обновляем позицию узла path при зуме холста
+    if (typeof pathResizing !== "undefined" && pathResizing && pathResizing.lastEvent) onPathHandleMove(pathResizing.lastEvent);
 }
 
 // Запрет контекстного меню при Ctrl + правая кнопка мыши для перемещения канвы
@@ -118,6 +123,11 @@ function updateCanvasPanning(e) {
     const svg = canvas.querySelector("svg");
     if (svg) applySvgEditorCanvasTransform(svg);
     updateSelectionBox(true);
+    
+    // Принудительно обновляем позицию элемента при панорамировании холста
+    if (dragging && dragging.lastEvent) onPointerMoveEl(dragging.lastEvent);
+    // Принудительно обновляем позицию узла path при панорамировании холста
+    if (typeof pathResizing !== "undefined" && pathResizing && pathResizing.lastEvent) onPathHandleMove(pathResizing.lastEvent);
 }
 
 // Завершение перемещения канвы
@@ -173,6 +183,11 @@ function onCanvasWheelMove(e) {
 
     applySvgEditorCanvasTransform(svg);
     updateSelectionBox(true);
+    
+    // Принудительно обновляем позицию элемента при прокрутке холста колесиком
+    if (dragging && dragging.lastEvent) onPointerMoveEl(dragging.lastEvent);
+    // Принудительно обновляем позицию узла path при прокрутке холста колесиком
+    if (typeof pathResizing !== "undefined" && pathResizing && pathResizing.lastEvent) onPathHandleMove(pathResizing.lastEvent);
 }
 
 // Добавляем обработчик колесика мыши для прокрутки канвы
@@ -688,7 +703,7 @@ function formatSvgNumber(value) {
         .replace(/(\.\d*?)0+$/, "$1");
 }
 
-// Разбор path в массив абсолютных сегментов
+// Разбор path в массив абсолющих сегментов
 function parsePathData(d) {
     const tokens = (d || "").match(/[a-zA-Z]|[-+]?(?:\d*\.\d+|\d+)(?:e[-+]?\d+)?/gi) || [];
     const segments = [];
@@ -1216,7 +1231,8 @@ function startPathHandleMove(e, handle) {
         startPoint: localPoint,
         startSegments: segments.map((seg) => ({ ...seg })),
         pathEl: selected,
-        groupInverse
+        groupInverse,
+        lastEvent: e // <- ИЗМЕНЕНИЕ 1: сохраняем событие для внешнего вызова при зуме холста
     };
 
     e.preventDefault();
@@ -1240,12 +1256,14 @@ function onPathHandleMove(e) {
     if (!svg) return;
 
     e.preventDefault();
+    pathResizing.lastEvent = e; // <- ИЗМЕНЕНИЕ 2: обновляем событие в процессе движения
 
     const point = getSvgPoint(e, svg);
 
-    const localPoint = pathResizing.groupInverse
-        ? point.matrixTransform(pathResizing.groupInverse)
-        : point;
+    // ИЗМЕНЕНИЕ 3: Вычисляем инверсию матрицы динамически, чтобы узел не "улетал" при прокрутке колесиком мыши
+    const group = getContentLayer(svg);
+    const currentInverse = group?.getCTM()?.inverse() || null;
+    const localPoint = currentInverse ? point.matrixTransform(currentInverse) : point;
 
     const dx = localPoint.x - pathResizing.startPoint.x;
     const dy = localPoint.y - pathResizing.startPoint.y;
@@ -1324,7 +1342,6 @@ function onPathHandleMove(e) {
 
     // Если со своим узлом не слиплись, проверяем прилипание к остальным точкам на сцене
     if (bestDist === Infinity) {
-        const group = getContentLayer(svg);
         if (group) {
             const paths = group.querySelectorAll("path");
             for (const p of paths) {
@@ -1910,13 +1927,13 @@ function onPointerDownEl(e) {
         startX: e.clientX,
         startY: e.clientY,
         startPoint,
-        groupInverse,
         isSVG: el instanceof SVGElement,
         transform,
         elLeft: rect.left,
         elTop: rect.top,
         selected: selectedItems.length > 0,
-        selectedItems
+        selectedItems,
+        lastEvent: e // Запоминаем событие инициализации
     };
 }
 
@@ -1926,6 +1943,7 @@ function onPointerMoveEl(e) {
     if (!dragging || e.pointerId !== dragging.pointerId) return;
 
     e.preventDefault();
+    dragging.lastEvent = e; // Обновляем последнее событие мыши на каждом шаге
 
     let dx = e.clientX - dragging.startX;
     let dy = e.clientY - dragging.startY;
@@ -1935,7 +1953,11 @@ function onPointerMoveEl(e) {
         const svg = canvas.querySelector("svg");
         if (!svg) return;
 
-        const point = dragging.groupInverse ? getSvgPoint(e, svg).matrixTransform(dragging.groupInverse) : getSvgPoint(e, svg);
+        // Рассчитываем актуальную обратную матрицу "на лету" с учетом нового масштаба холста
+        const firstG = getContentLayer(svg);
+        const currentInverse = firstG?.getCTM()?.inverse() || null;
+        
+        const point = currentInverse ? getSvgPoint(e, svg).matrixTransform(currentInverse) : getSvgPoint(e, svg);
         dx = point.x - dragging.startPoint.x;
         dy = point.y - dragging.startPoint.y;
 
