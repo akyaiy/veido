@@ -9,7 +9,12 @@ window.modeSvgEditor = "selection";
 // Xранит индекс ребра
 window.lastActiveEdgeIndex = null; 
 
+// Выделеные узлы
+window.activePathHandles = [];
 
+
+
+// === Отрисовка узлов path ===
 
 // Разбор path в массив абсолющих сегментов
 window.parsePathData = parsePathData;

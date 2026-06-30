@@ -414,6 +414,7 @@ function onPathTypeChange(e) {
 svgPathType.addEventListener("change", onPathTypeChange);
 
 
+
 // === Интерфейс ===
 
 // Обновление значений инпутов на основе выделенного элемента и его трансформаций

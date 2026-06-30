@@ -11,6 +11,94 @@ function getContentLayer(svg) { return svg?.children[1]; }
 function getOverlayLayer(svg) { return svg?.children[2]; }
 function getBorderLayer(svg) { return svg?.children[0]; }
 
+// Клик по канве
+function handleCanvasPointerDown(e) {
+    if (window.modeSvgEditor !== "selection" && window.modeSvgEditor !== "nodeEdit") return;
+    const svg = canvas.querySelector("svg");
+    const firstG = getContentLayer(svg);
+    const techLayer = getOverlayLayer(svg);
+
+    // если клик по path handle обрабатываем выделение и начинаем перемещение
+    if (e.target.dataset && e.target.dataset.pathHandle) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const clickedIndex = parseInt(e.target.dataset.pathIndex, 10);
+        if (isNaN(clickedIndex)) return;
+
+        // Заводим локальный флаг, чтобы знать, нужно ли восстанавливать мультивыделение
+        let shouldRestoreHandles = false;
+
+        const currentHandleType = e.target.dataset.pathHandle;
+
+        if (e.shiftKey) {
+            // Ищем, есть ли уже узел с таким индексом и типом ручки в активных
+            const foundIdx = window.activePathHandles.findIndex(
+                h => h.index === clickedIndex && h.handle === currentHandleType
+            );
+
+            if (foundIdx > -1) {
+                // Если нашли — удаляем из выделения
+                window.activePathHandles.splice(foundIdx, 1);
+            } else {
+                // Если не нашли — добавляем объект в массив
+                window.activePathHandles.push({ index: clickedIndex, handle: currentHandleType });
+            }
+            window.lastActiveEdgeIndex = null;
+            shouldRestoreHandles = true; 
+        } else {
+            // Обычный клик без shift: полностью очищаем массив и пишем туда один узел
+            window.activePathHandles = [{ index: clickedIndex, handle: currentHandleType }];
+            
+            window.lastActiveEdgeIndex = null; 
+            shouldRestoreHandles = false; 
+        }
+
+        // Обновляем визуальное выделение с правильным флагом
+        updateSelectionBox(shouldRestoreHandles);
+
+        // получаем обновленный элемент из дом для функции перемещения
+        const freshHandle = techLayer.querySelector(
+            `[data-path-index="${clickedIndex}"][data-path-handle="${e.target.dataset.pathHandle}"]`
+        );
+
+        if (freshHandle) {
+            startPathHandleMove(e, freshHandle);
+        }
+        return;
+    }
+
+    // перемещение канвы мышкой
+    if (startCanvasPanning(e, svg)) {
+        return;
+    }
+
+    if (e.button !== 0) return;
+
+    // если клик по квадрату изменения размера начинаем изменение размера
+    if (e.target.dataset && e.target.dataset.resizeHandle) {
+        startElementResize(e, e.target.dataset.resizeHandle);
+        return;
+    }
+
+    // сохраняем данные
+    const target = e.target;
+    const isShiftOrCtrl = e.shiftKey || e.ctrlKey;
+    const originalEvent = e;
+
+    // ожидание для того чтобы другие обработчики на элементах могли сработать первыми 
+    setTimeout(() => {
+        // если клик по элементу внутри первого слоя выделяем его
+        if (firstG.contains(target)) {
+            selectElement(target, isShiftOrCtrl);
+            return;
+        }
+
+        // если клик по пустой зоне запускаем лассо
+        selectElements(originalEvent);
+    }, 0);
+}
+
 
 
 // === Передвежение по холсту ===
@@ -478,9 +566,14 @@ function selectElement(el, append = false) {
     // находим максимально верхний прямой ребенок firstG
     const topEl = getTopLevelElement(el);
     
+    // Гарантируем, что массив активных ручек существует
+    if (!Array.isArray(window.activePathHandles)) {
+        window.activePathHandles = [];
+    }
+    
     // если Shift или Ctrl зажаты - переключаем выделение для элемента
     if (append) {
-        toggleSelection(topEl)
+        toggleSelection(topEl);
         updateSelectionBox();
         return;
     }
@@ -491,8 +584,10 @@ function selectElement(el, append = false) {
         return;
     }
 
-    // Выделяем новый элемент
+    // Выделяем новый элемент и полностью очищаем выбранные ранее узлы пути
     window.selectedElementsSvg = [topEl];
+    window.activePathHandles = []; 
+    
     updateSelectionBox();
 }
 
@@ -500,7 +595,8 @@ function selectElement(el, append = false) {
 function updateSelectionBox(restoreHandlesFlags = false) {
     // если нет выделения - очищаем технический слой и выходим
     if (!window.selectedElementsSvg || (Array.isArray(window.selectedElementsSvg) && window.selectedElementsSvg.length === 0)) {
-        window.lastActiveEdgeIndex = null; // Сброс при потере выделения
+        window.lastActiveEdgeIndex = null; 
+        window.activePathHandles = []; // Очищаем массив ручек при потере выделения контура
         const svg = canvas.querySelector("svg");
         if (svg) {
             const techLayer = getOverlayLayer(svg);
@@ -524,18 +620,22 @@ function updateSelectionBox(restoreHandlesFlags = false) {
     if (elements.length === 1 && isPathElement(elements[0])) {
         addPathSelectionHandles(elements[0], techLayer);
 
-        if (activePathHandle && restoreHandlesFlags) {
-            activePathHandle = techLayer.querySelector(
-                `[data-path-index="${activePathHandle.dataset.pathIndex}"][data-path-handle="${activePathHandle.dataset.pathHandle}"]`
-            );
+        // Активные узлы
+        if (Array.isArray(window.activePathHandles)) {
+            window.activePathHandles.forEach(h => {
+                if (!h) return;
+                const foundHandle = techLayer.querySelector(
+                    `[data-path-index="${h.index}"][data-path-handle="${h.handle}"]`
+                );
 
-            if (activePathHandle) {
-                activePathHandle.dataset.active = "1";
-                activePathHandle.setAttribute("fill", "#4285f4");
-            }
+                if (foundHandle) {
+                    foundHandle.dataset.active = "1";
+                    foundHandle.setAttribute("fill", "#4285f4");
+                }
+            });
         }
 
-        // Если есть сохраненное измененное ребро — красим СТРОГО эти 2 узла
+        // Если есть сохраненное измененное ребро, красим 2 узла
         if (window.lastActiveEdgeIndex !== null) {
             highlightEdgeNodes(svg, window.lastActiveEdgeIndex);
         }
@@ -546,8 +646,9 @@ function updateSelectionBox(restoreHandlesFlags = false) {
         return;
     }
 
-    // Если выделено несколько элементов, сбрасываем подсветку ребра
+    // Если выделено несколько элементов, сбрасываем подсветку ребер и массив ручек
     window.lastActiveEdgeIndex = null;
+    window.activePathHandles = [];
 
     const selectionBox = getSelectionBBox(elements);
 
@@ -847,7 +948,7 @@ function addPathControlHandle(x, y, index, part, techLayer, size = pathControlHa
 
 // === Изменение узлов path ===
 
-// Начало изменения точки path
+// начало изменения точки path
 function startPathHandleMove(e, handle) {
     if (window.modeSvgEditor !== "nodeEdit") return;
 
@@ -867,14 +968,8 @@ function startPathHandleMove(e, handle) {
 
     if (isNaN(index) || !segments[index]) return;
 
-    if (activePathHandle) {
-        activePathHandle.setAttribute("fill", "#ffffff");
-       activePathHandle.removeAttribute('data-active');
-    }
-
+    // глобальная переменная активной ручки обновляется для обратной совместимости
     activePathHandle = handle;
-    activePathHandle.dataset.active = "1";
-    activePathHandle.setAttribute("fill", "#4285f4");
 
     pathResizing = {
         pointerId: e.pointerId,
@@ -912,7 +1007,7 @@ function onPathHandleMove(e) {
 
     const point = getSvgPoint(e, svg);
 
-    // Вычисляем инверсию матрицы динамически, чтобы узел не "улетал" при прокрутке колесиком мыши
+    // вычисляем инверсию матрицы динамически чтобы узел не улетал при прокрутке колесиком мыши
     const group = getContentLayer(svg);
     const currentInverse = group?.getCTM()?.inverse() || null;
     const localPoint = currentInverse ? point.matrixTransform(currentInverse) : point;
@@ -925,7 +1020,7 @@ function onPathHandleMove(e) {
 
     if (!seg) return;
 
-    // Определяем стартовые координаты ручки (до сдвига)
+    // определяем стартовые координаты ручки
     let startX = 0, startY = 0;
     if (pathResizing.handle === "node") {
         startX = pathResizing.startSegments[pathResizing.segmentIndex].x;
@@ -938,61 +1033,30 @@ function onPathHandleMove(e) {
         startY = pathResizing.startSegments[pathResizing.segmentIndex].y2;
     }
 
-    // Теоретические новые координаты за мышкой
+    // теоретические новые координаты за мышкой
     let targetX = startX + dx;
     let targetY = startY + dy;
 
-    // Прилипание
+    // прилипание
     let snapX = targetX;
     let snapY = targetY;
     let bestDist = Infinity;
     const snapDistance = 1;
     let isMutated = false; 
 
-    // Прилипание
+    // прилипание
     if (pathResizing.handle === "control1" || pathResizing.handle === "control2") {
         let ownX = null, ownY = null;
         
         if (pathResizing.handle === "control1") {
-            // control1 привязан к концу предыдущего сегмента (или к M, если он первый)
             const prevSeg = pathResizing.segmentIndex > 0 ? segments[pathResizing.segmentIndex - 1] : segments[0];
             if (prevSeg) { ownX = prevSeg.x; ownY = prevSeg.y; }
         } else if (pathResizing.handle === "control2") {
-            // control2 привязан к конечному узлу текущего сегмента
             ownX = seg.x; ownY = seg.y;
         }
-
-        /* if (ownX !== null && ownY !== null) {
-            const distToOwnNode = Math.sqrt((targetX - ownX) ** 2 + (targetY - ownY) ** 2);
-            if (distToOwnNode <= snapDistance) {
-                bestDist = distToOwnNode;
-                snapX = ownX;
-                snapY = ownY;
-
-                if (seg.type === "C") {
-                    // Из Кубической (C) делаем Квадратичную (Q)
-                    seg.type = "Q";
-                    if (pathResizing.handle === "control1") {
-                        // Если убрали первый ус, то второй (x2, y2) становится единственным усом (x1, y1)
-                        seg.x1 = seg.x2;
-                        seg.y1 = seg.y2;
-                    }
-                    // Если убрали второй ус, x1 и y1 остаются на месте
-                    delete seg.x2;
-                    delete seg.y2;
-                    isMutated = true;
-                } else if (seg.type === "Q" && pathResizing.handle === "control1") {
-                    // Из Квадратичной (Q) делаем Линию (L)
-                    seg.type = "L";
-                    delete seg.x1;
-                    delete seg.y1;
-                    isMutated = true;
-                }
-            }
-        } */
     }
 
-    // Если со своим узлом не слиплись, проверяем прилипание к остальным точкам на сцене
+    // если со своим узлом не слиплись проверяем прилипание к остальным точкам на сцене
     if (bestDist === Infinity) {
         if (group) {
             const paths = group.querySelectorAll("path");
@@ -1027,7 +1091,7 @@ function onPathHandleMove(e) {
         }
     }
 
-    // Применяем новые координаты, только если сегмент не изменил тип
+    // применяем новые координаты только если сегмент не изменил тип
     if (!isMutated) {
         if (pathResizing.handle === "node") {
             seg.x = snapX;
@@ -1042,13 +1106,9 @@ function onPathHandleMove(e) {
     }
 
     pathResizing.pathEl.setAttribute("d", serializePathData(segments));
-    updateSelectionBox();
-
-    activePathHandle = canvas.querySelector(`[data-path-index="${pathResizing.segmentIndex}"][data-path-handle="${pathResizing.handle}"]`);
-    if (activePathHandle) {
-        activePathHandle.dataset.active = "1";
-        activePathHandle.setAttribute("fill", "#4285f4");
-    }
+    
+    // вызываем с true чтобы сохранить подсветку всех выделенных узлов при перерисовке
+    updateSelectionBox(true);
 }
 
 // завершение изменения точки path
@@ -1064,14 +1124,8 @@ function onPathHandleUp(e) {
     canvas.removeEventListener("pointercancel", onPathHandleUp);
     canvas.removeEventListener("lostpointercapture", onPathHandleUp);
 
-    updateSelectionBox();
-
-    activePathHandle = canvas.querySelector(`[data-path-index="${pathResizing.segmentIndex}"][data-path-handle="${pathResizing.handle}"]`);
-
-    if (activePathHandle) {
-        activePathHandle.dataset.active = "1";
-        activePathHandle.setAttribute("fill", "#4285f4");
-    }
+    // вызываем с true чтобы не сбросились цвета узлов
+    updateSelectionBox(true);
 
     pathResizing = null;
 }
@@ -1638,49 +1692,6 @@ function onElementResizeUp(e) {
 
     elementResizing = null;
     updateSelectionBox();
-}
-
-function handleCanvasPointerDown(e) {
-    if (window.modeSvgEditor !== "selection" && window.modeSvgEditor !== "nodeEdit") return;
-    const svg = canvas.querySelector("svg");
-    const firstG = getContentLayer(svg);
-    const techLayer = getOverlayLayer(svg);
-
-    // Если клик по path handle - начинаем редактирование path
-    if (e.target.dataset && e.target.dataset.pathHandle) {
-        startPathHandleMove(e, e.target);
-        return;
-    }
-
-    // Перемещение канвы мышкой
-    if (startCanvasPanning(e, svg)) {
-        return;
-    }
-
-    if (e.button !== 0) return;
-
-    // Если клик по квадрату изменения размера - начинаем изменение размера
-    if (e.target.dataset && e.target.dataset.resizeHandle) {
-        startElementResize(e, e.target.dataset.resizeHandle);
-        return;
-    }
-
-    // Сохроняем данные
-    const target = e.target;
-    const isShiftOrCtrl = e.shiftKey || e.ctrlKey;
-    const originalEvent = e;
-
-    // Ожидание, для того чтобы другие обработчики на элементах могли сработать первыми 
-    setTimeout(() => {
-        // Если клик по элементу внутри первого слоя - выделяем его
-        if (firstG.contains(target)) {
-            selectElement(target, isShiftOrCtrl);
-            return;
-        }
-
-        // Если клик по зоне изменения размера - не запускаем лассо
-        selectElements(originalEvent);
-    }, 0);
 }
 
 // Выделение элемента при нажатии (pointerdown)
