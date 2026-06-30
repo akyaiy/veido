@@ -10,7 +10,7 @@ const elementVisibilityMap = {
     "path": { groups: ["svgGroupPosition"], fields: ["svgPropX", "svgPropY"] }
 };
 
-// ИЗМЕНЕНО: Заменили нестабильные CSS-селекторы на текстовые ключи
+// Заменили нестабильные CSS-селекторы на текстовые ключи
 const elementVisibilityMapSpec = {
     "single-node": { groups: ["svgGroupPosition"], fields: ["svgPropX", "svgPropY"] },
     "multi-nodes": { groups: ["svgGroupPathType"], fields: ["svgPathType"] }
@@ -27,6 +27,7 @@ const inputY = document.getElementById("svgPropY");
 const inputW = document.getElementById("svgPropW");
 const inputH = document.getElementById("svgPropH");
 const inputR = document.getElementById("svgPropR");
+const inputPathType = document.getElementById("svgPathType");
 
 // Кнопки
 const btnAddNode = document.getElementById("svgAddNode");
@@ -334,7 +335,7 @@ function onGeometryInputChange(e) {
     }
 }
 
-[inputX, inputY, inputW, inputH, inputR].forEach(inp => {
+[inputX, inputY, inputW, inputH, inputR, svgPathType].forEach(inp => {
     if (!inp) return;
 
     inp.addEventListener("blur", onGeometryInputChange);
@@ -346,6 +347,71 @@ function onGeometryInputChange(e) {
     });
 });
 
+
+
+// === Изменение типа искревления ===
+
+// Функция изменения типа искривления path-сегмента
+function onPathTypeChange(e) {
+    if (!selectedElementsSvg || selectedElementsSvg.length === 0) return;
+
+    const el = selectedElementsSvg[0];
+    if (!el || el.tagName.toLowerCase() !== "path") return;
+
+    const newType = e.target.value;
+    const idx = window.lastActiveEdgeIndex;
+    if (idx == null) return;
+
+    // Парсим строку "d" в удобный массив объектов сегментов
+    const segments = parsePathData(el.getAttribute("d") || "");
+    if (!segments[idx]) return;
+
+    const targetSegment = segments[idx];
+    const prevSegment = segments[idx - 1] || { x: 0, y: 0 };
+
+    // Конечная точка сегмента должна остаться прежней
+    const x = typeof targetSegment.x === "number" ? targetSegment.x : prevSegment.x;
+    const y = typeof targetSegment.y === "number" ? targetSegment.y : prevSegment.y;
+
+    // Создаем новый чистый объект сегмента под выбранный тип
+    let updatedSegment = { type: newType };
+
+    if (newType === "Z" || newType === "z") {
+        // Для замыкания контура координаты не нужны
+    } else {
+        updatedSegment.x = x;
+        updatedSegment.y = y;
+
+        // Если переключаем на Квадратичную кривую (Q)
+        if (newType === "Q" || newType === "q") {
+            // Ставим контрольную точку ровно по центру отрезка
+            updatedSegment.x1 = targetSegment.x1 ?? (prevSegment.x + x) / 2;
+            updatedSegment.y1 = targetSegment.y1 ?? (prevSegment.y + y) / 2;
+            
+        // Если переключаем на Кубическую кривую (C)
+        } else if (newType === "C" || newType === "c") {
+            // Распределяем две контрольные точки на 1/3 и 2/3 длины отрезка
+            updatedSegment.x1 = targetSegment.x1 ?? (prevSegment.x + (x - prevSegment.x) / 3);
+            updatedSegment.y1 = targetSegment.y1 ?? (prevSegment.y + (y - prevSegment.y) / 3);
+            updatedSegment.x2 = targetSegment.x2 ?? (prevSegment.x + 2 * (x - prevSegment.x) / 3);
+            updatedSegment.y2 = targetSegment.y2 ?? (prevSegment.y + 2 * (y - prevSegment.y) / 3);
+        }
+    }
+
+    // Заменяем сегмент в массиве и собираем строку обратно
+    segments[idx] = updatedSegment;
+    el.setAttribute("d", serializePathData(segments));
+
+    // Обновляем рамку выделения, если функция существует в редакторе
+    if (typeof updateSelectionBox === "function") {
+        updateSelectionBox();
+    }
+
+    document.dispatchEvent(new CustomEvent("svgElementsChanged"));
+}
+
+// Подключение обработчика к input/select изменения типа сегмента
+svgPathType.addEventListener("change", onPathTypeChange);
 
 
 // === Интерфейс ===
@@ -403,6 +469,16 @@ function updateGeometryInputs() {
     const firstEl = selectedElementsSvg[0];
     tag = firstEl.tagName.toLowerCase();
 
+    // Отображение типа выбранного сегмента path
+    if (tag === "path" && inputPathType && window.lastActiveEdgeIndex != null) {
+        const segments = parsePathData(firstEl.getAttribute("d") || "");
+
+        if (segments[window.lastActiveEdgeIndex]) {
+            inputPathType.value = segments[window.lastActiveEdgeIndex].type;
+        }
+    }
+
+    // Обработка стандартных SVG-элементов
     if (["rect", "image", "foreignObject"].includes(tag)) {
         const x = parseFloat(firstEl.getAttribute("x")) || 0;
         const y = parseFloat(firstEl.getAttribute("y")) || 0;

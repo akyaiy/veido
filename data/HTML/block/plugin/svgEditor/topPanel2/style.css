@@ -25,6 +25,7 @@
 
 #topPanel2 > div > div > input, 
 #topPanel2 > div > div > select {
+    height: 23px;
     width: 100px;
     box-sizing: border-box;
     padding: 2px 3px;

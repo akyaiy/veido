@@ -3,6 +3,9 @@
 // Главный холст
 const canvas = document.getElementById("svgCanvas");
 
+// активный узел
+let activePathHandle = null;
+
 // Получение слоев из SVG
 function getContentLayer(svg) { return svg?.children[1]; }
 function getOverlayLayer(svg) { return svg?.children[2]; }
@@ -693,368 +696,7 @@ function getSvgPoint(e, svg) {
 
 
 
-// === Выделение path ===
-
-// активный узел
-let activePathHandle = null;
-
-// Нормализация числа для записи в path
-function formatSvgNumber(value) {
-    if (!isFinite(value)) return "0";
-
-    const rounded = Math.round(value * 1000) / 1000;
-
-    return String(rounded)
-        .replace(/\.0+$/, "")
-        .replace(/(\.\d*?)0+$/, "$1");
-}
-
-// Разбор path в массив абсолющих сегментов
-function parsePathData(d) {
-    const tokens = (d || "").match(/[a-zA-Z]|[-+]?(?:\d*\.\d+|\d+)(?:e[-+]?\d+)?/gi) || [];
-    const segments = [];
-
-    let i = 0;
-    let cmd = "";
-    let x = 0;
-    let y = 0;
-    let startX = 0;
-    let startY = 0;
-    let prevCmd = "";
-    let prevC2X = 0;
-    let prevC2Y = 0;
-    let prevQX = 0;
-    let prevQY = 0;
-
-    function isCommand(token) {
-        return /^[a-zA-Z]$/.test(token);
-    }
-
-    function readNumber() {
-        return parseFloat(tokens[i++]);
-    }
-
-    while (i < tokens.length) {
-        let token = tokens[i++];
-
-        if (isCommand(token)) {
-            cmd = token;
-        } else {
-            i--;
-        }
-
-        if (!cmd) break;
-
-        const upper = cmd.toUpperCase();
-        const rel = cmd !== upper;
-
-        // Перемещение пера
-        if (upper === "M") {
-            let first = true;
-
-            while (i + 1 < tokens.length && !isCommand(tokens[i]) && !isCommand(tokens[i + 1])) {
-                const nx = readNumber();
-                const ny = readNumber();
-
-                const px = rel ? x + nx : nx;
-                const py = rel ? y + ny : ny;
-
-                if (first) {
-                    segments.push({ type: "M", x: px, y: py });
-
-                    startX = px;
-                    startY = py;
-                    first = false;
-                } else {
-                    segments.push({ type: "L", x: px, y: py });
-                }
-
-                x = px;
-                y = py;
-                prevCmd = "L";
-            }
-
-            prevC2X = 0;
-            prevC2Y = 0;
-            prevQX = 0;
-            prevQY = 0;
-            continue;
-        }
-
-        // Линия
-        if (upper === "L") {
-            while (i + 1 < tokens.length && !isCommand(tokens[i]) && !isCommand(tokens[i + 1])) {
-                const nx = readNumber();
-                const ny = readNumber();
-
-                x = rel ? x + nx : nx;
-                y = rel ? y + ny : ny;
-
-                segments.push({ type: "L", x, y });
-                prevCmd = "L";
-            }
-
-            prevC2X = 0;
-            prevC2Y = 0;
-            prevQX = 0;
-            prevQY = 0;
-            continue;
-        }
-
-        // Горизонтальная линия
-        if (upper === "H") {
-            while (i < tokens.length && !isCommand(tokens[i])) {
-                const nx = readNumber();
-
-                x = rel ? x + nx : nx;
-
-                segments.push({ type: "L", x, y });
-                prevCmd = "L";
-            }
-
-            prevC2X = 0;
-            prevC2Y = 0;
-            prevQX = 0;
-            prevQY = 0;
-            continue;
-        }
-
-        // Вертикальная линия
-        if (upper === "V") {
-            while (i < tokens.length && !isCommand(tokens[i])) {
-                const ny = readNumber();
-
-                y = rel ? y + ny : ny;
-
-                segments.push({ type: "L", x, y });
-                prevCmd = "L";
-            }
-
-            prevC2X = 0;
-            prevC2Y = 0;
-            prevQX = 0;
-            prevQY = 0;
-            continue;
-        }
-
-        // Кубическая кривая Безье
-        if (upper === "C") {
-            while (i + 5 < tokens.length && !isCommand(tokens[i])) {
-                const x1 = rel ? x + readNumber() : readNumber();
-                const y1 = rel ? y + readNumber() : readNumber();
-                const x2 = rel ? x + readNumber() : readNumber();
-                const y2 = rel ? y + readNumber() : readNumber();
-                const nx = rel ? x + readNumber() : readNumber();
-                const ny = rel ? y + readNumber() : readNumber();
-
-                segments.push({
-                    type: "C",
-                    x1,
-                    y1,
-                    x2,
-                    y2,
-                    x: nx,
-                    y: ny
-                });
-
-                x = nx;
-                y = ny;
-                prevCmd = "C";
-                prevC2X = x2;
-                prevC2Y = y2;
-                prevQX = 0;
-                prevQY = 0;
-            }
-
-            continue;
-        }
-
-        // Сглаженная кубическая кривая Безье
-        if (upper === "S") {
-            while (i + 3 < tokens.length && !isCommand(tokens[i])) {
-                const x2 = rel ? x + readNumber() : readNumber();
-                const y2 = rel ? y + readNumber() : readNumber();
-                const nx = rel ? x + readNumber() : readNumber();
-                const ny = rel ? y + readNumber() : readNumber();
-
-                const x1 = (prevCmd === "C" || prevCmd === "S") ? (2 * x - prevC2X) : x;
-                const y1 = (prevCmd === "C" || prevCmd === "S") ? (2 * y - prevC2Y) : y;
-
-                segments.push({
-                    type: "C",
-                    x1,
-                    y1,
-                    x2,
-                    y2,
-                    x: nx,
-                    y: ny
-                });
-
-                x = nx;
-                y = ny;
-                prevCmd = "C";
-                prevC2X = x2;
-                prevC2Y = y2;
-                prevQX = 0;
-                prevQY = 0;
-            }
-
-            continue;
-        }
-
-        // Квадратичная кривая Безье
-        if (upper === "Q") {
-            while (i + 3 < tokens.length && !isCommand(tokens[i])) {
-                const x1 = rel ? x + readNumber() : readNumber();
-                const y1 = rel ? y + readNumber() : readNumber();
-                const nx = rel ? x + readNumber() : readNumber();
-                const ny = rel ? y + readNumber() : readNumber();
-
-                segments.push({
-                    type: "Q",
-                    x1,
-                    y1,
-                    x: nx,
-                    y: ny
-                });
-
-                x = nx;
-                y = ny;
-                prevCmd = "Q";
-                prevQX = x1;
-                prevQY = y1;
-                prevC2X = 0;
-                prevC2Y = 0;
-            }
-
-            continue;
-        }
-
-        // Сглаженная квадратичная кривая Безье
-        if (upper === "T") {
-            while (i + 1 < tokens.length && !isCommand(tokens[i])) {
-                const nx = rel ? x + readNumber() : readNumber();
-                const ny = rel ? y + readNumber() : readNumber();
-
-                const x1 = (prevCmd === "Q" || prevCmd === "T") ? (2 * x - prevQX) : x;
-                const y1 = (prevCmd === "Q" || prevCmd === "T") ? (2 * y - prevQY) : y;
-
-                segments.push({
-                    type: "Q",
-                    x1,
-                    y1,
-                    x: nx,
-                    y: ny
-                });
-
-                x = nx;
-                y = ny;
-                prevCmd = "Q";
-                prevQX = x1;
-                prevQY = y1;
-                prevC2X = 0;
-                prevC2Y = 0;
-            }
-
-            continue;
-        }
-
-        // Дуга
-        if (upper === "A") {
-            while (i + 6 < tokens.length && !isCommand(tokens[i])) {
-                const rx = readNumber();
-                const ry = readNumber();
-                const angle = readNumber();
-                const largeArcFlag = readNumber();
-                const sweepFlag = readNumber();
-                const nx = rel ? x + readNumber() : readNumber();
-                const ny = rel ? y + readNumber() : readNumber();
-
-                segments.push({
-                    type: "A",
-                    rx,
-                    ry,
-                    angle,
-                    largeArcFlag,
-                    sweepFlag,
-                    x: nx,
-                    y: ny
-                });
-
-                x = nx;
-                y = ny;
-                prevCmd = "A";
-                prevC2X = 0;
-                prevC2Y = 0;
-                prevQX = 0;
-                prevQY = 0;
-            }
-
-            continue;
-        }
-
-        // Замыкание контура
-        if (upper === "Z") {
-            segments.push({ type: "Z" });
-
-            x = startX;
-            y = startY;
-
-            prevCmd = "Z";
-            prevC2X = 0;
-            prevC2Y = 0;
-            prevQX = 0;
-            prevQY = 0;
-            continue;
-        }
-
-        break;
-    }
-
-    return segments;
-}
-
-// Сборка строки path из массива сегментов
-function serializePathData(segments) {
-    const result = [];
-
-    for (const seg of segments) {
-        if (seg.type === "M") {
-            result.push(`M ${formatSvgNumber(seg.x)} ${formatSvgNumber(seg.y)}`);
-        } else if (seg.type === "L") {
-            result.push(`L ${formatSvgNumber(seg.x)} ${formatSvgNumber(seg.y)}`);
-        } else if (seg.type === "Q") {
-            result.push(`Q ${formatSvgNumber(seg.x1)} ${formatSvgNumber(seg.y1)} ${formatSvgNumber(seg.x)} ${formatSvgNumber(seg.y)}`);
-        } else if (seg.type === "C") {
-            result.push(`C ${formatSvgNumber(seg.x1)} ${formatSvgNumber(seg.y1)} ${formatSvgNumber(seg.x2)} ${formatSvgNumber(seg.y2)} ${formatSvgNumber(seg.x)} ${formatSvgNumber(seg.y)}`);
-        } else if (seg.type === "A") {
-            result.push(`A ${formatSvgNumber(seg.rx)} ${formatSvgNumber(seg.ry)} ${formatSvgNumber(seg.angle)} ${formatSvgNumber(seg.largeArcFlag)} ${formatSvgNumber(seg.sweepFlag)} ${formatSvgNumber(seg.x)} ${formatSvgNumber(seg.y)}`);
-        } else if (seg.type === "Z") {
-            result.push("Z");
-        }
-    }
-
-    return result.join(" ");
-}
-
-// Получение начальной точки сегмента
-function getPathSegmentStartPoint(segments, index) {
-    let x = 0;
-    let y = 0;
-
-    for (let i = 0; i < index; i++) {
-        const seg = segments[i];
-
-        if (seg.type === "M" || seg.type === "L" || seg.type === "Q" || seg.type === "C" || seg.type === "A") {
-            x = seg.x;
-            y = seg.y;
-        } else if (seg.type === "Z") {
-            break;
-        }
-    }
-
-    return { x, y };
-}
+// === Отрисовка узлов path ===
 
 function addPathSelectionHandles(pathEl, techLayer) {
     const svg = canvas.querySelector("svg");
@@ -1200,6 +842,10 @@ function addPathControlHandle(x, y, index, part, techLayer, size = pathControlHa
 
     techLayer.appendChild(handle);
 }
+
+
+
+// === Изменение узлов path ===
 
 // Начало изменения точки path
 function startPathHandleMove(e, handle) {
@@ -1430,27 +1076,52 @@ function onPathHandleUp(e) {
     pathResizing = null;
 }
 
-// Высчитоваем нужный сегмент
-function distToSegmentSquared(p, v, w) {
+
+
+// === Создание узла path ===
+
+// Получение точки на кубической кривой Безье (C / c)
+function getCubicBezierPoint(t, p0, p1, p2, p3) {
+    const mt = 1 - t;
+    return {
+        x: mt * mt * mt * p0.x + 3 * mt * mt * t * p1.x + 3 * mt * t * t * p2.x + t * t * t * p3.x,
+        y: mt * mt * mt * p0.y + 3 * mt * mt * t * p1.y + 3 * mt * t * t * p2.y + t * t * t * p3.y
+    };
+}
+
+// Получение точки на квадратичной кривой Безье (Q / q)
+function getQuadraticBezierPoint(t, p0, p1, p2) {
+    const mt = 1 - t;
+    return {
+        x: mt * mt * p0.x + 2 * mt * t * p1.x + t * t * p2.x,
+        y: mt * mt * p0.y + 2 * mt * t * p1.y + t * t * p2.y
+    };
+}
+
+// Ищет расстояние до микро-сегмента и возвращает локальный t проекции
+function getClosestTOnSegment(p, v, w) {
     const l2 = (w.x - v.x) ** 2 + (w.y - v.y) ** 2;
-    // Если начало и конец отрезка совпадают, возвращаем расстояние до точки
-    if (l2 === 0) return (p.x - v.x) ** 2 + (p.y - v.y) ** 2; 
-    
-    // Находим проекцию точки на прямую, заданную отрезком, и ограничиваем ее концами отрезка
+    if (l2 === 0) return { dist: (p.x - v.x) ** 2 + (p.y - v.y) ** 2, t: 0 };
     let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
-    t = Math.max(0, Math.min(1, t)); 
-    
-    // Координаты ближайшей точки на отрезке
+    t = Math.max(0, Math.min(1, t));
     const closestX = v.x + t * (w.x - v.x);
     const closestY = v.y + t * (w.y - v.y);
-    
-    // Возвращаем квадрат расстояния до этой точки
-    return (p.x - closestX) ** 2 + (p.y - closestY) ** 2;
+    return {
+        dist: (p.x - closestX) ** 2 + (p.y - closestY) ** 2,
+        t: t
+    };
+}
+
+// Высчитоваем нужный сегмент (для обычных линий L)
+function distToSegmentSquared(p, v, w) {
+    return getClosestTOnSegment(p, v, w).dist;
 }
 
 // таймер
 let lastPathDblClickTime = 0;
 let lastPathDblClickTarget = null;
+let pathDoubleClickReady = false;
+let pathDoubleClickEvent = null;
 
 // создание узла по двойному клику на path
 function onPathDoubleClick(e) {
@@ -1458,11 +1129,34 @@ function onPathDoubleClick(e) {
 
     const now = performance.now();
 
-    // защита от ложных dblclick / дублей событий
-    if (now - lastPathDblClickTime > 500) {
-        lastPathDblClickTime = now;
-        lastPathDblClickTarget = e.target;
+    // защита от ложных двойных нажатий / дублей событий
+    if (now - lastPathDblClickTime <= 500 && lastPathDblClickTarget === e.target) {
+        pathDoubleClickReady = true;
+        pathDoubleClickEvent = e;
+        return;
     }
+
+    lastPathDblClickTime = now;
+    lastPathDblClickTarget = e.target;
+}
+
+// создание узла после отпускания второй кнопки
+function onPathDoubleClickUp() {
+    if (!pathDoubleClickReady) return;
+
+    const now = performance.now();
+
+    // защита, если после первого клика прошло слишком много времени
+    if (now - lastPathDblClickTime > 500) {
+        pathDoubleClickReady = false;
+        pathDoubleClickEvent = null;
+        return;
+    }
+
+    pathDoubleClickReady = false;
+
+    const e = pathDoubleClickEvent;
+    pathDoubleClickEvent = null;
 
     const svg = canvas.querySelector("svg");
     if (!svg) return;
@@ -1490,6 +1184,8 @@ function onPathDoubleClick(e) {
 
     let bestIndex = -1;
     let bestDist = Infinity;
+    let bestT = 0;
+    const steps = 20; 
 
     for (let i = 1; i < segments.length; i++) {
         const a = segments[i - 1];
@@ -1498,21 +1194,114 @@ function onPathDoubleClick(e) {
         if (typeof a.x !== "number" || typeof a.y !== "number") continue;
         if (typeof b.x !== "number" || typeof b.y !== "number") continue;
 
-        const dist = distToSegmentSquared(localPoint, a, b);
+        let dist = Infinity;
+        let matchedT = 0;
+
+        // Если сегмент — кубическая кривая (C / c)
+        if (b.type === "C" || b.type === "c") {
+            let prevPt = { x: a.x, y: a.y };
+            for (let j = 1; j <= steps; j++) {
+                const tPrev = (j - 1) / steps;
+                const tCurr = j / steps;
+                const p1 = { x: b.x1, y: b.y1 };
+                const p2 = { x: b.x2, y: b.y2 };
+                const currPt = getCubicBezierPoint(tCurr, a, p1, p2, b);
+                
+                const res = getClosestTOnSegment(localPoint, prevPt, currPt);
+                if (res.dist < dist) {
+                    dist = res.dist;
+                    matchedT = tPrev + res.t * (tCurr - tPrev); // Вычисляем сквозной t кривой
+                }
+                prevPt = currPt;
+            }
+        // Если сегмент — квадратичная кривая (Q / q)
+        } else if (b.type === "Q" || b.type === "q") {
+            let prevPt = { x: a.x, y: a.y };
+            for (let j = 1; j <= steps; j++) {
+                const tPrev = (j - 1) / steps;
+                const tCurr = j / steps;
+                const p1 = { x: b.x1, y: b.y1 };
+                const currPt = getQuadraticBezierPoint(tCurr, a, p1, b);
+                
+                const res = getClosestTOnSegment(localPoint, prevPt, currPt);
+                if (res.dist < dist) {
+                    dist = res.dist;
+                    matchedT = tPrev + res.t * (tCurr - tPrev);
+                }
+                prevPt = currPt;
+            }
+        // Обычная прямая линия
+        } else {
+            dist = distToSegmentSquared(localPoint, a, b);
+        }
 
         if (dist < bestDist) {
             bestDist = dist;
             bestIndex = i;
+            bestT = matchedT;
         }
     }
 
     if (bestIndex < 0) return;
 
-    segments.splice(bestIndex, 0, {
-        type: "L",
-        x: localPoint.x,
-        y: localPoint.y
-    });
+    const b = segments[bestIndex];
+
+    // Умное разделение сегмента в зависимости от его типа
+    if (b.type === "C" || b.type === "c") {
+        const a = segments[bestIndex - 1];
+        const mt = 1 - bestT;
+        const p1 = { x: b.x1, y: b.y1 };
+        const p2 = { x: b.x2, y: b.y2 };
+
+        // Алгоритм де Кастельжо для кубического Безье
+        const ax = mt * a.x + bestT * p1.x;
+        const ay = mt * a.y + bestT * p1.y;
+        const bx = mt * p1.x + bestT * p2.x;
+        const by = mt * p1.y + bestT * p2.y;
+        const cx = mt * p2.x + bestT * b.x;
+        const cy = mt * p2.y + bestT * b.y;
+
+        const dx = mt * ax + bestT * bx;
+        const dy = mt * ay + bestT * by;
+        const ex = mt * bx + bestT * cx;
+        const ey = mt * by + bestT * cy;
+
+        const fx = mt * dx + bestT * ex;
+        const fy = mt * dy + bestT * ey;
+
+        // Заменяем одну старую кривую на две новые, идеально повторяющие форму
+        segments.splice(bestIndex, 1, 
+            { type: b.type, x1: ax, y1: ay, x2: dx, y2: dy, x: fx, y: fy },
+            { type: b.type, x1: ex, y1: ey, x2: cx, y2: cy, x: b.x, y: b.y }
+        );
+
+    } else if (b.type === "Q" || b.type === "q") {
+        const a = segments[bestIndex - 1];
+        const mt = 1 - bestT;
+        const p1 = { x: b.x1, y: b.y1 };
+
+        // Алгоритм де Кастельжо для квадратичного Безье
+        const ax = mt * a.x + bestT * p1.x;
+        const ay = mt * a.y + bestT * p1.y;
+        const bx = mt * p1.x + bestT * b.x;
+        const by = mt * p1.y + bestT * b.y;
+
+        const fx = mt * ax + bestT * bx;
+        const fy = mt * ay + bestT * by;
+
+        segments.splice(bestIndex, 1, 
+            { type: b.type, x1: ax, y1: ay, x: fx, y: fy },
+            { type: b.type, x1: bx, y1: by, x: b.x, y: b.y }
+        );
+
+    } else {
+        // Если это прямая линия (L), просто вставляем точку как раньше
+        segments.splice(bestIndex, 0, {
+            type: "L",
+            x: localPoint.x,
+            y: localPoint.y
+        });
+    }
 
     pathEl.setAttribute("d", serializePathData(segments));
     updateSelectionBox();
@@ -1522,15 +1311,14 @@ function onPathDoubleClick(e) {
 }
 
 // обработчик
-canvas.addEventListener("dblclick", onPathDoubleClick);
+canvas.addEventListener("pointerdown", onPathDoubleClick);
+canvas.addEventListener("pointerup", onPathDoubleClickUp);
 
 
 
 // === искривление ребра ===
 
 let edgeDragState = null;
-// Глобальный флаг: хранит индекс ребра ТОЛЬКО если идет или только что закончилось искривление
-window.lastActiveEdgeIndex = null; 
 
 // Вспомогательная функция: точная конвертация координат экрана в локальные координаты элемента
 function getLocalPoint(e, svg, element) {
