@@ -11,6 +11,13 @@ function getContentLayer(svg) { return svg?.children[1]; }
 function getOverlayLayer(svg) { return svg?.children[2]; }
 function getBorderLayer(svg) { return svg?.children[0]; }
 
+
+
+// === Событиями кликов ===
+
+// Массив активных ручек
+let savedControls = [];
+
 // Клик по канве
 function handleCanvasPointerDown(e) {
     if (window.modeSvgEditor !== "selection" && window.modeSvgEditor !== "nodeEdit") return;
@@ -26,10 +33,8 @@ function handleCanvasPointerDown(e) {
         const clickedIndex = parseInt(e.target.dataset.pathIndex, 10);
         if (isNaN(clickedIndex)) return;
 
-        // Заводим локальный флаг, чтобы знать, нужно ли восстанавливать мультивыделение
-        let shouldRestoreHandles = false;
-
         const currentHandleType = e.target.dataset.pathHandle;
+        const isControl = currentHandleType.startsWith("control");
 
         if (e.shiftKey) {
             // Ищем, есть ли уже узел с таким индексом и типом ручки в активных
@@ -45,17 +50,31 @@ function handleCanvasPointerDown(e) {
                 window.activePathHandles.push({ index: clickedIndex, handle: currentHandleType });
             }
             window.lastActiveEdgeIndex = null;
-            shouldRestoreHandles = true; 
+            updateSelectionBox(true);
         } else {
-            // Обычный клик без shift: полностью очищаем массив и пишем туда один узел
-            window.activePathHandles = [{ index: clickedIndex, handle: currentHandleType }];
-            
-            window.lastActiveEdgeIndex = null; 
-            shouldRestoreHandles = false; 
-        }
+            // Обычный клик без shift
+            if (isControl) {
+                // Считываем абсолютно все усы со страницы до очистки и пишем в массив
+                savedControls = Array.from((getOverlayLayer(svg) || canvas).querySelectorAll('[data-path-handle^="control"]')).map(el => ({
+                    index: parseInt(el.dataset.pathIndex, 10),
+                    handle: el.dataset.pathHandle
+                }));
 
-        // Обновляем визуальное выделение с правильным флагом
-        updateSelectionBox(shouldRestoreHandles);
+                // при нажатии на control полностью очищаем массив и пишем туда только один кликнутый control
+                window.activePathHandles = [{ index: clickedIndex, handle: currentHandleType }];
+                window.lastActiveEdgeIndex = null;
+
+                // сразу же возвращаем остальные усы обратно на канву
+                restoreSavedControls(clickedIndex, currentHandleType);
+
+                updateSelectionBox(true);
+            } else {
+                // обычный клик по узлу сбрасывает все сразу
+                window.activePathHandles = [{ index: clickedIndex, handle: currentHandleType }];
+                window.lastActiveEdgeIndex = null;
+                updateSelectionBox(false);
+            }
+        }
 
         // получаем обновленный элемент из дом для функции перемещения
         const freshHandle = techLayer.querySelector(
@@ -86,7 +105,7 @@ function handleCanvasPointerDown(e) {
     const isShiftOrCtrl = e.shiftKey || e.ctrlKey;
     const originalEvent = e;
 
-    // ожидание для того чтобы другие обработчики на элементах могли сработать первыми 
+    // ожидание для того чтобы другие обработчики на элементах могли сработать первыми
     setTimeout(() => {
         // если клик по элементу внутри первого слоя выделяем его
         if (firstG.contains(target)) {
@@ -98,6 +117,90 @@ function handleCanvasPointerDown(e) {
         selectElements(originalEvent);
     }, 0);
 }
+
+// Выделение элемента при нажатии (pointerdown)
+canvas.addEventListener("pointerdown", (e) => {
+    const target = e.target;
+    const svg = canvas.querySelector("svg");
+    if (!svg) return;
+
+    const firstG = getContentLayer(svg);
+
+    // если клик пришелся на сам path внутри основного слоя
+    if (firstG && firstG.contains(target) && target.tagName.toLowerCase() === "path") {
+        // если элемент еще не выделен — выделяем его сразу
+        if (!window.selectedElementsSvg?.includes(target)) {
+            selectElement(target, e.shiftKey);
+        }
+
+        // сразу же запускаем логику перетаскивания ребра, не дожидаясь второго клика
+        onEdgePointerDown(e);
+        return;
+    }
+
+    // Начало перетаскивания канвы или ручек
+    handleCanvasPointerDown(e);
+
+    // Функция клика по канве для остальных случаев
+    onEdgePointerDown(e);
+});
+
+// Восстанавливает сохраненные усы на канве
+function restoreSavedControls(activeIndex, activeHandle) {
+    if (!savedControls || savedControls.length === 0) return;
+
+    savedControls.forEach(saved => {
+        const isCurrentChanged = (saved.index === activeIndex && saved.handle === activeHandle);
+        if (isCurrentChanged) return;
+
+        const exists = window.activePathHandles.some(
+            h => h.index === saved.index && h.handle === saved.handle
+        );
+        if (!exists) {
+            window.activePathHandles.push({ index: saved.index, handle: saved.handle, restored: true });
+        }
+    });
+}
+
+// Держим усы видимыми все время перетаскивания
+function handleControlPointerMove(e) {
+    if (!savedControls || savedControls.length === 0) return;
+
+    // находим текущую активную (не восстановленную) ручку — именно ее сейчас тянут
+    const activeHandle = window.activePathHandles.find(h => !h.restored);
+    if (activeHandle) {
+        restoreSavedControls(activeHandle.index, activeHandle.handle);
+    }
+}
+
+// Функция клика после поднимания мышки на контрольной точке
+function handleControlPointerUp(e) {
+    if (window.activePathHandles && window.activePathHandles.length > 0) {
+        // берем активную (не восстановленную) ручку, которую тянули
+        const activeHandle = window.activePathHandles.find(h => !h.restored)
+            || window.activePathHandles[window.activePathHandles.length - 1];
+
+        if (activeHandle.handle.startsWith("control")) {
+            // оставляем выделенным только сам активный ус
+            window.activePathHandles = [
+                { index: activeHandle.index, handle: activeHandle.handle }
+            ];
+
+            // возвращаем все остальные усы обратно на канву, но без выделения
+            restoreSavedControls(activeHandle.index, activeHandle.handle);
+        }
+    }
+
+    // Очищаем бэкап усов за собой
+    savedControls = [];
+
+    // Обновляем визуальное выделение с правильным флагом
+    updateSelectionBox(false);
+}
+
+// вешаем обработчики на движение и поднятие мыши, чтобы усы не пропадали ни на одном из этапов
+canvas.addEventListener("pointermove", handleControlPointerMove);
+canvas.addEventListener("pointerup", handleControlPointerUp);
 
 
 
@@ -629,6 +732,11 @@ function updateSelectionBox(restoreHandlesFlags = false) {
                 );
 
                 if (foundHandle) {
+                    if (h.restored) {
+                        foundHandle.dataset.active = "0";
+                        return; 
+                    }
+
                     foundHandle.dataset.active = "1";
                     foundHandle.setAttribute("fill", "#4285f4");
                 }
@@ -799,6 +907,7 @@ function getSvgPoint(e, svg) {
 
 // === Отрисовка узлов path ===
 
+// Добавление узлов и контрольных точек path
 function addPathSelectionHandles(pathEl, techLayer) {
     const svg = canvas.querySelector("svg");
     if (!svg) return;
@@ -825,6 +934,25 @@ function addPathSelectionHandles(pathEl, techLayer) {
         return p.matrixTransform(ctm);
     }
 
+    // собираем отдельно активные типы ручек по их индексам для точной проверки
+    const activeNodes = new Set();
+    const activeControl1 = new Set();
+    const activeControl2 = new Set();
+
+    if (window.activePathHandles) {
+        for (const h of window.activePathHandles) {
+            if (h.handle === "node") activeNodes.add(h.index);
+            if (h.handle === "control1") activeControl1.add(h.index);
+            if (h.handle === "control2") activeControl2.add(h.index);
+        }
+    }
+
+    // если выбрано ребро подсвечиваем его узлы
+    if (window.lastActiveEdgeIndex !== null) {
+        activeNodes.add(window.lastActiveEdgeIndex);
+        activeNodes.add(window.lastActiveEdgeIndex - 1);
+    }
+
     // Начальная точка текущего контура
     let subpathStart = null;
 
@@ -833,6 +961,7 @@ function addPathSelectionHandles(pathEl, techLayer) {
 
     for (let i = 0; i < segments.length; i++) {
         const seg = segments[i];
+        let currentEnd = null;
 
         // Начало нового контура
         if (seg.type === "M") {
@@ -848,8 +977,8 @@ function addPathSelectionHandles(pathEl, techLayer) {
         // Конечная точка линии, кривой или дуги
         if (["L", "Q", "C", "A"].includes(seg.type)) {
             const p = toScreen(seg.x, seg.y);
-
             addPathNodeHandle(p.x, p.y, i, "node", techLayer, s);
+            currentEnd = p;
         }
 
         // Если предыдущая точка отсутствует, используем начало контура
@@ -859,33 +988,37 @@ function addPathSelectionHandles(pathEl, techLayer) {
 
         // Квадратичная кривая Безье
         if (seg.type === "Q") {
-            const c1 = toScreen(seg.x1, seg.y1);
-            const end = toScreen(seg.x, seg.y);
-
-            addPathGuideLine(prevPoint.x, prevPoint.y, c1.x, c1.y, techLayer);
-            addPathControlHandle(c1.x, c1.y, i, "control1", techLayer, c);
-
-            prevPoint = end;
+            // рисуем ус если активен предыдущий узел, текущий узел или сам контроллер уса
+            if (activeNodes.has(i - 1) || activeNodes.has(i) || activeControl1.has(i)) {
+                const c1 = toScreen(seg.x1, seg.y1);
+                addPathGuideLine(prevPoint.x, prevPoint.y, c1.x, c1.y, techLayer);
+                addPathControlHandle(c1.x, c1.y, i, "control1", techLayer, c);
+            }
         }
 
         // Кубическая кривая Безье
         if (seg.type === "C") {
-            const c1 = toScreen(seg.x1, seg.y1);
-            const c2 = toScreen(seg.x2, seg.y2);
-            const end = toScreen(seg.x, seg.y);
+            // первый ус: рисуем если выделен предыдущий синий узел или сам этот первый ус
+            if (activeNodes.has(i - 1) || activeControl1.has(i)) {
+                const c1 = toScreen(seg.x1, seg.y1);
+                addPathGuideLine(prevPoint.x, prevPoint.y, c1.x, c1.y, techLayer);
+                addPathControlHandle(c1.x, c1.y, i, "control1", techLayer, c);
+            }
 
-            addPathGuideLine(prevPoint.x, prevPoint.y, c1.x, c1.y, techLayer);
-            addPathControlHandle(c1.x, c1.y, i, "control1", techLayer, c);
-
-            addPathGuideLine(end.x, end.y, c2.x, c2.y, techLayer);
-            addPathControlHandle(c2.x, c2.y, i, "control2", techLayer, c);
-
-            prevPoint = end;
+            // второй ус: рисуем если выделен текущий синий узел или сам этот второй ус
+            if (activeNodes.has(i) || activeControl2.has(i)) {
+                const c2 = toScreen(seg.x2, seg.y2);
+                addPathGuideLine(currentEnd.x, currentEnd.y, c2.x, c2.y, techLayer);
+                addPathControlHandle(c2.x, c2.y, i, "control2", techLayer, c);
+            }
         }
 
         // Замыкание контура
         if (seg.type === "Z") {
             prevPoint = subpathStart || prevPoint;
+        } else if (currentEnd) {
+            // обновляем предыдущую точку для следующего шага цикла
+            prevPoint = currentEnd;
         }
     }
 }
@@ -1374,7 +1507,7 @@ canvas.addEventListener("pointerup", onPathDoubleClickUp);
 
 let edgeDragState = null;
 
-// Вспомогательная функция: точная конвертация координат экрана в локальные координаты элемента
+// точная конвертация координат экрана в локальные координаты элемента
 function getLocalPoint(e, svg, element) {
     const pt = svg.createSVGPoint();
     pt.x = e.clientX;
@@ -1382,7 +1515,7 @@ function getLocalPoint(e, svg, element) {
     return pt.matrixTransform(element.getScreenCTM().inverse());
 }
 
-// Вспомогательная функция: выделение строго двух узлов, образующих текущее ребро
+// Выделение строго двух узлов, образующих текущее ребро
 function highlightEdgeNodes(svg, index) {
     if (index === null || index === undefined || index < 1) return;
     
@@ -1405,7 +1538,7 @@ function highlightEdgeNodes(svg, index) {
 // начало перетягивания ребра
 function onEdgePointerDown(e) {
     if (window.modeSvgEditor !== "nodeEdit") {
-        window.lastActiveEdgeIndex = null; // убираем выделение, если режим не тот
+        window.lastActiveEdgeIndex = null; 
         return;
     }
 
@@ -1414,7 +1547,7 @@ function onEdgePointerDown(e) {
 
     const pathEl = e.target;
     
-    // Если кликнули не по path (например, по холсту), полностью убираем подсветку 2 точек
+    // Если кликнули не по path, убираем подсветку 2 точек
     if (!isPathElement(pathEl)) {
         window.lastActiveEdgeIndex = null;
         updateSelectionBox();
@@ -1475,6 +1608,9 @@ function onEdgePointerDown(e) {
     // Фиксируем ребро
     window.lastActiveEdgeIndex = index;
 
+    // очищаем старые выделенные узлы при клике по ребру
+    window.activePathHandles = [];
+
     edgeDragState = {
         pointerId: e.pointerId,
         pathEl,
@@ -1491,7 +1627,7 @@ function onEdgePointerDown(e) {
     canvas.setPointerCapture(e.pointerId);
 
     // Обновляем слой и красим строго 2 узла ребра
-    updateSelectionBox(); 
+    updateSelectionBox();
 
     canvas.addEventListener("pointermove", onEdgePointerMove);
     canvas.addEventListener("pointerup", onEdgePointerUp);
@@ -1565,7 +1701,7 @@ function onEdgePointerUp(e) {
     updateSelectionBox();
 }
 
-canvas.addEventListener("pointerdown", onEdgePointerDown);
+// canvas.addEventListener("pointerdown", onEdgePointerDown);
 
 
 // Находим вашу существующую startPathHandleMove и добавляем в самое начало сброс ребра:
@@ -1693,25 +1829,6 @@ function onElementResizeUp(e) {
     elementResizing = null;
     updateSelectionBox();
 }
-
-// Выделение элемента при нажатии (pointerdown)
-canvas.addEventListener("pointerdown", (e) => {
-    const target = e.target;
-    const svg = canvas.querySelector("svg");
-    if (!svg) return;
-
-    const firstG = getContentLayer(svg);
-    const techLayer = getOverlayLayer(svg);
-
-    // Клик по элементу
-    if (firstG && firstG.contains(target) && !window.selectedElementsSvg?.includes(target)) {
-        selectElement(target, e.shiftKey);
-        return;
-    }
-
-    // Начало перетаскивания канвы
-    handleCanvasPointerDown(e);
-});
 
 
 

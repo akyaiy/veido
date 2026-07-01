@@ -335,7 +335,7 @@ function onGeometryInputChange(e) {
     }
 }
 
-[inputX, inputY, inputW, inputH, inputR, svgPathType].forEach(inp => {
+[inputX, inputY, inputW, inputH, inputR].forEach(inp => {
     if (!inp) return;
 
     inp.addEventListener("blur", onGeometryInputChange);
@@ -354,57 +354,88 @@ function onGeometryInputChange(e) {
 // Функция изменения типа искривления path-сегмента
 function onPathTypeChange(e) {
     if (!selectedElementsSvg || selectedElementsSvg.length === 0) return;
-
     const el = selectedElementsSvg[0];
     if (!el || el.tagName.toLowerCase() !== "path") return;
-
     const newType = e.target.value;
-    const idx = window.lastActiveEdgeIndex;
-    if (idx == null) return;
+    
+    // собираем все индексы ребер которые нужно изменить
+    let indicesToUpdate = [];
+    
+    if (window.lastActiveEdgeIndex != null) {
+        indicesToUpdate.push(window.lastActiveEdgeIndex);
+    } else if (window.activePathHandles && window.activePathHandles.length > 0) {
+        // получаем список всех выделенных индексов ручек
+        const activeIndices = window.activePathHandles.map(h => h.index);
+        
+        // ищем уникальные индексы сегментов у которых выделены обе точки
+        const uniqueIndices = [...new Set(activeIndices)];
+        
+        for (const idx of uniqueIndices) {
+            // проверяем есть ли в выделенных предыдущая точка этого ребра
+            const hasStart = activeIndices.includes(idx - 1);
+            const hasEnd = activeIndices.includes(idx);
+            
+            // добавляем только если выделены обе точки контура
+            if (hasStart && hasEnd) {
+                indicesToUpdate.push(idx);
+            }
+        }
+    }
+    
+    if (indicesToUpdate.length === 0) return;
 
     // Парсим строку "d" в удобный массив объектов сегментов
     const segments = parsePathData(el.getAttribute("d") || "");
-    if (!segments[idx]) return;
+    
+    // проходим циклом по всем выбранным индексам сегментов
+    for (const idx of indicesToUpdate) {
+        if (!segments[idx]) continue;
+        
+        // пропускаем первый сегмент так как он обязан оставаться M
+        if (idx === 0) continue;
 
-    const targetSegment = segments[idx];
-    const prevSegment = segments[idx - 1] || { x: 0, y: 0 };
+        const targetSegment = segments[idx];
+        const prevSegment = segments[idx - 1] || { x: 0, y: 0 };
 
-    // Конечная точка сегмента должна остаться прежней
-    const x = typeof targetSegment.x === "number" ? targetSegment.x : prevSegment.x;
-    const y = typeof targetSegment.y === "number" ? targetSegment.y : prevSegment.y;
+        // Конечная точка сегмента должна остаться прежней
+        const x = typeof targetSegment.x === "number" ? targetSegment.x : prevSegment.x;
+        const y = typeof targetSegment.y === "number" ? targetSegment.y : prevSegment.y;
 
-    // Создаем новый чистый объект сегмента под выбранный тип
-    let updatedSegment = { type: newType };
+        // Создаем новый чистый объект сегмента под выбранный тип
+        let updatedSegment = { type: newType };
 
-    if (newType === "Z" || newType === "z") {
-        // Для замыкания контура координаты не нужны
-    } else {
-        updatedSegment.x = x;
-        updatedSegment.y = y;
+        if (newType === "Z" || newType === "z") {
+            // Для замыкания контура координаты не нужны
+        } else {
+            updatedSegment.x = x;
+            updatedSegment.y = y;
 
-        // Если переключаем на Квадратичную кривую (Q)
-        if (newType === "Q" || newType === "q") {
-            // Ставим контрольную точку ровно по центру отрезка
-            updatedSegment.x1 = targetSegment.x1 ?? (prevSegment.x + x) / 2;
-            updatedSegment.y1 = targetSegment.y1 ?? (prevSegment.y + y) / 2;
-            
-        // Если переключаем на Кубическую кривую (C)
-        } else if (newType === "C" || newType === "c") {
-            // Распределяем две контрольные точки на 1/3 и 2/3 длины отрезка
-            updatedSegment.x1 = targetSegment.x1 ?? (prevSegment.x + (x - prevSegment.x) / 3);
-            updatedSegment.y1 = targetSegment.y1 ?? (prevSegment.y + (y - prevSegment.y) / 3);
-            updatedSegment.x2 = targetSegment.x2 ?? (prevSegment.x + 2 * (x - prevSegment.x) / 3);
-            updatedSegment.y2 = targetSegment.y2 ?? (prevSegment.y + 2 * (y - prevSegment.y) / 3);
+            // Если переключаем на Квадратичную кривую (Q)
+            if (newType === "Q" || newType === "q") {
+                // Ставим контрольную точку ровно по центру отрезка
+                updatedSegment.x1 = targetSegment.x1 ?? (prevSegment.x + x) / 2;
+                updatedSegment.y1 = targetSegment.y1 ?? (prevSegment.y + y) / 2;
+                
+            // Если переключаем на Кубическую кривую (C)
+            } else if (newType === "C" || newType === "c") {
+                // Распределяем две контрольные точки на 1/3 и 2/3 длины отрезка
+                updatedSegment.x1 = targetSegment.x1 ?? (prevSegment.x + (x - prevSegment.x) / 3);
+                updatedSegment.y1 = targetSegment.y1 ?? (prevSegment.y + (y - prevSegment.y) / 3);
+                updatedSegment.x2 = targetSegment.x2 ?? (prevSegment.x + 2 * (x - prevSegment.x) / 3);
+                updatedSegment.y2 = targetSegment.y2 ?? (prevSegment.y + 2 * (y - prevSegment.y) / 3);
+            }
         }
+
+        // Заменяем сегмент в массиве
+        segments[idx] = updatedSegment;
     }
 
-    // Заменяем сегмент в массиве и собираем строку обратно
-    segments[idx] = updatedSegment;
+    // собираем строку обратно и обновляем атрибут
     el.setAttribute("d", serializePathData(segments));
 
-    // Обновляем рамку выделения, если функция существует в редакторе
+    // Обновляем рамку выделения, сохраняя выбранные через Shift ручки
     if (typeof updateSelectionBox === "function") {
-        updateSelectionBox();
+        updateSelectionBox(true); 
     }
 
     document.dispatchEvent(new CustomEvent("svgElementsChanged"));
