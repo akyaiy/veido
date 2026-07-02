@@ -37,6 +37,22 @@ function handleCanvasPointerDown(e) {
         const isControl = currentHandleType.startsWith("control");
 
         if (e.shiftKey) {
+            // если до этого кликнули по ребру — переносим его узлы в shift-выделение
+            if (window.lastActiveEdgeIndex != null) {
+                const edgeIdx = window.lastActiveEdgeIndex;
+                
+                // добавляем стартовый узел ребра, если его там нет
+                if (!window.activePathHandles.some(h => h.index === edgeIdx - 1 && h.handle === "node")) {
+                    window.activePathHandles.push({ index: edgeIdx - 1, handle: "node" });
+                }
+                // добавляем конечный узел ребра, если его там нет
+                if (!window.activePathHandles.some(h => h.index === edgeIdx && h.handle === "node")) {
+                    window.activePathHandles.push({ index: edgeIdx, handle: "node" });
+                }
+                
+                window.lastActiveEdgeIndex = null;
+            }
+
             // Ищем, есть ли уже узел с таким индексом и типом ручки в активных
             const foundIdx = window.activePathHandles.findIndex(
                 h => h.index === clickedIndex && h.handle === currentHandleType
@@ -49,7 +65,6 @@ function handleCanvasPointerDown(e) {
                 // Если не нашли — добавляем объект в массив
                 window.activePathHandles.push({ index: clickedIndex, handle: currentHandleType });
             }
-            window.lastActiveEdgeIndex = null;
             updateSelectionBox(true);
         } else {
             // Обычный клик без shift
@@ -1549,7 +1564,7 @@ function onEdgePointerDown(e) {
     
     // клик мимо path — сброс ребра
     if (!isPathElement(pathEl)) {
-        window.lastActiveEdgeIndex = null;
+        if (!e.shiftKey) window.lastActiveEdgeIndex = null;
         updateSelectionBox();
         return;
     }
@@ -1614,7 +1629,7 @@ function onEdgePointerDown(e) {
                 bestDist = dist;
                 index = i;
                 t = sampleT;
-                finalBx = bx; // сохраняем точные координаты для драга
+                finalBx = bx; 
                 finalBy = by;
             }
         }
@@ -1622,7 +1637,7 @@ function onEdgePointerDown(e) {
 
     // мимо ребра — сброс подсветки
     if (index < 1 || bestDist > 1600) {
-        window.lastActiveEdgeIndex = null;
+        if (!e.shiftKey) window.lastActiveEdgeIndex = null;
         updateSelectionBox();
         return;
     }
@@ -1630,8 +1645,18 @@ function onEdgePointerDown(e) {
     // фиксируем ребро
     window.lastActiveEdgeIndex = index;
 
-    // сброс старых ручек
-    window.activePathHandles = [];
+    if (e.shiftKey) {
+        // если shift зажат — подмешиваем узлы текущего ребра к уже выделенным ручкам
+        if (!window.activePathHandles.some(h => h.index === index - 1 && h.handle === "node")) {
+            window.activePathHandles.push({ index: index - 1, handle: "node" });
+        }
+        if (!window.activePathHandles.some(h => h.index === index && h.handle === "node")) {
+            window.activePathHandles.push({ index: index, handle: "node" });
+        }
+    } else {
+        // без shift — сброс старых ручек
+        window.activePathHandles = [];
+    }
 
     // подготавливаем сегменты для drag-состояния, заменяя пустые x/y у Z на начальные
     const dragSegments = segments.map((s, idx) => {
