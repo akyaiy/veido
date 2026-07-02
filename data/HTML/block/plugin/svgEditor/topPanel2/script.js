@@ -32,6 +32,11 @@ const inputPathType = document.getElementById("svgPathType");
 // Кнопки
 const btnAddNode = document.getElementById("svgAddNode");
 
+// Форматирование числа для отображения
+function formatNumber(value) {
+    return (+value.toFixed(4)).toString().replace(/^-?\d+$/, "$&.0");
+}
+
 
 
 // === Геометрия и трансформации ===
@@ -459,10 +464,10 @@ function updateGeometryInputs() {
     // Обработка множественного выбора
     if (selectedElementsSvg.length > 1) {
         const box = getSelectionBBox();
-        if (inputX) inputX.value = box.x.toFixed(1);
-        if (inputY) inputY.value = box.y.toFixed(1);
-        if (inputW) inputW.value = box.width.toFixed(1);
-        if (inputH) inputH.value = box.height.toFixed(1);
+        if (inputX) inputX.value = formatNumber(box.x);
+        if (inputY) inputY.value = formatNumber(box.y);
+        if (inputW) inputW.value = formatNumber(box.width);
+        if (inputH) inputH.value = formatNumber(box.height);
         return;
     }
 
@@ -491,8 +496,8 @@ function updateGeometryInputs() {
         }
 
         const p = inv ? pt.matrixTransform(inv) : pt;
-        if (inputX) inputX.value = p.x.toFixed(1);
-        if (inputY) inputY.value = p.y.toFixed(1);
+        if (inputX) inputX.value = formatNumber(p.x);
+        if (inputY) inputY.value = formatNumber(p.y);
 
         return;
     }
@@ -527,10 +532,10 @@ function updateGeometryInputs() {
         const w = (parseFloat(firstEl.getAttribute("width")) || 0) * scaleX;
         const h = (parseFloat(firstEl.getAttribute("height")) || 0) * scaleY;
 
-        if (inputX) inputX.value = pt.x.toFixed(1);
-        if (inputY) inputY.value = pt.y.toFixed(1);
-        if (inputW) inputW.value = w.toFixed(1);
-        if (inputH) inputH.value = h.toFixed(1);
+        if (inputX) inputX.value = formatNumber(pt.x);
+        if (inputY) inputY.value = formatNumber(pt.y);
+        if (inputW) inputW.value = formatNumber(w);
+        if (inputH) inputH.value = formatNumber(h);
 
     } else if (tag === "circle") {
         const cx = parseFloat(firstEl.getAttribute("cx")) || 0;
@@ -544,9 +549,9 @@ function updateGeometryInputs() {
         }
         const r = (parseFloat(firstEl.getAttribute("r")) || 0) * scaleAvg;
 
-        if (inputX) inputX.value = pt.x.toFixed(1);
-        if (inputY) inputY.value = pt.y.toFixed(1);
-        if (inputR) inputR.value = r.toFixed(1);
+        if (inputX) inputX.value = formatNumber(pt.x);
+        if (inputY) inputY.value = formatNumber(pt.y);
+        if (inputR) inputR.value = formatNumber(r);
 
     } else if (tag === "line") {
         // Линия использует X/Y для первой точки и W/H для второй
@@ -558,19 +563,19 @@ function updateGeometryInputs() {
         const y2 = parseFloat(firstEl.getAttribute("y2")) || 0;
         const p2 = getVisualPoint(firstEl, x2, y2);
 
-        if (inputX) inputX.value = p1.x.toFixed(1);
-        if (inputY) inputY.value = p1.y.toFixed(1);
-        if (inputW) inputW.value = p2.x.toFixed(1);
-        if (inputH) inputH.value = p2.y.toFixed(1);
+        if (inputX) inputX.value = formatNumber(p1.x);
+        if (inputY) inputY.value = formatNumber(p1.y);
+        if (inputW) inputW.value = formatNumber(p2.x);
+        if (inputH) inputH.value = formatNumber(p2.y);
 
     } else {
         // Обработка сложных элементов (path, g) через трансформированный BBox
         const box = getTransformedBBox(firstEl);
         
-        if (inputX) inputX.value = box.x.toFixed(1);
-        if (inputY) inputY.value = box.y.toFixed(1);
-        if (inputW) inputW.value = box.width.toFixed(1);
-        if (inputH) inputH.value = box.height.toFixed(1);
+        if (inputX) inputX.value = formatNumber(box.x);
+        if (inputY) inputY.value = formatNumber(box.y);
+        if (inputW) inputW.value = formatNumber(box.width);
+        if (inputH) inputH.value = formatNumber(box.height);
     }
 }
 
