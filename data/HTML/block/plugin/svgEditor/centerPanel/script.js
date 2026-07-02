@@ -1700,8 +1700,23 @@ function onEdgePointerMove(e) {
         cy2 = a.y + (b.y - a.y) * 2 / 3;
     }
 
-    const w1 = 2 * (1 - edgeDragState.t);
-    const w2 = 2 * edgeDragState.t;
+    // Распределяем сдвиг dx/dy пропорционально влиянию каждой точки
+    const t = edgeDragState.t;
+    const mt = 1 - t;
+
+    // Базисные полиномы Бернштейна для контрольных точек
+    const p1 = 3 * mt * mt * t;
+    const p2 = 3 * mt * t * t;
+
+    // Сумма квадратов для нормализации проекции вектора
+    const sumSq = p1 * p1 + p2 * p2;
+
+    // Если клик близко к краю, защищаем от деления на ноль
+    const denominator = sumSq > 0.0001 ? sumSq : 0.0001;
+
+    // Распределяем сдвигdx/dy пропорционально влиянию каждой точки
+    const w1 = p1 / denominator;
+    const w2 = p2 / denominator;
 
     segments[i] = {
         type: "C",
