@@ -275,6 +275,7 @@ addBtn.addEventListener('click', () => {
  * - Отрисовывает ТОЛЬКО те события, которые уже назначены элементу.
  * - Поддерживает как id так и class селекторы
  **********************************************************************/
+window.updateJsPanel = updateJsPanel;
 function updateJsPanel(el, updateJsPanelNameTrigger=true) {
     // Инициализируем тип селектора при первом выборе элемента
     if (!el.dataset.selectorType) {
@@ -370,6 +371,7 @@ function updateJsPanel(el, updateJsPanelNameTrigger=true) {
     jsTable.currentInputHandler = e => onJsTableInput(e, eventToSelector, blockId, el);
     jsTable.addEventListener('input', jsTable.currentInputHandler);
 }
+window.updateJsPanelName = updateJsPanelName;
 function updateJsPanelName(el) {
     const typeSelect = document.getElementById('selector-type');
     const nameInputId = document.getElementById('selector-name-id');
@@ -621,56 +623,6 @@ function findInsertIndexBeforeClosingIIFE(text) {
  **********************************************************************/
 function escapeRegExp(str) {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-/***********************************************************************
- * highlightInJsEditor — подсвечивает фрагмент кода в панели JS:
- * - Получает строку для поиска и полный текст скрипта.
- * - Находит индекс строки в тексте.
- * - Создаёт диапазон на соответствующем текстовом узле.
- * - Вставляет временный span для подсветки.
- * - Скроллит подсветку в центр видимой области.
- * - Через 800 мс убирает span, оставляя текст без изменений.
- * - Фокусируется на панели кода.
- **********************************************************************/
-function highlightInJsEditor(search, fullText) {
-    const pre = document.getElementById('center-tab-pre-js');
-    if (!pre) return;
-
-    const idx = fullText.indexOf(search);
-    if (idx === -1) return;
-
-    let pos = 0;
-    let node;
-    const walker = document.createTreeWalker(pre, NodeFilter.SHOW_TEXT);
-
-    while ((node = walker.nextNode())) {
-        const next = pos + node.length;
-        if (idx >= pos && idx < next) {
-            const range = document.createRange();
-            range.setStart(node, idx - pos);
-            range.setEnd(node, Math.min(node.length, idx - pos + search.length));
-
-            const sel = window.getSelection();
-            sel.removeAllRanges();
-            sel.addRange(range);
-
-            const span = document.createElement('span');
-            range.surroundContents(span);
-
-            span.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-            setTimeout(() => {
-                const parent = span.parentNode;
-                while (span.firstChild) parent.insertBefore(span.firstChild, span);
-                parent.removeChild(span);
-            }, 100);
-
-            pre.focus();
-            return;
-        }
-        pos = next;
-    }
 }
 
 /***********************************************************************

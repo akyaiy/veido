@@ -84,6 +84,150 @@ document.addEventListener('click', e => {
     }
 });
 
+// --- Управление видимостью панели ----------------------------------------------
+function showSpecForTarget(targetOrEl) {
+    // показать панель специальных свойств только если вкладка properties активна
+    const activeTab = document.querySelector('#panelsSwitcher .tab.active');
+    if (!activeTab || activeTab.dataset.tab !== 'properties') {
+        if (specRoot && specRoot.style.display !== 'none') {
+            specRoot.style.display = 'none';
+        }
+        if (normalPanel) normalPanel.style.display = 'none';
+        return;
+    }
+
+    if (normalPanel) normalPanel.style.display = 'none';
+    if (typeof jsPanel !== 'undefined' && jsPanel) jsPanel.style.display = 'none';
+    specRoot.style.display = '';
+
+    // вычисляем тег и, при необходимости, квалификатор (например input:range или input:file)
+    let tag = null, qual = null;
+    if (typeof targetOrEl === 'string') {
+        const parts = targetOrEl.split(':');
+        tag = parts[0];
+        qual = parts[1] || null;
+    } else if (targetOrEl && targetOrEl.tagName) {
+        tag = targetOrEl.tagName.toLowerCase();
+        if (tag === 'input') qual = (targetOrEl.getAttribute('type') || '').toLowerCase();
+    }
+
+    Array.from(specRoot.querySelectorAll('[data-target]')).forEach(node => {
+        const t = node.getAttribute('data-target');
+        if (!t) { node.style.display = ''; return; }
+        const allowed = t.split(/\s+/);
+        let show = false;
+        for (const token of allowed) {
+            if (token === 'all') { show = true; break; }
+            if (tag && token === tag) { show = true; break; }
+            if (token.includes(':')) {
+                const [aTag, aQual] = token.split(':');
+                if (tag === aTag && qual === aQual) { show = true; break; }
+            }
+        }
+        node.style.display = show ? '' : 'none';
+    });
+}
+
+// --- Чтение значений контролов из элемента (универсально) ----------------------
+function populateSpecialProps(el) {
+    if (!el) return;
+    const cs = window.getComputedStyle(el);
+
+    const controls = Array.from(specRoot.querySelectorAll('[data-prop]'));
+    controls.forEach(ctrl => {
+        const prop = ctrl.getAttribute('data-prop');
+        const map = PROP_MAP[prop] || null;
+
+        // вспомог: установить значение в контрол
+        const setCtrl = (value) => {
+            if (ctrl.type === 'checkbox') ctrl.checked = Boolean(value);
+            else if (ctrl.type === 'color') ctrl.value = value || '#000000';
+            else ctrl.value = value == null ? '' : String(value);
+        };
+
+        if (map) {
+            if (map.type === 'style') {
+                const cssName = map.cssName || dashedToCamel(prop);
+                // сначала смотреть inline style, затем computed
+                let val = el.style[cssName];
+                if (!val) {
+                    val = cs[cssName] || '';
+                }
+                // для размеров убрать px
+                if (map.numeric) {
+                    setCtrl(getComputedNum(val));
+                } else if (map.color) {
+                    setCtrl(rgbToHex(val) || '');
+                } else {
+                    setCtrl(val || '');
+                }
+                return;
+            }
+
+            if (map.type === 'attr') {
+                /* если ссылка */
+                let attrName = map.attrName;
+                if (prop === 'link') {
+                    const tagName = el.tagName.toLowerCase();
+                    if (['img', 'iframe', 'video', 'audio'].includes(tagName)) attrName = 'src';
+                    else if (tagName === 'a' || tagName === 'figure') attrName = 'href';
+                    else attrName = 'href';
+                }
+                // только если тег совпадает (если указано)
+                if (map.tag && el.tagName.toLowerCase() !== map.tag) {
+                    setCtrl('');
+                } else {
+                    if (map.booleanAttr) {
+                        setCtrl(el.hasAttribute(attrName));
+                    } else if (attrName === 'value') {
+                        setCtrl(el.value != null ? el.value : (el.getAttribute('value') || ''));
+                    } else {
+                        setCtrl(el.getAttribute(attrName) || '');
+                    }
+                }
+                return;
+            }
+
+            if (map.type === 'special' && map.special === 'table-dim') {
+                if (el.tagName === 'TABLE') {
+                    const rows = el.querySelectorAll('tr').length || 0;
+                    const cols = el.querySelector('tr') ? el.querySelector('tr').children.length : 0;
+                    if (prop === 'table-rows') setCtrl(rows);
+                    if (prop === 'table-cols') setCtrl(cols);
+                } else {
+                    setCtrl('');
+                }
+                return;
+            }
+        }
+
+        // fallback: пробуем читать как инлайн-стиль или computed по имени свойства
+        const cssNameFallback = dashedToCamel(prop);
+        let fallbackVal = el.style[cssNameFallback] || cs[cssNameFallback] || '';
+        // попытка распознать цвет
+        if (ctrl.type === 'color') fallbackVal = rgbToHex(fallbackVal) || '';
+        // если значение like '10px' - вынести число
+        if (isNumericString(getComputedNum(fallbackVal))) setCtrl(getComputedNum(fallbackVal));
+        else setCtrl(fallbackVal);
+    });
+}
+
+// Получить округлённое числовое значение CSS (без единицы)
+function getComputedNum(v) {
+    if (!v && v !== 0) return '';
+    const n = parseFloat(v);
+    return isNaN(n) ? '' : Math.round(n);
+}
+
+// Преобразовать rgb(...) в hex
+function rgbToHex(rgb) {
+    if (!rgb) return '';
+    if (rgb[0] === '#') return rgb;
+    const m = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+    if (!m) return '';
+    return '#' + [m[1], m[2], m[3]].map(x => parseInt(x, 10).toString(16).padStart(2, '0')).join('');
+}
+
 // Click — только для рамки, без добавления нового элемента
 document.addEventListener('click', e => {
     if (shouldKeepSpecPanelVisible(e.target)) {

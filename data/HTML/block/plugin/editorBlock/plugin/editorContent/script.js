@@ -129,7 +129,6 @@ if (centerPreJs) {
  * document keydown — Вставка переноса строки при Enter:
  **********************************************************************/
 document.addEventListener('keydown', (e) => {
-    const centerEditor = document.getElementById('center-tab-pre-html');
     if (e.key !== 'Enter') return;
 
     // работаем только если включён contenteditable
@@ -224,17 +223,11 @@ document.addEventListener('keydown', (e) => {
 
 
 /***********************************************************************
- * centerEditor — HTML/Markdown-редактор центра.
- **********************************************************************/
-const centerEditor = document.getElementById('center-tab-pre-html');
-
-/***********************************************************************
  * syncActiveBlock — синхронизация активного блока:
  * - Копирует содержимое HTML-редактора в HTML-блок.
  * - Обновляет визуальное представление блока через syncViewFromHtml.
  **********************************************************************/
 function syncActiveBlock() {
-    const centerEditor = document.getElementById('center-tab-pre-html');
     const tab = document.querySelector('#blocks-tabs .tab.active');
     if (!tab) return;
 
@@ -335,6 +328,7 @@ function syncViewFromHtml(blockId) {
  * - Преобразует содержимое визуального блока в смешанный HTML и обновляет HTML-блок.
  * - Обновляет активный блок и источник синхронизации.
  **********************************************************************/
+window.syncHtmlFromView = syncHtmlFromView;
 function syncHtmlFromView(blockId) {
     activeBlockId = blockId;
     activeSyncSource = 'view';
@@ -357,6 +351,7 @@ function syncHtmlFromView(blockId) {
     }
 }
 
+window.saveJsToScript = saveJsToScript;
 function saveJsToScript(blockId) {
     const centerPreJs = document.getElementById('center-tab-pre-js');
     // Если centerPreJs содержит код другого блока, не переписывать его

@@ -191,6 +191,7 @@ function getDefaultJsPanelElement(view) {
     return view;
 }
 
+window.ensureJsPanelSelection = ensureJsPanelSelection;
 function ensureJsPanelSelection(blockId) {
     const view = document.getElementById(blockId + '_view');
     if (!view) return;

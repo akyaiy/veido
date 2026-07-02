@@ -778,6 +778,7 @@ function toggleListForSelection(listType) {
 
 
 /* работа с текстом */
+window.updateSimpleFormats = updateSimpleFormats;
 function updateSimpleFormats(el) {
     if (!el) return;
     const simple = document.getElementById('properties-simpleFormats');
@@ -797,6 +798,7 @@ function updateSimpleFormats(el) {
     });
 }
 
+window.updateSelectProperties = updateSelectProperties;
 function updateSelectProperties(el) {
     if (!el) return;
     const list = document.getElementById('properties-list');

@@ -1,4 +1,5 @@
 // --- функция показа модального окна и ожидания ввода ---
+window.showMarkerModal = showMarkerModal;
 function showMarkerModal(marker, type = 'message') {
     return new Promise(resolve => {
         const template = document.querySelector('.marker-modal-backdrop');

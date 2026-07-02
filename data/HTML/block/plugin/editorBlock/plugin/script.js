@@ -4,6 +4,7 @@
  * - Если вкладки нет, ищет видимый блок в контейнере
  * - Возвращает id блока или null
  */
+window.getActiveBlockId = getActiveBlockId;
 function getActiveBlockId() {
     /* Активная вкладка */
     const activeTab = document.querySelector('#blocks-tabs .tab.active');
@@ -29,6 +30,7 @@ function getActiveBlockId() {
  * - Игнорирует фокус внутри панели свойств
  * - Выделяет элемент и переключает панели
  */
+window.updateOutline = updateOutline;
 function updateOutline(element) {
     /* Основные контейнеры */
     const specPanel = document.getElementById('propertiesPanel');
@@ -106,6 +108,7 @@ function updateOutline(element) {
  * - Показывает только выбранный блок
  * - Обновляет панели и контролы
  */
+window.showView = showView;
 function showView(blockId) {
     /* Основные контейнеры */
     const root = document.getElementById('loadedBlockMain');
@@ -159,6 +162,7 @@ function showView(blockId) {
  * - Скрывает визуальный режим и отображает только активный блок.
  * - Загружает HTML блока в редактор.
  */
+window.showHtml = showHtml;
 function showHtml(blockId) {
     /* Основные контейнеры */
     const centerContent = document.getElementById('editorContent');
@@ -220,6 +224,7 @@ function showHtml(blockId) {
  * - Очищает визуальное представление
  * - Скрывает лишние панели
  */
+window.showJs = showJs;
 function showJs(blockId, highlightSearch = null) {
     /* Основные контейнеры */
     const centerContent = document.getElementById('editorContent');
@@ -276,6 +281,56 @@ function showJs(blockId, highlightSearch = null) {
     /* Переключение tab состояния */
     if (propertiesTab) propertiesTab.style.display = 'none';
     if (jsTab) jsTab.click();
+}
+
+/***********************************************************************
+ * highlightInJsEditor — подсвечивает фрагмент кода в панели JS:
+ * - Получает строку для поиска и полный текст скрипта.
+ * - Находит индекс строки в тексте.
+ * - Создаёт диапазон на соответствующем текстовом узле.
+ * - Вставляет временный span для подсветки.
+ * - Скроллит подсветку в центр видимой области.
+ * - Через 800 мс убирает span, оставляя текст без изменений.
+ * - Фокусируется на панели кода.
+ **********************************************************************/
+function highlightInJsEditor(search, fullText) {
+    const pre = document.getElementById('center-tab-pre-js');
+    if (!pre) return;
+
+    const idx = fullText.indexOf(search);
+    if (idx === -1) return;
+
+    let pos = 0;
+    let node;
+    const walker = document.createTreeWalker(pre, NodeFilter.SHOW_TEXT);
+
+    while ((node = walker.nextNode())) {
+        const next = pos + node.length;
+        if (idx >= pos && idx < next) {
+            const range = document.createRange();
+            range.setStart(node, idx - pos);
+            range.setEnd(node, Math.min(node.length, idx - pos + search.length));
+
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+
+            const span = document.createElement('span');
+            range.surroundContents(span);
+
+            span.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            setTimeout(() => {
+                const parent = span.parentNode;
+                while (span.firstChild) parent.insertBefore(span.firstChild, span);
+                parent.removeChild(span);
+            }, 100);
+
+            pre.focus();
+            return;
+        }
+        pos = next;
+    }
 }
 
 /**
@@ -372,6 +427,7 @@ window.selectedEl = null;
 window.lastSelectedEl = null;
 
 /* Управление выбранным элементом и обновлением панелей */
+window.selectElementForPanels = selectElementForPanels;
 function selectElementForPanels(el, resetPrevious = true) {
     if (!el) return;
 
@@ -431,6 +487,7 @@ function saveSelection(editableElement) {
  * - восстанавливает выделение в документе
  * - возвращает фокус в редактируемый элемент
  */
+window.restoreSelection = restoreSelection;
 function restoreSelection() {
     if (!savedRange) return;
 
@@ -488,6 +545,7 @@ document.addEventListener('keyup', trySaveSelection);
  * - обрабатывает узлы через nodeToMd
  * - возвращает нормализованный Markdown текст
  */
+window.htmlToMixed = htmlToMixed;
 function htmlToMixed(html) {
     let out = html;
 
@@ -594,6 +652,7 @@ function nodeToMd(node) {
  * Удаление служебной JS-обёртки блока
  * - убирает arrow IIFE обёртку, try/catch, pageInit
  */
+window.stripJsWrapper = stripJsWrapper;
 function stripJsWrapper(code) {
     /* Удаление служебной обёртки */
     let out = code

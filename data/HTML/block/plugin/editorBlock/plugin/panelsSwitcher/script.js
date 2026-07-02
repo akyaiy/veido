@@ -1,4 +1,5 @@
 const tabs = document.querySelectorAll('#panelsSwitcher .tab');
+const specRoot = document.getElementById('propertiesPanel');
 
 /***********************************************************************
  * tabs tab click — переключение вкладок CSS и JS:

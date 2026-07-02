@@ -106,7 +106,7 @@ async function initEditorBlocks() {
     }
 
     /* Загрузка тестовых блоков */
-    /* await testBlockLoading(); */
+    await testBlockLoading();
 
     /* Сигнал завершения инициализации редактора */
     document.dispatchEvent(new Event('initEditorBlocks:ready'));

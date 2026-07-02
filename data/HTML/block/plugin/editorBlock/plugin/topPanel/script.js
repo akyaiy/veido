@@ -682,6 +682,7 @@ function closeBlock(e, block, tabEl) {
     } catch (e) {}
 
     const container = document.getElementById('loadedBlockMain');
+    const centerPreHtml = document.getElementById('center-tab-pre-html');
     if (container && block) container.removeChild(block);
     if (tabEl.parentNode) tabEl.parentNode.removeChild(tabEl);
 
