@@ -448,13 +448,11 @@ function onPathTypeChange(e) {
 }
 
 // Навешиваем один клик на весь родительский контейнер (делегирование событий)
-if (svgGroupPathType) {
-    svgGroupPathType.addEventListener("click", (e) => {
-        if (e.target.classList.contains("svgPathTypeBtn")) {
-            onPathTypeChange(e);
-        }
-    });
-}
+svgGroupPathType.addEventListener("click", (e) => {
+    if (e.target.classList.contains("svgPathTypeBtn")) {
+        onPathTypeChange(e);
+    }
+});
 
 
 

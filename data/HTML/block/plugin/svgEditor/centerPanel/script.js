@@ -1547,14 +1547,14 @@ function onEdgePointerDown(e) {
 
     const pathEl = e.target;
     
-    // Если кликнули не по path, убираем подсветку 2 точек
+    // клик мимо path — сброс ребра
     if (!isPathElement(pathEl)) {
         window.lastActiveEdgeIndex = null;
         updateSelectionBox();
         return;
     }
 
-    // Переводим клик строго в локальные координаты самого path
+    // в локальные координаты path
     const localPoint = getLocalPoint(e, svg, pathEl);
     const segments = parsePathData(pathEl.getAttribute("d") || "");
     
@@ -1562,30 +1562,50 @@ function onEdgePointerDown(e) {
     let bestDist = Infinity;
     let t = 0.5;
 
-    // Поиск ближайшего ребра
+    // первая точка для ребер Z
+    const firstM = segments.find(s => s.type.toUpperCase() === "M") || { x: 0, y: 0 };
+
+    // временные переменные для хранения найденных координат конца ребра
+    let finalBx = 0;
+    let finalBy = 0;
+
+    // поиск ближайшего ребра
     for (let i = 1; i < segments.length; i++) {
         const a = segments[i - 1];
         const b = segments[i];
 
         if (!a || !b) continue;
+        
         if (typeof a.x !== "number" || typeof a.y !== "number") continue;
-        if (typeof b.x !== "number" || typeof b.y !== "number") continue;
+
+        // координаты конца ребра (с учетом Z)
+        let bx, by;
+        const isZ = b.type.toUpperCase() === "Z";
+
+        if (isZ) {
+            bx = typeof b._backupX === "number" ? b._backupX : firstM.x;
+            by = typeof b._backupY === "number" ? b._backupY : firstM.y;
+        } else {
+            if (typeof b.x !== "number" || typeof b.y !== "number") continue;
+            bx = b.x;
+            by = b.y;
+        }
 
         for (let k = 0; k <= 20; k++) {
             const sampleT = k / 20;
             let sx, sy;
 
-            if (b.type === "Q") {
+            if (b.type.toUpperCase() === "Q") {
                 const mt = 1 - sampleT;
-                sx = mt * mt * a.x + 2 * mt * sampleT * b.x1 + sampleT * sampleT * b.x;
-                sy = mt * mt * a.y + 2 * mt * sampleT * b.y1 + sampleT * sampleT * b.y;
-            } else if (b.type === "C") {
+                sx = mt * mt * a.x + 2 * mt * sampleT * b.x1 + sampleT * sampleT * bx;
+                sy = mt * mt * a.y + 2 * mt * sampleT * b.y1 + sampleT * sampleT * by;
+            } else if (b.type.toUpperCase() === "C") {
                 const mt = 1 - sampleT;
-                sx = mt * mt * mt * a.x + 3 * mt * mt * sampleT * b.x1 + 3 * mt * sampleT * sampleT * b.x2 + sampleT * sampleT * sampleT * b.x;
-                sy = mt * mt * mt * a.y + 3 * mt * mt * sampleT * b.y1 + 3 * mt * sampleT * sampleT * b.y2 + sampleT * sampleT * sampleT * b.y;
+                sx = mt * mt * mt * a.x + 3 * mt * mt * sampleT * b.x1 + 3 * mt * sampleT * sampleT * b.x2 + sampleT * sampleT * sampleT * bx;
+                sy = mt * mt * mt * a.y + 3 * mt * mt * sampleT * b.y1 + 3 * mt * sampleT * sampleT * b.y2 + sampleT * sampleT * sampleT * by;
             } else {
-                sx = a.x + (b.x - a.x) * sampleT;
-                sy = a.y + (b.y - a.y) * sampleT;
+                sx = a.x + (bx - a.x) * sampleT;
+                sy = a.y + (by - a.y) * sampleT;
             }
 
             const dist = (localPoint.x - sx) ** 2 + (localPoint.y - sy) ** 2;
@@ -1594,22 +1614,34 @@ function onEdgePointerDown(e) {
                 bestDist = dist;
                 index = i;
                 t = sampleT;
+                finalBx = bx; // сохраняем точные координаты для драга
+                finalBy = by;
             }
         }
     }
 
-    // Если клик мимо ребра — сбрасываем подсветку точек
+    // мимо ребра — сброс подсветки
     if (index < 1 || bestDist > 1600) {
         window.lastActiveEdgeIndex = null;
         updateSelectionBox();
         return;
     }
 
-    // Фиксируем ребро
+    // фиксируем ребро
     window.lastActiveEdgeIndex = index;
 
-    // очищаем старые выделенные узлы при клике по ребру
+    // сброс старых ручек
     window.activePathHandles = [];
+
+    // подготавливаем сегменты для drag-состояния, заменяя пустые x/y у Z на начальные
+    const dragSegments = segments.map((s, idx) => {
+        const copy = { ...s };
+        if (idx === index && copy.type.toUpperCase() === "Z") {
+            copy.x = finalBx;
+            copy.y = finalBy;
+        }
+        return copy;
+    });
 
     edgeDragState = {
         pointerId: e.pointerId,
@@ -1617,7 +1649,7 @@ function onEdgePointerDown(e) {
         svg,
         index,
         startPoint: localPoint,
-        startSegments: segments.map(s => ({ ...s })),
+        startSegments: dragSegments,
         t
     };
 
@@ -1626,7 +1658,7 @@ function onEdgePointerDown(e) {
 
     canvas.setPointerCapture(e.pointerId);
 
-    // Обновляем слой и красим строго 2 узла ребра
+    // красим строго 2 узла ребра
     updateSelectionBox();
 
     canvas.addEventListener("pointermove", onEdgePointerMove);
@@ -1702,7 +1734,6 @@ function onEdgePointerUp(e) {
 }
 
 // canvas.addEventListener("pointerdown", onEdgePointerDown);
-
 
 // Находим вашу существующую startPathHandleMove и добавляем в самое начало сброс ребра:
 const originalStartPathHandleMove = startPathHandleMove;
