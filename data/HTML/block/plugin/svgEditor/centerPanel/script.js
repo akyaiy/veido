@@ -1916,40 +1916,41 @@ function onPointerDownEl(e) {
     const svg = canvas.querySelector("svg");
     if (!svg) return;
 
+    // Если кликнули мимо контента, выходим
     const firstG = getContentLayer(svg);
-    // двигать можно только элементы из первого слоя
     if (!firstG || !firstG.contains(e.target)) return;
     if (elementResizing || (e.target.dataset && e.target.dataset.resizeHandle)) return;
     if (resizing || isResizeHandle(e, svg)) return;
 
+    // сохраняем элемент, который будем перетаскивать
     const el = getTopLevelElement(e.target);
     const groupInverse = firstG?.getCTM()?.inverse() || null;
-
-    e.preventDefault();
 
     try {
         el.setPointerCapture(e.pointerId);
     } catch (err) {}
 
-    // Получаем текущие данные элемента
+    // сохраняем начальные координаты и трансформацию элемента
     const rect = el.getBoundingClientRect();
     const transform = el.getAttribute("transform") || "";
     const startPoint = groupInverse ? getSvgPoint(e, svg).matrixTransform(groupInverse) : getSvgPoint(e, svg);
 
-    // Всегда используем все выделенные элементы для движения
-    const selectedItems = Array.isArray(window.selectedElementsSvg) && window.selectedElementsSvg.length > 0 ?
-        window.selectedElementsSvg.map((sel) => {
-            const selRect = sel.getBoundingClientRect();
-            return {
-                el: sel,
-                isSVG: sel instanceof SVGElement,
-                transform: sel.getAttribute("transform") || "",
-                left: parseFloat(sel.style.left) || selRect.left,
-                top: parseFloat(sel.style.top) || selRect.top
-            };
-        }) : [];
+    // Если элемент уже выбран, перемещаем все выбранные элементы, иначе только текущий
+    const isAlreadySelected = Array.isArray(window.selectedElementsSvg) && window.selectedElementsSvg.includes(el);
+    const elementsToMove = isAlreadySelected ? window.selectedElementsSvg : [el];
 
-    // Сохраняем начальные данные перетаскивания
+    // Сохраняем информацию о каждом выбранном элементе для перемещения
+    const selectedItems = elementsToMove.map((sel) => {
+        const selRect = sel.getBoundingClientRect();
+        return {
+            el: sel,
+            isSVG: sel instanceof SVGElement,
+            transform: sel.getAttribute("transform") || "",
+            left: parseFloat(sel.style.left) || selRect.left,
+            top: parseFloat(sel.style.top) || selRect.top
+        };
+    });
+
     dragging = {
         el,
         pointerId: e.pointerId,
@@ -1962,27 +1963,27 @@ function onPointerDownEl(e) {
         elTop: rect.top,
         selected: selectedItems.length > 0,
         selectedItems,
-        lastEvent: e // Запоминаем событие инициализации
+        lastEvent: e
     };
 }
 
 // Перемещение элемента
 function onPointerMoveEl(e) {
-    if (window.modeSvgEditor !== "selection") return;
+    if (window.modeSvgEditor !== "selection" && window.modeSvgEditor !== "nodeEdit") return;
+    // если не перетаскиваем, выходим
     if (!dragging || e.pointerId !== dragging.pointerId) return;
 
     e.preventDefault();
-    dragging.lastEvent = e; // Обновляем последнее событие мыши на каждом шаге
+    dragging.lastEvent = e;
 
     let dx = e.clientX - dragging.startX;
     let dy = e.clientY - dragging.startY;
 
-    // Перемещение SVG элемента через transform
+    // Если перетаскиваем SVG-элемент, используем локальные координаты SVG
     if (dragging.isSVG) {
         const svg = canvas.querySelector("svg");
         if (!svg) return;
 
-        // Рассчитываем актуальную обратную матрицу "на лету" с учетом нового масштаба холста
         const firstG = getContentLayer(svg);
         const currentInverse = firstG?.getCTM()?.inverse() || null;
         
@@ -2008,7 +2009,7 @@ function onPointerMoveEl(e) {
         return;
     }
 
-    // Перемещение HTML элемента через left/top
+    // Для обычных HTML-элементов
     if (dragging.selected && dragging.selectedItems.length) {
         for (const item of dragging.selectedItems) {
             const left = item.left + dx;
