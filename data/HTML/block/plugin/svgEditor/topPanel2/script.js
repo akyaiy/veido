@@ -13,7 +13,7 @@ const elementVisibilityMap = {
 // Заменили нестабильные CSS-селекторы на текстовые ключи
 const elementVisibilityMapSpec = {
     "single-node": { groups: ["svgGroupPosition"], fields: ["svgPropX", "svgPropY"] },
-    "multi-nodes": { groups: ["svgGroupPathType"], fields: ["svgPathType"] }
+    "multi-nodes": { groups: ["svgGroupPathType"]}
 };
 
 // Группы
@@ -27,16 +27,15 @@ const inputY = document.getElementById("svgPropY");
 const inputW = document.getElementById("svgPropW");
 const inputH = document.getElementById("svgPropH");
 const inputR = document.getElementById("svgPropR");
-const inputPathType = document.getElementById("svgPathType");
 
 // Кнопки
 const btnAddNode = document.getElementById("svgAddNode");
+const svgPathTypeBtn = document.querySelectorAll(".svgPathTypeBtn");
 
 // Форматирование числа для отображения
 function formatNumber(value) {
     return (+value.toFixed(4)).toString().replace(/^-?\d+$/, "$&.0");
 }
-
 
 
 // === Геометрия и трансформации ===
@@ -361,7 +360,11 @@ function onPathTypeChange(e) {
     if (!selectedElementsSvg || selectedElementsSvg.length === 0) return;
     const el = selectedElementsSvg[0];
     if (!el || el.tagName.toLowerCase() !== "path") return;
-    const newType = e.target.value;
+    
+    // Получаем кнопку и её тип из data-атрибута
+    const btn = e.target.closest(".svgPathTypeBtn");
+    if (!btn) return;
+    const newType = btn.getAttribute("data-path-type");
     
     // собираем все индексы ребер которые нужно изменить
     let indicesToUpdate = [];
@@ -438,16 +441,20 @@ function onPathTypeChange(e) {
     // собираем строку обратно и обновляем атрибут
     el.setAttribute("d", serializePathData(segments));
 
-    // Обновляем рамку выделения, сохраняя выбранные через Shift ручки
-    if (typeof updateSelectionBox === "function") {
-        updateSelectionBox(true); 
-    }
+    // Сразу обновляем интерфейс, чтобы применилась новая подсветка кнопок
+    updateGeometryInputs();
 
     document.dispatchEvent(new CustomEvent("svgElementsChanged"));
 }
 
-// Подключение обработчика к input/select изменения типа сегмента
-svgPathType.addEventListener("change", onPathTypeChange);
+// Навешиваем один клик на весь родительский контейнер (делегирование событий)
+if (svgGroupPathType) {
+    svgGroupPathType.addEventListener("click", (e) => {
+        if (e.target.classList.contains("svgPathTypeBtn")) {
+            onPathTypeChange(e);
+        }
+    });
+}
 
 
 
@@ -507,11 +514,40 @@ function updateGeometryInputs() {
     tag = firstEl.tagName.toLowerCase();
 
     // Отображение типа выбранного сегмента path
-    if (tag === "path" && inputPathType && window.lastActiveEdgeIndex != null) {
+    if (tag === "path") {
         const segments = parsePathData(firstEl.getAttribute("d") || "");
+        
+        // Собираем индексы выделенных ребер 
+        let activeIndicesToCheck = [];
+        if (window.lastActiveEdgeIndex != null) {
+            activeIndicesToCheck.push(window.lastActiveEdgeIndex);
+        } else if (window.activePathHandles && window.activePathHandles.length > 0) {
+            const activeIndices = window.activePathHandles.map(h => h.index);
+            const uniqueIndices = [...new Set(activeIndices)];
+            for (const idx of uniqueIndices) {
+                if (activeIndices.includes(idx - 1) && activeIndices.includes(idx)) {
+                    activeIndicesToCheck.push(idx);
+                }
+            }
+        }
 
-        if (segments[window.lastActiveEdgeIndex]) {
-            inputPathType.value = segments[window.lastActiveEdgeIndex].type;
+        // Собираем уникальные типы сегментов в Set (он автоматически отсеет дубликаты)
+        const activeTypes = new Set();
+        activeIndicesToCheck.forEach(idx => {
+            if (segments[idx]) {
+                activeTypes.add(segments[idx].type.toUpperCase()); // Верхний регистр для надежности
+            }
+        });
+
+        // Сбрасываем подсветку со всех кнопок
+        const pathTypeButtons = document.querySelectorAll(".svgPathTypeBtn");
+        pathTypeButtons.forEach(btn => btn.classList.remove("active"));
+
+        // Подсвечиваем кнопку только если у всех выделенных ребер одинаковый тип
+        if (activeTypes.size === 1) {
+            const commonType = [...activeTypes][0];
+            const activeBtn = document.querySelector(`.svgPathTypeBtn[data-path-type="${commonType}"]`);
+            if (activeBtn) activeBtn.classList.add("active");
         }
     }
 

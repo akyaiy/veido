@@ -1,13 +1,11 @@
 <div id="svgGroupPathType" style="display: none;">
     <div>
         Искревление:
-        <select id="svgPathType">
-            <option value="M">M</option>
-            <option value="L">L</option>
-            <option value="Q">Q</option>
-            <option value="C">C</option>
-            <option value="Z">Z</option>
-        </select>
+        <button type="button" class="svgPathTypeBtn" data-path-type="M">M</button>
+        <button type="button" class="svgPathTypeBtn" data-path-type="L">L</button>
+        <button type="button" class="svgPathTypeBtn" data-path-type="Q">Q</button>
+        <button type="button" class="svgPathTypeBtn" data-path-type="C">C</button>
+        <button type="button" class="svgPathTypeBtn" data-path-type="Z">Z</button>
     </div>
 </div>
 

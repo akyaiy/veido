@@ -35,3 +35,8 @@
     box-sizing: border-box;
     padding: 2px 3px;
 }
+
+/* Пример простой и заметной подсветки */
+.svgPathTypeBtn.active {
+    background-color: #aa92f8;
+}
