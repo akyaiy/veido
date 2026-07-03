@@ -138,7 +138,7 @@ jsAutoBox.style.wordBreak = 'break-word';
 jsAutoBox.style.fontSize = '12px'; // smaller text to fit viewport
 // ensure box doesn't affect layout (absolute already) and hide any overflow
 
-document.body.appendChild(jsAutoBox);
+document.getElementById('blockEditor').appendChild(jsAutoBox);
 
 // Autocomplete support for class names when editing class attribute --------
 const classAutoBox = document.createElement('div');
@@ -155,7 +155,7 @@ classAutoBox.style.maxWidth = '300px';
 classAutoBox.style.wordBreak = 'break-word';
 classAutoBox.style.fontSize = '12px';
 
-document.body.appendChild(classAutoBox);
+document.getElementById('blockEditor').appendChild(classAutoBox);
 
 function parseFunctionNames(code) {
     const names = new Set();
