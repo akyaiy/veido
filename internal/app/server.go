@@ -8,7 +8,7 @@ import (
 
 	"MyServer/api/handlers/HTML"
 	"MyServer/api/handlers/aclH"
-	"MyServer/api/handlers/filesapi"
+	"MyServer/api/handlers/files_api"
 	"MyServer/api/handlers/functions"
 	"MyServer/api/handlers/users"
 	"MyServer/api/handlers/webdavh"
@@ -17,6 +17,10 @@ import (
 	"MyServer/internal/auth"
 	"MyServer/internal/config"
 	"MyServer/internal/files"
+	"MyServer/internal/shared"
+	"MyServer/internal/vfs"
+	"MyServer/internal/vfs/adapters/webdav"
+	"MyServer/internal/vfs/providers"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -37,6 +41,8 @@ func ServerStart(db *sql.DB, aut *auth.Auth) {
 
 	r := chi.NewRouter()
 	// --- MIDDLEWARE ---
+	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(config.GetSTimeoutTime()))
@@ -44,17 +50,34 @@ func ServerStart(db *sql.DB, aut *auth.Auth) {
 	//              API
 	// -----------------------------
 	// 2. Настройка WebDAV обработчика
+	storage := vfs.NewLocalStorageDriver(config.Data.CASdir)
+	localVFSprovider := vfs.NewLocalFSProvider(db, storage)
+	mountManager := providers.NewMountManagerFSProvider(db, localVFSprovider)
+	accessSystem := vfs.NewACLAccessSystem(db)
+	fileManager := vfs.NewFSManager(mountManager, accessSystem)
+	localLockSystem := vfs.NewDBLockSystem(db)
+
+	webdavAdapter := webdav.NewWebDAVAdapter(fileManager)
+	lockSystem := webdav.NewWebDAVLockSystem(localLockSystem)
+
 	r.Route("/dav", func(r chi.Router) {
 		r.Handle("/*", acl.RequirePermission(
-			db, aut, acl.FilesPermissionFromRequestWebDav, webdavh.WebDAVHandler(db, aut)))
+			db, aut, acl.FilesPermissionFromRequestWebDav, webdavh.WebDAVHandler(webdavAdapter, lockSystem)))
 	})
+
+	sharedManager := shared.SharedOPs{
+		Db:            db,
+		AccessControl: accessSystem,
+	}
+
+	filesApiHandler := files_api.NewFileHandler(*fileManager, mountManager, &sharedManager, aut)
 
 	r.Route("/api", func(api chi.Router) {
 		api.Route("/auth", func(u chi.Router) { users.RegisterRoutes(u, db, aut) })
 		api.Get("/protected", HTML.LoadProtected(aut))
 		api.Route("/HTML", func(u chi.Router) { HTML.RegisterRoutes(u, db, aut) })
 		api.Route("/functions", func(u chi.Router) { functions.RegisterRoutes(u, db, aut) })
-		api.Route("/files", func(u chi.Router) { filesapi.RegisterRoutes(u, db, aut) })
+		api.Route("/files", func(u chi.Router) { files_api.RegisterRoutes(r, filesApiHandler) })
 		api.Route("/acl-admin", func(u chi.Router) { aclH.RegisterRoutes(u, db, aut) })
 	})
 	// Отдаём статику

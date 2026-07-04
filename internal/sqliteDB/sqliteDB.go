@@ -56,6 +56,66 @@ func InitDB(path string) *sql.DB {
 		UNIQUE(sub, jti)
 		FOREIGN KEY (sub) REFERENCES users(id) ON DELETE CASCADE
 	);
+	CREATE TABLE IF NOT EXISTS "shares" (
+		"id"	INTEGER,
+		"from_id"	INTEGER,
+		"to_id"	INTEGER,
+		"resource_id"	TEXT,
+		PRIMARY KEY("id" AUTOINCREMENT),
+		FOREIGN KEY("from_id") REFERENCES users(id) ON DELETE CASCADE,
+		FOREIGN KEY("to_id") REFERENCES users(id) ON DELETE CASCADE
+	);
+
+	CREATE TABLE IF NOT EXISTS artifacts (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		hash TEXT NOT NULL UNIQUE,
+		size INTEGER NOT NULL DEFAULT 0,
+		relations_count INTEGER DEFAULT 0
+	);
+	
+	CREATE TABLE IF NOT EXISTS garbage_queue (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		hash TEXT NOT NULL,
+		size INTEGER NOT NULL,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);
+	
+	CREATE TABLE IF NOT EXISTS global_locks (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		path TEXT NOT NULL UNIQUE,
+		token TEXT NOT NULL UNIQUE,
+		owner_id TEXT NOT NULL,
+		client_type TEXT NOT NULL,
+		is_exclusive BOOLEAN NOT NULL,
+		expires_at DATETIME NOT NULL
+	);
+	
+	CREATE TABLE IF NOT EXISTS metadata (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		parent_id INTEGER REFERENCES metadata(id) ON DELETE CASCADE,
+		name TEXT NOT NULL,
+		is_dir BOOLEAN NOT NULL DEFAULT 0,
+		owner TEXT NOT NULL,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		artefact_id INTEGER,
+		FOREIGN KEY (artefact_id) REFERENCES artifacts(id) ON DELETE SET NULL
+	);
+	
+	CREATE TABLE IF NOT EXISTS mounts (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		parent_metadata_id INTEGER NOT NULL UNIQUE,
+		driver_type TEXT NOT NULL,
+		config TEXT NOT NULL,
+		FOREIGN KEY (parent_metadata_id) REFERENCES metadata(id) ON DELETE CASCADE
+	);
+	
+	CREATE INDEX IF NOT EXISTS idx_locks_path ON global_locks(path);
+	
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_metadata_parent_name ON metadata(parent_id, name) WHERE parent_id IS NOT NULL;
+	
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_metadata_root_name ON metadata(name) WHERE parent_id IS NULL;
+
 	`
 	_, err = db.Exec(stmt)
 	if err != nil {
