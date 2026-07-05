@@ -13,4 +13,5 @@ TSMSRV-123: implement OAuth2 login
 
 - add logging
 
-BREAKING CHANGE: ...```
+BREAKING CHANGE: ...
+```
