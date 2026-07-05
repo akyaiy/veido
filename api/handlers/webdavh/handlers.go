@@ -20,6 +20,6 @@ func WebDAVHandler(adapter wd.FileSystem, lockSystem wd.LockSystem) http.Handler
 				}
 			},
 		}
-		http.StripPrefix("/webdav", webdavHandler).ServeHTTP(w, req)
+		webdavHandler.ServeHTTP(w, req)
 	})
 }

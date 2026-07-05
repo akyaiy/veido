@@ -4,8 +4,11 @@ import (
 	"MyServer/internal/vfs"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
+	"path"
+	"strings"
 
 	golangwebdav "golang.org/x/net/webdav"
 )
@@ -20,8 +23,18 @@ func NewWebDAVAdapter(manager vfs.FileManager) golangwebdav.FileSystem {
 	return &WebDAVAdapter{manager: manager}
 }
 
+func webdavPath(name string) string {
+	if name == "" || name == "." {
+		return "/"
+	}
+	if !strings.HasPrefix(name, "/") {
+		return "/" + name
+	}
+	return path.Clean(name)
+}
+
 func (a *WebDAVAdapter) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (golangwebdav.File, error) {
-	// 1. Проверяем метаданные. Если это существующая папка — возвращаем davDir для поддержки Readdir
+	name = webdavPath(name)
 	info, err := a.manager.Stat(ctx, name)
 	if err == nil && info.IsDir() {
 		return &davDir{
@@ -31,29 +44,28 @@ func (a *WebDAVAdapter) OpenFile(ctx context.Context, name string, flag int, per
 		}, nil
 	}
 
-	// 2. Открываем файл через высокоуровневый менеджер. 
-	// Он сам разберется с флагами создания (O_CREATE) или очистки (O_TRUNC) через провайдер.
 	vfsFile, err := a.manager.OpenFile(ctx, name, flag)
 	if err != nil {
 		return nil, err
 	}
 
-	// 3. Заворачиваем наш vfs.File в обертку для WebDAV
 	return &davFile{vfsFile: vfsFile}, nil
 }
 
 func (a *WebDAVAdapter) Stat(ctx context.Context, name string) (os.FileInfo, error) {
-	// Просто пробрасываем вызов в менеджер, он уже возвращает стандартный os.FileInfo
+	name = webdavPath(name)
 	stat, err := a.manager.Stat(ctx, name)
 	if stat != nil && err == nil {
 		return stat, nil
 	}
+	fmt.Printf("Stat err=%v\n", err)
 	return vfs.NewFileInfo(vfs.Node{
 		Name: "broken",
 	}), os.ErrNotExist
 }
 
 func (a *WebDAVAdapter) Mkdir(ctx context.Context, name string, perm os.FileMode) error {
+	name = webdavPath(name)
 	_, err := a.manager.Mkdir(ctx, name)
 	if errors.Is(err, os.ErrPermission) {
 		return golangwebdav.ErrForbidden
@@ -62,10 +74,13 @@ func (a *WebDAVAdapter) Mkdir(ctx context.Context, name string, perm os.FileMode
 }
 
 func (a *WebDAVAdapter) RemoveAll(ctx context.Context, name string) error {
+	name = webdavPath(name)
 	return a.manager.Delete(ctx, name)
 }
 
 func (a *WebDAVAdapter) Rename(ctx context.Context, oldName, newName string) error {
+	oldName = webdavPath(oldName)
+	newName = webdavPath(newName)
 	return a.manager.Move(ctx, oldName, newName)
 }
 

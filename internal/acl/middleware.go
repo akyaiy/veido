@@ -1,6 +1,7 @@
 package acl
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -29,14 +30,6 @@ func RequirePermission(db *sql.DB, aut *auth.Auth, permOrFunc interface{}, next 
 		if DEVMODE {
 			slog.Warn("RequirePermission: DEVMODE is ON, skipping ACL checks")
 			next.ServeHTTP(w, r)
-			return
-		}
-		switch r.Method {
-		case "OPTIONS", "GET", "HEAD", "POST", "PUT", "DELETE",
-			"PROPFIND", "MKCOL", "COPY", "MOVE", "LOCK", "UNLOCK", "PATCH":
-			// Разрешаем продолжить
-		default:
-			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 			return
 		}
 		// Определение permission
@@ -93,10 +86,6 @@ func RequirePermission(db *sql.DB, aut *auth.Auth, permOrFunc interface{}, next 
 		// Пользователь НЕ авторизован (uid == 0)
 		if !ok {
 			if uid == 0 {
-				// Для WebDAV — говорим клиенту, что нужен BasicAuth
-				if strings.HasPrefix(r.URL.Path, "/dav") {
-					w.Header().Set("WWW-Authenticate", `Basic realm="WebDAV"`)
-				}
 				// Пользователь НЕ авторизован (uid == 0)
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				//http.Error(w, "Forbidden", http.StatusForbidden)
@@ -108,6 +97,7 @@ func RequirePermission(db *sql.DB, aut *auth.Auth, permOrFunc interface{}, next 
 			return
 		}
 		// Если всё хорошо — передаём запрос дальше
+		r = r.WithContext(context.WithValue(r.Context(), auth.CONTEXT_USER_ID_KEY, int(uid)))
 		next.ServeHTTP(w, r)
 	}
 }

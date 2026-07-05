@@ -56,6 +56,16 @@ func (a *Auth) GetUserFromRequest(r *http.Request) (*User, error) {
 	return nil, err
 }
 
+// AuthenticateBasicRequest проверяет HTTP Basic Auth через пользователей из БД.
+func (a *Auth) AuthenticateBasicRequest(r *http.Request) (*User, error) {
+	username, password, ok := r.BasicAuth()
+	if !ok {
+		return nil, &NoTokenError{Reason: "Basic auth credentials are missing"}
+	}
+
+	return a.AuthenticateUser(username, password)
+}
+
 // CreateUser создает нового пользователя в БД
 func (a *Auth) CreateUser(user *User) (userId, error) {
 	hash, err := a.HashPassword(user.Password)
@@ -65,10 +75,10 @@ func (a *Auth) CreateUser(user *User) (userId, error) {
 	}
 	if user.Password == "" {
 		hash = "" // Если пароль пустой, не хешируем его, чтобы не создавать валидный хеш от пустой строки
-	} 
+	}
 	if user.Name == "" {
 		return 0, &InvalidCredentialsError{Reason: "username cannot be empty and must be alphanumeric"}
-	} 
+	}
 
 	res, err := a.db.Exec("INSERT INTO users(username, password_hash, status) VALUES(?,?,?)",
 		user.Name, hash, user.Status)
@@ -385,7 +395,6 @@ func (a *Auth) CheckPassword(hash, pass string) error {
 // 		return 0, &InvalidCredentialsError{Reason: "token was revoked"}
 // 	}
 
-
 // 	// Если другая ошибка БД
 // 	slog.Error("VerifyRefreshToken db error", "error", err)
 // 	return 0, &DBError{Err: err}
@@ -445,4 +454,3 @@ func (a *Auth) AuthenticateRequest(r *http.Request) (*Claims, error) {
 
 // 	return claims.UserID, nil
 // }
-

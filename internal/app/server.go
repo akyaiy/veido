@@ -12,6 +12,8 @@ import (
 	"MyServer/api/handlers/functions"
 	"MyServer/api/handlers/users"
 	"MyServer/api/handlers/webdavh"
+	
+	authMiddleware "MyServer/api/middleware"
 
 	"MyServer/internal/acl"
 	"MyServer/internal/auth"
@@ -45,6 +47,7 @@ func ServerStart(db *sql.DB, aut *auth.Auth) {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(authMiddleware.AuthMiddleware(aut))
 	r.Use(middleware.Timeout(config.GetSTimeoutTime()))
 	// -----------------------------
 	//              API
@@ -60,7 +63,7 @@ func ServerStart(db *sql.DB, aut *auth.Auth) {
 	webdavAdapter := webdav.NewWebDAVAdapter(fileManager)
 	lockSystem := webdav.NewWebDAVLockSystem(localLockSystem)
 
-	r.Route("/dav", func(r chi.Router) {
+	r.Route("/webdav", func(r chi.Router) {
 		r.Handle("/*", acl.RequirePermission(
 			db, aut, acl.FilesPermissionFromRequestWebDav, webdavh.WebDAVHandler(webdavAdapter, lockSystem)))
 	})
