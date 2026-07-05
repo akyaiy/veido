@@ -65,7 +65,7 @@ func ServerStart(db *sql.DB, aut *auth.Auth) {
 
 	r.Route("/webdav", func(r chi.Router) {
 		r.Handle("/*", acl.RequirePermission(
-			db, aut, acl.FilesPermissionFromRequestWebDav, webdavh.WebDAVHandler(webdavAdapter, lockSystem)))
+			db, acl.FilesPermissionFromRequestWebDav, webdavh.WebDAVHandler(webdavAdapter, lockSystem)))
 	})
 
 	sharedManager := shared.SharedOPs{

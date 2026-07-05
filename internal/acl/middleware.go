@@ -1,109 +1,64 @@
 package acl
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
 	"log"
-	"log/slog"
 	"net/http"
-	"strings"
 
 	"MyServer/internal/auth"
 )
 
-/***************************************************************************************************************
- * RequirePermission это middleware (промежуточный обработчик HTTP-запросов).
- *
- * Его задача:
- * 		Перед выполнением обработчика next проверить,
- *		имеет ли пользователь право (permission) выполнить этот запрос.
- * Если:
- *		права есть → запрос проходит дальше
- *		прав нет → возвращается 401 или 403
- ***************************************************************************************************************/
-func RequirePermission(db *sql.DB, aut *auth.Auth, permOrFunc interface{}, next http.Handler) http.HandlerFunc {
-	// Возврат middleware
+func RequirePermission(db *sql.DB, permOrFunc interface{}, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		//fmt.Printf("user metod:%v\n", r.Method)
-		// Разрешаем все стандартные и WebDAV методы
-		if DEVMODE {
-			slog.Warn("RequirePermission: DEVMODE is ON, skipping ACL checks")
-			next.ServeHTTP(w, r)
-			return
-		}
-		// Определение permission
-		var perm string
-		switch v := permOrFunc.(type) {
-		// Вариант 1: permission — строка
-		case string:
-			perm = v
-			//fmt.Printf("permisionS:%v = %v\n", perm, v)
-			// Поддержка wildcard '.*'
-			if strings.HasSuffix(perm, ".*") {
-				base := strings.TrimSuffix(perm, ".*")
-				path := strings.TrimPrefix(r.URL.Path, "/api/HTML/")
-				path = strings.ReplaceAll(path, "/", ".")
-				perm = base + "." + path
-			}
-		// Вариант 2: permission — функция
-		case func(*http.Request) string:
-			perm = v(r)
-			//fmt.Printf("permisionF:%v\n", perm)
-		default:
-			fmt.Printf("invalid perm type\n")
-			// Неверный тип 500
-			log.Println("RequirePermission: invalid perm type")
-			http.Error(w, "Internal error", http.StatusInternalServerError)
-			return
-		}
-		// Регистрация permission в БД если такого ещё нет
-		_, err := db.Exec(`INSERT OR IGNORE INTO permissions(key) VALUES(?)`, perm)
+		perm, err := permissionFromRequest(permOrFunc, r)
 		if err != nil {
-			log.Println("RequirePermission: cannot insert permission:", err)
+			log.Println("RequirePermission:", err)
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
-		// Определение пользователя, извлекается пользователь из JWT,
-		// если не авторизован → user == nil
-		user, err := aut.GetUserFromRequest(r)
-		// Получение user ID
+ 
 		var uid int64
-		if err != nil || user == nil {
-			uid = 0
-		} else {
-			uid = user.ID
+		if v, ok := r.Context().Value(auth.CONTEXT_USER_ID_KEY).(int); ok {
+			uid = int64(v)
 		}
-		// uid == 0 — анонимный пользователь
-		//fmt.Printf("pesm user id: %v\n", uid)
-		// Проверка прав доступа (ACL)
+ 
 		ok, err := CanUserAccess(db, uid, perm)
 		if err != nil {
 			log.Println("ACL error:", err)
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
-		// Пользователь НЕ авторизован (uid == 0)
+ 
 		if !ok {
 			if uid == 0 {
-				// Пользователь НЕ авторизован (uid == 0)
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
-				//http.Error(w, "Forbidden", http.StatusForbidden)
-			} else {
-				// http.Error(w, "Forbidden", http.StatusForbidden)
-				http.Error(w, "Forbidden", http.StatusForbidden)
-				//http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
 			}
+ 
+			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
-		// Если всё хорошо — передаём запрос дальше
-		r = r.WithContext(context.WithValue(r.Context(), auth.CONTEXT_USER_ID_KEY, int(uid)))
+ 
 		next.ServeHTTP(w, r)
 	}
 }
+ 
+func permissionFromRequest(permOrFunc interface{}, r *http.Request) (string, error) {
+	switch v := permOrFunc.(type) {
+	case string:
+		return v, nil
 
-func RequirePermissionMW(db *sql.DB, aut *auth.Auth, permOrFunc interface{}) func(http.Handler) http.Handler {
+	case func(*http.Request) string:
+		return v(r), nil
+
+	default:
+		return "", fmt.Errorf("invalid permission type %T", permOrFunc)
+	}
+}
+
+func RequirePermissionMW(db *sql.DB, _ *auth.Auth, permOrFunc interface{}) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
-		return RequirePermission(db, aut, permOrFunc, next)
+		return RequirePermission(db, permOrFunc, next)
 	}
 }
