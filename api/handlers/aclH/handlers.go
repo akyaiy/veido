@@ -534,24 +534,7 @@ func (h *AdminRoutes) DeAssignPermission(w http.ResponseWriter, r *http.Request)
 
 func (h *AdminRoutes) GetMyRoles(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	claims, err := h.auth.AuthenticateRequest(r)
-	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(Status{
-			Stat: "error",
-			Message: "Unauthorized",
-		})
-		return
-	}
-	userID, err := strconv.Atoi(claims.Subject)
-	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(Status{
-			Stat: "error",
-			Message: "Unauthorized",
-		})
-		return
-	}
+	userID := r.Context().Value(auth.CONTEXT_USER_ID_KEY).(int)
 	pg := server.GetPagination(r)
 	roles, err := acl.GetUserRoles(h.db, int64(userID), pg.Limit, pg.Offset)
 	if err != nil {
@@ -591,25 +574,8 @@ func (h *AdminRoutes) CheckUserPermissions(w http.ResponseWriter, r *http.Reques
 
 func (h *AdminRoutes) CheckMyPermissions(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	claims, err := h.auth.AuthenticateRequest(r)
-	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(Status{
-			Stat: "error",
-			Message: "Unauthorized",
-		})
-		return
-	}
-	userID, err := strconv.Atoi(claims.Subject)
-	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(Status{
-			Stat: "error",
-			Message: "Unauthorized",
-		})
-		return
-	}
-	h.nextCheckUserPermissions(int(userID), w, r)
+	userID := r.Context().Value(auth.CONTEXT_USER_ID_KEY).(int)
+	h.nextCheckUserPermissions(userID, w, r)
 }
 
 func (h *AdminRoutes) nextCheckUserPermissions(userID int, w http.ResponseWriter, r *http.Request) {

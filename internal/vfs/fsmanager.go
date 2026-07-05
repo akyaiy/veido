@@ -1,6 +1,7 @@
 package vfs
 
 import (
+	"MyServer/internal/auth"
 	"context"
 
 	"os"
@@ -29,7 +30,7 @@ func NewFSManager(provider FSProvider, access AccessSystem) *FSManager {
 }
 
 func userIDFromCtx(ctx context.Context) int {
-	uid, ok := ctx.Value("user_id").(int)
+	uid, ok := ctx.Value(auth.CONTEXT_USER_ID_KEY).(int)
 	if !ok {
 		return 0
 	}

@@ -15,6 +15,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+const CONTEXT_USER_ID_KEY = "user_id"
+
 type Auth struct {
 	db     *sql.DB
 	secret []byte

@@ -28,6 +28,11 @@ func unpackFile(file os.FileInfo) *File {
 	}
 }
 
+type Status struct {
+	Stat  string `json:"stat"`
+	Data  any    `json:"data"`
+}
+
 func writeError(w http.ResponseWriter, error string) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(Status{Stat: "error", Data: error})
