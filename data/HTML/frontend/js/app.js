@@ -556,7 +556,7 @@ async function loadMenu() {
  * - Вызывает pageInit() блока, если есть.
  * - Обрабатывает ошибки.
  **********************************************************************************/
-async function loadBlock(path, block_Name, itemsHowText = null) {
+async function loadBlock(path, block_Name, itemsHowText = null, mode = null) {
     //console.log(path);
     // Получаем контейнер блока
     const container = document.getElementById(block_Name);
@@ -600,6 +600,22 @@ async function loadBlock(path, block_Name, itemsHowText = null) {
             style.textContent = css;
             document.head.appendChild(style);
         }
+
+        // Добавление JS блока через import()
+        if (mode === 'importJs') {
+            if (js) {
+                const blob = new Blob([js], { type: 'text/javascript' });
+                const moduleUrl = URL.createObjectURL(blob);
+                try {
+                    const mod = await import(moduleUrl);
+                    return mod;
+                } finally {
+                    URL.revokeObjectURL(moduleUrl);
+                }
+            }
+            return response;
+        }
+        
         // Добавление JS блока
         if (js) {
             const script = document.createElement('script');
