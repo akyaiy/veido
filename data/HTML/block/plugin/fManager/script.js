@@ -31,17 +31,22 @@ baseName(path = '') {
     return parts.pop() || '';
 }
 
+// buildUrl — формирование URL для API с нормализацией пути
+buildUrl(path = '', query = '') {
+    const cleanPath = this.cleanPath(path);
+    return cleanPath
+        ? `${this.baseUrl}/${cleanPath}${query}`
+        : `${this.baseUrl}${query}`;
+}
+
 // dirEntries — получение списка файлов и каталогов в указанной директории:
 async dirEntries(dirPath = '') {
-    const cleanDir = this.cleanPath(dirPath);
-    const url = cleanDir
-        ? `/api/files/acc2fs/${cleanDir}?op=full-read`
-        : `/api/files/acc2fs?op=full-read`;
+    const url = this.buildUrl(dirPath, '?op=full-read');
 
-    const res = await apiProtected(url);
-    if (!res.ok) return [];
+    const data = await apiProtected(url);
+    // apiProtected сам возвращает null при ошибке или уже готовые данные
+    if (data === null) return [];
 
-    const data = await res.json().catch(() => []);
     return Array.isArray(data) ? data : [];
 }
 
@@ -85,29 +90,19 @@ async uniquePath(path, isDir = false) {
 
 /****************************************************************************
  * list — запрашивает список файлов и каталогов по указанному пути.
- *
- * @param {string} path Путь к каталогу
- * @returns {Promise<any>} Результат запроса к API со списком файлов
- *
- * Поведение:
- * - Отправляет защищённый запрос к `/api/files{path}`.
- * - При ошибке 403 выводит сообщение об отсутствии прав доступа.
- * - При любой другой ошибке выводит общее сообщение об ошибке загрузки.
  ***************************************************************************/
-  async list(path) {
+  async list(path = '') {
     try {
-        const res = await apiProtected(`/api/files/acc2fs${path}?op=full-read`);//urlPath
+        const url = this.buildUrl(path, '?op=full-read');
+        const data = await apiProtected(url);
 
-        if (!res.ok) {
-            if (res.status === 403) {
-                alert("Нет прав на просмотр файлов");
-            } else {
-                alert("Ошибка списка файлов");
-            }
+        if ((data && data.stat === 'error')) {
+            // выводим общее уведомление
+            alert("Ошибка списка файлов (или нет прав доступа)");
             return;
         }
 
-        return await res.json();
+        return data;
     } catch (e) {
         alert("Ошибка списка файлов");
         return;
@@ -116,266 +111,189 @@ async uniquePath(path, isDir = false) {
 
 /***************************************************************************
  * getFile — получение содержимого файла:
- *
- * @param {string} path Путь к каталогу
- * @returns {Promise<any>} Cодержимое файла в текстовом виде.
- *
- * Поведение:
- * - Принимает путь к файлу относительно базового пути.
- * - При неуспешном ответе сервера выбрасывает ошибку.
- * - Возвращает содержимое файла в текстовом виде.
  ***************************************************************************/
   async getFile(path) {
-    const url = `${this.baseUrl}/${path}?op=full-read`;
-    const res = await apiProtected(url);
-    if (!res.ok) throw new Error(`Error getting file: ${res.statusText}`);
-    return await res.text(); // для бинарных файлов можно использовать res.arrayBuffer()
+    const url = this.buildUrl(path, '?op=full-read');
+    const data = await apiProtected(url);
+    if (data === null) throw new Error(`Error getting file`);
+    return data; // apiProtected уже превратил ответ в текст (или JSON-объект)
   }
 
 /***************************************************************************
  * head — получение метаинформации файла:
- *
- * @param {string} path Путь к каталогу
- * @returns {Promise<{
- *   size: number | null,
- *   lastModified: Date | null,
- *   contentType: string | null
- *  }>}
- *
- * Поведение:
- * - Принимает путь к файлу относительно базового пути.
- * - Выполняет HEAD-запрос без загрузки содержимого.
- * - При неуспешном ответе сервера выбрасывает ошибку.
- * - Возвращает размер, дату изменения и тип содержимого.
  ***************************************************************************/
 async head(path) {
-    const url = `${this.baseUrl}/${path}?op=stat`;
-    const res = await apiProtected(url);
-    if (!res.ok) throw new Error(`Error getting file stat: ${res.statusText}`);
-    return await res.json();
+    const url = this.buildUrl(path, '?op=stat');
+    const data = await apiProtected(url);
+    if (data === null) throw new Error(`Error getting file stat`);
+    return data;
 }
 
-// upload — загрузка файла на сервер:
+/***************************************************************************
+ * upload — загрузка файла на сервер:
+ ***************************************************************************/
 async upload(path, file) {
     const uniquePath = await this.uniquePath(path, false);
     const cleanPath = this.cleanPath(uniquePath);
 
-    const res = await apiProtected(`/api/files/acc2fs/${cleanPath}?type=file`, {
-        method: "POST",
-        body: file
-    });
-
-    if (!res.ok) {
-        throw new Error(`Error uploading file: ${res.statusText}`);
+    // Переводим File/Blob в массив байт, чтобы избежать превращения в "[object Object]"
+    let bodyData = file;
+    if (file instanceof Blob) {
+        const arrayBuffer = await file.arrayBuffer();
+        bodyData = new Uint8Array(arrayBuffer);
     }
 
+    const data = await apiProtected(this.buildUrl(cleanPath, '?type=file'), {
+        method: "POST",
+        body: bodyData
+    });
+    
+    if (data === null) {
+        throw new Error(`Error uploading file`);
+    }
     return true;
 }
 
 /***************************************************************************
  * mkdir — создание папки:
- * 
- * @param {string} path Путь создаваемого каталога относительно baseUrl
- * @returns {Promise<boolean>} Успешный результат операции.
- *
- * Поведение:
- * - Принимает путь создаваемой папки.
- * - Отправляет запрос на создание папки.
- * - При неуспешном ответе сервера выбрасывает ошибку.
- * - Возвращает успешный результат операции.
- ***************************************************************************/
+ * *************************************************************************/
 async mkdir(path) {
     const uniquePath = await this.uniquePath(path, true);
     const cleanPath = this.cleanPath(uniquePath);
 
-    const res = await apiProtected(`/api/files/acc2fs/${cleanPath}?type=dir`, {
+    const data = await apiProtected(this.buildUrl(cleanPath, '?type=dir'), {
         method: 'POST'
     });
 
-    if (!res.ok) throw new Error(`Error creating folder: ${res.statusText}`);
+    if (data === null) throw new Error(`Error creating folder`);
 
     return true;
 }
 
 /***************************************************************************
  * put — полная замена содержимого файла:
- * - Принимает путь к файлу и новое содержимое.
- * - Полностью перезаписывает файл на сервере.
- * - При неуспешном ответе сервера выбрасывает ошибку.
- * - Возвращает успешный результат операции.
  ***************************************************************************/
 async put(path, content) {
-    const url = `${this.baseUrl}/${path}?op=write`;
+    const url = this.buildUrl(path, '?op=write');
 
-    const res = await apiProtected(url, {
+    const data = await apiProtected(url, {
         method: 'PATCH',
         body: content
     });
 
-    if (!res.ok) throw new Error(`Error updating file: ${res.statusText}`);
+    if (data === null) throw new Error(`Error updating file`);
 
     return true;
 }
 
 /***************************************************************************
  * patch — частичное обновление содержимого файла:
- * - Принимает путь к файлу и обновляемое содержимое.
- * - Обновляет часть файла без полной перезаписи.
- * - При неуспешном ответе сервера выбрасывает ошибку.
- * - Возвращает успешный результат операции.
  ***************************************************************************/
 async patch(path, content) {
-    const url = `${this.baseUrl}/${path}?op=write`;
+    const url = this.buildUrl(path, '?op=write');
 
-    const res = await apiProtected(url, {
+    const data = await apiProtected(url, {
         method: 'PATCH',
         body: content
     });
 
-    if (!res.ok) throw new Error(`Error patching file: ${res.statusText}`);
+    if (data === null) throw new Error(`Error patching file`);
 
     return true;
 }
 
 /***************************************************************************
  * delete — удаление файла или папки:
- * - Принимает путь к файлу или папке.
- * - Удаляет указанный объект на сервере.
- * - При неуспешном ответе сервера выбрасывает ошибку.
- * - Возвращает успешный результат операции.
  ***************************************************************************/
 async delete(path) {
-    const url = `${this.baseUrl}/${path}`;
+    const url = this.buildUrl(path);
 
-    const res = await apiProtected(url, { method: 'DELETE' });
+    const data = await apiProtected(url, { method: 'DELETE' });
 
-    if (!res.ok) throw new Error(`Error deleting: ${res.statusText}`);
+    if (data === null) throw new Error(`Error deleting`);
 
     return true;
 }
 
 /***************************************************************************
  * copy — копирование файла:
- * - Принимает путь исходного файла и целевой путь.
- * - Создаёт копию файла в указанном месте.
- * - При неуспешном ответе сервера выбрасывает ошибку.
- * - Возвращает успешный результат операции.
  ***************************************************************************/
 async copy(path, target) {
     const cleanPath = path.replace(/^\/+/, '');
     const cleanTarget = target.replace(/^\/+/, '');
 
-    // Получаем метаданные объекта (файл или папка)
-    const statUrl = `${this.baseUrl}/${cleanPath}?op=stat`;
-    const statRes = await apiProtected(statUrl);
+    const statUrl = this.buildUrl(cleanPath, '?op=stat');
+    const statData = await apiProtected(statUrl);
 
-    // Если сервер ничего не вернул — прекращаем выполнение
-    if (!statRes.ok) {
+    if (statData === null) {
         throw new Error(`Copy failed: cannot stat source ${cleanPath}`);
     }
 
-    const statData = await statRes.json();
-
-    // Проверяем тип объекта по флагу is_dir
     if (statData.is_dir === true) {
-        // Обработка папки
-
         const uniqueTarget = await this.uniquePath(cleanTarget, true);
         const uniqueCleanTarget = this.cleanPath(uniqueTarget);
 
-        // Получаем список содержимого папки
-        const srcUrl = `${this.baseUrl}/${cleanPath}?op=full-read`;
-        const childrenRes = await apiProtected(srcUrl);
+        const srcUrl = this.buildUrl(path, '?op=full-read');
+        const children = await apiProtected(srcUrl);
 
-        // Защита от пустой папки или null ответа
-        const children = await childrenRes.json();
-
-        // Проверяем, что пришёл массив
         if (!Array.isArray(children)) {
-            throw new Error(
-                `Copy failed: invalid folder content for ${cleanPath}`
-            );
+            throw new Error(`Copy failed: invalid folder content for ${cleanPath}`);
         }
 
-        // Создаём папку в целевом месте
-        const createDirUrl = `${this.baseUrl}/${uniqueCleanTarget}?type=dir`;
-        const createDirRes = await apiProtected(createDirUrl, {
-            method: 'POST'
-        });
+        const createDirUrl = this.buildUrl(uniqueCleanTarget, '?type=dir');
+        const createDirRes = await apiProtected(createDirUrl, { method: 'POST' });
 
-        // Если не удалось создать папку — прерываем копирование
-        if (!createDirRes.ok) {
+        if (createDirRes === null) {
             throw new Error(`Copy failed: cannot create directory ${uniqueCleanTarget}`);
         }
 
-        // Рекурсивно копируем каждый элемент внутри папки
         for (const child of children) {
             const childSrcPath = `${cleanPath}/${child.name}`;
             const childDstPath = `${uniqueCleanTarget}/${child.name}`;
-
             await this.copy(childSrcPath, childDstPath);
         }
 
     } else {
-        // Обработка файл
-
         const uniqueTarget = await this.uniquePath(cleanTarget, false);
         const uniqueCleanTarget = this.cleanPath(uniqueTarget);
 
-        // Загружаем файл как бинарные данные (Blob)
-        const srcUrl = `/api/files/acc2fs/${cleanPath}?op=full-read`;
+        const srcUrl = this.buildUrl(path, '?op=full-read');
+        const fileContent = await apiProtected(srcUrl);
 
-        const response = await apiProtected(srcUrl, {
-            headers: {
-                // если есть авторизация — добавляем заголовки
-                ...this.getAuthHeaders?.()
-            }
-        });
-
-        if (!response.ok) {
+        if (fileContent === null) {
             throw new Error(`Copy failed: cannot read file ${cleanPath}`);
         }
 
-        // Преобразуем ответ в Blob (бинарные данные файла)
-        const blob = await response.blob();
-
-        // Формируем URL для создания файла в целевой директории
-        const dstUrl = `/api/files/acc2fs/${uniqueCleanTarget}?type=file`;
-
-        // Отправляем файл на сервер
+        // Внимание: apiProtected превратит бинарный файл в текст. 
+        // Мы передаем этот текст как body для записи.
+        const dstUrl = this.buildUrl(uniqueCleanTarget, '?type=file');
         const dstRes = await apiProtected(dstUrl, {
             method: 'POST',
-            body: blob
+            body: fileContent
         });
 
-        // Проверяем успешность создания файла
-        if (!dstRes.ok) {
+        if (dstRes === null) {
             throw new Error(`Copy failed: cannot create file ${uniqueCleanTarget}`);
         }
     }
 
     return true;
 }
+
 /***************************************************************************
  * move — перемещение файла:
- * - Принимает путь исходного файла и целевой путь.
- * - Перемещает файл в указанное место.
- * - При неуспешном ответе сервера выбрасывает ошибку.
- * - Возвращает успешный результат операции.
  ***************************************************************************/
 async move(path, target) {
-    const url = `${this.baseUrl}/${path}?op=move&dest=${encodeURIComponent(target)}`;
-    const res = await apiProtected(url, { method: 'PATCH' });
-    if (!res.ok) throw new Error(`Error moving file: ${res.statusText}`);
+    const cleanPath = this.cleanPath(path);
+    const cleanTarget = this.cleanPath(target);
+    const url = this.buildUrl(cleanPath, `?op=move&dest=${encodeURIComponent(cleanTarget)}`);
+    const data = await apiProtected(url, { method: 'PATCH' });
+    if (data === null) throw new Error(`Error moving file`);
     return true;
 }
 
 /***************************************************************************
  * getRange — загрузка части файла:
- * - Принимает путь к файлу и диапазон байт.
- * - Загружает указанную часть файла с использованием Range-запроса.
- * - При неуспешном ответе сервера выбрасывает ошибку.
- * - Возвращает данные файла в бинарном виде.
  ***************************************************************************/
 async getRange(path, start = 0, end = null) {
     const headers = {};
@@ -384,55 +302,47 @@ async getRange(path, start = 0, end = null) {
         headers['Range'] = `bytes=${start}-${end}`;
     }
 
-    const res = await apiProtected(`/api/files/acc2fs/${path}?op=full-read`, {
+    const data = await apiProtected(this.buildUrl(path, '?op=full-read'), {
         headers
     });
 
-    if (!res.ok) throw new Error(`Error getting range: ${res.statusText}`);
+    if (data === null) throw new Error(`Error getting range`);
 
-    return await res.arrayBuffer();
+    // apiProtected вернет строку. Для работы с буфером преобразуем её обратно
+    const encoder = new TextEncoder();
+    return encoder.encode(data).buffer;
 }
 
 /***************************************************************************
  * search — поиск файлов с фильтрацией:
- * - Принимает путь каталога и параметры поиска.
- * - Выполняет поиск файлов по заданным условиям.
- * - При неуспешном ответе сервера выбрасывает ошибку.
- * - Возвращает список найденных файлов.
  ***************************************************************************/
 async search(path = '', query = {}) {
     const params = new URLSearchParams(query);
-    const url = `${this.baseUrl}/${path}?${params.toString()}`;
+    const queryString = params.toString();
+    const url = this.buildUrl(path, queryString ? `?${queryString}` : '');
 
     const data = await apiProtected(url);
 
-    if (!data.ok) {
-        throw new Error(`Error search: ${data.statusText}`);
+    if (data === null) {
+        throw new Error(`Error search`);
     }
 
-    return await data.json();
+    return data;
 }
 
 /***************************************************************************
  * download — скачивание файла с сервера:
- * - Принимает путь к файлу и имя для сохранения.
- * - Загружает файл и сохраняет его на клиенте.
- * - При неуспешном ответе сервера выбрасывает ошибку.
- * - Если это папка, загружает её содержимое и упаковывает в ZIP-архив с использованием сторонней логики.
- * - Возвращает Blob (файл или ZIP-архив).
- ***************************************************************************/
+ * *************************************************************************/
 async download(path, fileName) {
-    const res = await apiProtected(`/api/files/acc2fs${path}?op=full-read`);
+    const data = await apiProtected(this.buildUrl(path, '?op=full-read'));
+    if (data === null) throw new Error(`Error downloading`);
 
-    const contentType = res.headers.get("content-type") || "";
-
-    const isDir = contentType.includes("application/json");
+    // Так как apiProtected автоматически парсит JSON, определяем тип по структуре данных
+    const isDir = Array.isArray(data);
 
     // файл
     if (!isDir) {
-        if (!res.ok) throw new Error(`Error downloading file: ${res.statusText}`);
-
-        const blob = await res.blob();
+        const blob = new Blob([data], { type: "application/octet-stream" });
 
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
@@ -444,70 +354,58 @@ async download(path, fileName) {
     }
 
     // папка
-    if (!res.ok) throw new Error(`Error downloading folder: ${res.statusText}`);
-
-    const files = await res.json();
-
     await this.downloadZip([path], fileName);
 }
 
 /***************************************************************************
  * downloadZip — скачивание набора файлов/папок в ZIP-архив
- * - принимает массив путей (paths)
- * - поддерживает файлы и директории (рекурсивно)
- ***************************************************************************/
+ * *************************************************************************/
 async downloadZip(paths, zipName = "archive.zip") {
-    const { zipSync } = await loadBlock("plugin/zipArchiver", "zipArchiver", null, "importJs");
+    const zipModule = await zipModulePromise;
+    const zipSync = zipModule.zipSync;
+    if (typeof zipSync !== "function") {
+        throw new Error("Zip module failed to load");
+    }
 
     const filesMap = {};
 
     const read = async (basePath, node) => {
         const path = `${basePath}/${node.name}`;
+        const data = await apiProtected(this.buildUrl(path, '?op=full-read'));
+        if (data === null) return;
 
-        const res = await apiProtected(`/api/files/acc2fs${path}?op=full-read`);
-        const ct = res.headers.get("content-type") || "";
-
-        const isDir = ct.includes("application/json");
+        const isDir = Array.isArray(data);
 
         if (isDir) {
-            const children = await res.json();
-            if (!Array.isArray(children)) return;
-
-            for (const c of children) {
+            for (const c of data) {
                 await read(path, c);
             }
             return;
         }
 
-        const buf = new Uint8Array(await (await res.blob()).arrayBuffer());
-        filesMap[path.replace(/^\//, "")] = buf;
+        const encoder = new TextEncoder();
+        filesMap[path.replace(/^\//, "")] = encoder.encode(data);
     };
 
     for (const p of paths) {
         const path = typeof p === "string" ? p : p.name;
+        const data = await apiProtected(this.buildUrl(path, '?op=full-read'));
+        if (data === null) continue;
 
-        const res = await apiProtected(`/api/files/acc2fs${path}?op=full-read`);
-        const ct = res.headers.get("content-type") || "";
-
-        const isDir = ct.includes("application/json");
+        const isDir = Array.isArray(data);
 
         if (isDir) {
-            const children = await res.json();
-
-            if (Array.isArray(children)) {
-                for (const c of children) {
-                    await read(path, c);
-                }
+            for (const c of data) {
+                await read(path, c);
             }
         } else {
-            const buf = new Uint8Array(await (await res.blob()).arrayBuffer());
-            const name = path.split("/").filter(Boolean).pop();
-            filesMap[name] = buf;
+            const encoder = new TextEncoder();
+            const name = path.split("/").filter(Boolean).pop() || zipName.replace(/\.zip$/, '');
+            filesMap[name] = encoder.encode(data);
         }
     }
 
     const zipData = zipSync(filesMap);
-
     const blob = new Blob([zipData], { type: "application/zip" });
 
     const a = document.createElement("a");
@@ -519,6 +417,11 @@ async downloadZip(paths, zipName = "archive.zip") {
 }
 
 }
+
+/***************************************************************************
+ * Инициализация модуля архивации ZIP для использования в файловом менеджере.
+ ***************************************************************************/
+const zipModulePromise = loadBlock("plugin/zipArchiver", "zipArchiver", null, "importJs");
 
 /***************************************************************************
  * Основной класс файлового менеджера.
@@ -739,24 +642,31 @@ async renderFiles() {
 
 // Получение текста из буфера обмена с поддержкой fallback на cookie.
 async function getClipboard() {
+    const match = document.cookie.match(/(?:^|;\s*)clipboard=([^;]+)/);
+    if (match) {
+        try {
+            const value = decodeURIComponent(match[1]);
+            if (value && value.length > 0) {
+                return value;
+            }
+        } catch {
+            if (match[1]) return match[1];
+        }
+    }
+
     try {
         const text = await navigator.clipboard.readText();
-        if (text && text.length > 0) return text;
+        if (text && text.length > 0) {
+            return text;
+        }
     } catch {}
 
-    const match = document.cookie.match(/(?:^|;\s*)clipboard=([^;]+)/);
-    if (!match) return null;
-
-    try {
-        return decodeURIComponent(match[1]);
-    } catch {
-        return match[1];
-    }
+    return null;
 }
 
 async function downloadFile(path) {
     const selected = getSelectedItems();
-    if (selected.length === 0) return;
+    if (!path && selected.length === 0) return;
 
     const cwd = fm.cwd || "";
     const base = cwd.startsWith("/") || cwd === "" ? cwd : `/${cwd}`;
@@ -2033,7 +1943,19 @@ class ContextMenu {
      * getClipboard — чтение пути (navigator + cookie fallback)
      ***************************************************************************/
     async getClipboard() {
-        // 1. пробуем navigator
+        const match = document.cookie.match(/(?:^|;\s*)clipboard=([^;]+)/);
+        if (match) {
+            try {
+                const value = decodeURIComponent(match[1]);
+                if (value && value.length > 0) {
+                    return value;
+                }
+            } catch {
+                if (match[1]) return match[1];
+            }
+        }
+
+        // если не удалось прочитать из cookie, пробуем navigator.clipboard
         try {
             const text = await navigator.clipboard.readText();
             if (text && text.length > 0) {
@@ -2041,15 +1963,7 @@ class ContextMenu {
             }
         } catch {}
 
-        // 2. fallback cookie
-        const match = document.cookie.match(/(?:^|;\s*)clipboard=([^;]+)/);
-        if (!match) return null;
-
-        try {
-            return decodeURIComponent(match[1]);
-        } catch {
-            return match[1];
-        }
+        return null;
     }
 
     /***************************************************************************

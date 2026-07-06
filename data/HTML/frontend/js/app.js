@@ -558,18 +558,35 @@ async function loadMenu() {
  **********************************************************************************/
 async function loadBlock(path, block_Name, itemsHowText = null, mode = null) {
     //console.log(path);
-    // Получаем контейнер блока
-    const container = document.getElementById(block_Name);
-    if (!container) {
-        return;
-    }
     // Обработка пути
     path = path.replace(/\/$/, "");
+    const blockName = path === "pages" ? "pages/home" : path;
+
+    if (mode === 'importJs') {
+        const response = await apiProtected(`/api/HTML/${blockName}`, { method: "GET" });
+        if (!response) {
+            throw new Error(`loadBlock importJs failed: unable to load ${blockName}`);
+        }
+        if (!response.js) {
+            throw new Error(`loadBlock importJs failed: no JS content found for ${blockName}`);
+        }
+
+        const blob = new Blob([response.js], { type: 'text/javascript' });
+        const moduleUrl = URL.createObjectURL(blob);
+        try {
+            const mod = await import(moduleUrl);
+            return mod;
+        } finally {
+            URL.revokeObjectURL(moduleUrl);
+        }
+    }
+
+    // Получаем контейнер блока
+    const container = document.getElementById(block_Name);
     if (!container) {
         console.error(`loadBlock ERROR: element #${block_Name} not found`);
         return;
     }
-    const blockName = path === "pages" ? "pages/home" : path;
     try {
         // Очистка контейнера и старых динамических стилей/скриптов
         container.innerHTML = '';
@@ -601,21 +618,6 @@ async function loadBlock(path, block_Name, itemsHowText = null, mode = null) {
             document.head.appendChild(style);
         }
 
-        // Добавление JS блока через import()
-        if (mode === 'importJs') {
-            if (js) {
-                const blob = new Blob([js], { type: 'text/javascript' });
-                const moduleUrl = URL.createObjectURL(blob);
-                try {
-                    const mod = await import(moduleUrl);
-                    return mod;
-                } finally {
-                    URL.revokeObjectURL(moduleUrl);
-                }
-            }
-            return response;
-        }
-        
         // Добавление JS блока
         if (js) {
             const script = document.createElement('script');
