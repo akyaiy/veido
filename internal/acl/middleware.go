@@ -7,10 +7,17 @@ import (
 	"net/http"
 
 	"MyServer/internal/auth"
+	"MyServer/internal/config"
 )
 
 func RequirePermission(db *sql.DB, permOrFunc interface{}, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if config.Data.Mode == "development" {
+			log.Println("RequirePermission: development mode, skipping permission check")
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		perm, err := permissionFromRequest(permOrFunc, r)
 		if err != nil {
 			log.Println("RequirePermission:", err)
