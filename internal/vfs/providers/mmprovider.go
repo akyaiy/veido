@@ -47,19 +47,6 @@ func (m *MountManagerFSProvider) RegisterDriver(name string, factory DriverFacto
 	m.factories[name] = factory
 }
 
-func (m *MountManagerFSProvider) parseID(id string) (isMount bool, mountID int64, subPath string) {
-	if strings.HasPrefix(id, "mount:") {
-		parts := strings.SplitN(id[6:], ":", 2)
-		mID, _ := strconv.ParseInt(parts[0], 10, 64)
-		sub := "/"
-		if len(parts) > 1 && parts[1] != "" {
-			sub = parts[1]
-		}
-		return true, mID, sub
-	}
-	return false, 0, id
-}
-
 func (m *MountManagerFSProvider) getProvider(ctx context.Context, mountID int64) (vfs.FSProvider, error) {
 	m.mu.RLock()
 	p, exists := m.activeMounts[mountID]
@@ -123,29 +110,37 @@ func (m *MountManagerFSProvider) getMountOnLocalFolder(ctx context.Context, loca
 
 // resolveNode определяет, какому провайдеру принадлежит конкретный ID (файл или папка)
 func (m *MountManagerFSProvider) resolveNode(ctx context.Context, id string) (p vfs.FSProvider, internalID string, mountID int64, err error) {
-	isMount, mID, subPath := m.parseID(id)
-	if isMount {
-		p, err = m.getProvider(ctx, mID)
+	canonicalId, err := vfs.ParseID(vfs.RawID(id))
+	if err != nil {
+		return nil, "", 0, err
+	}
+	
+	if canonicalId.Kind == vfs.IDMount {
+		p, err = m.getProvider(ctx, canonicalId.MountID)
 		if err != nil {
 			// Если маунт сломан, но мы просим его корень — не падаем!
 			// Возвращаем ошибку, но помечаем, что это корень маунта.
-			return nil, subPath, mID, err
+			return nil, canonicalId.MountPath, canonicalId.MountID, err
 		}
-		return p, subPath, mID, nil
+		return p, canonicalId.MountPath, canonicalId.MountID, nil
 	}
 	return m.localFS, id, 0, nil
 }
 
 // resolveContainer определяет целевой провайдер для операций ВНУТРИ папки (с учетом Shadowing)
 func (m *MountManagerFSProvider) resolveContainer(ctx context.Context, dirID string) (p vfs.FSProvider, internalID string, mountID int64, err error) {
-	isMount, mID, subPath := m.parseID(dirID)
-	if isMount {
-		p, err = m.getProvider(ctx, mID)
-		return p, subPath, mID, err
+	canonicalId, err := vfs.ParseID(vfs.RawID(dirID))
+	if err != nil {
+		return nil, "", 0, err
+	}
+
+	if canonicalId.Kind == vfs.IDMount {
+		p, err = m.getProvider(ctx, canonicalId.MountID)
+		return p, canonicalId.MountPath, canonicalId.MountID, err
 	}
 
 	// Если ID локальный, проверяем, не перекрыта ли папка маунтом
-	mID, err = m.getMountOnLocalFolder(ctx, dirID)
+	mID, err := m.getMountOnLocalFolder(ctx, dirID)
 	if err == nil {
 		p, err := m.getProvider(ctx, mID)
 		if err != nil {
@@ -174,27 +169,19 @@ func (m *MountManagerFSProvider) ResolvePathToID(ctx context.Context, filePath s
 	var currentLocalID any = nil
 
 	if homeID, hasHome := ctx.Value("relative_node_id").(string); hasHome && homeID != "" && homeID != "0" {
-		// ПРОВЕРКА НА МАУНТ: если относительный путь уже внутри маунта (н-р, "mount:5:/docs")
-		if strings.HasPrefix(homeID, "mount:") {
-			// Разбираем строку вида "mount:ID:internal_path"
-			parts := strings.SplitN(homeID, ":", 3)
-			if len(parts) == 3 {
-				mountIDStr := parts[1]
-				mountPath := parts[2]
-
-				// Просто склеиваем внутренний путь маунта и запрашиваемый filePath.
-				// path.Join сам позаботится о правильных слэшах и ".."
-				resolvedPath := path.Join(mountPath, filePath)
-				return fmt.Sprintf("mount:%s:%s", mountIDStr, resolvedPath), nil
-			}
+		canonicalId, err := vfs.ParseID(vfs.RawID(homeID))
+		if err == nil && canonicalId.Kind == vfs.IDMount {
+			return string(vfs.FormatMountID(canonicalId.MountID, path.Join(canonicalId.MountPath, filePath))), nil
+		} else if err != nil {
 			return "", fmt.Errorf("invalid mount string in context: %s", homeID)
 		}
-
-		// Если это обычный ID папки из БД цифрового формата
-		intHomeID, err := strconv.ParseInt(homeID, 10, 64)
-		if err == nil {
-			currentLocalID = intHomeID
-		}
+		if canonicalId.Kind == vfs.IDLocal {
+			intHomeID, err := strconv.ParseInt(string(canonicalId.Raw), 10, 64)
+			if err != nil {
+				return "", fmt.Errorf("invalid local ID: %s", canonicalId.Raw)
+			}
+			currentLocalID = &intHomeID
+		}		
 	}
 
 	// Дальнейший обход дерева в БД (вызывается, только если мы стартуем из локальной структуры)
@@ -221,7 +208,7 @@ func (m *MountManagerFSProvider) ResolvePathToID(ctx context.Context, filePath s
 		// Если в процессе обхода наткнулись на маунт
 		if errMount == nil {
 			remPath := "/" + strings.Join(parts[i+1:], "/")
-			return fmt.Sprintf("mount:%d:%s", mountID, path.Clean(remPath)), nil
+			return string(vfs.FormatMountID(mountID, path.Clean(remPath))), nil
 		}
 
 		currentLocalID = nextLocalID
@@ -244,7 +231,7 @@ func (m *MountManagerFSProvider) ReadDir(ctx context.Context, dirID string) ([]v
 	// Если данные пришли из внешнего маунта, маскируем ID для клиента
 	if mID > 0 {
 		for i := range nodes {
-			nodes[i].ID = fmt.Sprintf("mount:%d:%s", mID, nodes[i].ID)
+			nodes[i].ID = string(vfs.FormatMountID(mID, nodes[i].ID))
 			nodes[i].ParentID = dirID
 		}
 	}
@@ -293,30 +280,11 @@ func (m *MountManagerFSProvider) Mkdir(ctx context.Context, parentDirID, name st
 	}
 
 	if mID > 0 {
-		node.ID = fmt.Sprintf("mount:%d:%s", mID, node.ID)
+		node.ID = string(vfs.FormatMountID(mID, node.ID))
 		node.ParentID = parentDirID
 	}
 	return node, nil
 }
-
-// Deprecated
-// func (m *MountManagerFSProvider) SaveFile(ctx context.Context, parentDirID, name string, src io.Reader) (Node, error) {
-// 	p, internalID, mID, err := m.resolveContainer(ctx, parentDirID)
-// 	if err != nil {
-// 		return Node{}, err
-// 	}
-
-// 	node, err := p.SaveFile(ctx, internalID, name, src)
-// 	if err != nil {
-// 		return Node{}, err
-// 	}
-
-// 	if mID > 0 {
-// 		node.ID = fmt.Sprintf("mount:%d:%s", mID, node.ID)
-// 		node.ParentID = parentDirID
-// 	}
-// 	return node, nil
-// }
 
 func (m *MountManagerFSProvider) Delete(ctx context.Context, id string) error {
 	p, internalID, _, err := m.resolveNode(ctx, id)
@@ -348,14 +316,27 @@ func (m *MountManagerFSProvider) Stat(ctx context.Context, id string) (vfs.Node,
 
 	if mID > 0 {
 		node.ID = id
-		node.ParentID = fmt.Sprintf("mount:%d:%s", mID, node.ParentID)
+		node.ParentID = string(vfs.FormatMountID(mID, node.ParentID))
 	}
 	return node, nil
 }
 
 func (m *MountManagerFSProvider) Move(ctx context.Context, id string, newParentID string, newName string) error {
-	isMountOld, mountIDOld, subPathOld := m.parseID(id)
-	isMountNew, mountIDNew, subPathNew := m.parseID(newParentID)
+	canonicalIdOld, err := vfs.ParseID(vfs.RawID(id))
+	if err != nil {
+		return err
+	}
+	isMountOld := canonicalIdOld.Kind == vfs.IDMount
+	mountIDOld := canonicalIdOld.MountID
+	subPathOld := canonicalIdOld.MountPath
+
+	canonicalIdNew, err := vfs.ParseID(vfs.RawID(newParentID))
+	if err != nil {
+		return err
+	}
+	isMountNew := canonicalIdNew.Kind == vfs.IDMount
+	mountIDNew := canonicalIdNew.MountID
+	subPathNew := canonicalIdNew.MountPath
 
 	if isMountOld != isMountNew || (isMountOld && mountIDOld != mountIDNew) {
 		return fmt.Errorf("cross-provider move is not supported yet (requires read+write+delete)")
