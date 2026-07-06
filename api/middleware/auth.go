@@ -8,9 +8,9 @@ import (
 	"strings"
 )
 
-// AuthMiddleware authenticates the request and sets the user ID in the context.
-// Wrapper uses [auth.Auth] service to authenticate the request,
-// and sets the user ID by key [vfs.CONTEXT_USER_ID_KEY] in the context if the request is authenticated.
+// AuthMiddleware authenticates requests when credentials are present and sets
+// the user ID in the context. Requests without JWT credentials continue as
+// guests, so route-level ACL can decide whether anonymous access is allowed.
 func AuthMiddleware(authService *auth.Auth) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -27,6 +27,11 @@ func AuthMiddleware(authService *auth.Auth) func(http.Handler) http.Handler {
 				}
 				uid = int(user.ID)
 			} else {
+				if r.Header.Get("Authorization") == "" {
+					next.ServeHTTP(w, r)
+					return
+				}
+
 				claims, err := authService.AuthenticateRequest(r)
 				if err != nil {
 					http.Error(w, "Unauthorized", http.StatusUnauthorized)

@@ -55,7 +55,7 @@ FOREIGN KEY(role_id) REFERENCES roles(id)
 		log.Fatal(err)
 	}
 
-	_, err = db.Exec(`INSERT OR IGNORE INTO permissions(key) VALUES ('*'), ('html.view.*')`)
+	_, err = db.Exec(`INSERT OR IGNORE INTO permissions(key) VALUES ('*'), ('html.view.*'), ('auth.login')`)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -70,8 +70,14 @@ FOREIGN KEY(role_id) REFERENCES roles(id)
 		`
     INSERT OR IGNORE INTO role_permissions (role_id, permission_id)
     SELECT r.id, p.id
+		FROM roles r, permissions p
+		WHERE r.name = '*' AND p.key = 'html.view.*'
+    `,
+		`
+    INSERT OR IGNORE INTO role_permissions (role_id, permission_id)
+    SELECT r.id, p.id
     FROM roles r, permissions p
-    WHERE r.name = '*' AND p.key = 'html.view.*'
+    WHERE r.name = 'guest' AND p.key = 'auth.login'
     `,
 	}
 
