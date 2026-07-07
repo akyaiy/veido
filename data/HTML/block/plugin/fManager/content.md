@@ -70,9 +70,10 @@
   <div data-action="rename" data-target="file" class="menu_item">Переименовать</div>
   <div data-action="fileProperties" data-target="file" class="menu_item">Свойства</div>
   <div data-action="delete" data-target="file" class="menu_item">Удалить</div>
-  <hr data-actionShow="uploadFile uploadFolder download">
+  <hr data-actionShow="share uploadFile uploadFolder download">
   <div data-action="uploadFile" data-target="files_view" class="menu_item">Загрузить файл</div>
   <div data-action="uploadFolder" data-target="files_view" class="menu_item">Загрузить папку</div>
+  <div data-action="share" data-target="file" class="menu_item">Поделиться</div>
   <div data-action="download" data-target="file" class="menu_item">Скачать</div>
 </div>
 
@@ -102,3 +103,38 @@
 </div>
 
 <div id="filePropertiesContainers"></div>
+
+<div id="shareWindow" style="display: none;">
+    <div class="shareHeader">
+        <span class="shareTitle">Настройка доступа</span>
+        <span class="shareClose">✕</span>
+    </div>
+    <div class="shareContent">
+        <div class="shareAddForm">
+            <input type="text" class="shareNewName" placeholder="Имя пользователя">
+            <select class="shareNewRights">
+                <option value="644">Чтение</option>
+                <option value="755">Редактирование</option>
+                <option value="777">Полный доступ</option>
+            </select>
+            <button class="shareAddUser">+</button>
+        </div>
+        <div class="shareUsers">
+        </div>
+    </div>
+    <div class="shareUserTemplate" style="display: none;">
+        <div class="shareUserRow">
+            <span class="shareUserName"></span>
+            <select class="shareRights">
+                <option value="644">Чтение</option>
+                <option value="755">Редактирование</option>
+                <option value="777">Полный доступ</option>
+            </select>
+            <button class="shareUserDelete">✕</button>
+        </div>
+    </div>
+    <div class="shareFooter">
+        <button class="shareCancel">Отмена</button>
+        <button class="shareSave">Сохранить</button>
+    </div>
+</div>

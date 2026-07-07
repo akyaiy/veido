@@ -416,6 +416,70 @@ async downloadZip(paths, zipName = "archive.zip") {
     URL.revokeObjectURL(a.href);
 }
 
+/***************************************************************************
+ * sharedList — получение списка файлов связанных с шарингом:
+ ***************************************************************************/
+async sharedList(refersTo = 'atm') {
+    const url = `${this.baseUrl.replace(/\/acc2fs$/, '/shared')}?refers-to=${encodeURIComponent(refersTo)}`;
+
+    const data = await apiProtected(url);
+
+    if (data === null) {
+        throw new Error(`Error getting shared files`);
+    }
+
+    return Array.isArray(data) ? data : [];
+}
+
+/***************************************************************************
+ * share — создание шаринга файла или папки:
+ ***************************************************************************/
+async share(path, users, rights) {
+    const sharedUrl = this.baseUrl.replace(/\/acc2fs$/, '/shared');
+    const cleanPath = this.cleanPath(path).replace(/^\/+/, '');
+
+    const query = new URLSearchParams({
+        users: Array.isArray(users) ? users.join(':') : String(users),
+        rights: String(rights)
+    });
+
+    const url = `${sharedUrl}/${cleanPath}?${query.toString()}`;
+
+    const data = await apiProtected(url, {
+        method: 'POST'
+    });
+
+    if (data === null) {
+        throw new Error(`Error creating share`);
+    }
+
+    return true;
+}
+
+/***************************************************************************
+ * unshare — удаление шаринга файла или папки:
+ ***************************************************************************/
+async unshare(path, users) {
+    const sharedUrl = this.baseUrl.replace(/\/acc2fs$/, '/shared');
+    const cleanPath = this.cleanPath(path).replace(/^\/+/, '');
+
+    const query = new URLSearchParams({
+        users: Array.isArray(users) ? users.join(':') : String(users)
+    });
+
+    const url = `${sharedUrl}/${cleanPath}?${query.toString()}`;
+
+    const data = await apiProtected(url, {
+        method: 'DELETE'
+    });
+
+    if (data === null) {
+        throw new Error(`Error deleting share`);
+    }
+
+    return true;
+}
+
 }
 
 /***************************************************************************
@@ -1724,6 +1788,192 @@ function validateRename(name, type) {
 
 
 /***************************************************************************
+ * ShareManager — управление окном настройки доступа
+ ***************************************************************************/
+class ShareManager {
+
+    constructor() {
+        this.window = document.getElementById("shareWindow");
+        this.path = null;
+
+        this.initDrag();
+        this.initEvents();
+    }
+
+    /***************************************************************************
+     * initDrag — перемещение окна мышкой
+     ***************************************************************************/
+    initDrag() {
+        const header = this.window.querySelector(".shareHeader");
+
+        let offsetX = 0;
+        let offsetY = 0;
+
+        header.addEventListener("mousedown", (e) => {
+            const rect = this.window.getBoundingClientRect();
+
+            this.window.style.transform = "none";
+            this.window.style.left = rect.left + "px";
+            this.window.style.top = rect.top + "px";
+
+            offsetX = e.clientX - rect.left;
+            offsetY = e.clientY - rect.top;
+
+            const oldSelect = this.window.style.userSelect;
+
+            const move = (e) => {
+                this.window.style.userSelect = "none";
+                this.window.style.left = (e.clientX - offsetX) + "px";
+                this.window.style.top = (e.clientY - offsetY) + "px";
+            };
+
+            const stop = () => {
+                this.window.style.userSelect = oldSelect;
+
+                document.removeEventListener("mousemove", move);
+                document.removeEventListener("mouseup", stop);
+            };
+
+            document.addEventListener("mousemove", move);
+            document.addEventListener("mouseup", stop);
+        });
+    }
+
+    /***************************************************************************
+     * initEvents — привязка событий к элементам интерфейса
+     ***************************************************************************/
+    initEvents() {
+        const closeBtn = this.window.querySelector(".shareClose");
+        const cancelBtn = this.window.querySelector(".shareCancel");
+        const saveBtn = this.window.querySelector(".shareSave");
+        const addBtn = this.window.querySelector(".shareAddUser");
+
+        if (closeBtn) closeBtn.addEventListener("click", () => this.close());
+        if (cancelBtn) cancelBtn.addEventListener("click", () => this.close());
+        if (saveBtn) saveBtn.addEventListener("click", () => this.handleSave());
+
+        if (addBtn) {
+            addBtn.addEventListener("click", () => {
+                const nameInput = this.window.querySelector(".shareNewName");
+                const rightsSelect = this.window.querySelector(".shareNewRights");
+
+                const name = nameInput.value.trim();
+                const rights = rightsSelect.value;
+
+                if (name) {
+                    this.addUserRow(name, rights);
+                    nameInput.value = "";
+                }
+            });
+        }
+    }
+
+    /***************************************************************************
+     * open — открытие окна настройки доступа
+     ***************************************************************************/
+    async open(path) {
+        this.path = path;
+        this.window.style.display = "flex";
+
+        try {
+            const sharedFiles = await fm.api.sharedList("afm");
+            console.log(sharedFiles);
+
+            this.render(sharedFiles);
+        } catch (error) {
+            console.error("Ошибка при получении списка пользователей:", error);
+        }
+    }
+
+    /***************************************************************************
+     * close — закрытие окна
+     ***************************************************************************/
+    close() {
+        this.window.style.display = "none";
+        this.window.querySelector(".shareNewName").value = "";
+    }
+
+    /***************************************************************************
+     * render — отображение пользователей с доступом
+     ***************************************************************************/
+    render(users) {
+        const container = this.window.querySelector(".shareUsers");
+        container.innerHTML = "";
+
+        if (Array.isArray(users)) {
+            users.forEach(user => {
+                this.addUserRow(user.name, user.rights || "644");
+            });
+        }
+    }
+
+    /***************************************************************************
+     * addUserRow — добавление строки пользователя из шаблона в список
+     ***************************************************************************/
+    addUserRow(name, rights) {
+        const container = this.window.querySelector(".shareUsers");
+        const template = this.window.querySelector(".shareUserTemplate .shareUserRow");
+
+        if (!template) return;
+
+        const row = template.cloneNode(true);
+
+        row.querySelector(".shareUserName").textContent = name;
+        row.querySelector(".shareRights").value = rights;
+
+        row.querySelector(".shareUserDelete").addEventListener("click", () => {
+            row.remove();
+        });
+
+        container.appendChild(row);
+    }
+
+    /***************************************************************************
+     * handleSave — сбор измененных данных и отправка на сервер
+     ***************************************************************************/
+    async handleSave() {
+        const rows = this.window.querySelectorAll(".shareUsers .shareUserRow");
+
+        for (const row of rows) {
+            const name = row.querySelector(".shareUserName").textContent;
+            const rights = row.querySelector(".shareRights").value;
+
+            if (name) {
+                try {
+                    await this.save(name, rights);
+                } catch (error) {
+                    console.error(`Ошибка сохранения для ${name}:`, error);
+                }
+            }
+        }
+
+        this.close();
+    }
+
+/***************************************************************************
+ * save — отправка данных шаринга в API
+ ***************************************************************************/
+async save(users, rights) {
+    await fm.api.share(
+        this.path,
+        users,
+        rights
+    );
+}
+
+/***************************************************************************
+ * remove — удаление шаринга через API
+ ***************************************************************************/
+async remove(users) {
+    await fm.api.unshare(
+        this.path,
+        users
+    );
+}
+}
+
+
+/***************************************************************************
  * ContextMenu — кастомное контекстное меню
  * - контекст определяется через handleFileClick (без изменений функции)
  * - clipboard: navigator.clipboard + fallback cookie
@@ -1743,6 +1993,7 @@ class ContextMenu {
         this.clipboardMode = "copy";
 
         this.propertiesManager = new FilePropertiesManager();
+        this.shareManager = new ShareManager();
 
         this.init();
     }
@@ -1878,6 +2129,7 @@ class ContextMenu {
         
         if (action === "uploadFile") this.uploadFile();
         if (action === "uploadFolder") this.uploadFolder();
+        if (action === "share") this.share(fileName);
         if (action === "download") this.download(fileName);
     }
 
@@ -2283,6 +2535,17 @@ class ContextMenu {
         }, { once: true });
 
         input.click();
+    }
+
+    /***************************************************************************
+     * share — настройка доступа файла
+     ***************************************************************************/
+    async share(fileName) {
+        if (!fileName) return;
+
+        const path = (fm.cwd === "/" ? "" : fm.cwd) + "/" + fileName;
+
+        this.shareManager.open(path);
     }
 
     /***************************************************************************
