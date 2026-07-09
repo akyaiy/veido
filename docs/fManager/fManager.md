@@ -53,3 +53,16 @@
 - [sharMenu](./modules/modules/sharMenu.md) - окно настройки доступа к файлу или папке
 - [filePropertiesMenu](./modules/modules/filePropertiesMenu.md) - окно свойств файла или папки
 - [renameMenu](./modules/modules/renameMenu.md) - окно переименования файла или папки
+    
+    
+
+
+
+
+
+
+## Схема зависимостей и иерархии блоков
+
+Нижние блоки зависят от верхних, получая от верхних данные и функции.
+
+![Схема зависимостей fManager](./img/blockHierarchy.png)
