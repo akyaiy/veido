@@ -1,1 +1,1 @@
-<div>blockPreview</div>
+<div id="blockPreviewButton">Предпросмотр</div>

@@ -19,9 +19,6 @@
 
 <div id="centerPanel">
     <div id="viewBlock"></div>
-    <div id="viewEditor"></div>
-    <div id="mdEditor"></div>
-    <div id="jsEditor"></div>
 </div>
 
 <div id="rightPanel">

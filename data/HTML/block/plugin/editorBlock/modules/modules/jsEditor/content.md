@@ -1,1 +1,1 @@
-<div>jsEditor</div>
+<div id="jsEditorContent" contenteditable="true"></div>

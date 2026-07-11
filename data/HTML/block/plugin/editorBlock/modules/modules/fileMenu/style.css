@@ -1,0 +1,21 @@
+/* Меню файла */
+#fileMenuButton {
+    cursor: pointer;
+}
+
+#fileMenuList {
+    position: absolute;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+}
+
+.fileMenuItem {
+    padding: 2px 5px;
+    cursor: pointer;
+}
+.fileMenuItem:hover {
+    color: rgba(0, 0, 0, 0.6);
+}

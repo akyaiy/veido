@@ -148,29 +148,29 @@ async function initEditorBlocks() {
 
     /* Основной блок */
     const mainBlock = [
-        { path: "plugin/editorBlock/plugin", id: "content" }
+        { path: "plugin/editorBlockOld/plugin", id: "content" }
     ];
 
     /* Список блоков редактора */
     const blocks = [
         /* Верхняя панель */
-        { path: "plugin/editorBlock/plugin/topPanel", id: "topPanel" },
+        { path: "plugin/editorBlockOld/plugin/topPanel", id: "topPanel" },
         /* Левая панель */
-        { path: "plugin/editorBlock/plugin/htmlElementsInserter", id: "htmlElementsInserter" },
+        { path: "plugin/editorBlockOld/plugin/htmlElementsInserter", id: "htmlElementsInserter" },
         /* Центральная панель */
-        { path: "plugin/editorBlock/plugin/loadedBlocks", id: "loadedBlocks" },
-        { path: "plugin/editorBlock/plugin/modeSwitcherContent", id: "modeSwitcherContent" },
-        { path: "plugin/editorBlock/plugin/controllerContent", id: "controllerContent" },
-        { path: "plugin/editorBlock/plugin/editorContent", id: "editorContent" },
+        { path: "plugin/editorBlockOld/plugin/loadedBlocks", id: "loadedBlocks" },
+        { path: "plugin/editorBlockOld/plugin/modeSwitcherContent", id: "modeSwitcherContent" },
+        { path: "plugin/editorBlockOld/plugin/controllerContent", id: "controllerContent" },
+        { path: "plugin/editorBlockOld/plugin/editorContent", id: "editorContent" },
         /* Правая панель */
-        { path: "plugin/editorBlock/plugin/panelsSwitcher", id: "panelsSwitcher" },
-        { path: "plugin/editorBlock/plugin/propertiesPanel", id: "propertiesPanel" },
-        { path: "plugin/editorBlock/plugin/htmlTagsInserter", id: "htmlTagsInserter" },
-        { path: "plugin/editorBlock/plugin/jsPanel", id: "jsPanel" },
+        { path: "plugin/editorBlockOld/plugin/panelsSwitcher", id: "panelsSwitcher" },
+        { path: "plugin/editorBlockOld/plugin/propertiesPanel", id: "propertiesPanel" },
+        { path: "plugin/editorBlockOld/plugin/htmlTagsInserter", id: "htmlTagsInserter" },
+        { path: "plugin/editorBlockOld/plugin/jsPanel", id: "jsPanel" },
         /* Глобальные блоки */
-        { path: "plugin/editorBlock/plugin/rgbPicker", id: "rgbPicker" },
-        { path: "plugin/editorBlock/plugin/contextMenu", id: "contextMenu" },
-        { path: "plugin/editorBlock/plugin/modalWindows", id: "modalWindows" }
+        { path: "plugin/editorBlockOld/plugin/rgbPicker", id: "rgbPicker" },
+        { path: "plugin/editorBlockOld/plugin/contextMenu", id: "contextMenu" },
+        { path: "plugin/editorBlockOld/plugin/modalWindows", id: "modalWindows" }
     ];
 
     /* Загрузка блоков редактора с контролем сессий */

@@ -1,6 +1,19 @@
 /* Основной контейнер */
 #editorBlock {
-    width: 90vw;
-    max-width: 100%;
-    height: 75vh;
+    min-width: 90vw;
+    min-height: 78vh;
+    display: flex;
+    flex-direction: column; 
+    box-sizing: border-box;
+}
+
+
+
+/* SVG-иконки */
+.svgIcon {
+    width: 20px;
+    height: 20px;
+}
+.svgIcon:hover, .tabsSvgIcon:hover {
+    opacity: 0.6;
 }

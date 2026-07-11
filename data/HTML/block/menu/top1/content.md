@@ -17,6 +17,7 @@
         <li><a href="/ACL" data-link="true" data-target="content">ACL</a></li>
         <!-- <li><a href="/userSlava/popup" data-link="true" data-target="content">Сообщения popup</a></li> -->
         <li><a href="/editorBlock" data-link="true" data-target="content">editorBlock</a></li>
+        <li><a href="/editorBlockOld" data-link="true" data-target="content">editorBlockOld</a></li>
     </ul>
 </nav>
 <button id="lng_btn" data-loget="false">

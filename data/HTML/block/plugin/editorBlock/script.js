@@ -7,13 +7,12 @@
  * - загружает основной каркас редактора
  * - загружает все дополнительные модули редактора
 *** */
-
 async function loadEditorBlock() {
-    // Загрузка основного модуля редактора
+    // Загрузка основного каркаса редактора
     await loadBlock('plugin/editorBlock/modules/mainBlock', 'editorBlock');
 
-    // Путь к папке с дополнительными модулями
-    const modulesPath = 'plugin/editorBlock/modules/modules';
+    // Путь к папке с модулями
+    const modulesPath = 'plugin/editorBlock/modules';
 
     // Список модулей editorBlock
     const modules = [
@@ -22,26 +21,76 @@ async function loadEditorBlock() {
         'editorHistory',
         'insertingElements',
         'modalWindows',
+
         'viewBlock',
+        
         'blockPreview',
         'colorPicker',
         'eventsEditor',
-        'jsEditor',
         'propertiesElement',
-        'viewEditor',
         'blocksContainers',
         'contextMenu',
         'fileMenu',
-        'mdEditor',
         'propertiesText'
     ];
 
 
-    // Загрузка дополнительных модулей
-    for (const moduleName of modules) {
-        await loadBlock(`${modulesPath}/${moduleName}`, moduleName);
-    }
+    // Загрузка модулей параллельно
+    const loadPromises = modules.map(moduleName => {
+        let modulePath = `${modulesPath}/${moduleName}`;
+
+        if (moduleName !== 'mainBlock') {
+            modulePath = `${modulesPath}/modules/${moduleName}`;
+        }
+
+        return loadBlock(modulePath, moduleName);
+    });
+
+    await Promise.all(loadPromises);
 }
 
-// Вызов функции загрузки всех модулей editorBlock
-loadEditorBlock();
+/* ***
+ * initEditorBlock - инициализация редактора
+ * - загружает все модули editorBlock
+ * - вызывает событие после завершения загрузки
+*** */
+async function initEditorBlock() {
+    await loadEditorBlock();
+    document.dispatchEvent(new Event('editorBlockLoaded'));
+}
+// Инициализация редактора
+initEditorBlock();
+
+/* ***
+ * initSvgIcons - инициализация SVG-иконок
+ * - ищет все SVG с атрибутом use
+ * - создает элемент <use> с указанным id
+ * - применяет цвет и фон, если указаны
+*** */
+function initSvgIcons() {
+    // Поиск всех SVG с атрибутом use
+    document.querySelectorAll('svg[use]').forEach(svg => {
+        // Получение значений атрибутов
+        const id = svg.getAttribute('use');
+        const color = svg.getAttribute('use-color');
+        const background = svg.getAttribute('use-background');
+
+        // Создание SVG <use> элемента
+        const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+        use.setAttribute('href', './static/img/icons.svg#' + id);
+
+        // Применение цвета
+        if (color) svg.style.color = color;
+        else svg.style.color = "#000000";
+
+        // Применение фона
+        if (background) svg.style.background = background;
+        else svg.style.background = "";
+
+        // Вставка иконки в SVG
+        svg.appendChild(use);
+    });
+}
+
+// Запуск инициализации после загрузки блоков
+document.addEventListener('editorBlockLoaded', initSvgIcons);

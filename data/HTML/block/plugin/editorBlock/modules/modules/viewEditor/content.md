@@ -1,1 +1,1 @@
-<div>viewEditor</div>
+<div id="viewEditorСontent" contenteditable="true"></div>

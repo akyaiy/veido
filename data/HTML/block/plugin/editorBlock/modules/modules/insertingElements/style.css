@@ -1,0 +1,12 @@
+/* Элементы вставки */
+.insertElements {
+    display: flex;
+    flex-direction: column;
+}
+
+.insertElement {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    padding: 4px;
+}

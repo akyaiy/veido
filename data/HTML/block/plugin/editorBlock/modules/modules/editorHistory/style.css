@@ -1,0 +1,5 @@
+/* Кнопки истории редактора */
+.historyButton {
+    cursor: pointer;
+    padding: 0px 2px;
+}

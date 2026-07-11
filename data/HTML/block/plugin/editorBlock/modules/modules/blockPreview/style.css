@@ -1,0 +1,7 @@
+/* Кнопка предварительного просмотра */
+#blockPreviewButton {
+    cursor: pointer;
+}
+#blockPreviewButton:hover {
+    color: rgba(0, 0, 0, 0.6);
+}
