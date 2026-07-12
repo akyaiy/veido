@@ -1,0 +1,29 @@
+/* Заголовок */
+#propertiesTextTitle {
+    width: 100%;
+}
+
+/* Панель форматирования текста */
+#propertiesSimpleFormats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+#propertiesSimpleFormats > div {
+    display: inline-block;
+    cursor: pointer;
+}
+
+/* Панель списков */
+#propertiesLists {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.propertiesList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1px;
+}

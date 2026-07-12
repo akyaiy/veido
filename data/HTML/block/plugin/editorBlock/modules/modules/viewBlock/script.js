@@ -1,14 +1,4 @@
 /* ===
- * Загрузка модулей редактора editorBlock
- * === */
-
-// Загрузка модулей редактора editorBlock
-loadBlock('plugin/editorBlock/modules/modules/viewEditor', 'viewEditor');
-loadBlock('plugin/editorBlock/modules/modules/mdEditor', 'mdEditor');
-loadBlock('plugin/editorBlock/modules/modules/jsEditor', 'jsEditor');
-
-
-/* ===
  * Переключение режимов редактора editorBlock
  * === */
 

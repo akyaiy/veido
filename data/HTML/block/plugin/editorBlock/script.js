@@ -10,37 +10,40 @@
 async function loadEditorBlock() {
     // Загрузка основного каркаса редактора
     await loadBlock('plugin/editorBlock/modules/mainBlock', 'editorBlock');
+    await loadBlock('plugin/editorBlock/modules/modules/viewBlock', 'viewBlock');
 
     // Путь к папке с модулями
-    const modulesPath = 'plugin/editorBlock/modules';
+    const modulesPath = 'plugin/editorBlock/modules/modules';
 
     // Список модулей editorBlock
     const modules = [
-        'attributesElement',
         'blocksTabs',
         'editorHistory',
         'insertingElements',
         'modalWindows',
-
-        'viewBlock',
-        
         'blockPreview',
         'colorPicker',
-        'eventsEditor',
-        'propertiesElement',
         'blocksContainers',
         'contextMenu',
         'fileMenu',
-        'propertiesText'
+
+        'rightPanelTabs',
+        'propertiesText',
+        'eventsEditor',
+        'attributesElement',
+        'propertiesElement',
+
+        'viewEditor',
+        'mdEditor',
+        'jsEditor'
     ];
 
-
-    // Загрузка модулей параллельно
+    // Загрузка модулей параллельно и ожидание завершения всех
     const loadPromises = modules.map(moduleName => {
         let modulePath = `${modulesPath}/${moduleName}`;
 
         if (moduleName !== 'mainBlock') {
-            modulePath = `${modulesPath}/modules/${moduleName}`;
+            modulePath = `${modulesPath}/${moduleName}`;
         }
 
         return loadBlock(modulePath, moduleName);

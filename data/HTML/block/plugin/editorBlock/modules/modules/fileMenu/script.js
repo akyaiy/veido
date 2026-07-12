@@ -14,7 +14,7 @@ const fileMenuList = document.getElementById('fileMenuList');
 *** */
 function openFileMenu(event) {
     if (fileMenuList.style.display === 'none') {
-        fileMenuList.style.display = 'block';
+        fileMenuList.style.display = '';
     } else {
         fileMenuList.style.display = 'none';
     }

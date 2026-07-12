@@ -22,10 +22,11 @@
 </div>
 
 <div id="rightPanel">
+    <div id="rightPanelTabs"></div>
     <div id="propertiesText"></div>
-    <div id="propertiesElement"></div>
-    <div id="attributesElement"></div>
-    <div id="eventsEditor"></div>
+    <div id="propertiesElement" style="display: none;"></div>
+    <div id="attributesElement" style="display: none;"></div>
+    <div id="eventsEditor" style="display: none;"></div>
 </div>
 
 </div>
