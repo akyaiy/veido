@@ -1,0 +1,11 @@
+/* Таблица CSS */
+#cssPanel {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+}
+
+#cssPanel td input {
+    width: 100%;
+    box-sizing: border-box;
+}

@@ -3,7 +3,7 @@
 === */
 
 // Кнопки вкладок правой панели
-const rightPanelTabs = document.querySelectorAll('#rightPanelTabs > .rightPanelTab');
+const rightPanelTab = document.querySelectorAll('.rightPanelTab');
 
 /* ***
  * handleRightPanelTabClick - обработка нажатия на вкладку правой панели
@@ -30,6 +30,6 @@ function handleRightPanelTabClick(event) {
 }
 
 // Добавление обработчиков вкладок
-rightPanelTabs.forEach(tab => {
+rightPanelTab.forEach(tab => {
     tab.addEventListener('click', handleRightPanelTabClick);
 });

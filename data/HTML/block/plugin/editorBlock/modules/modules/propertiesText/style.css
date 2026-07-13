@@ -21,9 +21,3 @@
     flex-wrap: wrap;
     gap: 5px;
 }
-
-.propertiesList {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1px;
-}

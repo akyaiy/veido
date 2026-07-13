@@ -1,0 +1,11 @@
+/* Таблица атрибутов элемента */
+#attributesPanel {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+}
+
+#attributesPanel td input {
+    width: 100%;
+    box-sizing: border-box;
+}

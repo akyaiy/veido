@@ -2,11 +2,13 @@
 #rightPanelTabs {
     display: flex;
     width: 100%;
+    overflow: auto;
+    scrollbar-width: thin;
 }
 
 .rightPanelTab {
     flex: 1 1 0;
-    padding: 5px;
+    padding: 5px 7px;
     cursor: pointer;
     border-right: 1px solid #ccc;
     border-bottom: 1px solid #ccc;

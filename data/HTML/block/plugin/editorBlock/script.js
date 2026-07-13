@@ -32,6 +32,7 @@ async function loadEditorBlock() {
         'eventsEditor',
         'attributesElement',
         'propertiesElement',
+        'cssEditor',
 
         'viewEditor',
         'mdEditor',

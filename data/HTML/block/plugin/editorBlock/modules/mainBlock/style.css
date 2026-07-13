@@ -35,15 +35,14 @@
 #mainPanel {
     display: flex;
     flex: 1;
-    height: 100%;
+    min-height: 0;
 }
 
 
 
 /* Левая панель */
-#leftPanel {
-    border-right: 1px solid #ccc;
-}
+/* #leftPanel {
+} */
 
 /* Элементы вставки */
 #insertingElements {
@@ -58,6 +57,8 @@
 #centerPanel {
     flex: 1;
     min-width: 0;
+    border-left: 1px solid #ccc;
+    border-right: 1px solid #ccc;
 }
 
 #viewBlock {
@@ -73,14 +74,26 @@
 /* Правая панель */
 #rightPanel {
     width: 21%;
-    border-left: 1px solid #ccc;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    height: 100%; 
 }
 
-#propertiesText {
+#propertiesText,
+#propertiesElement,
+#attributesElement,
+#cssEditor,
+#eventsEditor {
     display: flex;
     flex-direction: column;
     padding: 7px;
     gap: 5px;
+    box-sizing: border-box;
+    width: 100%;
+    flex: 1;
+    overflow-y: auto; 
+    min-height: 0;
 }
 
 

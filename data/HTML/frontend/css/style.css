@@ -6,6 +6,8 @@ main {flex: 1; padding: 20px; max-width: 90vw; margin: 0 auto;}
 button:not(.burger, .lng) {cursor:pointer; border-radius: 8px; border: 1px solid #ccc; background:#e4e4e4; padding: 10px 12px; font-size: 16px;}
 button:not(.burger, .lng):hover {background: #aa92f8;} 
 input {background: #ffffff; padding: 10px 12px; font-size: 15px; border-radius: 8px; border: 1px solid #ccc; transition: border 0.2s, box-shadow 0.2s; width:200px;}
+input[type="checkbox"] {width:auto;}
+input[type="color"] {padding: 0px;}
 input:focus {border-color: #7f57ff; box-shadow: 0 0 0 2px rgba(127, 87, 255, 0.2); outline: none;}
 select{background: #ffffff; padding: 10px 12px; font-size: 15px; border-radius: 8px; border: 1px solid #ccc; transition: border 0.2s, box-shadow 0.2s; width:225px;}
 select:focus {border-color: #7f57ff; box-shadow: 0 0 0 2px rgba(127, 87, 255, 0.2); outline: none;}

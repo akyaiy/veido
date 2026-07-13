@@ -1,0 +1,31 @@
+/* Панель выбора элемента */
+#selectorPanel {
+    display: flex;
+    gap: 5px;
+}
+
+#selectorType {
+    width: 25%;
+}
+
+#selectorName {
+    width: 70%;
+    flex: 1;
+}
+
+#selectorClass {
+    width: 5%;
+}
+
+
+/* Таблица событий */
+#eventsPanel {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+}
+
+#eventsPanel td input {
+    width: 100%;
+    box-sizing: border-box;
+}

@@ -1,0 +1,26 @@
+/* Выравнивание по 4 сторонам */
+.marginGrid,
+.paddingGrid {
+    display: flex;
+    align-items: center;
+}
+
+.marginGrid .left,
+.paddingGrid .left,
+.marginGrid .right,
+.paddingGrid .right {
+    flex: 1;
+}
+
+.marginGrid .center,
+.paddingGrid .center {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.marginGrid input,
+.paddingGrid input {
+    width: 100%;
+    box-sizing: border-box;
+}
