@@ -106,7 +106,11 @@ function addBlockTab(blockId, path) {
     tab.dataset.blockId = blockId;
 
     const name = document.createElement('span');
-    name.textContent = path.split('/').pop();
+    if (path) {
+        name.textContent = path.split('/').pop();
+    } else {
+        name.textContent = '*new';
+    }
     name.className = 'tabName';
     name.addEventListener('click', () => {
         savePreviousBlock(currentBlockId);
@@ -222,10 +226,10 @@ function savePreviousBlock(currentBlockId) {
     let script = jsDiv.querySelector('script');
     if (!script) {
         script = document.createElement('script');
-        script.setAttribute('data-dynamic', currentBlockId + 'Html');
-        script.setAttribute('type', 'text/plain');
         jsDiv.appendChild(script);
     }
+    script.setAttribute('data-dynamic', currentBlockId + 'Html');
+    script.setAttribute('type', 'text/plain');
     script.innerHTML = jsEditorContent.innerHTML;
 }
 
@@ -236,7 +240,29 @@ function savePreviousBlock(currentBlockId) {
 function newBlock() {
     openBlock(null);
 }
+window.editorBlock.newBlock = newBlock;
 
+/* ***
+ * saveBlock - сохранение текущего блока
+ * // Заменить потом!!!!!
+*** */
+function saveBlock() {
+    const viewEditorСontent = document.getElementById('viewEditorСontent');
+    const mdEditorContent = document.getElementById('mdEditorContent');
+    const jsEditorContent = document.getElementById('jsEditorContent');
+
+    if (!viewEditorСontent || !mdEditorContent || !jsEditorContent) {
+        return '';
+    }
+
+    return JSON.stringify({
+        html: viewEditorСontent.innerHTML,
+        md: mdEditorContent.textContent,
+        js: jsEditorContent.innerHTML,
+        blockId: currentBlockId
+    });
+}
+window.editorBlock.saveBlock = saveBlock;
 
 /* ===
  * Редакторы 

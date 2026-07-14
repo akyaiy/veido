@@ -51,30 +51,52 @@ document.addEventListener('click', closeFileMenu);
  * Действия файлового меню
 === */
 
-function selectFileMenu(event) {
+async function selectFileMenu(event) {
     const selectedItem = event.target;
-    const filePath = selectedItem.getAttribute('data-action');
-    switch (filePath) {
+    const action = selectedItem.getAttribute('data-action');
+    let blockContent = null;
+
+    switch (action) {
         case 'save':
-            console.log('Сохранение файла...');
+            blockContent = window.editorBlock.saveBlock();
+
+            // Заменить потом!!!!!
+            const blob = new Blob([blockContent], { type: 'application/zip' });
+            const downloadUrl = URL.createObjectURL(blob);
+            const downloadLink = document.createElement('a');
+            downloadLink.href = downloadUrl;
+            downloadLink.download = 'block.json';
+            downloadLink.click();
+            URL.revokeObjectURL(downloadUrl);
+
             break;
 
         case 'saveAs':
-            console.log('Сохранение файла...');
+            blockContent = window.editorBlock.saveBlock();
+            
+            // Заменить потом!!!!!
+            const blob2 = new Blob([blockContent], { type: 'application/zip' });
+            const downloadUrl2 = URL.createObjectURL(blob2);
+            const downloadLink2 = document.createElement('a');
+            downloadLink2.href = downloadUrl2;
+            downloadLink2.download = 'block.json';
+            downloadLink2.click();
+            URL.revokeObjectURL(downloadUrl2);
+            
             break;
 
         case 'open':
-            const filePath = prompt('Введите путь к файлу для открытия:');
-            window.editorBlock.openBlock(filePath);
+            const path = prompt('Введите путь к файлу для открытия:');
+            if (path === null || path.trim() === '') return;
+            window.editorBlock.openBlock(path);
             break;
 
         case 'new':
-            console.log('Создание нового файла...');
             window.editorBlock.newBlock();
             break;
 
         default:
-            console.log('Неизвестное действие:', filePath);
+            console.log('Неизвестное действие:', action);
     }
 }
 

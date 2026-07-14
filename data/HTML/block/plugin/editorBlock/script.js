@@ -11,6 +11,7 @@ async function loadEditorBlock() {
     // Загрузка основного каркаса редактора
     await loadBlock('plugin/editorBlock/modules/mainBlock', 'editorBlock', false, true);
     await loadBlock('plugin/editorBlock/modules/modules/viewBlock', 'viewBlock');
+    await loadBlock('plugin/zipArchiver', 'zipArchiver');
 
     // Путь к папке с модулями
     const modulesPath = 'plugin/editorBlock/modules/modules';
