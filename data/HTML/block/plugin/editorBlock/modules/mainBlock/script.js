@@ -264,6 +264,8 @@ function saveBlock() {
 }
 window.editorBlock.saveBlock = saveBlock;
 
+
+
 /* ===
  * Редакторы 
 === */
@@ -274,11 +276,21 @@ window.editorBlock.saveBlock = saveBlock;
  * - устанавливает курсор в редакторе
 *** */
 function focusEditor(editorContent) {
+    if (!editorContent) {
+        return;
+    }
+
+    // Если внутри редактора уже есть активное выделение, не сбрасываем его
+    const selection = window.getSelection();
+    if (selection && !selection.isCollapsed &&
+        (editorContent.contains(selection.anchorNode) || editorContent.contains(selection.focusNode))) {
+        return;
+    }
+
+    // Устанавливаем фокус в содержимом редактора
     editorContent.focus();
 
-    const selection = window.getSelection();
     const range = document.createRange();
-
     range.selectNodeContents(editorContent);
     range.collapse(false);
 
@@ -293,20 +305,34 @@ document.addEventListener('editorBlockLoaded', () => {
     const jsEditor = document.getElementById('jsEditor');
 
     // Контейнеры для содержимого редакторов
-    const viewEditorСontent = document.getElementById('viewEditorСontent');
+    const viewEditorContent = document.getElementById('viewEditorСontent');
     const mdEditorContent = document.getElementById('mdEditorContent');
     const jsEditorContent = document.getElementById('jsEditorContent');
 
     // Добавление обработчиков кликов для редакторов
-    viewEditor.addEventListener('click', () => {
-        focusEditor(viewEditorСontent);
+    viewEditor.addEventListener('click', event => {
+        if (event.target !== event.currentTarget) {
+            return;
+        }
+
+        focusEditor(viewEditorContent);
     });
-    mdEditor.addEventListener('click', () => {
+
+    mdEditor.addEventListener('click', event => {
+        if (event.target !== event.currentTarget) {
+            return;
+        }
+
         focusEditor(mdEditorContent);
     });
-    jsEditor.addEventListener('click', () => {
+    
+    jsEditor.addEventListener('click', event => {
+        if (event.target !== event.currentTarget) {
+            return;
+        }
+
         focusEditor(jsEditorContent);
-    }); 
+    });
 });
 
 /* ***
@@ -340,3 +366,59 @@ document.addEventListener('editorBlockLoaded', () => {
         syncEditors();
     });
 });
+
+
+
+/* ===
+ * Логика выделения элементов в редакторе
+=== */
+
+// Сохранение выделения 
+let savedRange = null;
+
+/* ***
+ * saveSelection - сохранение текущего выделения
+ * - сохраняет текущий range в savedRange
+ * - проверяет, находится ли выделение внутри contenteditable1
+ * - если да, сохраняет range
+*** */
+function saveSelection() {
+    // Проверка, есть ли текущее выделение
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+
+    // Получение узла, содержащего выделение
+    let node = sel.anchorNode;
+    if (node && node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+
+    // Проверка, находится ли узел внутри contenteditable
+    const editableElement = node ? node.closest('[contenteditable="true"]') : null;
+    if (editableElement) {
+        const range = sel.getRangeAt(0);
+        if (editableElement.contains(range.commonAncestorContainer)) {
+            savedRange = range.cloneRange();
+        }
+    }
+}
+
+/* ***
+ * restoreSelection - восстановление сохранённого выделения
+ * - восстанавливает ранее сохранённый range
+ * - возвращает фокус редактируемому элементу
+*** */
+window.restoreSelection = restoreSelection;
+function restoreSelection() {
+    if (!savedRange) return;
+
+    const sel = window.getSelection();
+    if (!sel) return;
+
+    sel.removeAllRanges();
+    sel.addRange(savedRange);
+}
+
+// События для сохранения выделения при начале/завершении клика, при отпускании клавиши и при изменении выделения
+document.addEventListener('mousedown', saveSelection);
+document.addEventListener('mouseup', saveSelection);
+document.addEventListener('keyup', saveSelection);
+document.addEventListener('selectionchange', saveSelection);
