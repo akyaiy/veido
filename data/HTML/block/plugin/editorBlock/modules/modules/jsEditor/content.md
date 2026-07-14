@@ -1,1 +1,1 @@
-<div id="jsEditorContent" contenteditable="true"></div>
+<div id="jsEditorContent" contenteditable="plaintext-only"></div>

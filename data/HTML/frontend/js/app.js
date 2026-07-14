@@ -603,10 +603,12 @@ async function loadBlock(path, block_Name, itemsHowText = false, jsCommunication
         // Добавление JS блока
         if (js) {
             const script = document.createElement('script');
-            if (itemsHowText !== false) script.type = 'text/plain';
             script.dataset.dynamic = block_Name;
 
-            if (jsCommunication == false) {
+            if (itemsHowText === true) {
+                script.type = 'text/plain';
+                script.textContent = `${js}`;
+            } else if (jsCommunication == false) {
                 script.textContent = `
                     (() => {
                         try {

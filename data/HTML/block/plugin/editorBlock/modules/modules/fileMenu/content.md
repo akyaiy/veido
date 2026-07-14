@@ -1,4 +1,4 @@
-<div id="fileMenuButton" id="fileMenuButton">
+<div id="fileMenuButton">
     <svg class="svgIcon" use="8x13"></svg>
     <div id="fileMenuList" style="display:none;">
         <div class="fileMenuItem" data-action="save">Сохранить</div>

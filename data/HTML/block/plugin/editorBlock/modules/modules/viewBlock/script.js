@@ -13,6 +13,7 @@ function switchEditor(editorId) {
         'mdEditor',
         'jsEditor'
     ];
+
     window.editorBlock.currentEditor = editorId;
 
     // Переключение отображения редакторов

@@ -1,10 +1,18 @@
 /* ===
- * Открытие и закрытие меню файлов
+ * Базовые элементы файлового меню
 === */
 
-// Получение ссылки на элемент меню файлов
-const fileMenuButton = document.getElementById('fileMenuButton');
+// Список файлового меню
 const fileMenuList = document.getElementById('fileMenuList');
+
+// Кнопка файлового меню
+const fileMenuButton = document.getElementById('fileMenuButton');
+
+
+
+/* ===
+ * Открытие и закрытие меню файлов
+=== */
     
 /* ***
  * openFileMenu - открытие меню файлов
@@ -36,3 +44,38 @@ fileMenuButton.addEventListener('click', openFileMenu);
 
 // Закрытие меню файлов при клике вне его 
 document.addEventListener('click', closeFileMenu);
+
+
+
+/* ===
+ * Действия файлового меню
+=== */
+
+function selectFileMenu(event) {
+    const selectedItem = event.target;
+    const filePath = selectedItem.getAttribute('data-action');
+    switch (filePath) {
+        case 'save':
+            console.log('Сохранение файла...');
+            break;
+
+        case 'saveAs':
+            console.log('Сохранение файла...');
+            break;
+
+        case 'open':
+            const filePath = prompt('Введите путь к файлу для открытия:');
+            window.editorBlock.openBlock(filePath);
+            break;
+
+        case 'new':
+            console.log('Создание нового файла...');
+            break;
+
+        default:
+            console.log('Неизвестное действие:', filePath);
+    }
+}
+
+// Обработка выбора пункта меню
+fileMenuList.addEventListener('click', selectFileMenu);

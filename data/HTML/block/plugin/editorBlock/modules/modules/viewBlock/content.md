@@ -1,4 +1,4 @@
-<div id="viewEditor"></div>
+<div id="viewEditor" style="display: none;"></div>
 <div id="mdEditor" style="display: none;"></div>
 <div id="jsEditor" style="display: none;"></div>
 

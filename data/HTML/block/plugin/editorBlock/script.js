@@ -9,7 +9,7 @@
 *** */
 async function loadEditorBlock() {
     // Загрузка основного каркаса редактора
-    await loadBlock('plugin/editorBlock/modules/mainBlock', 'editorBlock');
+    await loadBlock('plugin/editorBlock/modules/mainBlock', 'editorBlock', false, true);
     await loadBlock('plugin/editorBlock/modules/modules/viewBlock', 'viewBlock');
 
     // Путь к папке с модулями

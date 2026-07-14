@@ -1,1 +1,1 @@
-<div id="mdEditorContent" contenteditable="true"></div>
+<div id="mdEditorContent" contenteditable="plaintext-only"></div>
