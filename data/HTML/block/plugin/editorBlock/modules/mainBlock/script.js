@@ -6,6 +6,8 @@
 const blocksContainers = document.getElementById('blocksContainers');
 // Контейнер для вкладок блоков
 const blocksTabs = document.getElementById('blocksTabs');
+// Текущий активный блок
+let currentBlockId = null;
 
 /* ***
  * openBlock - открытие блока
@@ -19,11 +21,12 @@ async function openBlock(path) {
     const existingBlock = Array.from(blocksContainers.querySelectorAll('div[data-path]')).find(el => el.dataset.path === path);
     
     if (existingBlock) {
-        // Если блок уже загружен, открываем его вкладку
-        const existingTab = blocksTabs.querySelector(`.blockTab[data-block-id="${existingBlock.id}"]`);
+        // Если блок уже загружен, сохраняем предыдущий и открываем его вкладку
+        savePreviousBlock(currentBlockId);
         openLoadedBlock(existingBlock.id);
     } else {
-        // Если блок не загружен, загружаем его и создаём вкладку
+        // Если блок не загружен, сохраняем предыдущий, загружаем новый и создаём вкладку
+        savePreviousBlock(currentBlockId);
         const blockId = await loadBlockContainer(path);
         addBlockTab(blockId, path);
     }
@@ -94,6 +97,7 @@ function addBlockTab(blockId, path) {
     name.textContent = path.split('/').pop();
     name.className = 'tabName';
     name.addEventListener('click', () => {
+        savePreviousBlock(currentBlockId);
         openLoadedBlock(blockId);
     });
 
@@ -133,14 +137,53 @@ function openLoadedBlock(blockId) {
 
     // Получение содержимого блока
     const htmlDiv = document.getElementById(blockId + 'Html');
-    const jsDiv = document.getElementById(blockId + 'Js').querySelector('script');
+    const jsScript = document.getElementById(blockId + 'Js')?.querySelector('script');
+    const htmlContent = htmlDiv ? htmlDiv.innerHTML : '';
+    const jsContent = jsScript ? jsScript.innerHTML : '';
 
     // Вставка содержимого в редакторы
-    viewEditorСontent.innerHTML = htmlDiv.innerHTML;
-    mdEditorContent.textContent = htmlDiv.innerHTML;
-    jsEditorContent.innerHTML = jsDiv.innerHTML;
+    viewEditorСontent.innerHTML = htmlContent;
+    mdEditorContent.textContent = htmlContent;
+    jsEditorContent.innerHTML = jsContent;
+
+    // Обновление текущего активного блока
+    currentBlockId = blockId;
 }
 
+/* ***
+ * savePreviousBlock - сохранение содержимого предыдущего блока
+ * - сохраняет HTML и JS код в соответствующие контейнеры блока
+*** */
+function savePreviousBlock(currentBlockId) {
+    if (!currentBlockId) return;
+
+    // Синхронизация содержимого между редакторами
+    syncEditors();
+
+    // Контейнеры для содержимого редакторов
+    const htmlDiv = document.getElementById(currentBlockId + 'Html');
+    const jsDiv = document.getElementById(currentBlockId + 'Js');
+    const viewEditorСontent = document.getElementById('viewEditorСontent');
+    const jsEditorContent = document.getElementById('jsEditorContent');
+
+    // Сохранение содержимого редакторов в контейнер блока
+    htmlDiv.innerHTML = viewEditorСontent.innerHTML;
+
+    let script = jsDiv.querySelector('script');
+    if (!script) {
+        script = document.createElement('script');
+        script.setAttribute('data-dynamic', currentBlockId + 'Html');
+        script.setAttribute('type', 'text/plain');
+        jsDiv.appendChild(script);
+    }
+    script.innerHTML = jsEditorContent.innerHTML;
+}
+
+/* ***
+ * closeBlockTab - закрытие вкладки блока
+ * - принимает идентификатор блока
+ * - удаляет вкладку и контейнер блока
+*** */
 function closeBlockTab(blockId) {
     const tab = document.querySelector(`.blockTab[data-blockId="${blockId}"]`);
     const block = document.getElementById(blockId);
@@ -151,3 +194,81 @@ function closeBlockTab(blockId) {
         blocksContainers.removeChild(block);
     }
 }
+
+
+/* ===
+ * Редакторы 
+=== */
+
+/* ***
+ * focusEditor - фокусировка на редакторе
+ * - принимает контейнер содержимого редактора
+ * - устанавливает курсор в редакторе
+*** */
+function focusEditor(editorContent) {
+    editorContent.focus();
+
+    const selection = window.getSelection();
+    const range = document.createRange();
+
+    range.selectNodeContents(editorContent);
+    range.collapse(false);
+
+    selection.removeAllRanges();
+    selection.addRange(range);
+}
+
+document.addEventListener('editorBlockLoaded', () => {
+    // Редакторы
+    const viewEditor = document.getElementById('viewEditor');
+    const mdEditor = document.getElementById('mdEditor');
+    const jsEditor = document.getElementById('jsEditor');
+
+    // Контейнеры для содержимого редакторов
+    const viewEditorСontent = document.getElementById('viewEditorСontent');
+    const mdEditorContent = document.getElementById('mdEditorContent');
+    const jsEditorContent = document.getElementById('jsEditorContent');
+
+    // Добавление обработчиков кликов для редакторов
+    viewEditor.addEventListener('click', () => {
+        focusEditor(viewEditorСontent);
+    });
+    mdEditor.addEventListener('click', () => {
+        focusEditor(mdEditorContent);
+    });
+    jsEditor.addEventListener('click', () => {
+        focusEditor(jsEditorContent);
+    }); 
+});
+
+/* ***
+ * syncEditors - синхронизация содержимого между редакторами
+ * - если активен viewEditor, копирует его содержимое в mdEditor
+ * - если активен mdEditor, копирует его содержимое в viewEditor
+*** */
+function syncEditors() {
+    const activeEditor = document.querySelector('#viewBlock > .active');
+
+    const mdEditorContent = document.getElementById('mdEditorContent');
+    const viewEditorСontent = document.getElementById('viewEditorСontent');
+
+    if (activeEditor.id === 'viewEditor') {
+        mdEditorContent.textContent = viewEditorСontent.innerHTML;
+    } else if (activeEditor.id === 'mdEditor') {
+        viewEditorСontent.innerHTML = mdEditorContent.textContent;
+    }
+}
+
+document.addEventListener('editorBlockLoaded', () => {
+    // Контейнеры для содержимого редакторов
+    const mdEditorContent = document.getElementById('mdEditorContent');
+    const viewEditorСontent = document.getElementById('viewEditorСontent');
+
+    // Добавление обработчиков ввода для синхронизации между редакторами
+    viewEditorСontent.addEventListener('input', () => {
+        syncEditors();
+    });
+    mdEditorContent.addEventListener('input', () => {
+        syncEditors();
+    });
+});

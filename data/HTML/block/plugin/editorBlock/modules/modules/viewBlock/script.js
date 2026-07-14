@@ -14,11 +14,17 @@ function switchEditor(editorId) {
         'jsEditor'
     ];
 
-    window.editorBlock.currentEditor = editorId;
-
     // Переключение отображения редакторов
     for (const id of editors) {
-        document.getElementById(id).style.display = id === editorId ? '' : 'none';
+        const editor = document.getElementById(id);
+
+        if (id === editorId) {
+            editor.style.display = '';
+            editor.classList.add('active');
+        } else {
+            editor.style.display = 'none';
+            editor.classList.remove('active');
+        }
     }
 }
 switchEditor('viewEditor');
