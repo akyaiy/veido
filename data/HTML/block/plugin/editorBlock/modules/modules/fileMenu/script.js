@@ -70,6 +70,7 @@ function selectFileMenu(event) {
 
         case 'new':
             console.log('Создание нового файла...');
+            window.editorBlock.newBlock();
             break;
 
         default:

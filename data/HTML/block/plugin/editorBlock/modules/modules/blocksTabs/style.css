@@ -8,6 +8,9 @@
     border: 1px solid #ccc;
     box-sizing: border-box;
 }
+.blockTab.active {
+    background-color: #f0f0f0;
+}
 
 .tabName {
     padding: 3px 0px 3px 3px;

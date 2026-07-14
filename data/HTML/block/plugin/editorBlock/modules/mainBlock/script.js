@@ -20,10 +20,15 @@ async function openBlock(path) {
     // Проверка, загружен ли блок
     const existingBlock = Array.from(blocksContainers.querySelectorAll('div[data-path]')).find(el => el.dataset.path === path);
     
-    if (existingBlock) {
+    if (path === null) {
+        // Если путь не указан, открываем пустой блок
+        savePreviousBlock(currentBlockId);
+        const blockId = await loadBlockContainer(null);
+        addBlockTab(blockId);
+    } else if (existingBlock) {
         // Если блок уже загружен, сохраняем предыдущий и открываем его вкладку
         savePreviousBlock(currentBlockId);
-        openLoadedBlock(existingBlock.id);
+        const blockId = await openLoadedBlock(existingBlock.id);
     } else {
         // Если блок не загружен, сохраняем предыдущий, загружаем новый и создаём вкладку
         savePreviousBlock(currentBlockId);
@@ -64,20 +69,27 @@ async function loadBlockContainer(path) {
     block.appendChild(cssDiv);
     block.appendChild(jsDiv);
 
-    // Загрузка содержимого блока
-    await loadBlock(path, htmlDiv.id, true);
+    if (path !== null) {
+        // Загрузка содержимого блока
+        await loadBlock(path, htmlDiv.id, true);
 
-    // Перенос CSS блока
-    document.querySelectorAll('style[data-dynamic="' + htmlDiv.id + '"]').forEach(style => {
-        cssDiv.appendChild(style.cloneNode(true));
-        style.remove();
-    });
+        // Перенос CSS блока
+        document.querySelectorAll('style[data-dynamic="' + htmlDiv.id + '"]').forEach(style => {
+            cssDiv.appendChild(style.cloneNode(true));
+            style.remove();
+        });
 
-    // Перенос JS блока
-    document.querySelectorAll('script[data-dynamic="' + htmlDiv.id + '"]').forEach(script => {
-        jsDiv.appendChild(script.cloneNode(true));
-        script.remove();
-    });
+        // Перенос JS блока
+        document.querySelectorAll('script[data-dynamic="' + htmlDiv.id + '"]').forEach(script => {
+            jsDiv.appendChild(script.cloneNode(true));
+            script.remove();
+        });
+    } else {
+        // Если путь не указан, создаём пустой блок
+        htmlDiv.innerHTML = '';
+        cssDiv.appendChild(document.createElement('style'));
+        jsDiv.appendChild(document.createElement('script'));
+    }
 
     return blockId;
 }
@@ -119,6 +131,43 @@ function addBlockTab(blockId, path) {
 }
 
 /* ***
+ * setActiveBlockTab - установка активной вкладки блока
+ * - принимает идентификатор блока
+ * - устанавливает класс active для соответствующей вкладки
+*** */
+function setActiveBlockTab(blockId) {
+    // Снятие класса active со всех вкладок
+    blocksTabs.querySelectorAll('.blockTab.active').forEach(tab => tab.classList.remove('active'));
+    // Установка активной вкладки блока
+    const newTab = blocksTabs.querySelector(`.blockTab[data-block-id="${blockId}"]`);
+    if (newTab) newTab.classList.add('active');
+}
+
+/* ***
+ * closeBlockTab - закрытие вкладки блока
+ * - принимает идентификатор блока
+ * - удаляет вкладку и контейнер блока
+*** */
+function closeBlockTab(blockId) {
+    // Удаление вкладки и контейнера блока
+    const tab = blocksTabs.querySelector(`.blockTab[data-block-id="${blockId}"]`);
+    const block = document.getElementById(blockId);
+    if (tab) blocksTabs.removeChild(tab);
+    if (block) blocksContainers.removeChild(block);
+
+    // Если закрываемый блок был активным, очистить текущий активный блок и редакторы
+    if (currentBlockId === blockId) {
+        currentBlockId = null;
+        const viewEditorСontent = document.getElementById('viewEditorСontent');
+        const mdEditorContent = document.getElementById('mdEditorContent');
+        const jsEditorContent = document.getElementById('jsEditorContent');
+        if (viewEditorСontent) viewEditorСontent.innerHTML = '';
+        if (mdEditorContent) mdEditorContent.textContent = '';
+        if (jsEditorContent) jsEditorContent.innerHTML = '';
+    }
+}
+
+/* ***
  * openLoadedBlock - загрузка сохраненного блока в редакторы
  * - принимает ID загружаемого блока
  * - вставляет HTML-код в редактор представления
@@ -148,6 +197,7 @@ function openLoadedBlock(blockId) {
 
     // Обновление текущего активного блока
     currentBlockId = blockId;
+    setActiveBlockTab(blockId);
 }
 
 /* ***
@@ -180,19 +230,11 @@ function savePreviousBlock(currentBlockId) {
 }
 
 /* ***
- * closeBlockTab - закрытие вкладки блока
- * - принимает идентификатор блока
- * - удаляет вкладку и контейнер блока
+ * newBlock - создание нового блока
+ * - открывает пустой блок в редакторе
 *** */
-function closeBlockTab(blockId) {
-    const tab = document.querySelector(`.blockTab[data-blockId="${blockId}"]`);
-    const block = document.getElementById(blockId);
-    if (tab) {
-        blocksTabs.removeChild(tab);
-    }
-    if (block) {
-        blocksContainers.removeChild(block);
-    }
+function newBlock() {
+    openBlock(null);
 }
 
 

@@ -17,13 +17,16 @@ function switchEditor(editorId) {
     // Переключение отображения редакторов
     for (const id of editors) {
         const editor = document.getElementById(id);
+        const button = document.getElementById(id + 'Button');
 
         if (id === editorId) {
             editor.style.display = '';
             editor.classList.add('active');
+            if (button) button.classList.add('active');
         } else {
             editor.style.display = 'none';
             editor.classList.remove('active');
+            if (button) button.classList.remove('active');
         }
     }
 }

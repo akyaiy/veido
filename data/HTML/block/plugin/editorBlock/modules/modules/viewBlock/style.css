@@ -9,9 +9,12 @@
 .editorsTab {
     flex: 1;
     text-align: center;
-    padding: 5px 5px 2px 5px;
+    padding: 5px;
     cursor: pointer;
     border-right: 1px solid #ccc;
+}
+.editorsTab.active {
+    background-color: #f0f0f0;
 }
 .editorsTab:last-child {
     border-right: none;
