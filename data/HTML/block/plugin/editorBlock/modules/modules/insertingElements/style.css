@@ -4,9 +4,66 @@
     flex-direction: column;
 }
 
-.insertElement {
+.insertElement,
+.insertElementMenu {
     width: 20px;
     height: 20px;
     cursor: pointer;
     padding: 4px;
+}
+
+
+
+/* Стили меню выбора размера таблицы */
+#tableSizeMenu {
+    padding: 3px;
+    border: 1px solid #ccc;
+    background: #fff;
+    position: absolute;
+    z-index: 1000;
+    display: none;
+}
+
+#tableSizeGrid {
+    display: grid;
+    grid-template-columns: repeat(10, 15px);
+    gap: 1px;
+}
+
+#tableSizeGrid div {
+    width: 15px;
+    height: 15px;
+    border: 1px solid #ccc;
+    box-sizing: border-box;
+    cursor: pointer;
+}
+
+#tableSizeGrid .active {
+    background: #bbb;
+}
+
+#tableSizeLabel {
+    margin-top: 3px;
+    text-align: center;
+}
+
+
+
+/* Стили меню выбора изображения */
+#imageInsertMenu {
+    padding: 3px;
+    border: 1px solid #ccc;
+    background: #fff;
+    position: absolute;
+    z-index: 1000;
+    display: none;
+}
+
+#imageInsertMenu div {
+    padding: 3px;
+    cursor: pointer;
+}
+
+#imageInsertMenu div:hover {
+    background: #eee;
 }

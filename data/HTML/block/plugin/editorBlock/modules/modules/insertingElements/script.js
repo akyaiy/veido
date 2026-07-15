@@ -2,15 +2,12 @@
  * Основные переменные
 === */
 
-// Получаем контейнер с контентом HTML-редактора
-const mdEditorContent = document.getElementById('mdEditorContent');
-
 // Шаблоны элементов для вставки
 const elementsTemplates = [
     { element: 'div', html: "<div style='border:1px solid #000; display: inline-block;'>[ST]</div>" },
-    { element: 'img', html: "<img src='[LINK]'>" },
+    { element: 'img', html: "[MENU]" },
     { element: 'a', html: "<a href='[LINK]'>[ST]</a>" },
-    { element: 'table', html: '[TABLE]' },
+    { element: 'table', html: '[MENU]' },
     { element: 'hr', html: "<hr style='height:2px;border:0;background:#000;'>" },
     { element: 'form', html: "<form style='border:1px solid #000;'>[ST]</form>" },
     { element: 'input', html: "<input placeholder='[ST]'>" },
@@ -26,6 +23,19 @@ const elementsTemplates = [
     { element: 'range', html: "<input type='range' min='0' max='100' value='50' style='width:160px;'>" },
     { element: 'progress', html: "<progress value='50' max='100' style='width:160px;'></progress>" },
     { element: 'file', html: "<input type='file'>" }
+];
+
+// Элементы, которые не должны быть вложены сами в себя
+const unwrapElements = [
+    'a',
+    'form',
+    'button',
+    'textarea',
+    'select',
+    'code',
+    'figure',
+    'details',
+    'label'
 ];
 
 
@@ -47,45 +57,214 @@ function escapeHtml(str) {
 }
 
 /* ***
- * insertClickHandler - обработчик клика по кнопке вставки элемента
- * - принимает событие клика
- * - вставляет выбранный элемент в активный view-блок или HTML-редактор
+ * cleanSelectionForUnwrap - очищает выделение от элементов unwrapElements в визуальном редакторе
+ * - находит, удаляет и разгруппировывает некорректные элементы
+ * - возвращает очищенный фрагмент и точку вставки
 *** */
-const insertClickHandler = async event => {
-    // Проверяем, что клик был по кнопке вставки элемента
-    const button = event.target.closest('.insertElement');
-    if (!button) {
+function cleanSelectionForUnwrap(sel, range) {
+    const selector = unwrapElements.join(',');
+    const fragment = range.cloneContents();
+
+    // Создаем временный контейнер для очистки содержимого внутри выделения
+    const temp = document.createElement('div');
+    temp.appendChild(fragment);
+
+    // Очищаем все unwrapElements внутри выделения
+    temp.querySelectorAll(selector).forEach(el => {
+        const parent = el.parentNode;
+        while (el.firstChild) {
+            parent.insertBefore(el.firstChild, el);
+        }
+        el.remove();
+    });
+
+    // Проверяем, находится ли само выделение внутри какого-то unwrap-элемента
+    let ancestor = range.commonAncestorContainer;
+    if (ancestor.nodeType !== 1) {
+        ancestor = ancestor.parentNode;
+    }
+
+    const unwrapAncestor = ancestor.closest(selector);
+    const viewContent = document.getElementById('viewEditorСontent');
+    const mediaSelector = 'img, input, textarea, select, hr, iframe, video, audio';
+
+    // По умолчанию точка вставки — это исходный range (ничего разбирать не нужно)
+    let insertionRange = range.cloneRange();
+
+    // Если выделение внутри запрещенного элемента — разбиваем родителя
+    if (unwrapAncestor && viewContent && viewContent.contains(unwrapAncestor)) {
+        const parent = unwrapAncestor.parentNode;
+
+        const extractLeftRight = (leftBoundaryMarker, rightBoundaryMarker) => {
+            // Извлекаем левую часть (до начала выделения)
+            const leftRange = document.createRange();
+            leftRange.setStartBefore(unwrapAncestor);
+            leftRange.setEndBefore(leftBoundaryMarker);
+            const leftFragment = leftRange.extractContents();
+            if (leftFragment.textContent.trim() !== '' || leftFragment.querySelector(mediaSelector)) {
+                parent.insertBefore(leftFragment, unwrapAncestor);
+            }
+
+            // Извлекаем правую часть (после конца выделения)
+            const rightRange = document.createRange();
+            rightRange.setStartAfter(rightBoundaryMarker);
+            rightRange.setEndAfter(unwrapAncestor);
+            const rightFragment = rightRange.extractContents();
+            if (rightFragment.textContent.trim() !== '' || rightFragment.querySelector(mediaSelector)) {
+                parent.insertBefore(rightFragment, unwrapAncestor.nextSibling);
+            }
+        };
+
+        if (range.collapsed) {
+            // Курсор без выделения. Используем один маркер во избежание сайд-эффектов сдвига границ
+            const marker = document.createElement('span');
+            const markerRange = range.cloneRange();
+            markerRange.collapse(true);
+            markerRange.insertNode(marker);
+
+            extractLeftRight(marker, marker);
+
+            const insertionIndex = Array.prototype.indexOf.call(parent.childNodes, unwrapAncestor);
+            marker.remove();
+            unwrapAncestor.remove();
+
+            insertionRange = document.createRange();
+            insertionRange.setStart(parent, insertionIndex);
+            insertionRange.collapse(true);
+        } else {
+            // Настоящее выделение. Запоминаем границы ДО манипуляций и вставляем сначала правый маркер, затем левый
+            const startContainer = range.startContainer;
+            const startOffset = range.startOffset;
+            const endContainer = range.endContainer;
+            const endOffset = range.endOffset;
+
+            const endMarker = document.createElement('span');
+            const endMarkerRange = document.createRange();
+            endMarkerRange.setStart(endContainer, endOffset);
+            endMarkerRange.collapse(true);
+            endMarkerRange.insertNode(endMarker);
+
+            const startMarker = document.createElement('span');
+            const startMarkerRange = document.createRange();
+            startMarkerRange.setStart(startContainer, startOffset);
+            startMarkerRange.collapse(true);
+            startMarkerRange.insertNode(startMarker);
+
+            extractLeftRight(startMarker, endMarker);
+
+            const insertionIndex = Array.prototype.indexOf.call(parent.childNodes, unwrapAncestor);
+            startMarker.remove();
+            endMarker.remove();
+            unwrapAncestor.remove();
+
+            insertionRange = document.createRange();
+            insertionRange.setStart(parent, insertionIndex);
+            insertionRange.collapse(true);
+        }
+    }
+
+    // Возвращаем очищенное содержимое и точку, куда его нужно вставлять
+    const docFrag = document.createDocumentFragment();
+    while (temp.firstChild) {
+        docFrag.appendChild(temp.firstChild);
+    }
+    return { fragment: docFrag, insertionRange };
+}
+
+/* ***
+ * insertClickHandler - обработчик клика по кнопке вставки элемента
+ * - принимает событие клика и опциональный пользовательский шаблон
+ * - если клик был по кнопке-меню, открывает соответствующее меню
+ * - если клик был по кнопке вставки, вставляет соответствующий элемент
+*** */
+async function insertClickHandler(event, customTemplate=null) {
+    // Проверяем, что клик был по кнопке-меню (только если не передан customTemplate)
+    const menuButton = event.target.closest('.insertElementMenu');
+    if (menuButton && !customTemplate) {
+        // Получаем имя меню из атрибута data-menu
+        const menuId = menuButton.dataset.menu;
+        const menuElement = document.getElementById(menuId);
+        
+        if (menuElement) {
+            showElementMenu(menuElement, menuButton);
+        }
         return;
     }
 
-    // Находим шаблон элемента по атрибуту data-element кнопки
-    const elementTemplate = elementsTemplates.find(item => item.element === button.dataset.element);
-    if (!elementTemplate) {
-        return;
+    let dataEl = '';
+    let textContent = 'текст';
+
+    // Если передан готовый шаблон, используем его
+    if (customTemplate) {
+        dataEl = customTemplate;
+    } else {
+        // Проверяем, что клик был по обычной кнопке вставки элемента
+        const button = event.target.closest('.insertElement');
+        if (!button) {
+            return;
+        }
+
+        // Находим шаблон элемента по атрибуту data-element кнопки
+        const elementTemplate = elementsTemplates.find(item => item.element === button.dataset.element);
+        if (!elementTemplate) {
+            return;
+        }
+
+        // Получаем HTML-шаблон элемента
+        dataEl = elementTemplate.html;
+        textContent = button.textContent || 'текст';
     }
 
-    // Получаем HTML-шаблон элемента и восстанавливаем выделение
-    const dataEl = elementTemplate.html;
+    // Восстанавливаем выделение
     restoreSelection();
 
     // Проверяем, какой редактор активен: визуальный или HTML
     const activeEditor = document.querySelector('#viewBlock > .active');
 
+    // Парсим вставляемый элемент, чтобы узнать его тег
+    const parsed = parseDataEl(dataEl);
+
     // Если активен HTML-редактор, вставляем элемент туда
     if (activeEditor && activeEditor.id === 'mdEditor') {
-        await insertInHtmlEditor(dataEl, button.textContent || 'текст');
+        await insertInHtmlEditor(dataEl, textContent);
         window.editorBlock.syncEditors();
         return;
     }
 
-    // Если активен визуальный редактор, вставляем элемент туда
-    await handleLoadedBlockView(dataEl, button.textContent || 'текст');
-    window.editorBlock.syncEditors();
-};
+    // Если активен визуальный редактор, и мы вставляем unwrap-элемент, очищаем выделение от вложенности
+    if (unwrapElements.includes(parsed.tagName)) {
+        const sel = document.getSelection();
+        if (sel && sel.rangeCount > 0) {
+            const range = sel.getRangeAt(0);
+            const { fragment: cleanedFragment, insertionRange } = cleanSelectionForUnwrap(sel, range);
 
-if (insertingElements) {
-    insertingElements.addEventListener('click', insertClickHandler);
+            const firstNode = cleanedFragment.firstChild;
+            const lastNode = cleanedFragment.lastChild;
+
+            insertionRange.deleteContents();
+            insertionRange.insertNode(cleanedFragment);
+
+            const newRange = document.createRange();
+            if (firstNode && lastNode) {
+                newRange.setStartBefore(firstNode);
+                newRange.setEndAfter(lastNode);
+            } else {
+                newRange.setStart(insertionRange.startContainer, insertionRange.startOffset);
+                newRange.collapse(true);
+            }
+
+            sel.removeAllRanges();
+            sel.addRange(newRange);
+        }
+    }
+
+    // Вставляем элемент в визуальный редактор (с уже обновленным и валидным выделением)
+    await handleLoadedBlockView(dataEl, textContent);
+    window.editorBlock.syncEditors();
 }
+
+// Добавляем обработчик клика на контейнер с кнопками вставки элементов
+insertingElements.addEventListener('click', insertClickHandler);
 
 
 
@@ -233,25 +412,22 @@ function wrapIfMultiLine(range, node) {
  * - вставляет элемент в текущую позицию курсора
 *** */
 async function handleLoadedBlockView(dataEl, placeholderText = 'текст') {
-    // Получаем текущее выделение
     const sel = document.getSelection();
     if (!sel || !sel.rangeCount) {
         return;
     }
 
-    // Находим общий предок выделения
     const range = sel.getRangeAt(0);
     let ancestor = range.commonAncestorContainer;
     if (ancestor.nodeType !== 1) {
         ancestor = ancestor.parentNode;
     }
 
-    // Проверяем, что предок находится внутри активного view-блока
     const view = ancestor.closest('#viewEditorСontent');
     if (!view) {
         return;
     }
-
+    
     // Парсим шаблон элемента и создаём новый элемент
     const parsed = parseDataEl(dataEl);
     const newEl = cloneNode(parsed.nodeTemplate, parsed.tagName);
@@ -269,29 +445,29 @@ async function handleLoadedBlockView(dataEl, placeholderText = 'текст') {
         }
         markerValues[marker] = value;
     }
-
-    // Заменяем маркеры в новом элементе
     replaceMarkers(newEl, markerValues);
-    if (parsed.hasST && !selectionHasContent) {
-        replaceMarkers(newEl, { ST: placeholderText });
-    }
 
-    // Вставляем содержимое выделения в место маркера [ST], если оно есть
-    if (parsed.hasST && newEl.tagName.toLowerCase() !== 'input' && newEl.tagName.toLowerCase() !== 'textarea') {
-        const stNode = findSTTextNode(newEl);
-        if (selectionHasContent) {
-            const fragment = range.cloneContents();
-            if (stNode) {
-                stNode.parentNode.replaceChild(fragment, stNode);
-            } else {
-                newEl.appendChild(fragment);
+    // Единый путь обработки [ST] без повторной или дублирующей замены
+    const tagName = newEl.tagName ? newEl.tagName.toLowerCase() : '';
+    if (parsed.hasST) {
+        if (tagName === 'input' || tagName === 'textarea') {
+            replaceMarkers(newEl, { ST: placeholderText });
+        } else {
+            const stNode = findSTTextNode(newEl);
+            if (selectionHasContent) {
+                const fragment = range.cloneContents();
+                if (stNode) {
+                    stNode.parentNode.replaceChild(fragment, stNode);
+                } else {
+                    newEl.appendChild(fragment);
+                }
+            } else if (stNode) {
+                stNode.nodeValue = placeholderText;
             }
-        } else if (stNode) {
-            stNode.parentNode.replaceChild(document.createTextNode(placeholderText), stNode);
         }
     }
 
-    // Вставляем новый элемент в позицию курсора, оборачивая его при необходимости
+    // Если вставляем unwrap-элемент, очищаем внутренности выделения от других unwrap-элементов в визуальном редакторе
     const finalNode = parsed.hasST ? newEl : wrapIfMultiLine(range, newEl);
     range.deleteContents();
     range.insertNode(finalNode);
@@ -352,7 +528,37 @@ async function insertInHtmlEditor(dataEl, placeholderText = 'текст') {
                 const fragment = range.cloneContents();
                 const wrapper = document.createElement('div');
                 wrapper.appendChild(fragment);
-                return wrapper.innerHTML;
+                let selectionHtml = wrapper.innerHTML;
+
+                // Если вставляем unwrap-элемент, очищаем внутренности выделения от других unwrap-элементов в HTML-редакторе
+                if (unwrapElements.includes(parsed.tagName)) {
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = selectionHtml;
+                    const selector = unwrapElements.join(',');
+                    
+                    // Удаляем вложенные unwrap-теги, оставляя их содержимое
+                    tempDiv.querySelectorAll(selector).forEach(el => {
+                        const parent = el.parentNode;
+                        while (el.firstChild) {
+                            parent.insertBefore(el.firstChild, el);
+                        }
+                        el.remove();
+                    });
+
+                    // Удаляем сам unwrap-тег, если выделение было целиком обернуто в него
+                    Array.from(tempDiv.children).forEach(child => {
+                        if (child.matches(selector)) {
+                            const parent = child.parentNode;
+                            while (child.firstChild) {
+                                parent.insertBefore(child.firstChild, child);
+                            }
+                            child.remove();
+                        }
+                    });
+                    selectionHtml = tempDiv.innerHTML;
+                }
+
+                return selectionHtml;
             }
 
             return escapeHtml(placeholderText);
@@ -377,3 +583,214 @@ async function insertInHtmlEditor(dataEl, placeholderText = 'текст') {
     afterRange.collapse(true);
     selection.addRange(afterRange);
 }
+
+
+
+/* ===
+ * Логика открытия и закрытия меню вставки элементов
+=== */
+
+/* ***
+ * showElementMenu - позиционирует и показывает меню под кнопкой
+ * - принимает элемент меню и кнопку, у которой оно должно открыться
+*** */
+function showElementMenu(menu, button) {
+    // Скрываем все открытые меню перед показом нового
+    document.querySelectorAll('.elementMenu').forEach(el => el.style.display = 'none');
+
+    // Получаем координаты кнопки на экране
+    const rect = button.getBoundingClientRect();
+
+    // Показываем меню и позиционируем его прямо под нажатой кнопкой
+    menu.style.display = 'block';
+    menu.style.left = `${rect.left + window.scrollX}px`;
+    menu.style.top = `${rect.bottom + window.scrollY + 4}px`;
+}
+
+// Закрываем открытые меню при клике в любое другое место документа
+function hideElementMenu(event) {
+    if (!event.target.closest('.elementMenu') && !event.target.closest('.insertElementMenu')) {
+        document.querySelectorAll('.elementMenu').forEach(el => el.style.display = 'none');
+    }
+}
+
+// Закрываем открытые меню при клике в любое другое место документа
+document.addEventListener('click', hideElementMenu);
+
+
+
+/* ===
+ * Меню вставки таблицы
+=== */
+
+// Элементы меню вставки таблицы
+const tableSizeGrid = document.getElementById('tableSizeGrid');
+const tableSizeLabel = document.getElementById('tableSizeLabel'); // Элемент для вывода размера таблицы в меню
+
+/* ***
+ * createTableSizeGrid - создание сетки выбора размера таблицы
+ * - создаёт квадраты выбора размера таблицы
+*** */
+function createTableSizeGrid() {
+    for (let row = 1; row <= 10; row++) {
+        for (let col = 1; col <= 10; col++) {
+            const cell = document.createElement('div');
+
+            cell.dataset.row = row;
+            cell.dataset.col = col;
+
+            tableSizeGrid.appendChild(cell);
+        }
+    }
+}
+
+/* ***
+ * updateTableSizeGrid - обновление подсветки размера таблицы
+ * - принимает количество строк и колонок
+ * - подсвечивает выбранную область
+*** */
+function updateTableSizeGrid(rows, cols) {
+    tableSizeGrid.querySelectorAll('div').forEach(cell => {
+        cell.classList.toggle(
+            'active',
+            Number(cell.dataset.row) <= rows &&
+            Number(cell.dataset.col) <= cols
+        );
+    });
+
+    if (tableSizeLabel) {
+        tableSizeLabel.textContent = `${cols} × ${rows}`;
+    }
+}
+
+/* ***
+ * tableSizeHoverHandler - обработчик наведения на размер таблицы
+ * - обновляет выбранный размер таблицы
+*** */
+function tableSizeHoverHandler(event) {
+    const cell = event.target;
+
+    if (!cell.dataset.row) {
+        return;
+    }
+
+    updateTableSizeGrid(
+        Number(cell.dataset.row),
+        Number(cell.dataset.col)
+    );
+}
+
+// Инициализация сетки выбора размера таблицы
+createTableSizeGrid();
+tableSizeGrid.addEventListener('mouseover', tableSizeHoverHandler);
+
+/* ***
+ * tableSizeGridClickHandler - обработчик клика по сетке выбора размера таблицы
+ * - генерирует HTML-код таблицы на основе выбранных строк и колонок
+ * - передает сгенерированный шаблон в общую функцию вставки insertClickHandler
+*** */
+async function tableSizeGridClickHandler(event) {
+    const cell = event.target;
+
+    // Проверяем, что кликнули именно по квадратику сетки
+    if (!cell.dataset.row) {
+        return;
+    }
+
+    // Останавливаем всплытие во избежание двойного вызова обработчика
+    event.stopPropagation();
+
+    const rows = Number(cell.dataset.row);
+    const cols = Number(cell.dataset.col);
+
+    // Генерируем HTML-код таблицы
+    let tableHtml = '<table style="width: 100%; border-collapse: collapse; border: 1px solid #000;"><tbody>';
+    for (let r = 0; r < rows; r++) {
+        tableHtml += '<tr>';
+        for (let c = 0; c < cols; c++) {
+            tableHtml += '<td style="border: 1px solid #000;"><br></td>';
+        }
+        tableHtml += '</tr>';
+    }
+    tableHtml += '</tbody></table>';
+
+    // Вызываем общую функцию вставки, передавая готовый шаблон таблицы в customTemplate
+    await insertClickHandler(event, tableHtml);
+
+    // Скрываем меню после успешной вставки
+    document.querySelectorAll('.elementMenu').forEach(el => el.style.display = 'none');
+}
+
+// Назначаем обработчик клика на сетку выбора размера таблицы
+tableSizeGrid.addEventListener('click', tableSizeGridClickHandler);
+
+
+
+/* ===
+ * Меню вставки изображения
+=== */
+
+// Элементы меню вставки изображения
+const imageInsertUrl = document.getElementById('imageInsertUrl');
+const imageInsertFile = document.getElementById('imageInsertFile');
+
+/* ***
+ * imageInsertUrlHandler - вставка изображения по ссылке
+ * - запрашивает URL изображения
+ * - передает готовый HTML-код изображения в общую функцию вставки
+*** */
+async function imageInsertUrlHandler(event) {
+    event.stopPropagation();
+
+    const url = prompt('Введите ссылку на изображение');
+    if (!url) {
+        return;
+    }
+
+    const imgHtml = `<img src="${url}" style="max-width:100%;">`;
+
+    // Вызываем общую функцию вставки, передавая готовый шаблон картинки в customTemplate
+    await insertClickHandler(event, imgHtml);
+
+    // Скрываем меню после успешной вставки
+    document.querySelectorAll('.elementMenu').forEach(el => el.style.display = 'none');
+}
+
+/* ***
+ * imageInsertFileHandler - вставка изображения с компьютера
+ * - открывает выбор файла и считывает его в формате Base64
+ * - передает готовый HTML-код изображения в общую функцию вставки
+*** */
+function imageInsertFileHandler(event) {
+    event.stopPropagation();
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+
+    input.addEventListener('change', () => {
+        const file = input.files[0];
+        if (!file) {
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = async () => {
+            const imgHtml = `<img src="${reader.result}" style="max-width:100%;">`;
+
+            // Вызываем общую функцию вставки, передавая готовый шаблон картинки в customTemplate
+            await insertClickHandler(event, imgHtml);
+
+            // Скрываем меню после успешной вставки
+            document.querySelectorAll('.elementMenu').forEach(el => el.style.display = 'none');
+        };
+
+        reader.readAsDataURL(file);
+    });
+
+    input.click();
+}
+
+// Назначаем обработчики клика на кнопки меню изображения
+imageInsertUrl.addEventListener('click', imageInsertUrlHandler);
+imageInsertFile.addEventListener('click', imageInsertFileHandler);

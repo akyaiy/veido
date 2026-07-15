@@ -1,8 +1,8 @@
 <div class="insertElements" data-tab-content="basic">
     <div class="insertElement" data-element="div" title="Блок"><svg class="svgIcon" use="4x19"></svg></div>
-    <div class="insertElement" data-element="img" title="Изображение"><svg class="svgIcon" use="19x19"></svg></div>
+    <div class="insertElementMenu" data-menu="imageInsertMenu" data-element="img" title="Изображение"><svg class="svgIcon" use="19x19"></svg></div>
     <div class="insertElement" data-element="a" title="Ссылка"><svg class="svgIcon" use="14x23"></svg></div>
-    <div class="insertElement" data-element="table" title="Таблица"><svg class="svgIcon" use="19x6"></svg></div>
+    <div class="insertElementMenu" data-menu="tableSizeMenu"  data-element="table" title="Таблица"><svg class="svgIcon" use="19x6"></svg></div>
     <div class="insertElement" data-element="hr" title="Линия"><svg class="svgIcon" use="4x7"></svg></div>
 </div>
 
@@ -27,4 +27,16 @@
     <div class="insertElement" data-element="range" title="Ползунок"><svg class="svgIcon" use="19x22"></svg></div>
     <div class="insertElement" data-element="progress" title="Индикатор прогресса"><svg class="svgIcon" use="19x21"></svg></div>
     <div class="insertElement" data-element="file" title="Выбор файла"><svg class="svgIcon" use="1x19"></svg></div>
+</div>
+
+<!-- Вставка таблицы -->
+<div id="tableSizeMenu" class="elementMenu">
+    <div id="tableSizeGrid"></div>
+    <div id="tableSizeLabel">0 × 0</div>
+</div>
+
+<!-- Вставка изображения -->
+<div id="imageInsertMenu" class="elementMenu">
+    <div id="imageInsertUrl">По URL</div>
+    <div id="imageInsertFile">С компьютера</div>
 </div>
