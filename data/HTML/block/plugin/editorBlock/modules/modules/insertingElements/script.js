@@ -1,12 +1,16 @@
 /* ===
- * Элементы вставки
+ * Основные переменные
 === */
 
+// Получаем контейнер с контентом HTML-редактора
+const mdEditorContent = document.getElementById('mdEditorContent');
+
+// Шаблоны элементов для вставки
 const elementsTemplates = [
     { element: 'div', html: "<div style='border:1px solid #000; display: inline-block;'>[ST]</div>" },
     { element: 'img', html: "<img src='[LINK]'>" },
     { element: 'a', html: "<a href='[LINK]'>[ST]</a>" },
-    { element: 'table', html: '<table><tr><td>[ST]</td><td><br></td></tr><tr><td><br></td><td><br></td></tr></table>' },
+    { element: 'table', html: '[TABLE]' },
     { element: 'hr', html: "<hr style='height:2px;border:0;background:#000;'>" },
     { element: 'form', html: "<form style='border:1px solid #000;'>[ST]</form>" },
     { element: 'input', html: "<input placeholder='[ST]'>" },
@@ -30,23 +34,58 @@ const elementsTemplates = [
  * Обработчики панели вставки
 === */
 
+// Получаем контейнер с кнопками вставки элементов
+const insertingElements = document.getElementById('insertingElements');
+
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+/* ***
+ * insertClickHandler - обработчик клика по кнопке вставки элемента
+ * - принимает событие клика
+ * - вставляет выбранный элемент в активный view-блок или HTML-редактор
+*** */
 const insertClickHandler = async event => {
+    // Проверяем, что клик был по кнопке вставки элемента
     const button = event.target.closest('.insertElement');
     if (!button) {
         return;
     }
 
+    // Находим шаблон элемента по атрибуту data-element кнопки
     const elementTemplate = elementsTemplates.find(item => item.element === button.dataset.element);
     if (!elementTemplate) {
         return;
     }
 
+    // Получаем HTML-шаблон элемента и восстанавливаем выделение
     const dataEl = elementTemplate.html;
     restoreSelection();
+
+    // Проверяем, какой редактор активен: визуальный или HTML
+    const activeEditor = document.querySelector('#viewBlock > .active');
+
+    // Если активен HTML-редактор, вставляем элемент туда
+    if (activeEditor && activeEditor.id === 'mdEditor') {
+        await insertInHtmlEditor(dataEl, button.textContent || 'текст');
+        window.editorBlock.syncEditors();
+        return;
+    }
+
+    // Если активен визуальный редактор, вставляем элемент туда
     await handleLoadedBlockView(dataEl, button.textContent || 'текст');
+    window.editorBlock.syncEditors();
 };
 
-document.addEventListener('click', insertClickHandler);
+if (insertingElements) {
+    insertingElements.addEventListener('click', insertClickHandler);
+}
 
 
 
@@ -55,9 +94,9 @@ document.addEventListener('click', insertClickHandler);
 === */
 
 /* ***
- * parseDataEl - парсит HTML-шаблон элемента
- * - принимает строку шаблона data-el
- * - возвращает тег, шаблон и список маркеров
+ * parseDataEl - парсит HTML-шаблон элемента и извлекает маркеры
+ * - принимает HTML-шаблон элемента
+ * - возвращает объект с информацией о шаблоне и маркерах
 *** */
 function parseDataEl(dataEl) {
     const tpl = document.createElement('template');
@@ -189,36 +228,37 @@ function wrapIfMultiLine(range, node) {
 === */
 
 /* ***
- * handleLoadedBlockView - вставка элемента в визуальный режим
- * - принимает шаблон элемента и текст-заполнитель
- * - вставляет элемент в активный view-блок
+ * handleLoadedBlockView - вставляет элемент в активный view-блок
+ * - принимает HTML-шаблон элемента и текст-заполнитель
+ * - вставляет элемент в текущую позицию курсора
 *** */
 async function handleLoadedBlockView(dataEl, placeholderText = 'текст') {
+    // Получаем текущее выделение
     const sel = document.getSelection();
     if (!sel || !sel.rangeCount) {
         return;
     }
 
+    // Находим общий предок выделения
     const range = sel.getRangeAt(0);
     let ancestor = range.commonAncestorContainer;
     if (ancestor.nodeType !== 1) {
         ancestor = ancestor.parentNode;
     }
 
-    // В новой структуре редактора вставка работает внутри viewEditorСontent,
-    // а не внутри старого блока loadedBlock_*_view.
-    const view = ancestor.closest('#viewEditorСontent') ||
-                 ancestor.closest('#viewEditor') ||
-                 ancestor.closest('[contenteditable="true"]');
+    // Проверяем, что предок находится внутри активного view-блока
+    const view = ancestor.closest('#viewEditorСontent');
     if (!view) {
         return;
     }
 
+    // Парсим шаблон элемента и создаём новый элемент
     const parsed = parseDataEl(dataEl);
     const newEl = cloneNode(parsed.nodeTemplate, parsed.tagName);
     const selectionHasContent = sel.toString().length > 0;
     const markerValues = {};
 
+    // Запрашиваем значения для всех маркеров, кроме [ST]
     for (const marker of parsed.markers) {
         if (marker === 'ST') {
             continue;
@@ -230,11 +270,13 @@ async function handleLoadedBlockView(dataEl, placeholderText = 'текст') {
         markerValues[marker] = value;
     }
 
+    // Заменяем маркеры в новом элементе
     replaceMarkers(newEl, markerValues);
     if (parsed.hasST && !selectionHasContent) {
         replaceMarkers(newEl, { ST: placeholderText });
     }
 
+    // Вставляем содержимое выделения в место маркера [ST], если оно есть
     if (parsed.hasST && newEl.tagName.toLowerCase() !== 'input' && newEl.tagName.toLowerCase() !== 'textarea') {
         const stNode = findSTTextNode(newEl);
         if (selectionHasContent) {
@@ -249,10 +291,12 @@ async function handleLoadedBlockView(dataEl, placeholderText = 'текст') {
         }
     }
 
+    // Вставляем новый элемент в позицию курсора, оборачивая его при необходимости
     const finalNode = parsed.hasST ? newEl : wrapIfMultiLine(range, newEl);
     range.deleteContents();
     range.insertNode(finalNode);
 
+    // Перемещаем курсор после вставленного элемента
     try {
         sel.removeAllRanges();
         const afterRange = document.createRange();
@@ -262,4 +306,74 @@ async function handleLoadedBlockView(dataEl, placeholderText = 'текст') {
     } catch (error) {
         console.warn('Не удалось переместить курсор:', error);
     }
+}
+
+
+
+/* ===
+ * Вставка в html редактор
+=== */
+
+/* ***
+ * insertInHtmlEditor - вставляет HTML-шаблон в html-редактор
+ * - принимает HTML-шаблон элемента и текст-заполнитель
+ * - вставляет HTML-код в текущую позицию курсора
+*** */
+async function insertInHtmlEditor(dataEl, placeholderText = 'текст') {
+    // Получение текущего выделения
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) {
+        return;
+    }
+
+    const range = selection.getRangeAt(0);
+    const parsed = parseDataEl(dataEl);
+    const selectionHasContent = selection.toString().length > 0;
+    const markerValues = {};
+
+    // Запрос значений для всех маркеров, кроме [ST]
+    for (const marker of parsed.markers) {
+        if (marker === 'ST') {
+            continue;
+        }
+
+        const value = await askForMarkerValue(marker);
+        if (value === null) {
+            return;
+        }
+
+        markerValues[marker] = escapeHtml(value);
+    }
+
+    // Замена всех маркеров в HTML-шаблоне
+    let snippet = parsed.templateHtml.replace(/\[([A-Z0-9:_-]+)\]/g, (match, name) => {
+        if (name === 'ST') {
+            if (selectionHasContent) {
+                const fragment = range.cloneContents();
+                const wrapper = document.createElement('div');
+                wrapper.appendChild(fragment);
+                return wrapper.innerHTML;
+            }
+
+            return escapeHtml(placeholderText);
+        }
+
+        return markerValues[name] !== undefined ? markerValues[name] : match;
+    });
+
+    // Удаление выделенного содержимого
+    if (selectionHasContent) {
+        range.deleteContents();
+    }
+
+    // Вставка HTML-шаблона в редактор
+    const textNode = document.createTextNode(snippet);
+    range.insertNode(textNode);
+
+    // Перемещение курсора после вставленного шаблона
+    selection.removeAllRanges();
+    const afterRange = document.createRange();
+    afterRange.setStartAfter(textNode);
+    afterRange.collapse(true);
+    selection.addRange(afterRange);
 }

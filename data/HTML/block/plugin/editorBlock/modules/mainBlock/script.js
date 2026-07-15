@@ -352,6 +352,7 @@ function syncEditors() {
         viewEditorСontent.innerHTML = mdEditorContent.textContent;
     }
 }
+window.editorBlock.syncEditors = syncEditors;
 
 document.addEventListener('editorBlockLoaded', () => {
     // Контейнеры для содержимого редакторов
@@ -375,11 +376,12 @@ document.addEventListener('editorBlockLoaded', () => {
 
 // Сохранение выделения 
 let savedRange = null;
+let savedSelectionElement = null;
 
 /* ***
  * saveSelection - сохранение текущего выделения
  * - сохраняет текущий range в savedRange
- * - проверяет, находится ли выделение внутри contenteditable1
+ * - проверяет, находится ли выделение внутри contenteditable
  * - если да, сохраняет range
 *** */
 function saveSelection() {
@@ -392,11 +394,12 @@ function saveSelection() {
     if (node && node.nodeType === Node.TEXT_NODE) node = node.parentElement;
 
     // Проверка, находится ли узел внутри contenteditable
-    const editableElement = node ? node.closest('[contenteditable="true"]') : null;
+    const editableElement = node ? node.closest('[contenteditable="true"], [contenteditable="plaintext-only"]') : null;
     if (editableElement) {
         const range = sel.getRangeAt(0);
         if (editableElement.contains(range.commonAncestorContainer)) {
             savedRange = range.cloneRange();
+            savedSelectionElement = editableElement;
         }
     }
 }
@@ -412,6 +415,10 @@ function restoreSelection() {
 
     const sel = window.getSelection();
     if (!sel) return;
+
+    if (savedSelectionElement && savedSelectionElement.isConnected) {
+        savedSelectionElement.focus();
+    }
 
     sel.removeAllRanges();
     sel.addRange(savedRange);
