@@ -178,6 +178,9 @@ function cleanSelectionForUnwrap(sel, range) {
  * - если клик был по кнопке вставки, вставляет соответствующий элемент
 *** */
 async function insertClickHandler(event, customTemplate=null) {
+    // Восстанавливаем выделение
+    window.editorBlock.restoreSelection();
+
     // Проверяем, что клик был по кнопке-меню (только если не передан customTemplate)
     const menuButton = event.target.closest('.insertElementMenu');
     if (menuButton && !customTemplate) {
@@ -214,9 +217,6 @@ async function insertClickHandler(event, customTemplate=null) {
         dataEl = elementTemplate.html;
         textContent = button.textContent || 'текст';
     }
-
-    // Восстанавливаем выделение
-    restoreSelection();
 
     // Проверяем, какой редактор активен: визуальный или HTML
     const activeEditor = document.querySelector('#viewBlock > .active');
@@ -261,6 +261,9 @@ async function insertClickHandler(event, customTemplate=null) {
     // Вставляем элемент в визуальный редактор (с уже обновленным и валидным выделением)
     await handleLoadedBlockView(dataEl, textContent);
     window.editorBlock.syncEditors();
+
+    // Восстанавливаем выделение
+    window.editorBlock.restoreSelection();
 }
 
 // Добавляем обработчик клика на контейнер с кнопками вставки элементов

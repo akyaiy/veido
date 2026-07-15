@@ -409,7 +409,7 @@ function saveSelection() {
  * - восстанавливает ранее сохранённый range
  * - возвращает фокус редактируемому элементу
 *** */
-window.restoreSelection = restoreSelection;
+window.editorBlock.restoreSelection = restoreSelection;
 function restoreSelection() {
     if (!savedRange) return;
 
