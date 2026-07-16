@@ -54,6 +54,13 @@
         </section>
     </main>
 </div>
+
+<div id="testBlock2">
+    <div id="testBlock" class="box card active large333" data-type="example" data-state="open" title="Тестовый блок" aria-label="Пример элемента">
+        Текстовый блок
+    </div>
+</div>
+
 <section class="tableSection" id="tableBlock" data-component="table">
     <div class="tableWrapper">
         <div class="tableTitle" title="Название таблицы">
