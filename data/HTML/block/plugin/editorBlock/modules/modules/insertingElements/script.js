@@ -85,7 +85,7 @@ function cleanSelectionForUnwrap(sel, range) {
     }
 
     const unwrapAncestor = ancestor.closest(selector);
-    const viewContent = document.getElementById('viewEditorСontent');
+    const viewContent = document.getElementById('viewEditorContent');
     const mediaSelector = 'img, input, textarea, select, hr, iframe, video, audio';
 
     // По умолчанию точка вставки — это исходный range (ничего разбирать не нужно)
@@ -426,7 +426,7 @@ async function handleLoadedBlockView(dataEl, placeholderText = 'текст') {
         ancestor = ancestor.parentNode;
     }
 
-    const view = ancestor.closest('#viewEditorСontent');
+    const view = ancestor.closest('#viewEditorContent');
     if (!view) {
         return;
     }

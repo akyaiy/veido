@@ -98,3 +98,12 @@ function initSvgIcons() {
 
 // Запуск инициализации после загрузки блоков
 document.addEventListener('editorBlockLoaded', initSvgIcons);
+
+
+
+// Заменить потом!!!!!
+document.addEventListener('editorBlockLoaded', async () => {
+    await window.editorBlock.openBlock("/pages/about");
+    await window.editorBlock.openBlock("pages/userSlava/login");
+    await window.editorBlock.openBlock("/pages/example2");
+});

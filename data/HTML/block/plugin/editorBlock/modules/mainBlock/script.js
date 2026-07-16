@@ -162,10 +162,10 @@ function closeBlockTab(blockId) {
     // Если закрываемый блок был активным, очистить текущий активный блок и редакторы
     if (currentBlockId === blockId) {
         currentBlockId = null;
-        const viewEditorСontent = document.getElementById('viewEditorСontent');
+        const viewEditorContent = document.getElementById('viewEditorContent');
         const mdEditorContent = document.getElementById('mdEditorContent');
         const jsEditorContent = document.getElementById('jsEditorContent');
-        if (viewEditorСontent) viewEditorСontent.innerHTML = '';
+        if (viewEditorContent) viewEditorContent.innerHTML = '';
         if (mdEditorContent) mdEditorContent.textContent = '';
         if (jsEditorContent) jsEditorContent.innerHTML = '';
     }
@@ -184,7 +184,7 @@ function openLoadedBlock(blockId) {
     }
 
     // Редакторы
-    const viewEditorСontent = document.getElementById('viewEditorСontent');
+    const viewEditorContent = document.getElementById('viewEditorContent');
     const mdEditorContent = document.getElementById('mdEditorContent');
     const jsEditorContent = document.getElementById('jsEditorContent');
 
@@ -195,7 +195,7 @@ function openLoadedBlock(blockId) {
     const jsContent = jsScript ? jsScript.innerHTML : '';
 
     // Вставка содержимого в редакторы
-    viewEditorСontent.innerHTML = htmlContent;
+    viewEditorContent.innerHTML = htmlContent;
     mdEditorContent.textContent = htmlContent;
     jsEditorContent.innerHTML = jsContent;
 
@@ -217,11 +217,11 @@ function savePreviousBlock(currentBlockId) {
     // Контейнеры для содержимого редакторов
     const htmlDiv = document.getElementById(currentBlockId + 'Html');
     const jsDiv = document.getElementById(currentBlockId + 'Js');
-    const viewEditorСontent = document.getElementById('viewEditorСontent');
+    const viewEditorContent = document.getElementById('viewEditorContent');
     const jsEditorContent = document.getElementById('jsEditorContent');
 
     // Сохранение содержимого редакторов в контейнер блока
-    htmlDiv.innerHTML = viewEditorСontent.innerHTML;
+    htmlDiv.innerHTML = viewEditorContent.innerHTML;
 
     let script = jsDiv.querySelector('script');
     if (!script) {
@@ -247,16 +247,16 @@ window.editorBlock.newBlock = newBlock;
  * // Заменить потом!!!!!
 *** */
 function saveBlock() {
-    const viewEditorСontent = document.getElementById('viewEditorСontent');
+    const viewEditorContent = document.getElementById('viewEditorContent');
     const mdEditorContent = document.getElementById('mdEditorContent');
     const jsEditorContent = document.getElementById('jsEditorContent');
 
-    if (!viewEditorСontent || !mdEditorContent || !jsEditorContent) {
+    if (!viewEditorContent || !mdEditorContent || !jsEditorContent) {
         return '';
     }
 
     return JSON.stringify({
-        html: viewEditorСontent.innerHTML,
+        html: viewEditorContent.innerHTML,
         md: mdEditorContent.textContent,
         js: jsEditorContent.innerHTML,
         blockId: currentBlockId
@@ -305,7 +305,7 @@ document.addEventListener('editorBlockLoaded', () => {
     const jsEditor = document.getElementById('jsEditor');
 
     // Контейнеры для содержимого редакторов
-    const viewEditorContent = document.getElementById('viewEditorСontent');
+    const viewEditorContent = document.getElementById('viewEditorContent');
     const mdEditorContent = document.getElementById('mdEditorContent');
     const jsEditorContent = document.getElementById('jsEditorContent');
 
@@ -344,12 +344,12 @@ function syncEditors() {
     const activeEditor = document.querySelector('#viewBlock > .active');
 
     const mdEditorContent = document.getElementById('mdEditorContent');
-    const viewEditorСontent = document.getElementById('viewEditorСontent');
+    const viewEditorContent = document.getElementById('viewEditorContent');
 
     if (activeEditor.id === 'viewEditor') {
-        mdEditorContent.textContent = viewEditorСontent.innerHTML;
+        mdEditorContent.textContent = viewEditorContent.innerHTML;
     } else if (activeEditor.id === 'mdEditor') {
-        viewEditorСontent.innerHTML = mdEditorContent.textContent;
+        viewEditorContent.innerHTML = mdEditorContent.textContent;
     }
 }
 window.editorBlock.syncEditors = syncEditors;
@@ -357,10 +357,10 @@ window.editorBlock.syncEditors = syncEditors;
 document.addEventListener('editorBlockLoaded', () => {
     // Контейнеры для содержимого редакторов
     const mdEditorContent = document.getElementById('mdEditorContent');
-    const viewEditorСontent = document.getElementById('viewEditorСontent');
+    const viewEditorContent = document.getElementById('viewEditorContent');
 
     // Добавление обработчиков ввода для синхронизации между редакторами
-    viewEditorСontent.addEventListener('input', () => {
+    viewEditorContent.addEventListener('input', () => {
         syncEditors();
     });
     mdEditorContent.addEventListener('input', () => {
@@ -429,3 +429,104 @@ document.addEventListener('mousedown', saveSelection);
 document.addEventListener('mouseup', saveSelection);
 document.addEventListener('keyup', saveSelection);
 document.addEventListener('selectionchange', saveSelection);
+
+
+
+/* ===
+ * Выделение элементов в визуальном редакторе (Outline)
+=== */
+
+// Текущий выделенный элемент в визуальном редакторе
+let activeSelectedElement = null;
+
+// Оригинальный стиль outline выделенного элемента
+let originalOutlineStyle = '';
+
+// Сохранение выделенного элемента в глобальном объекте
+window.editorBlock.selectedElement = null;
+
+/* ***
+ * clearElementHighlight - снятие выделения с текущего элемента
+ * - восстанавливает оригинальный outline элемента
+ * - сбрасывает состояние выделения
+*** */
+function clearElementHighlight() {
+    if (!activeSelectedElement) {
+        return;
+    }
+
+    // Восстановление оригинального outline
+    activeSelectedElement.style.outline = originalOutlineStyle;
+
+    // Сброс переменных состояния
+    activeSelectedElement = null;
+    originalOutlineStyle = '';
+
+    // Сброс выделенного элемента в глобальном объекте
+    window.editorBlock.selectedElement = null;
+    currentSelectedEl = null;
+
+    // Оповещение панелей о снятии выделения (передаем null)
+    document.dispatchEvent(new CustomEvent('elementSelected', { detail: null }));
+}
+
+/* ***
+ * highlightElement - установка выделения для элемента
+ * - принимает HTML-элемент для выделения
+ * - сохраняет его старый outline
+ * - устанавливает новый outline для подсветки
+*** */
+function highlightElement(element) {
+    if (!element) {
+        return;
+    }
+
+    // Снимаем выделение с предыдущего элемента, если он был выделен
+    if (activeSelectedElement) {
+        clearElementHighlight();
+    }
+
+    // Сохранение текущего элемента и его оригинального стиля outline
+    activeSelectedElement = element;
+    originalOutlineStyle = element.style.outline;
+
+    // Применение нового стиля outline (рамка выделения)
+    element.style.outline = '2px solid #007bff';
+
+    // Сохранение выделенного элемента в глобальном объекте и переменных ядра
+    window.editorBlock.selectedElement = element;
+    currentSelectedEl = element;
+
+    // Генерация кастомного события с передачей выделенного элемента
+    document.dispatchEvent(new CustomEvent('elementSelected', { detail: element }));
+}
+
+/* ***
+ * handleVisualEditorClick - обработка клика в визуальном редакторе
+ * - принимает объект события клика
+ * - определяет кликнутый элемент
+ * - применяет к нему подсветку outline
+*** */
+function handleVisualEditorClick(event) {
+    const target = event.target;
+    const viewEditorContent = document.getElementById('viewEditorContent');
+
+    if (!viewEditorContent || !target) {
+        return;
+    }
+
+    // Если кликнули по самому контейнеру редактора, сбрасываем выделение
+    if (target === viewEditorContent) {
+        clearElementHighlight();
+        return;
+    }
+
+    // Иначе выделяем кликнутый элемент
+    highlightElement(target);
+}
+
+// Добавление обработчика клика после загрузки блоков редактора
+document.addEventListener('editorBlockLoaded', () => {
+    const viewEditorContent = document.getElementById('viewEditorContent');
+    viewEditorContent.addEventListener('click', handleVisualEditorClick);
+});
