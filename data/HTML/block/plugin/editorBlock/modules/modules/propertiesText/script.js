@@ -873,6 +873,7 @@ function syncEditorsData() {
     try {
         if (window.editorBlock && window.editorBlock.syncEditors) {
             window.editorBlock.syncEditors();
+            window.editorBlock.saveHistoryState();
         }
     } catch (error) {
         console.error('Ошибка при синхронизации редактора:', error);

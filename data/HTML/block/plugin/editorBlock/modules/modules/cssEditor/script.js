@@ -531,6 +531,9 @@ cssPanel.addEventListener('input', event => {
     }
 
     ensureEmptyRow(tbody);
+
+    window.editorBlock.syncEditors();
+    window.editorBlock.saveHistoryState();
 });
 
 // очистка пустых или недописанных строчек при потере фокуса
@@ -554,6 +557,9 @@ cssPanel.addEventListener('focusout', event => {
     if (!propNow && !valNow && tr !== tbody.lastElementChild) {
         tr.remove();
         ensureEmptyRow(tbody);
+
+        window.editorBlock.syncEditors();
+        window.editorBlock.saveHistoryState();
     }
 });
 

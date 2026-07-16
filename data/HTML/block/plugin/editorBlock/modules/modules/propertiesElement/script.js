@@ -776,6 +776,9 @@ document.addEventListener('input', event => {
     const value = control.type === 'checkbox' ? control.checked : control.value;
 
     applyPropertyToElement(selectedElement, propertyName, value);
+
+    window.editorBlock.syncEditors();
+    window.editorBlock.saveHistoryState();
 });
 
 // отслеживаем финальное изменение для текстовых полей ввода
@@ -794,6 +797,9 @@ document.addEventListener('change', event => {
     const value = control.type === 'checkbox' ? control.checked : control.value;
 
     applyPropertyToElement(selectedElement, propertyName, value);
+
+    window.editorBlock.syncEditors();
+    window.editorBlock.saveHistoryState();
 });
 
 // Скрытие автозаполнения при клике вне элемента

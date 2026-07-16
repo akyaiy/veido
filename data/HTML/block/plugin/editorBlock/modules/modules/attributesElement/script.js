@@ -153,6 +153,9 @@ panel.addEventListener('input', event => {
     }
 
     ensureEmptyRow();
+    
+    window.editorBlock.syncEditors();
+    window.editorBlock.saveHistoryState();
 });
 
 // обработчик потери фокуса для удаления пустых или неполных строк
@@ -185,6 +188,9 @@ panel.addEventListener('focusout', event => {
             attrInput.dataset.prev = '';
         }
         ensureEmptyRow();
+
+        window.editorBlock.syncEditors();
+        window.editorBlock.saveHistoryState();
     }
 });
 

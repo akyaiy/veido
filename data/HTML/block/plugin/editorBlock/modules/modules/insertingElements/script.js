@@ -227,7 +227,9 @@ async function insertClickHandler(event, customTemplate=null) {
     // Если активен HTML-редактор, вставляем элемент туда
     if (activeEditor && activeEditor.id === 'mdEditor') {
         await insertInHtmlEditor(dataEl, textContent);
+
         window.editorBlock.syncEditors();
+        window.editorBlock.saveHistoryState();
         return;
     }
 
@@ -260,7 +262,9 @@ async function insertClickHandler(event, customTemplate=null) {
 
     // Вставляем элемент в визуальный редактор (с уже обновленным и валидным выделением)
     await handleLoadedBlockView(dataEl, textContent);
+
     window.editorBlock.syncEditors();
+    window.editorBlock.saveHistoryState();
 
     // Восстанавливаем выделение
     window.editorBlock.restoreSelection();
