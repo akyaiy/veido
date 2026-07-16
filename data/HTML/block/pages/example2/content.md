@@ -1,41 +1,41 @@
-<div id="page" class="page">
-    <header class="header">
-        <div class="headerInner">
-            <div class="logoBox">
-                <span class="logoText">
+<div id="page" class="page" data-block="main" data-version="1">
+    <header class="header" id="mainHeader" data-section="header">
+        <div class="headerInner" data-container="true">
+            <div class="logoBox" title="Логотип сайта">
+                <span class="logoText" data-name="logo">
                     <b>Trigger</b>
                     <i>Smith</i>
                 </span>
             </div>
-            <nav class="menu">
-                <span href="#" class="menuLink">
+            <nav class="menu" role="navigation" aria-label="Главное меню">
+                <span href="#" class="menuLink" data-page="home" title="Главная страница">
                     <span>Главная</span>
                 </span>
-                <span href="#" class="menuLink active">
+                <span href="#" class="menuLink active" data-page="documents" aria-current="page">
                     <strong>Документы</strong>
                 </span>
-                <span href="#" class="menuLink">
-                    <span style="color:red;font-weight:bold;">
+                <span href="#" class="menuLink" data-page="settings">
+                    <span style="color:red;font-weight:bold;" title="Настройки пользователя">
                         Настройки
                     </span>
                 </span>
             </nav>
         </div>
     </header>
-    <main class="main">
-        <section class="hero">
+    <main class="main" id="content" data-layout="main">
+        <section class="hero" id="heroBlock" data-type="section">
             <div class="heroContent">
-                <h1 class="heroTitle">
+                <h1 class="heroTitle" title="Главный заголовок">
                     Создание
-                    <span class="blue">
+                    <span class="blue" data-color="blue">
                         <b>сложного</b>
                     </span>
                     HTML
-                    <span style="color:red;">
+                    <span style="color:red;" data-color="red">
                         редактора
                     </span>
                 </h1>
-                <p class="heroText">
+                <p class="heroText" data-text="description">
                     Текст
                     <strong>
                         жирный
@@ -46,7 +46,7 @@
                             </u>
                         </em>
                     </strong>
-                    <span class="highlight">
+                    <span class="highlight" data-highlight="true">
                         выделение
                     </span>
                 </p>
@@ -54,25 +54,25 @@
         </section>
     </main>
 </div>
-<section class="tableSection">
+<section class="tableSection" id="tableBlock" data-component="table">
     <div class="tableWrapper">
-        <div class="tableTitle">
+        <div class="tableTitle" title="Название таблицы">
             Таблица данных
         </div>
-        <table class="dataTable">
+        <table class="dataTable" border="1" data-table="users">
             <thead>
-                <tr>
-                    <th>
+                <tr data-row="header">
+                    <th scope="col">
                         <span>
                             Название
                         </span>
                     </th>
-                    <th>
+                    <th scope="col">
                         <span class="blue">
                             Тип
                         </span>
                     </th>
-                    <th>
+                    <th scope="col">
                         <span style="color:red;font-weight:bold;">
                             Статус
                         </span>
@@ -80,7 +80,7 @@
                 </tr>
             </thead>
             <tbody>
-                <tr class="tableRow">
+                <tr class="tableRow" data-id="1">
                     <td>
                         <div class="cell">
                             <span>
@@ -93,20 +93,20 @@
                     </td>
                     <td>
                         <div class="cell">
-                            <span class="tag">
+                            <span class="tag" data-tag="section">
                                 section
                             </span>
                         </div>
                     </td>
                     <td>
-                        <div class="status success">
+                        <div class="status success" data-status="active">
                             <strong>
                                 Активен
                             </strong>
                         </div>
                     </td>
                 </tr>
-                <tr class="tableRow">
+                <tr class="tableRow" data-id="2">
                     <td>
                         <div class="cell">
                             <span>
@@ -119,7 +119,7 @@
                     </td>
                     <td>
                         <div class="cell">
-                            <span>
+                            <span data-type="class">
                                 class
                                 <b>
                                     selector
@@ -128,14 +128,14 @@
                         </div>
                     </td>
                     <td>
-                        <div class="status warning" style="font-weight:bold;">
+                        <div class="status warning" style="font-weight:bold;" data-status="waiting">
                             <span>
                                 Ожидание
                             </span>
                         </div>
                     </td>
                 </tr>
-                <tr class="tableRow">
+                <tr class="tableRow" data-id="3">
                     <td>
                         <div class="cell">
                             <span>
@@ -145,13 +145,13 @@
                     </td>
                     <td>
                         <div class="cell">
-                            <code>
+                            <code data-language="javascript">
                                 function()
                             </code>
                         </div>
                     </td>
                     <td>
-                        <div class="status error">
+                        <div class="status error" data-status="error">
                             <span>
                                 Ошибка
                             </span>
@@ -162,7 +162,7 @@
             <tfoot>
                 <tr>
                     <td colspan="3">
-                        <div class="tableFooter">
+                        <div class="tableFooter" data-total="3">
                             <span>
                                 Всего элементов:
                             </span>

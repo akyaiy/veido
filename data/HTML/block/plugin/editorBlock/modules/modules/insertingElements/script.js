@@ -88,10 +88,10 @@ function cleanSelectionForUnwrap(sel, range) {
     const viewContent = document.getElementById('viewEditorContent');
     const mediaSelector = 'img, input, textarea, select, hr, iframe, video, audio';
 
-    // По умолчанию точка вставки — это исходный range (ничего разбирать не нужно)
+    // По умолчанию точка вставки - это исходный range (ничего разбирать не нужно)
     let insertionRange = range.cloneRange();
 
-    // Если выделение внутри запрещенного элемента — разбиваем родителя
+    // Если выделение внутри запрещенного элемента - разбиваем родителя
     if (unwrapAncestor && viewContent && viewContent.contains(unwrapAncestor)) {
         const parent = unwrapAncestor.parentNode;
 
