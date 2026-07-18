@@ -221,6 +221,41 @@ function dashedToCamel(string) {
 }
 
 /* ***
+ * normalizeColorString - нормализация цветовой строки в hex
+ * - принимает строку цвета (hex, rgb, rgba)
+ * - возвращает строку в формате #rrggbb
+*** */
+function normalizeColorString(colorValue) {
+    if (!colorValue) {
+        return '#000000';
+    }
+
+    const value = String(colorValue).trim();
+    const hexMatch = value.match(/^#([0-9a-fA-F]{6})$/);
+    if (hexMatch) {
+        return '#' + hexMatch[1].toLowerCase();
+    }
+
+    const shortHexMatch = value.match(/^#([0-9a-fA-F]{3})$/);
+    if (shortHexMatch) {
+        return '#' + shortHexMatch[1].split('').map(ch => ch + ch).join('').toLowerCase();
+    }
+
+    const rgbMatch = value.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*[\d.]+)?\s*\)$/i);
+    if (rgbMatch) {
+        const r = Number(rgbMatch[1]);
+        const g = Number(rgbMatch[2]);
+        const b = Number(rgbMatch[3]);
+
+        if ([r, g, b].every(n => !Number.isNaN(n) && n >= 0 && n <= 255)) {
+            return '#' + [r, g, b].map(n => n.toString(16).padStart(2, '0')).join('').toLowerCase();
+        }
+    }
+
+    return '#000000';
+}
+
+/* ***
  * checkIsNumericString - проверка строки на числовой формат
  * - принимает строку
  * - возвращает true, если строка содержит только числа (и точку)
@@ -755,9 +790,63 @@ function hideClassAutocomplete() {
 === */
 
 // разделяем события input и change чтобы не терять фокус при вводе текста
+let isApplyingColorFromPicker = false;
+
+// Обработчик клика по полю выбора цвета, чтобы открыть кастомный Color Picker
+document.addEventListener('mousedown', event => {
+    const control = event.target.closest('input[type="color"][data-prop]');
+    if (!control) {
+        return;
+    }
+
+    if (!window.editorBlock || typeof window.editorBlock.openColorPicker !== 'function') {
+        return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const propertyName = control.getAttribute('data-prop');
+    const selectedElement = window.editorBlock ? window.editorBlock.selectedElement : null;
+    let initialColor = normalizeColorString(control.value || '#000000');
+
+    if (selectedElement) {
+        const computedColor = window.getComputedStyle(selectedElement)[propertyName];
+        if (computedColor) {
+            initialColor = normalizeColorString(computedColor);
+        }
+    }
+
+    if (window.editorBlock && typeof window.editorBlock.saveHistoryState === 'function') {
+        window.editorBlock.saveHistoryState();
+    }
+
+    window.editorBlock.openColorPicker({
+        initialColor,
+        callback: color => {
+            if (!selectedElement) {
+                return;
+            }
+
+            isApplyingColorFromPicker = true;
+            applyPropertyToElement(selectedElement, propertyName, color);
+            control.value = color;
+            window.editorBlock.syncEditors();
+            setTimeout(() => {
+                isApplyingColorFromPicker = false;
+            }, 0);
+        },
+        anchor: control
+    });
+});
+
 document.addEventListener('input', event => {
     const control = event.target.closest('[data-prop]');
     if (!control) {
+        return;
+    }
+
+    if (control.type === 'color' && isApplyingColorFromPicker) {
         return;
     }
 
@@ -827,4 +916,11 @@ window.addEventListener('resize', () => {
     if (currentClassAutocompleteTarget && classAutocompleteBox && classAutocompleteBox.style.display !== 'none') {
         positionClassAutocomplete(currentClassAutocompleteTarget);
     }
+});
+
+// Блокировка вызова стандартного окна выбора цвета
+document.querySelectorAll('input[type="color"]').forEach(input => {
+    input.addEventListener('click', event => {
+        event.preventDefault();
+    });
 });

@@ -38,10 +38,9 @@
 
 <div id="serviceModules">
 
-<div id="blocksContainers"></div>
-
-<div id="colorPicker"></div>
-<div id="contextMenu"></div>
-<div id="modalWindows"></div>
+<div id="blocksContainers" style="display: none;"></div>
+<div id="colorPicker" style="display: none;"></div>
+<div id="contextMenu" style="display: none;"></div>
+<div id="modalWindows" style="display: none;"></div>
 
 </div>

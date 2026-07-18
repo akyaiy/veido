@@ -103,6 +103,20 @@
 
 
 /* Служебные модули */
-#serviceModules {
-    display: none;
+/* #serviceModules {
+} */
+
+#colorPicker {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 280px;
+    background: #ffffff;
+    border: 1px solid #cccccc;
+    border-radius: 8px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+    padding: 10px;
+    box-sizing: border-box;
+    position: absolute;
+    z-index: 1000;
 }

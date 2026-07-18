@@ -1100,12 +1100,23 @@ function handleFormatClick(event) {
     }
 
     if (formatConfig.type === 'color') {
-        const defaultColor = formatConfig.key === 'textColor' ? '#000000' : '#ffffff';
-        // Заменить потом!!!!!
-        const colorValue = prompt('Введите цвет (например, #516ed7 или red):', defaultColor);
-        
-        if (colorValue !== null) {
-            applyInlineStyle(formatConfig.property, colorValue);
+        const activeElement = getSelectionParentElement();
+        const currentColor = activeElement ? getComputedProp(activeElement, formatConfig.property) : '';
+        const initialColor = currentColor || (formatConfig.key === 'textColor' ? '#000000' : '#ffffff');
+
+        if (window.editorBlock && typeof window.editorBlock.openColorPicker === 'function') {
+            window.editorBlock.saveHistoryState();
+
+            window.editorBlock.openColorPicker({
+                initialColor,
+                callback: color => applyInlineStyle(formatConfig.property, color),
+                anchor: buttonElement
+            });
+        } else {
+            const colorValue = prompt('Введите цвет (например, #516ed7 или red):', initialColor);
+            if (colorValue !== null) {
+                applyInlineStyle(formatConfig.property, colorValue);
+            }
         }
     }
 
