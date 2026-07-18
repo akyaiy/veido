@@ -5,3 +5,19 @@
 #blockPreviewButton:hover {
     color: rgba(0, 0, 0, 0.6);
 }
+
+/* Режим предварительного просмотра */
+#viewEditor.preview {
+    overflow: auto;
+    justify-content: flex-start;
+}
+
+#viewEditorContent.preview {
+    resize: both;
+    overflow: auto;
+    display: inline-block;
+}
+
+#centerPanel.preview {
+    border-bottom: 1px solid #ccc;
+}

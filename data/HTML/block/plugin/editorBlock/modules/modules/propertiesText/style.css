@@ -21,3 +21,8 @@
     flex-wrap: wrap;
     gap: 5px;
 }
+
+.propertiesList {
+    display: flex;
+    flex-direction: column;
+}

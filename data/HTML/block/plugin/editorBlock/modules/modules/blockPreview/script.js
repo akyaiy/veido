@@ -7,10 +7,9 @@ let isPreviewActive = false;
 
 /* ***
  * togglePreviewMode - переключение режима предпросмотра блока
- * - скрывает или показывает панели управления (левую, правую, вкладки)
- * - имитирует клик по кнопке визуального режима
- * - включает/отключает изменение размера для viewEditorContent и сбрасывает его
- * - меняет состояние флага и класс кнопки
+ * - скрывает или показывает панели управления
+ * - включает или отключает режим предпросмотра
+ * - меняет состояние кнопки
 *** */
 function togglePreviewMode() {
     const blockPreviewButton = document.getElementById('blockPreviewButton');
@@ -19,49 +18,28 @@ function togglePreviewMode() {
     }
 
     isPreviewActive = !isPreviewActive;
-    const displayValue = isPreviewActive ? 'none' : '';
 
     // Переключение видимости панелей
     ['rightPanel', 'leftPanel', 'editorsTabs'].forEach(id => {
         const element = document.getElementById(id);
+
         if (element) {
-            element.style.display = displayValue;
+            element.style.display = isPreviewActive ? 'none' : '';
         }
     });
 
-    const viewEditor = document.getElementById('viewEditor');
-    const viewEditorContent = document.getElementById('viewEditorContent');
-    const centerPanel = document.getElementById('centerPanel');
+    // Переключение режима предпросмотра
+    ['viewEditor', 'viewEditorContent', 'centerPanel'].forEach(id => {
+        const element = document.getElementById(id);
 
-    // Корректировка стилей для обхода проблемы с justify-content: center
-    if (viewEditor && viewEditorContent) {
-        if (isPreviewActive) {
-            viewEditor.style.overflow = 'auto';
-            viewEditor.style.justifyContent = 'flex-start';
-
-            viewEditorContent.style.resize = 'both';
-            viewEditorContent.style.overflow = 'auto';
-            viewEditorContent.style.display = 'inline-block';
-            
-            centerPanel.style.borderBottom = '1px solid #ccc';
-        } else {
-            viewEditor.style.overflow = '';
-            viewEditor.style.justifyContent = '';
-
-            viewEditorContent.style.resize = '';
-            viewEditorContent.style.overflow = '';
-            viewEditorContent.style.display = '';
-            viewEditorContent.style.minWidth = '';
-            viewEditorContent.style.minHeight = '';
-            viewEditorContent.style.width = '';
-            viewEditorContent.style.height = '';
-
-            centerPanel.style.borderBottom = '';
+        if (element) {
+            element.classList.toggle('preview', isPreviewActive);
         }
-    }
+    });
 
-    // Активация визуального режима и обновление состояния кнопки
+    // Активация визуального режима
     const viewEditorButton = document.getElementById('viewEditorButton');
+
     if (isPreviewActive && viewEditorButton) {
         viewEditorButton.click();
     }
