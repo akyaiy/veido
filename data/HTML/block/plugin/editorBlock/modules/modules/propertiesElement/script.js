@@ -767,6 +767,10 @@ document.addEventListener('input', event => {
         return; // обычный текст обрабатываем только по событию change
     }
 
+    if (window.editorBlock && window.editorBlock.saveHistoryState) {
+        window.editorBlock.saveHistoryState();
+    }
+
     const selectedElement = window.editorBlock ? window.editorBlock.selectedElement : null;
     if (!selectedElement) {
         return;
@@ -786,6 +790,10 @@ document.addEventListener('change', event => {
     const control = event.target.closest('[data-prop]');
     if (!control) {
         return;
+    }
+
+    if (window.editorBlock && window.editorBlock.saveHistoryState) {
+        window.editorBlock.saveHistoryState();
     }
 
     const selectedElement = window.editorBlock ? window.editorBlock.selectedElement : null;

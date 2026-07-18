@@ -136,6 +136,10 @@ panel.addEventListener('input', event => {
     const nameNow = attrInput.value.trim();
     const valNow = valInput.value;
 
+    if (window.editorBlock && window.editorBlock.saveHistoryState) {
+        window.editorBlock.saveHistoryState();
+    }
+
     if (input === attrInput) {
         if (prevName && prevName !== nameNow && el) {
             el.removeAttribute(prevName);

@@ -224,8 +224,9 @@ async function insertClickHandler(event, customTemplate=null) {
     // Парсим вставляемый элемент, чтобы узнать его тег
     const parsed = parseDataEl(dataEl);
 
-    // Если активен HTML-редактор, вставляем элемент туда
+    // Если активен HTML-редактор, сохраняем состояние до вставки
     if (activeEditor && activeEditor.id === 'mdEditor') {
+        window.editorBlock.saveHistoryState();
         await insertInHtmlEditor(dataEl, textContent);
 
         window.editorBlock.syncEditors();
@@ -259,6 +260,9 @@ async function insertClickHandler(event, customTemplate=null) {
             sel.addRange(newRange);
         }
     }
+
+    // Сохраняем текущее состояние перед вставкой элемента
+    window.editorBlock.saveHistoryState();
 
     // Вставляем элемент в визуальный редактор (с уже обновленным и валидным выделением)
     await handleLoadedBlockView(dataEl, textContent);

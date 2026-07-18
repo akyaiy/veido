@@ -361,6 +361,10 @@ function applyInlineStyle(styleProperty, styleValue) {
         return null;
     }
 
+    if (window.editorBlock && window.editorBlock.saveHistoryState) {
+        window.editorBlock.saveHistoryState();
+    }
+
     const textNodes = isolateNodes(range);
 
     if (textNodes.length === 0) {
@@ -501,6 +505,10 @@ function applyBlockStyle(styleProperty, styleValue) {
         return null;
     }
 
+    if (window.editorBlock && window.editorBlock.saveHistoryState) {
+        window.editorBlock.saveHistoryState();
+    }
+
     const fragmentNode = range.extractContents();
     const tempContainer = document.createElement('div');
     tempContainer.appendChild(fragmentNode);
@@ -554,6 +562,10 @@ function toggleListStyle(listType) {
 
     if (!range || range.collapsed) {
         return null;
+    }
+
+    if (window.editorBlock && window.editorBlock.saveHistoryState) {
+        window.editorBlock.saveHistoryState();
     }
 
     let blockNodes = getBlockNodes(range);
@@ -829,6 +841,10 @@ function removeFormatting() {
 
     if (!range || range.collapsed) {
         return null;
+    }
+
+    if (window.editorBlock && window.editorBlock.saveHistoryState) {
+        window.editorBlock.saveHistoryState();
     }
 
     const fragmentNode = range.extractContents();

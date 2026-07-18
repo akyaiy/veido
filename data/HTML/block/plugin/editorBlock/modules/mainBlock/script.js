@@ -202,6 +202,10 @@ function openLoadedBlock(blockId) {
     // Обновление текущего активного блока
     currentBlockId = blockId;
     setActiveBlockTab(blockId);
+
+    if (window.editorBlock && typeof window.editorBlock.saveHistoryState === 'function') {
+        window.editorBlock.saveHistoryState();
+    }
 }
 
 /* ***

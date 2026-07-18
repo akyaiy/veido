@@ -470,6 +470,9 @@ cssPanel.addEventListener('input', event => {
     }
 
     const selectedElement = window.editorBlock ? window.editorBlock.selectedElement : null;
+    if (window.editorBlock && window.editorBlock.saveHistoryState) {
+        window.editorBlock.saveHistoryState();
+    }
     if (!selectedElement) {
         return;
     }
@@ -555,6 +558,9 @@ cssPanel.addEventListener('focusout', event => {
     const valNow = valInput.value.trim();
 
     if (!propNow && !valNow && tr !== tbody.lastElementChild) {
+        if (window.editorBlock && window.editorBlock.saveHistoryState) {
+            window.editorBlock.saveHistoryState();
+        }
         tr.remove();
         ensureEmptyRow(tbody);
 

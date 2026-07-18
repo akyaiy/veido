@@ -217,9 +217,8 @@ function saveHistoryState() {
 
     // Если история пуста, сохраняем текущее состояние как стартовое
     if (stack.past.length === 0) {
-        if (!isStateEmpty(info.editorId, currentState)) {
-            stack.past.push(currentState);
-        }
+        stack.past.push(currentState);
+        return;
     }
 
     const lastState = stack.past[stack.past.length - 1];
@@ -239,9 +238,7 @@ function saveHistoryState() {
 }
 
 // Экспорт в глобальный объект
-if (window.editorBlock) {
-    window.editorBlock.saveHistoryState = saveHistoryState;
-}
+window.editorBlock.saveHistoryState = saveHistoryState;
 
 /* ***
  * undoHistory - отмена действия (Undo)
