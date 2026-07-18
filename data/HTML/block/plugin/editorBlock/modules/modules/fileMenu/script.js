@@ -86,7 +86,7 @@ async function selectFileMenu(event) {
             break;
 
         case 'open':
-            const path = prompt('Введите путь к файлу для открытия:');
+            const path = await window.editorBlock.prompt('Введите путь к файлу для открытия:');
             if (path === null || path.trim() === '') return;
             window.editorBlock.openBlock(path);
             break;

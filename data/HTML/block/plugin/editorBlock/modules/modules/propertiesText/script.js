@@ -1084,7 +1084,7 @@ function updateActiveStates() {
  * - вызывает нужное форматирование на основе атрибута
  * - возвращает null
 *** */
-function handleFormatClick(event) {
+async function handleFormatClick(event) {
     window.editorBlock.restoreSelection();
 
     const buttonElement = event.currentTarget;
@@ -1104,16 +1104,16 @@ function handleFormatClick(event) {
         const currentColor = activeElement ? getComputedProp(activeElement, formatConfig.property) : '';
         const initialColor = currentColor || (formatConfig.key === 'textColor' ? '#000000' : '#ffffff');
 
-        if (window.editorBlock && typeof window.editorBlock.openColorPicker === 'function') {
+        if (window.editorBlock && typeof window.colorPicker.openColorPicker === 'function') {
             window.editorBlock.saveHistoryState();
 
-            window.editorBlock.openColorPicker({
+            window.colorPicker.openColorPicker({
                 initialColor,
                 callback: color => applyInlineStyle(formatConfig.property, color),
                 anchor: buttonElement
             });
         } else {
-            const colorValue = prompt('Введите цвет (например, #516ed7 или red):', initialColor);
+            const colorValue = await window.editorBlock.prompt('Введите цвет (например, #516ed7 или red):', initialColor);
             if (colorValue !== null) {
                 applyInlineStyle(formatConfig.property, colorValue);
             }

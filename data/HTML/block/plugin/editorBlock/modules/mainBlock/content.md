@@ -41,6 +41,6 @@
 <div id="blocksContainers" style="display: none;"></div>
 <div id="colorPicker" style="display: none;"></div>
 <div id="contextMenu" style="display: none;"></div>
-<div id="modalWindows" style="display: none;"></div>
+<div id="modalWindows"></div>
 
 </div>

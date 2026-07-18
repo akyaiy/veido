@@ -326,12 +326,12 @@ async function askForMarkerValue(marker) {
     const lower = marker.toLowerCase();
 
     if (lower === 'link' || lower === 'url' || lower === 'image' || lower === 'src') {
-        return prompt('Введите ссылку (URL)');
+        return await window.editorBlock.prompt('Введите ссылку (URL)');
     } else if (lower === 'count' || lower === 'number') {
-        return prompt('Введите число');
+        return await window.editorBlock.prompt('Введите число');
     }
 
-    return prompt(`Введите значение для ${marker}`);
+    return await window.editorBlock.prompt(`Введите значение для ${marker}`);
 }
 
 /* ***
@@ -753,7 +753,7 @@ const imageInsertFile = document.getElementById('imageInsertFile');
 async function imageInsertUrlHandler(event) {
     event.stopPropagation();
 
-    const url = prompt('Введите ссылку на изображение');
+    const url = await window.editorBlock.prompt('Введите ссылку на изображение');
     if (!url) {
         return;
     }
