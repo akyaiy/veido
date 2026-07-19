@@ -380,7 +380,7 @@ function openColorPicker(options = {}) {
 }
 
 // Регистрация глобальных методов расширения редактора
-window.colorPicker.openColorPicker = openColorPicker;
+window.editorBlock.openColorPicker = openColorPicker;
 
 
 /* ===

@@ -1,0 +1,483 @@
+/* === Константы и конфигурация === */
+
+// Контейнер контекстного меню
+const contextMenu = document.getElementById('contextMenu');
+
+// Идентификаторы действий, относящихся к работе с таблицами
+const tableActions = ['addLine', 'addColumn', 'deleteLine', 'deleteColumn'];
+
+
+
+/* === Действия контекстного меню (Хелперы) === */
+
+/* ***
+ * executeCopyAction - копирование outerHTML выбранного элемента в буфер обмена
+ * - считывает HTML-код текущего выбранного элемента
+ * - записывает полученную разметку в системный буфер обмена через clipboard API
+ * - отдает Promise
+*** */
+async function executeCopyAction() {
+    const selection = window.getSelection();
+    if (selection && !selection.isCollapsed) {
+        const range = selection.getRangeAt(0);
+        const container = document.createElement('div');
+        container.appendChild(range.cloneContents());
+
+        const html = container.innerHTML;
+        const text = selection.toString();
+
+        if (navigator.clipboard?.write) {
+            const clipboardItems = {};
+            if (html) clipboardItems['text/html'] = new Blob([html], { type: 'text/html' });
+            clipboardItems['text/plain'] = new Blob([text], { type: 'text/plain' });
+            await navigator.clipboard.write([new ClipboardItem(clipboardItems)]);
+        } else if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text || html);
+        }
+        return;
+    }
+
+    if (navigator.clipboard?.writeText && window.editorBlock.selectedElement) {
+        await navigator.clipboard.writeText(window.editorBlock.selectedElement.outerHTML);
+    }
+}
+
+/* ***
+ * executeCutAction - вырезание элемента с копированием в буфер обмена
+ * - копирует разметку выбранного узла или выделенный текст в буфер обмена
+ * - при выделении текста удаляет его, при элементе удаляет элемент из DOM
+ * - отдает Promise
+*** */
+async function executeCutAction() {
+    const selection = window.getSelection();
+    if (selection && !selection.isCollapsed) {
+        const range = selection.getRangeAt(0);
+        const container = document.createElement('div');
+        container.appendChild(range.cloneContents());
+
+        const html = container.innerHTML;
+        const text = selection.toString();
+
+        if (navigator.clipboard?.write) {
+            const clipboardItems = {};
+            if (html) clipboardItems['text/html'] = new Blob([html], { type: 'text/html' });
+            clipboardItems['text/plain'] = new Blob([text], { type: 'text/plain' });
+            await navigator.clipboard.write([new ClipboardItem(clipboardItems)]);
+        } else if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text || html);
+        }
+
+        range.deleteContents();
+        selection.removeAllRanges();
+        return;
+    }
+
+    if (navigator.clipboard?.writeText && window.editorBlock.selectedElement) {
+        await navigator.clipboard.writeText(window.editorBlock.selectedElement.outerHTML);
+        window.editorBlock.selectedElement.remove();
+        window.editorBlock.selectedElement = null;
+    }
+}
+
+/* ***
+ * executePasteAction - вставка содержимого из буфера обмена в текущее выделение
+ * - читает данные из буфера обмена и определяет наиболее приоритетный тип контента
+ * - преобразует изображения в элементы img, а любой текст и HTML принудительно парсит как HTML-фрагмент
+ * - очищает выделение, внедряет полученные узлы в DOM и перемещает каретку в конец вставки
+ * - отдает Promise
+*** */
+async function executePasteAction() {
+    if (!navigator.clipboard?.read) {
+        return;
+    }
+
+    const clipboardItems = await navigator.clipboard.read();
+    if (!clipboardItems.length) {
+        return;
+    }
+    
+    await window.editorBlock.restoreSelection();
+    const activeSelection = window.getSelection();
+    if (!activeSelection.rangeCount) {
+        return;
+    }
+    
+    const selectionRange = activeSelection.getRangeAt(0);
+    const clipboardItem = clipboardItems[0];
+
+    let targetType = null;
+    if (clipboardItem.types.includes('text/html')) {
+        targetType = 'text/html';
+    } else if (clipboardItem.types.includes('text/plain')) {
+        targetType = 'text/plain';
+    } else {
+        targetType = clipboardItem.types.find(type => type.startsWith('image/'));
+    }
+
+    if (!targetType) {
+        return;
+    }
+
+    const dataBlob = await clipboardItem.getType(targetType);
+    let nodesFragment = null;
+
+    if (targetType.startsWith('image/')) {
+        const imageUrl = URL.createObjectURL(dataBlob);
+        nodesFragment = document.createElement('img');
+        nodesFragment.src = imageUrl;
+    } else if (targetType === 'text/html' || targetType === 'text/plain') {
+        const contentText = await dataBlob.text();
+        nodesFragment = document.createRange().createContextualFragment(contentText);
+    }
+
+    if (nodesFragment) {
+        selectionRange.deleteContents();
+        
+        const lastChild = nodesFragment.nodeType === Node.DOCUMENT_FRAGMENT_NODE 
+            ? nodesFragment.lastChild 
+            : nodesFragment;
+
+        selectionRange.insertNode(nodesFragment);
+        
+        if (lastChild) {
+            selectionRange.setStartAfter(lastChild);
+            selectionRange.collapse(true);
+        }
+    }
+
+    activeSelection.removeAllRanges();
+    activeSelection.addRange(selectionRange);
+}
+
+/* ***
+ * executeDeleteAction - полное удаление выбранного элемента из DOM
+ * - вырезает текущий выделенный HTML-элемент со страницы
+ * - очищает глобальную ссылку в объекте редактора во избежание утечек памяти
+ * - отдает null
+*** */
+function executeDeleteAction() {
+    const selection = window.getSelection();
+    if (selection && !selection.isCollapsed) {
+        const range = selection.getRangeAt(0);
+        range.deleteContents();
+        selection.removeAllRanges();
+        return;
+    }
+
+    if (window.editorBlock.selectedElement) {
+        window.editorBlock.selectedElement.remove();
+        window.editorBlock.selectedElement = null;
+    }
+}
+
+/* ***
+ * executeDeleteLineAction - удаление строки таблицы
+ * - принимает элемент таблицы currentTable и текущую ячейку currentCell
+ * - находит строку tr, в которой находится фокус пользователя, и полностью её удаляет
+ * - если фокуса на ячейке нет, то срезает самую последнюю строку в целевой таблице
+ * - отдает null
+*** */
+function executeDeleteLineAction(currentTable, currentCell) {
+    if (!currentTable) {
+        return;
+    }
+
+    if (currentCell) {
+        const targetRow = currentCell.closest('tr');
+        if (targetRow) {
+            targetRow.remove();
+        }
+    } else {
+        const allRows = currentTable.querySelectorAll('tr');
+        if (allRows.length) {
+            allRows[allRows.length - 1].remove();
+        }
+    }
+}
+
+/* ***
+ * executeDeleteColumnAction - удаление столбца таблицы
+ * - принимает элемент таблицы currentTable и текущую ячейку currentCell
+ * - вычисляет индекс удаляемой колонки по текущей активной ячейке
+ * - проходит циклом по всем строкам tr таблицы и удаляет ячейки с этим индексом
+ * - отдает null
+*** */
+function executeDeleteColumnAction(currentTable, currentCell) {
+    if (!currentTable) {
+        return;
+    }
+
+    let targetColumnIndex = null;
+
+    if (currentCell) {
+        targetColumnIndex = currentCell.cellIndex;
+    } else {
+        const firstTableRow = currentTable.querySelector('tr');
+        if (firstTableRow && firstTableRow.children.length) {
+            targetColumnIndex = firstTableRow.children.length - 1;
+        }
+    }
+
+    if (targetColumnIndex != null) {
+        Array.from(currentTable.querySelectorAll('tr')).forEach(rowElement => {
+            const totalCells = rowElement.children;
+            if (totalCells[targetColumnIndex]) {
+                totalCells[targetColumnIndex].remove();
+            }
+        });
+    }
+}
+
+/* ***
+ * executeAddLineAction - добавление новой строки в таблицу
+ * - принимает элемент таблицы currentTable и текущую ячейку currentCell
+ * - дублирует текущую или последнюю строку tr со всей структурой ячеек
+ * - полностью очищает текст во всех новых ячейках, оставляя в них пустые теги br
+ * - отдает null
+*** */
+function executeAddLineAction(currentTable, currentCell) {
+    if (!currentTable) {
+        return;
+    }
+
+    const currentRow = currentCell ? currentCell.closest('tr') : null;
+
+    if (currentRow) {
+        const clonedRow = currentRow.cloneNode(true);
+        Array.from(clonedRow.children).forEach(cellNode => {
+            cellNode.innerHTML = '<br>';
+        });
+        currentRow.after(clonedRow);
+    } else {
+        const tableRows = currentTable.querySelectorAll('tr');
+        if (tableRows.length) {
+            const lastClonedRow = tableRows[tableRows.length - 1].cloneNode(true);
+            Array.from(lastClonedRow.children).forEach(cellNode => {
+                cellNode.innerHTML = '<br>';
+            });
+            tableRows[tableRows.length - 1].after(lastClonedRow);
+        }
+    }
+}
+
+/* ***
+ * executeAddColumnAction - добавление нового столбца в таблицу
+ * - принимает элемент таблицы currentTable и текущую ячейку currentCell
+ * - находит нужный индекс ячейки и создает пустую копию тега td/th для каждой строки
+ * - вставляет новые пустые колонки строго справа от текущего выбранного столбца
+ * - отдает null
+*** */
+function executeAddColumnAction(currentTable, currentCell) {
+    if (!currentTable) {
+        return;
+    }
+
+    let targetColumnIndex = null;
+
+    if (currentCell) {
+        targetColumnIndex = currentCell.cellIndex;
+    } else {
+        const firstTableRow = currentTable.querySelector('tr');
+        if (firstTableRow && firstTableRow.children.length) {
+            targetColumnIndex = firstTableRow.children.length - 1;
+        }
+    }
+
+    if (targetColumnIndex != null) {
+        Array.from(currentTable.querySelectorAll('tr')).forEach(rowElement => {
+            const totalCells = rowElement.children;
+            const referencedCell = totalCells[targetColumnIndex];
+            if (!referencedCell) {
+                return;
+            }
+
+            const clonedCell = referencedCell.cloneNode(true);
+            clonedCell.innerHTML = '<br>';
+            referencedCell.after(clonedCell);
+        });
+    }
+}
+
+/* ***
+ * getNewLoadedBlockSource - получение источника для открытия нового блока
+ * - если есть текстовое выделение, делает из него HTML-фрагмент
+ * - если текстового выделения нет, возвращает выбранный DOM-элемент
+ * - возвращает либо HTML-строку, либо Element, либо null
+*** */
+function getNewLoadedBlockSource() {
+    const selection = window.getSelection();
+    const hasActiveTextSelection = selection && !selection.isCollapsed;
+    if (hasActiveTextSelection) {
+        const range = selection.getRangeAt(0);
+        const container = document.createElement('div');
+        container.appendChild(range.cloneContents());
+        return container.innerHTML;
+    }
+
+    if (window.editorBlock && window.editorBlock.selectedElement) {
+        return window.editorBlock.selectedElement;
+    }
+
+    return null;
+}
+
+
+
+/* === Обработчики событий === */
+
+/* ***
+ * handleContextMenu - обработка вызова контекстного меню приложения
+ * - принимает объект события event
+ * - рассчитывает координаты клика и выводит кастомный блок меню возле курсора
+ * - проверяет, нажат ли клик внутри таблицы, и скрывает или показывает специфичные кнопки
+ * - отдает null
+*** */
+function handleContextMenu(event) {
+    const windowSelection = window.getSelection();
+    const hasActiveTextSelection = windowSelection && !windowSelection.isCollapsed;
+    const selectedElement = window.editorBlock ? window.editorBlock.selectedElement : null;
+    const selectionAnchorElement = hasActiveTextSelection ? (windowSelection.anchorNode?.nodeType === Node.TEXT_NODE ? windowSelection.anchorNode.parentElement : windowSelection.anchorNode) : null;
+    const activeSelectionElement = selectedElement || selectionAnchorElement || event.target.closest('[contenteditable="true"]');
+
+    if (!window.editorBlock || !activeSelectionElement) {
+        return;
+    }
+
+    event.preventDefault();
+
+    contextMenu.style.display = 'block';
+    contextMenu.style.top = event.pageY + 5 + 'px';
+    contextMenu.style.left = event.pageX + 5 + 'px';
+
+    const targetEditableArea = event.target.closest('[contenteditable="true"]');
+    if (!targetEditableArea) {
+        contextMenu.style.display = 'none';
+        return;
+    }
+
+    const currentClickedTable = activeSelectionElement.closest('table');
+
+    const allMenuItems = contextMenu.querySelectorAll('.elementProp');
+    allMenuItems.forEach(itemButton => {
+        const itemAction = itemButton.getAttribute('data-action');
+        
+        if (itemAction === 'paste') {
+            itemButton.style.display = navigator.clipboard?.readText ? '' : 'none';
+            return;
+        }
+
+        const isTableSpecificAction = tableActions.includes(itemAction);
+        if (isTableSpecificAction) {
+            itemButton.style.display = (currentClickedTable && !hasActiveTextSelection) ? '' : 'none';
+            return;
+        }
+
+        if (itemAction === 'newLoadedBlock') {
+            itemButton.style.display = (selectedElement || hasActiveTextSelection) ? '' : 'none';
+            return;
+        }
+
+        itemButton.style.display = activeSelectionElement ? '' : 'none';
+    });
+
+    const hasAnyVisibleItem = Array.from(contextMenu.children).some(childItem => {
+        return childItem.style.display !== 'none';
+    });
+
+    if (!hasAnyVisibleItem) {
+        contextMenu.style.display = 'none';
+    }
+}
+
+/* ***
+ * handleMenuHide - базовое сокрытие контекстного меню при интеракциях
+ * - убирает видимость кастомного контекстного окна при кликах или вводе текста
+ * - отдает null
+*** */
+function handleMenuHide() {
+    contextMenu.style.display = 'none';
+}
+
+/* ***
+ * handleMenuClick - маршрутизация кликов по пунктам действий контекстного меню
+ * - принимает объект события event
+ * - считывает команду data-action с кнопки и перенаправляет управление на нужный хелпер
+ * - ловит ошибки исполнения команд и в любом случае закрывает окно меню в конце
+ * - отдает null
+*** */
+async function handleMenuClick(event) {
+    const executedAction = event.target.getAttribute('data-action');
+    if (!executedAction || !window.editorBlock) {
+        return;
+    }
+
+    if (typeof window.editorBlock.restoreSelection === 'function') {
+        window.editorBlock.restoreSelection();
+    }
+
+    const activeSelection = window.getSelection();
+    const hasActiveTextSelection = activeSelection && !activeSelection.isCollapsed;
+    const selectedElement = window.editorBlock ? window.editorBlock.selectedElement : null;
+    const selectionAnchorElement = hasActiveTextSelection ? (activeSelection.anchorNode?.nodeType === Node.TEXT_NODE ? activeSelection.anchorNode.parentElement : activeSelection.anchorNode) : null;
+    const activeSelectionElement = selectedElement || selectionAnchorElement;
+
+    if (!activeSelectionElement) {
+        return;
+    }
+
+    const currentTable = activeSelectionElement.closest('table');
+    const currentCell = activeSelectionElement.closest('td,th');
+
+    try {
+        switch (executedAction) {
+            case 'copy':
+                await executeCopyAction();
+                break;
+
+            case 'cut':
+                await executeCutAction();
+                break;
+
+            case 'paste':
+                await executePasteAction();
+                break;
+
+            case 'delete':
+                executeDeleteAction();
+                break;
+
+            case 'deleteLine':
+                executeDeleteLineAction(currentTable, currentCell);
+                break;
+
+            case 'deleteColumn':
+                executeDeleteColumnAction(currentTable, currentCell);
+                break;
+
+            case 'addLine':
+                executeAddLineAction(currentTable, currentCell);
+                break;
+
+            case 'addColumn':
+                executeAddColumnAction(currentTable, currentCell);
+                break;
+
+            case 'newLoadedBlock':
+                window.editorBlock.openBlock(null, getNewLoadedBlockSource());
+                break;
+        }
+    } catch (errorLog) {
+        console.error('Ошибка выполнения действия контекстного меню:', errorLog);
+    }
+
+    contextMenu.style.display = 'none';
+}
+
+// Регистрация глобальных слушателей событий
+document.addEventListener('contextmenu', handleContextMenu);
+
+document.addEventListener('click', handleMenuHide);
+document.addEventListener('input', handleMenuHide);
+document.addEventListener('paste', handleMenuHide);
+
+contextMenu.addEventListener('click', handleMenuClick);

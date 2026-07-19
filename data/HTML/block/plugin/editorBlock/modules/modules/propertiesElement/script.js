@@ -799,7 +799,7 @@ document.addEventListener('mousedown', event => {
         return;
     }
 
-    if (!window.editorBlock || typeof window.colorPicker.openColorPicker !== 'function') {
+    if (!window.editorBlock || typeof window.editorBlock.openColorPicker !== 'function') {
         return;
     }
 
@@ -821,7 +821,7 @@ document.addEventListener('mousedown', event => {
         window.editorBlock.saveHistoryState();
     }
 
-    window.colorPicker.openColorPicker({
+    window.editorBlock.openColorPicker({
         initialColor,
         callback: color => {
             if (!selectedElement) {

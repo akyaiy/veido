@@ -1,6 +1,8 @@
 /* ===
  * Инициализация модулей редактора editorBlock
-* ===/
+=== */
+
+window.editorBlock = window.editorBlock || {};
 
 /* ***
  * loadEditorBlock - загрузка всех модулей editorBlock

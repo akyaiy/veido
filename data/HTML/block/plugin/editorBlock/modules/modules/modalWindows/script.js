@@ -133,18 +133,36 @@ function showPrompt(text, defaultValue = '', callback) {
     processInteractiveQueue();
 }
 
+/* ***
+ * prompt - отображение окна ввода
+ * - принимает текст сообщения и значение по умолчанию
+ * - открывает окно ввода
+ * - возвращает введённое значение
+*** */
 function prompt(text, defaultValue = '') {
     return new Promise(resolve => {
         showPrompt(text, defaultValue, resolve);
     });
 }
 
+/* ***
+ * confirm - отображение окна подтверждения
+ * - принимает текст сообщения
+ * - открывает окно подтверждения
+ * - возвращает результат выбора
+*** */
 function confirm(text) {
     return new Promise(resolve => {
         showConfirm(text, resolve);
     });
 }
 
+/* ***
+ * alert - отображение информационного окна
+ * - принимает текст сообщения
+ * - показывает окно уведомления
+ * - возвращает завершённый Promise
+*** */
 function alert(text) {
     showAlert(text);
     return Promise.resolve();
@@ -172,14 +190,9 @@ function closeAllModals() {
 }
 
 // Экспорт методов модуля в глобальную область видимости
-window.editorBlock = window.editorBlock || {};
-window.editorBlock.showAlert = showAlert;
-window.editorBlock.showConfirm = showConfirm;
-window.editorBlock.showPrompt = showPrompt;
 window.editorBlock.alert = alert;
 window.editorBlock.confirm = confirm;
 window.editorBlock.prompt = prompt;
-window.editorBlock.closeAllModals = closeAllModals;
 
 
 

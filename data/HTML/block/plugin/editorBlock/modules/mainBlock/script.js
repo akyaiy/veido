@@ -12,18 +12,19 @@ let currentBlockId = null;
 /* ***
  * openBlock - открытие блока
  * - принимает путь блока
+ * - если path === null, может также принимать начальный HTML-элемент
  * - проверяет, загружен ли блок
  * - если блок уже загружен, открывает его вкладку
- * - если блок не загружен, загружает его и создаёт вкладку
+ * - если блок не загружен, загружает новый и создаёт вкладку
 *** */
-async function openBlock(path) {
+async function openBlock(path, initialElement = null) {
     // Проверка, загружен ли блок
     const existingBlock = Array.from(blocksContainers.querySelectorAll('div[data-path]')).find(el => el.dataset.path === path);
     
     if (path === null) {
-        // Если путь не указан, открываем пустой блок
+        // Если путь не указан, открываем пустой блок или блок из элемента
         savePreviousBlock(currentBlockId);
-        const blockId = await loadBlockContainer(null);
+        const blockId = await loadBlockContainer(null, initialElement);
         addBlockTab(blockId);
     } else if (existingBlock) {
         // Если блок уже загружен, сохраняем предыдущий и открываем его вкладку
@@ -44,7 +45,7 @@ window.editorBlock.openBlock = openBlock;
  * - создаёт контейнер блока
  * - загружает содержимое через loadBlock
 *** */
-async function loadBlockContainer(path) {
+async function loadBlockContainer(path, initialElement = null) {
     // Создание уникального идентификатора блока
     let num = 1;
     while (document.getElementById('loadedBlock' + num)) {
@@ -84,6 +85,21 @@ async function loadBlockContainer(path) {
             jsDiv.appendChild(script.cloneNode(true));
             script.remove();
         });
+    } else if (initialElement instanceof Element) {
+        // Открываем новый блок из переданного DOM-элемента
+        htmlDiv.innerHTML = initialElement.outerHTML;
+        cssDiv.appendChild(document.createElement('style'));
+        jsDiv.appendChild(document.createElement('script'));
+    } else if (initialElement instanceof DocumentFragment || (initialElement && initialElement.nodeType === Node.DOCUMENT_FRAGMENT_NODE)) {
+        // Открываем новый блок из переданного фрагмента HTML
+        htmlDiv.appendChild(initialElement.cloneNode(true));
+        cssDiv.appendChild(document.createElement('style'));
+        jsDiv.appendChild(document.createElement('script'));
+    } else if (typeof initialElement === 'string') {
+        // Открываем новый блок из HTML-строки
+        htmlDiv.innerHTML = initialElement;
+        cssDiv.appendChild(document.createElement('style'));
+        jsDiv.appendChild(document.createElement('script'));
     } else {
         // Если путь не указан, создаём пустой блок
         htmlDiv.innerHTML = '';
@@ -446,17 +462,21 @@ let activeSelectedElement = null;
 // Оригинальный стиль outline выделенного элемента
 let originalOutlineStyle = '';
 
+// Хранилище диапазона выделения текста перед совершением клика
+let textSelectionRangeBeforeClick = null;
+
 // Сохранение выделенного элемента в глобальном объекте
 window.editorBlock.selectedElement = null;
 
 /* ***
  * clearElementHighlight - снятие выделения с текущего элемента
- * - восстанавливает оригинальный outline элемента
- * - сбрасывает состояние выделения
+ * - не принимает параметров
+ * - восстанавливает оригинальный стиль outline у активного элемента и обнуляет ссылки на него
+ * - отдает null
 *** */
 function clearElementHighlight() {
     if (!activeSelectedElement) {
-        return;
+        return null;
     }
 
     // Восстановление оригинального outline
@@ -472,17 +492,18 @@ function clearElementHighlight() {
 
     // Оповещение панелей о снятии выделения (передаем null)
     document.dispatchEvent(new CustomEvent('elementSelected', { detail: null }));
+    return null;
 }
 
 /* ***
  * highlightElement - установка выделения для элемента
- * - принимает HTML-элемент для выделения
- * - сохраняет его старый outline
- * - устанавливает новый outline для подсветки
+ * - принимает HTML-элемент для выделения element
+ * - сохраняет оригинальный outline, задает новую рамку подсветки и обновляет глобальные ссылки
+ * - отдает null
 *** */
 function highlightElement(element) {
     if (!element) {
-        return;
+        return null;
     }
 
     // Снимаем выделение с предыдущего элемента, если он был выделен
@@ -503,34 +524,59 @@ function highlightElement(element) {
 
     // Генерация кастомного события с передачей выделенного элемента
     document.dispatchEvent(new CustomEvent('elementSelected', { detail: element }));
+    return null;
 }
 
 /* ***
  * handleVisualEditorClick - обработка клика в визуальном редакторе
- * - принимает объект события клика
- * - определяет кликнутый элемент
- * - применяет к нему подсветку outline
+ * - принимает объект события клика event
+ * - сбрасывает подсветку при клике на контейнер редактора или на предварительно выделенный текст
+ * - устанавливает выделение для нового элемента, если условия сброса не выполнены
+ * - отдает null
 *** */
 function handleVisualEditorClick(event) {
     const target = event.target;
     const viewEditorContent = document.getElementById('viewEditorContent');
 
     if (!viewEditorContent || !target) {
-        return;
+        return null;
     }
 
     // Если кликнули по самому контейнеру редактора, сбрасываем выделение
     if (target === viewEditorContent) {
         clearElementHighlight();
-        return;
+        return null;
+    }
+
+    // Проверяем, попал ли клик внутрь выделенного текста
+    const selection = window.getSelection();
+    const activeRange = (selection && !selection.isCollapsed) 
+        ? selection.getRangeAt(0) 
+        : textSelectionRangeBeforeClick;
+
+    if (activeRange && activeRange.intersectsNode(target)) {
+        clearElementHighlight();
+        textSelectionRangeBeforeClick = null;
+        return null;
     }
 
     // Иначе выделяем кликнутый элемент
     highlightElement(target);
+    return null;
 }
 
 // Добавление обработчика клика после загрузки блоков редактора
 document.addEventListener('editorBlockLoaded', () => {
     const viewEditorContent = document.getElementById('viewEditorContent');
+    
+    // Фиксируем выделение текста в момент нажатия кнопки мыши
+    viewEditorContent.addEventListener('mousedown', () => {
+        const selection = window.getSelection();
+        textSelectionRangeBeforeClick = (selection && !selection.isCollapsed) 
+            ? selection.getRangeAt(0).cloneRange() 
+            : null;
+    });
+
     viewEditorContent.addEventListener('click', handleVisualEditorClick);
+    viewEditorContent.addEventListener('contextmenu', handleVisualEditorClick);
 });

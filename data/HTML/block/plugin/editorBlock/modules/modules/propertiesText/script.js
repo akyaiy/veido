@@ -39,9 +39,8 @@ const formatSelects = [
 
 /* ***
  * getSelectedRange - получение текущего выделения
- * - не принимает параметров
- * - получает выделение пользователя на странице
- * - возвращает объект Range или null
+ * - находит активную область выделенного текста в браузере
+ * - отдает объект Range или null
 *** */
 function getSelectedRange() {
     const selection = window.getSelection();
@@ -54,10 +53,10 @@ function getSelectedRange() {
 }
 
 /* ***
- * getRootElement - получение корневого элемента
+ * getRootElement - определение корневого элемента
  * - принимает объект выделения Range
- * - определяет общего родителя выделения
- * - возвращает DOM элемент
+ * - находит общий родительский тег для границ выделения
+ * - отдает DOM-элемент
 *** */
 function getRootElement(range) {
     const container = range.commonAncestorContainer;
@@ -72,8 +71,8 @@ function getRootElement(range) {
 /* ***
  * getTextNodes - поиск текстовых узлов
  * - принимает объект выделения Range
- * - проходит по DOM дереву выделенного участка
- * - возвращает массив текстовых узлов
+ * - собирает все заполненные текстом узлы внутри выделения
+ * - отдает массив текстовых узлов
 *** */
 function getTextNodes(range) {
     const rootElement = getRootElement(range);
@@ -107,8 +106,9 @@ function getTextNodes(range) {
 /* ***
  * isolateNodes - изоляция узлов
  * - принимает объект выделения Range
- * - разрезает крайние текстовые узлы по краям выделения
- * - возвращает массив изолированных текстовых узлов
+ * - разрезает текстовые узлы точно по индексам начала и конца выделения
+ * - сбрасывает текущий фокус страницы и ставит новый диапазон по чистым краям
+ * - отдает массив изолированных текстовых узлов
 *** */
 function isolateNodes(range) {
     let startNode = range.startContainer;
@@ -153,9 +153,8 @@ function isolateNodes(range) {
 
 /* ***
  * getSelectionParentElement - получение родительского элемента выделения
- * - не принимает параметров
- * - находит ближайший DOM-элемент для текущего выделения
- * - возвращает элемент или null
+ * - определяет ближайший тег-контейнер для текущего выделенного фрагмента
+ * - отдает DOM-элемент или null
 *** */
 function getSelectionParentElement() {
     const range = getSelectedRange();
@@ -175,9 +174,9 @@ function getSelectionParentElement() {
 
 /* ***
  * getComputedProp - получение вычисленного свойства CSS
- * - принимает элемент и название свойства в camelCase
- * - вычисляет текущее значение стиля элемента
- * - возвращает строковое значение свойства
+ * - принимает DOM-элемент и имя свойства в camelCase
+ * - считывает инлайновый или вычисленный стиль элемента через window.getComputedStyle
+ * - отдает строку со значением свойства
 *** */
 function getComputedProp(element, property) {
     if (!element) {
@@ -207,8 +206,8 @@ function getComputedProp(element, property) {
 /* ***
  * wrapTextNode - обертывание текста
  * - принимает текстовый узел
- * - создает span с атрибутом data-format при необходимости
- * - возвращает элемент-обертку
+ * - оборачивает текстовый узел в тег span с атрибутом форматирования
+ * - отдает элемент обертки span
 *** */
 function wrapTextNode(textNode) {
     if (!textNode) {
@@ -235,9 +234,9 @@ function wrapTextNode(textNode) {
 
 /* ***
  * clearEmptySpan - удаление пустой обертки
- * - принимает DOM элемент span
- * - проверяет наличие стилей и удаляет тег с сохранением содержимого
- * - возвращает null
+ * - принимает DOM-элемент span
+ * - удаляет тег span и выносит текст наружу, если у тега нет стилей
+ * - отдает null
 *** */
 function clearEmptySpan(spanElement) {
     if (!spanElement || spanElement.tagName !== 'SPAN') {
@@ -261,9 +260,9 @@ function clearEmptySpan(spanElement) {
 
 /* ***
  * splitParents - разделение родителей
- * - принимает текстовый узел и направление разделения
- * - дублирует родительские span элементы на границах выделения
- * - возвращает null
+ * - принимает текстовый узел и логический флаг направления разделения
+ * - разрезает родительские span на границах выделения во избежание расползания стилей
+ * - отдает null
 *** */
 function splitParents(textNode, isBefore) {
     let currentNode = textNode;
@@ -305,10 +304,10 @@ function splitParents(textNode, isBefore) {
 }
 
 /* ***
- * mergeAdjacentSpans - слияние соседних span с одинаковыми стилями
- * - принимает корневой DOM-элемент
- * - находит соседние теги span и объединяет их при совпадении стилей
- * - возвращает null
+ * mergeAdjacentSpans - слияние соседних span
+ * - принимает корневой DOM-элемент для поиска
+ * - объединяет стоящие рядом элементы span, если их инлайн-стили полностью совпадают
+ * - отдает null
 *** */
 function mergeAdjacentSpans(rootElement) {
     if (!rootElement) {
@@ -350,9 +349,10 @@ function mergeAdjacentSpans(rootElement) {
 
 /* ***
  * applyInlineStyle - применение строчного стиля
- * - принимает свойство и значение
- * - форматирует выделенный текст через тег span
- * - возвращает null
+ * - принимает имя CSS-свойства и его новое строковое значение
+ * - изолирует текст, режет span и точечно обновляет инлайновые CSS-стили выделения
+ * - сшивает соседние одинаковые span элементы и синхронизирует состояние редактора
+ * - отдает null
 *** */
 function applyInlineStyle(styleProperty, styleValue) {
     const range = getSelectedRange();
@@ -412,9 +412,9 @@ function applyInlineStyle(styleProperty, styleValue) {
 
 /* ***
  * toggleInlineStyle - переключение строчного стиля
- * - принимает ключ формата
- * - применяет стиль, а при повторном клике удаляет его
- * - возвращает null
+ * - принимает строковый ключ формата из массива конфигурации buttons
+ * - включает или выключает инлайновый стиль в зависимости от его текущего наличия на узлах
+ * - отдает null
 *** */
 function toggleInlineStyle(formatKey) {
     const formatConfig = formatButtons.find(item => item.key === formatKey);
@@ -462,8 +462,8 @@ function toggleInlineStyle(formatKey) {
 /* ***
  * getBlockNodes - поиск блочных контейнеров
  * - принимает объект выделения Range
- * - находит родительские блочные элементы для выделения
- * - возвращает массив элементов
+ * - ищет и собирает уникальные родительские элементы выделения с display отличным от inline
+ * - отдает массив блочных DOM-элементов
 *** */
 function getBlockNodes(range) {
     const rootElement = getRootElement(range);
@@ -494,9 +494,10 @@ function getBlockNodes(range) {
 
 /* ***
  * applyBlockStyle - применение блочного стиля
- * - принимает свойство и значение
- * - форматирует выделенные блоки через div обертку
- * - возвращает null
+ * - принимает имя CSS-свойства и новое значение для блочного элемента
+ * - вырезает выделенный контент и помещает его в новый контейнер div с заданным стилем
+ * - удаляет старые вложенные div контейнеры, чтобы избежать дублирования стилей
+ * - отдает null
 *** */
 function applyBlockStyle(styleProperty, styleValue) {
     const range = getSelectedRange();
@@ -553,9 +554,9 @@ function applyBlockStyle(styleProperty, styleValue) {
 
 /* ***
  * toggleListStyle - переключение списков
- * - принимает тип списка
- * - создает список выбранного типа или удаляет при значении 'none'
- * - возвращает null
+ * - принимает строковый тип создаваемого списка или команду 'none'
+ * - управляет созданием или полной очисткой структуры списков для выделенных блоков
+ * - отдает null
 *** */
 function toggleListStyle(listType) {
     const range = getSelectedRange();
@@ -598,9 +599,9 @@ function toggleListStyle(listType) {
 
 /* ***
  * removeLists - удаление списков
- * - принимает массив блоков
- * - разворачивает содержимое тегов li во внешний контейнер
- * - возвращает null
+ * - принимает массив блочных узлов, входящих в списки
+ * - извлекает содержимое элементов li наружу и удаляет пустые теги ul/ol
+ * - отдает null
 *** */
 function removeLists(blockNodes) {
     for (const block of blockNodes) {
@@ -627,9 +628,10 @@ function removeLists(blockNodes) {
 
 /* ***
  * createLists - создание списков
- * - принимает массив блоков и тип
- * - группирует элементы и оборачивает их в ul/ol
- * - возвращает null
+ * - принимает массив блоков и строку с типом генерируемого списка
+ * - группирует выбранные блоки и переносит их контент внутрь нового списка ul или ol
+ * - если блок уже находится внутри списка, то вызывает функцию обновления типа маркера
+ * - отдает null
 *** */
 function createLists(blockNodes, listType) {
     let index = 0;
@@ -681,9 +683,9 @@ function createLists(blockNodes, listType) {
 
 /* ***
  * updateListType - обновление типа списка
- * - принимает список и новый тип
- * - заменяет тег (ul на ol) или меняет list-style-type
- * - возвращает null
+ * - принимает DOM-элемент текущего списка и строку с новым типом маркера
+ * - меняет сам тег списка с ul на ol (и наоборот) либо обновляет CSS-вид маркеров li
+ * - отдает null
 *** */
 function updateListType(parentList, listType) {
     if (listType === 'decimal' && parentList.tagName !== 'OL') {
@@ -721,8 +723,10 @@ function updateListType(parentList, listType) {
 /* ***
  * clearNodeFormat - рекурсивная очистка узла
  * - принимает DOM узел
- * - удаляет стили, классы, ссылки и списки с сохранением контента
- * - возвращает null
+ * - рекурсивно обходит всё дерево дочерних элементов
+ * - удаляет HTML-ссылки и разворачивает списки ul/ol с заменой элементов li на переносы br
+ * - очищает у узлов стили, классы и устаревшие атрибуты разметки вроде bgcolor и border
+ * - отдает null
 *** */
 function clearNodeFormat(nodeElement) {
     const childNodes = Array.from(nodeElement.childNodes);
@@ -794,8 +798,9 @@ function clearNodeFormat(nodeElement) {
 /* ***
  * collapseDuplicateBrs - удаление дублирующихся тегов переноса строк
  * - принимает корневой узел
- * - находит и удаляет идущие подряд теги br
- * - возвращает null
+ * - сканирует элементы с помощью TreeWalker и находит идущие подряд теги br
+ * - удаляет лишние повторения br, схлопывая их до одного элемента
+ * - отдает null
 *** */
 function collapseDuplicateBrs(rootElement) {
     const treeWalker = document.createTreeWalker(rootElement, NodeFilter.SHOW_ELEMENT, null);
@@ -832,9 +837,9 @@ function collapseDuplicateBrs(rootElement) {
 
 /* ***
  * removeFormatting - удаление форматов в выделении
- * - не принимает параметров
- * - запускает полную чистку стилей и тегов для выделенного текста
- * - возвращает null
+ * - извлекает контент из области выделения и полностью стирает с него разметку и стили
+ * - безопасно возвращает каретку на место и запускает синхронизацию данных редактора
+ * - отдает null
 *** */
 function removeFormatting() {
     const range = getSelectedRange();
@@ -881,9 +886,8 @@ function removeFormatting() {
 
 /* ***
  * syncEditorsData - запуск обновления редакторов
- * - не принимает параметров
- * - обращается к общему менеджеру синхронизации проекта
- * - возвращает null
+ * - обращается к внешнему объекту управления для обновления контента и сохранения истории изменений
+ * - отдает null
 *** */
 function syncEditorsData() {
     try {
@@ -900,9 +904,9 @@ function syncEditorsData() {
 
 /* ***
  * getListPropertyValue - получение типа текущего списка
- * - не принимает параметров
- * - определяет активный тип маркера у выделения
- * - возвращает строку типа или пустую строку
+ * - ищет ближайший элемент списка li относительно текущей позиции курсора
+ * - проверяет теги ul/ol и CSS-стили, чтобы распознать точный тип маркера строки
+ * - отдает строку типа или пустую строку
 *** */
 function getListPropertyValue() {
     const range = getSelectedRange();
@@ -942,9 +946,9 @@ function getListPropertyValue() {
 
 /* ***
  * updateActiveStates - синхронизация состояния панели форматирования
- * - не принимает параметров
- * - анализирует выделенный фрагмент текста и обновляет кнопки/селекты
- * - возвращает null
+ * - опрашивает CSS-стили и типы списков у родительского элемента выделенного текста
+ * - перебирает все кнопки и списки на панели, переключая класс active и выставляя нужные значения
+ * - отдает null
 *** */
 function updateActiveStates() {
     const element = getSelectionParentElement();
@@ -1081,8 +1085,9 @@ function updateActiveStates() {
 /* ***
  * handleFormatClick - обработка клика по кнопке
  * - принимает объект события event
- * - вызывает нужное форматирование на основе атрибута
- * - возвращает null
+ * - считывает тип нажатой кнопки и перенаправляет вызов на инлайн-стили, выравнивание или списки
+ * - при выборе цвета открывает встроенный палитру-пикер или вызывает стандартное окно ввода текста
+ * - отдает null
 *** */
 async function handleFormatClick(event) {
     window.editorBlock.restoreSelection();
@@ -1104,10 +1109,10 @@ async function handleFormatClick(event) {
         const currentColor = activeElement ? getComputedProp(activeElement, formatConfig.property) : '';
         const initialColor = currentColor || (formatConfig.key === 'textColor' ? '#000000' : '#ffffff');
 
-        if (window.editorBlock && typeof window.colorPicker.openColorPicker === 'function') {
+        if (window.editorBlock && typeof window.editorBlock.openColorPicker === 'function') {
             window.editorBlock.saveHistoryState();
 
-            window.colorPicker.openColorPicker({
+            window.editorBlock.openColorPicker({
                 initialColor,
                 callback: color => applyInlineStyle(formatConfig.property, color),
                 anchor: buttonElement
@@ -1146,8 +1151,9 @@ async function handleFormatClick(event) {
 /* ***
  * handleSelectChange - обработка выбора из выпадающего списка
  * - принимает объект события event
- * - применяет выбранный инлайновый или блочный стиль
- * - возвращает null
+ * - считывает выбранное значение селекта и определяет целевую зону изменения контента
+ * - применяет стиль к блочным элементам или строчным текстовым узлам и возвращает фокус
+ * - отдает null
 *** */
 function handleSelectChange(event) {
     window.editorBlock.restoreSelection();
@@ -1177,8 +1183,8 @@ function handleSelectChange(event) {
 /* ***
  * handleSelectionChange - обработка изменения выделения на странице
  * - принимает объект события event
- * - обновляет состояние активных элементов панели форматирования
- * - возвращает null
+ * - инициирует перерасчет и обновление визуального состояния элементов панели
+ * - отдает null
 *** */
 function handleSelectionChange(event) {
     updateActiveStates();
