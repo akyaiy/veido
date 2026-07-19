@@ -318,7 +318,7 @@ function focusEditor(editorContent) {
     selection.addRange(range);
 }
 
-document.addEventListener('editorBlockLoaded', () => {
+document.addEventListener('editorBlock:loaded', () => {
     // Редакторы
     const viewEditor = document.getElementById('viewEditor');
     const mdEditor = document.getElementById('mdEditor');
@@ -374,7 +374,7 @@ function syncEditors() {
 }
 window.editorBlock.syncEditors = syncEditors;
 
-document.addEventListener('editorBlockLoaded', () => {
+document.addEventListener('editorBlock:loaded', () => {
     // Контейнеры для содержимого редакторов
     const mdEditorContent = document.getElementById('mdEditorContent');
     const viewEditorContent = document.getElementById('viewEditorContent');
@@ -491,7 +491,7 @@ function clearElementHighlight() {
     currentSelectedEl = null;
 
     // Оповещение панелей о снятии выделения (передаем null)
-    document.dispatchEvent(new CustomEvent('elementSelected', { detail: null }));
+    document.dispatchEvent(new CustomEvent('editorBlock:elementSelected', { detail: null }));
     return null;
 }
 
@@ -523,7 +523,7 @@ function highlightElement(element) {
     currentSelectedEl = element;
 
     // Генерация кастомного события с передачей выделенного элемента
-    document.dispatchEvent(new CustomEvent('elementSelected', { detail: element }));
+    document.dispatchEvent(new CustomEvent('editorBlock:elementSelected', { detail: element }));
     return null;
 }
 
@@ -566,7 +566,7 @@ function handleVisualEditorClick(event) {
 }
 
 // Добавление обработчика клика после загрузки блоков редактора
-document.addEventListener('editorBlockLoaded', () => {
+document.addEventListener('editorBlock:loaded', () => {
     const viewEditorContent = document.getElementById('viewEditorContent');
     
     // Фиксируем выделение текста в момент нажатия кнопки мыши

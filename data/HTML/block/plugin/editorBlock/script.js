@@ -62,7 +62,7 @@ async function loadEditorBlock() {
 *** */
 async function initEditorBlock() {
     await loadEditorBlock();
-    document.dispatchEvent(new Event('editorBlockLoaded'));
+    document.dispatchEvent(new Event('editorBlock:loaded'));
 }
 // Инициализация редактора
 initEditorBlock();
@@ -99,13 +99,14 @@ function initSvgIcons() {
 }
 
 // Запуск инициализации после загрузки блоков
-document.addEventListener('editorBlockLoaded', initSvgIcons);
+document.addEventListener('editorBlock:loaded', initSvgIcons);
 
 
 
 // Заменить потом!!!!!
-document.addEventListener('editorBlockLoaded', async () => {
+document.addEventListener('editorBlock:loaded', async () => {
     await window.editorBlock.openBlock("/pages/about");
     await window.editorBlock.openBlock("pages/userSlava/login");
     await window.editorBlock.openBlock("/pages/example2");
+    await window.editorBlock.openBlock("/pages/example4");
 });

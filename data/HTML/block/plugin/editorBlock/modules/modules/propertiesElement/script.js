@@ -197,7 +197,7 @@ function updatePropertiesPanel(element) {
 }
 
 // Подписываемся на событие выбора напрямую в документе
-document.addEventListener('elementSelected', event => {
+document.addEventListener('editorBlock:elementSelected', event => {
     updatePropertiesPanel(event.detail);
 });
 

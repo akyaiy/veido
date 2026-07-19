@@ -18,3 +18,6 @@
         <td><input placeholder="function"></td>
     </tr>
 </table>
+
+<!-- Панель автодополнения JavaScript -->
+<div id="jsAutocompleteBox"></div>

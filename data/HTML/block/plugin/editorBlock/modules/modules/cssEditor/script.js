@@ -570,6 +570,6 @@ cssPanel.addEventListener('focusout', event => {
 });
 
 // подписка на событие выбора элемента в основном редакторе
-document.addEventListener('elementSelected', event => {
+document.addEventListener('editorBlock:elementSelected', event => {
     updateCssPanel(event.detail);
 });

@@ -29,3 +29,20 @@
     width: 100%;
     box-sizing: border-box;
 }
+
+
+
+/* Панель автодополнения JavaScript */
+#jsAutocompleteBox {
+    position: absolute;
+    background: #fff;
+    border: 1px solid #ccc;
+    z-index: 10000;
+    display: none;
+    max-height: 200px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-width: 300px;
+    word-break: break-word;
+    font-size: 12px;
+}

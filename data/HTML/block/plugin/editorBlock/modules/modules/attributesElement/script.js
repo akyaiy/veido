@@ -199,7 +199,7 @@ panel.addEventListener('focusout', event => {
 });
 
 // слушатель выбора нового элемента в редакторе
-document.addEventListener('elementSelected', event => {
+document.addEventListener('editorBlock:elementSelected', event => {
     const selectedElement = event.detail;
     updateAttributesPanel(selectedElement);
 });
