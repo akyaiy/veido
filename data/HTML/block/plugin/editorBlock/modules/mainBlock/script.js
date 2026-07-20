@@ -71,40 +71,30 @@ async function loadBlockContainer(path, initialElement = null) {
     block.appendChild(jsDiv);
 
     if (path !== null) {
-        // Загрузка содержимого блока
+        // Загрузка содержимого блока как текст
         await loadBlock(path, htmlDiv.id, true);
-
-        // Перенос CSS блока
-        document.querySelectorAll('style[data-dynamic="' + htmlDiv.id + '"]').forEach(style => {
-            cssDiv.appendChild(style.cloneNode(true));
-            style.remove();
-        });
-
-        // Перенос JS блока
-        document.querySelectorAll('script[data-dynamic="' + htmlDiv.id + '"]').forEach(script => {
-            jsDiv.appendChild(script.cloneNode(true));
-            script.remove();
-        });
     } else if (initialElement instanceof Element) {
         // Открываем новый блок из переданного DOM-элемента
-        htmlDiv.innerHTML = initialElement.outerHTML;
-        cssDiv.appendChild(document.createElement('style'));
-        jsDiv.appendChild(document.createElement('script'));
+        htmlDiv.textContent = initialElement.outerHTML;
+        cssDiv.textContent = '';
+        jsDiv.textContent = '';
     } else if (initialElement instanceof DocumentFragment || (initialElement && initialElement.nodeType === Node.DOCUMENT_FRAGMENT_NODE)) {
         // Открываем новый блок из переданного фрагмента HTML
-        htmlDiv.appendChild(initialElement.cloneNode(true));
-        cssDiv.appendChild(document.createElement('style'));
-        jsDiv.appendChild(document.createElement('script'));
+        const tempDiv = document.createElement('div');
+        tempDiv.appendChild(initialElement.cloneNode(true));
+        htmlDiv.textContent = tempDiv.innerHTML;
+        cssDiv.textContent = '';
+        jsDiv.textContent = '';
     } else if (typeof initialElement === 'string') {
         // Открываем новый блок из HTML-строки
-        htmlDiv.innerHTML = initialElement;
-        cssDiv.appendChild(document.createElement('style'));
-        jsDiv.appendChild(document.createElement('script'));
+        htmlDiv.textContent = initialElement;
+        cssDiv.textContent = '';
+        jsDiv.textContent = '';
     } else {
-        // Если путь не указан, создаём пустой блок
-        htmlDiv.innerHTML = '';
-        cssDiv.appendChild(document.createElement('style'));
-        jsDiv.appendChild(document.createElement('script'));
+        // Если путь не указан, создаём пустой текстовый блок
+        htmlDiv.textContent = '';
+        cssDiv.textContent = '';
+        jsDiv.textContent = '';
     }
 
     return blockId;
@@ -206,14 +196,65 @@ function openLoadedBlock(blockId) {
 
     // Получение содержимого блока
     const htmlDiv = document.getElementById(blockId + 'Html');
-    const jsScript = document.getElementById(blockId + 'Js')?.querySelector('script');
-    const htmlContent = htmlDiv ? htmlDiv.innerHTML : '';
-    const jsContent = jsScript ? jsScript.innerHTML : '';
+    const cssDiv = document.getElementById(blockId + 'Css');
+    const jsDiv = document.getElementById(blockId + 'Js');
+    const htmlContent = htmlDiv ? htmlDiv.textContent : '';
+    const cssContent = cssDiv ? cssDiv.textContent : '';
+    const jsContent = jsDiv ? jsDiv.textContent : '';
 
     // Вставка содержимого в редакторы
-    viewEditorContent.innerHTML = htmlContent;
-    mdEditorContent.textContent = htmlContent;
-    jsEditorContent.innerHTML = jsContent;
+    if (viewEditorContent) {
+        viewEditorContent.innerHTML = '';
+
+        const iframe = document.createElement('iframe');
+        iframe.id = 'viewEditorIframe';
+
+        const safeCss = cssContent || '';
+        iframe.srcdoc = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>${safeCss}</style>
+</head>
+<body contenteditable="true" spellcheck="false">${htmlContent}</body>
+</html>`;
+
+        iframe.addEventListener('load', () => {
+            const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+            if (iframeDoc && jsContent) {
+                const scriptEl = iframeDoc.createElement('script');
+                scriptEl.type = 'text/javascript';
+                scriptEl.text = jsContent;
+                iframeDoc.head.appendChild(scriptEl);
+            }
+
+            attachIframeSelectionHandlers(iframe);
+            const inputTarget = iframeDoc.body || iframeDoc.documentElement;
+
+            inputTarget.addEventListener('input', () => {
+                syncEditors();
+            });
+
+            iframeDoc.addEventListener('mousedown', () => {
+                const iframeWin = iframe.contentWindow;
+                const iframeSelection = iframeWin && iframeWin.getSelection ? iframeWin.getSelection() : null;
+                textSelectionRangeBeforeClick = (iframeSelection && !iframeSelection.isCollapsed)
+                    ? iframeSelection.getRangeAt(0).cloneRange()
+                    : null;
+            });
+
+            iframeDoc.addEventListener('click', handleVisualEditorClick);
+            iframeDoc.addEventListener('contextmenu', handleVisualEditorClick);
+        });
+        viewEditorContent.appendChild(iframe);
+    }
+
+    if (mdEditorContent) {
+        mdEditorContent.textContent = htmlContent;
+    }
+    if (jsEditorContent) {
+        jsEditorContent.innerHTML = jsContent;
+    }
 
     // Обновление текущего активного блока
     currentBlockId = blockId;
@@ -223,6 +264,17 @@ function openLoadedBlock(blockId) {
         window.editorBlock.saveHistoryState();
     }
 }
+
+// Обновление блока при открытии вкладки
+document.addEventListener('editorBlock:openLoadedBlock', () => {
+    // Сохраняем содержимое предыдущего блока
+    savePreviousBlock(currentBlockId);
+
+    // Перезагружаем текущий блок заново в iframe
+    if (currentBlockId) {
+        openLoadedBlock(currentBlockId);
+    }
+});
 
 /* ***
  * savePreviousBlock - сохранение содержимого предыдущего блока
@@ -237,20 +289,39 @@ function savePreviousBlock(currentBlockId) {
     // Контейнеры для содержимого редакторов
     const htmlDiv = document.getElementById(currentBlockId + 'Html');
     const jsDiv = document.getElementById(currentBlockId + 'Js');
+    const mdEditorContent = document.getElementById('mdEditorContent');
     const viewEditorContent = document.getElementById('viewEditorContent');
     const jsEditorContent = document.getElementById('jsEditorContent');
 
     // Сохранение содержимого редакторов в контейнер блока
-    htmlDiv.innerHTML = viewEditorContent.innerHTML;
+    if (htmlDiv) {
+        const iframe = viewEditorContent ? viewEditorContent.querySelector('iframe') : null;
+        let iframeHtml = null;
 
-    let script = jsDiv.querySelector('script');
-    if (!script) {
-        script = document.createElement('script');
-        jsDiv.appendChild(script);
+        if (iframe) {
+            const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+            iframeHtml = iframeDoc?.body?.innerHTML;
+        }
+
+        const mdText = mdEditorContent ? ('value' in mdEditorContent ? mdEditorContent.value : mdEditorContent.textContent) : null;
+        const oldHtml = htmlDiv.textContent;
+
+        // Сохраняем новое значение только если оно не пустое, иначе оставляем oldHtml
+        if (iframeHtml && iframeHtml.trim() !== '') {
+            htmlDiv.textContent = iframeHtml;
+        } else if (mdText && mdText.trim() !== '') {
+            htmlDiv.textContent = mdText;
+        } else if (!oldHtml || oldHtml.trim() === '') {
+            htmlDiv.textContent = '';
+        }
     }
-    script.setAttribute('data-dynamic', currentBlockId + 'Html');
-    script.setAttribute('type', 'text/plain');
-    script.innerHTML = jsEditorContent.innerHTML;
+
+    if (jsDiv && jsEditorContent) {
+        const jsText = ('value' in jsEditorContent) ? jsEditorContent.value : jsEditorContent.textContent;
+        if (jsText && jsText.trim() !== '') {
+            jsDiv.textContent = jsText;
+        }
+    }
 }
 
 /* ***
@@ -365,11 +436,22 @@ function syncEditors() {
 
     const mdEditorContent = document.getElementById('mdEditorContent');
     const viewEditorContent = document.getElementById('viewEditorContent');
+    const iframe = viewEditorContent ? viewEditorContent.querySelector('iframe') : null;
+    const iframeDoc = iframe ? (iframe.contentDocument || iframe.contentWindow?.document) : null;
+    const iframeBody = iframeDoc ? iframeDoc.body : null;
 
     if (activeEditor.id === 'viewEditor') {
-        mdEditorContent.textContent = viewEditorContent.innerHTML;
+        if (iframeBody) {
+            mdEditorContent.textContent = iframeBody.innerHTML;
+        } else if (viewEditorContent) {
+            mdEditorContent.textContent = viewEditorContent.innerHTML;
+        }
     } else if (activeEditor.id === 'mdEditor') {
-        viewEditorContent.innerHTML = mdEditorContent.textContent;
+        if (iframeBody) {
+            iframeBody.innerHTML = mdEditorContent.textContent;
+        } else if (viewEditorContent) {
+            viewEditorContent.innerHTML = mdEditorContent.textContent;
+        }
     }
 }
 window.editorBlock.syncEditors = syncEditors;
@@ -406,7 +488,8 @@ let savedSelectionElement = null;
 *** */
 function saveSelection() {
     // Проверка, есть ли текущее выделение
-    const sel = window.getSelection();
+    const iframeSelection = getIframeSelection();
+    const sel = iframeSelection && iframeSelection.rangeCount ? iframeSelection : window.getSelection();
     if (!sel || sel.rangeCount === 0) return;
 
     // Получение узла, содержащего выделение
@@ -433,15 +516,22 @@ window.editorBlock.restoreSelection = restoreSelection;
 function restoreSelection() {
     if (!savedRange) return;
 
-    const sel = window.getSelection();
+    const iframe = getViewIframe();
+    const iframeWin = iframe ? iframe.contentWindow : null;
+    const iframeSelection = getIframeSelection();
+    const parentSelection = window.getSelection ? window.getSelection() : null;
+    const sel = iframeSelection || parentSelection;
     if (!sel) return;
 
+    if (iframeWin && typeof iframeWin.focus === 'function') {
+        iframeWin.focus();
+    }
     if (savedSelectionElement && savedSelectionElement.isConnected) {
         savedSelectionElement.focus();
     }
 
     sel.removeAllRanges();
-    sel.addRange(savedRange);
+    sel.addRange(savedRange.cloneRange());
 }
 
 // События для сохранения выделения при начале/завершении клика, при отпускании клавиши и при изменении выделения
@@ -549,9 +639,14 @@ function handleVisualEditorClick(event) {
     }
 
     // Проверяем, попал ли клик внутрь выделенного текста
-    const selection = window.getSelection();
-    const activeRange = (selection && !selection.isCollapsed) 
-        ? selection.getRangeAt(0) 
+    const eventWindow = (event.view && event.view !== window)
+        ? event.view
+        : (event.target && event.target.ownerDocument && event.target.ownerDocument.defaultView)
+            ? event.target.ownerDocument.defaultView
+            : window;
+    const selection = eventWindow.getSelection ? eventWindow.getSelection() : null;
+    const activeRange = (selection && !selection.isCollapsed)
+        ? selection.getRangeAt(0)
         : textSelectionRangeBeforeClick;
 
     if (activeRange && activeRange.intersectsNode(target)) {
@@ -580,3 +675,87 @@ document.addEventListener('editorBlock:loaded', () => {
     viewEditorContent.addEventListener('click', handleVisualEditorClick);
     viewEditorContent.addEventListener('contextmenu', handleVisualEditorClick);
 });
+
+
+
+/* ===
+ * Работа с iframe и выделением
+=== */
+
+/* ***
+ * getViewIframe - получение элемента iframe редактора
+ * - ищет контейнер viewEditorContent
+ * - возвращает вложенный iframe или null
+*** */
+function getViewIframe() {
+    // Получение контейнера визуального редактора
+    const viewEditorContent = document.getElementById('viewEditorContent');
+    return viewEditorContent ? viewEditorContent.querySelector('iframe') : null;
+}
+
+/* ***
+ * getViewIframeWindow - получение объекта window для iframe
+ * - получает iframe через getViewIframe
+ * - возвращает contentWindow или null
+*** */
+function getViewIframeWindow() {
+    const iframe = getViewIframe();
+    return iframe ? iframe.contentWindow : null;
+}
+
+/* ***
+ * getIframeSelection - получение выделения внутри iframe
+ * - получает окно iframe
+ * - возвращает объект Selection или null
+*** */
+function getIframeSelection() {
+    const win = getViewIframeWindow();
+    return win ? win.getSelection() : null;
+}
+
+/* ***
+ * getEditorDocument - получение текущего документа редактора
+ * - проверяет наличие активного iframe
+ * - возвращает документ iframe или основной document
+*** */
+function getEditorDocument() {
+    const iframe = getViewIframe();
+    if (iframe) {
+        return iframe.contentDocument || iframe.contentWindow?.document || document;
+    }
+    return document;
+}
+
+/* ***
+ * getEditorSelection - получение активного выделения редактора
+ * - проверяет выделение внутри iframe
+ * - при его отсутствии возвращает выделение основного окна
+*** */
+function getEditorSelection() {
+    const iframeSelection = getIframeSelection();
+    if (iframeSelection && iframeSelection.rangeCount > 0) {
+        return iframeSelection;
+    }
+    return window.getSelection ? window.getSelection() : null;
+}
+
+/* ***
+ * attachIframeSelectionHandlers - подписка iframe на события выделения
+ * - принимает элемент iframe
+ * - навешивает обработчики событий мыши, клавиатуры и смены выделения
+*** */
+function attachIframeSelectionHandlers(iframe) {
+    if (!iframe || !iframe.contentDocument) {
+        return;
+    }
+
+    const iframeDoc = iframe.contentDocument;
+    const events = ['mousedown', 'mouseup', 'keyup', 'selectionchange'];
+    events.forEach(eventName => {
+        iframeDoc.addEventListener(eventName, saveSelection);
+    });
+}
+
+// Экспорт функций в глобальный объект editorBlock
+window.editorBlock.getEditorSelection = getEditorSelection;
+window.editorBlock.getEditorDocument = getEditorDocument;

@@ -63,10 +63,11 @@ function escapeHtml(str) {
 *** */
 function cleanSelectionForUnwrap(sel, range) {
     const selector = unwrapElements.join(',');
+    const doc = range.startContainer && range.startContainer.ownerDocument ? range.startContainer.ownerDocument : document;
     const fragment = range.cloneContents();
 
     // Создаем временный контейнер для очистки содержимого внутри выделения
-    const temp = document.createElement('div');
+    const temp = doc.createElement('div');
     temp.appendChild(fragment);
 
     // Очищаем все unwrapElements внутри выделения
@@ -92,12 +93,12 @@ function cleanSelectionForUnwrap(sel, range) {
     let insertionRange = range.cloneRange();
 
     // Если выделение внутри запрещенного элемента - разбиваем родителя
-    if (unwrapAncestor && viewContent && viewContent.contains(unwrapAncestor)) {
+    if (unwrapAncestor && (viewContent && viewContent.contains(unwrapAncestor) || doc.body.contains(unwrapAncestor))) {
         const parent = unwrapAncestor.parentNode;
 
         const extractLeftRight = (leftBoundaryMarker, rightBoundaryMarker) => {
             // Извлекаем левую часть (до начала выделения)
-            const leftRange = document.createRange();
+            const leftRange = doc.createRange();
             leftRange.setStartBefore(unwrapAncestor);
             leftRange.setEndBefore(leftBoundaryMarker);
             const leftFragment = leftRange.extractContents();
@@ -106,7 +107,7 @@ function cleanSelectionForUnwrap(sel, range) {
             }
 
             // Извлекаем правую часть (после конца выделения)
-            const rightRange = document.createRange();
+            const rightRange = doc.createRange();
             rightRange.setStartAfter(rightBoundaryMarker);
             rightRange.setEndAfter(unwrapAncestor);
             const rightFragment = rightRange.extractContents();
@@ -117,7 +118,7 @@ function cleanSelectionForUnwrap(sel, range) {
 
         if (range.collapsed) {
             // Курсор без выделения. Используем один маркер во избежание сайд-эффектов сдвига границ
-            const marker = document.createElement('span');
+            const marker = doc.createElement('span');
             const markerRange = range.cloneRange();
             markerRange.collapse(true);
             markerRange.insertNode(marker);
@@ -128,7 +129,7 @@ function cleanSelectionForUnwrap(sel, range) {
             marker.remove();
             unwrapAncestor.remove();
 
-            insertionRange = document.createRange();
+            insertionRange = doc.createRange();
             insertionRange.setStart(parent, insertionIndex);
             insertionRange.collapse(true);
         } else {
@@ -138,14 +139,14 @@ function cleanSelectionForUnwrap(sel, range) {
             const endContainer = range.endContainer;
             const endOffset = range.endOffset;
 
-            const endMarker = document.createElement('span');
-            const endMarkerRange = document.createRange();
+            const endMarker = doc.createElement('span');
+            const endMarkerRange = doc.createRange();
             endMarkerRange.setStart(endContainer, endOffset);
             endMarkerRange.collapse(true);
             endMarkerRange.insertNode(endMarker);
 
-            const startMarker = document.createElement('span');
-            const startMarkerRange = document.createRange();
+            const startMarker = doc.createElement('span');
+            const startMarkerRange = doc.createRange();
             startMarkerRange.setStart(startContainer, startOffset);
             startMarkerRange.collapse(true);
             startMarkerRange.insertNode(startMarker);
@@ -157,14 +158,14 @@ function cleanSelectionForUnwrap(sel, range) {
             endMarker.remove();
             unwrapAncestor.remove();
 
-            insertionRange = document.createRange();
+            insertionRange = doc.createRange();
             insertionRange.setStart(parent, insertionIndex);
             insertionRange.collapse(true);
         }
     }
 
     // Возвращаем очищенное содержимое и точку, куда его нужно вставлять
-    const docFrag = document.createDocumentFragment();
+    const docFrag = doc.createDocumentFragment();
     while (temp.firstChild) {
         docFrag.appendChild(temp.firstChild);
     }
@@ -236,7 +237,9 @@ async function insertClickHandler(event, customTemplate=null) {
 
     // Если активен визуальный редактор, и мы вставляем unwrap-элемент, очищаем выделение от вложенности
     if (unwrapElements.includes(parsed.tagName)) {
-        const sel = document.getSelection();
+        const sel = window.editorBlock && typeof window.editorBlock.getEditorSelection === 'function'
+            ? window.editorBlock.getEditorSelection()
+            : document.getSelection();
         if (sel && sel.rangeCount > 0) {
             const range = sel.getRangeAt(0);
             const { fragment: cleanedFragment, insertionRange } = cleanSelectionForUnwrap(sel, range);
@@ -247,7 +250,9 @@ async function insertClickHandler(event, customTemplate=null) {
             insertionRange.deleteContents();
             insertionRange.insertNode(cleanedFragment);
 
-            const newRange = document.createRange();
+            const newRange = (window.editorBlock && typeof window.editorBlock.getEditorDocument === 'function'
+                ? window.editorBlock.getEditorDocument()
+                : document).createRange();
             if (firstNode && lastNode) {
                 newRange.setStartBefore(firstNode);
                 newRange.setEndAfter(lastNode);
@@ -397,8 +402,9 @@ function cloneNode(template, tagName) {
  * - возвращает либо исходный элемент, либо обёрнутый контейнер
 *** */
 function wrapIfMultiLine(range, node) {
+    const doc = range.startContainer && range.startContainer.ownerDocument ? range.startContainer.ownerDocument : document;
     const fragment = range.cloneContents();
-    const wrapper = document.createElement('div');
+    const wrapper = doc.createElement('div');
     wrapper.appendChild(fragment);
 
     const isMulti = wrapper.querySelector('div, p, br, table, ul, ol, li') || wrapper.innerHTML.includes('\n');
@@ -406,7 +412,7 @@ function wrapIfMultiLine(range, node) {
         return node;
     }
 
-    const container = document.createElement('div');
+    const container = doc.createElement('div');
     container.appendChild(node);
     return container;
 }
@@ -423,7 +429,26 @@ function wrapIfMultiLine(range, node) {
  * - вставляет элемент в текущую позицию курсора
 *** */
 async function handleLoadedBlockView(dataEl, placeholderText = 'текст') {
-    const sel = document.getSelection();
+    const editorDoc = window.editorBlock && typeof window.editorBlock.getEditorDocument === 'function'
+        ? window.editorBlock.getEditorDocument()
+        : document;
+    const editorWindow = (editorDoc && editorDoc.defaultView) ? editorDoc.defaultView : window;
+
+    let sel = window.editorBlock && typeof window.editorBlock.getEditorSelection === 'function'
+        ? window.editorBlock.getEditorSelection()
+        : (editorWindow.getSelection ? editorWindow.getSelection() : null);
+
+    if ((!sel || !sel.rangeCount) && editorDoc && editorDoc.body) {
+        const fallbackRange = editorDoc.createRange();
+        fallbackRange.selectNodeContents(editorDoc.body);
+        fallbackRange.collapse(false);
+        if (editorWindow.getSelection) {
+            sel = editorWindow.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(fallbackRange);
+        }
+    }
+
     if (!sel || !sel.rangeCount) {
         return;
     }
@@ -434,14 +459,19 @@ async function handleLoadedBlockView(dataEl, placeholderText = 'текст') {
         ancestor = ancestor.parentNode;
     }
 
-    const view = ancestor.closest('#viewEditorContent');
-    if (!view) {
+    const view = ancestor.closest ? ancestor.closest('#viewEditorContent') : null;
+    if (!view && editorDoc && editorDoc.body.contains(ancestor)) {
+        // Вставка идет внутри iframe-body, считаем, что viewEditorContent активен
+        // и позволяем вставку в тело самого iframe.
+    } else if (!view) {
         return;
     }
     
     // Парсим шаблон элемента и создаём новый элемент
     const parsed = parseDataEl(dataEl);
-    const newEl = cloneNode(parsed.nodeTemplate, parsed.tagName);
+    const newEl = parsed.nodeTemplate
+        ? (editorDoc.importNode ? editorDoc.importNode(parsed.nodeTemplate, true) : cloneNode(parsed.nodeTemplate, parsed.tagName))
+        : cloneNode(parsed.nodeTemplate, parsed.tagName);
     const selectionHasContent = sel.toString().length > 0;
     const markerValues = {};
 
@@ -486,7 +516,7 @@ async function handleLoadedBlockView(dataEl, placeholderText = 'текст') {
     // Перемещаем курсор после вставленного элемента
     try {
         sel.removeAllRanges();
-        const afterRange = document.createRange();
+        const afterRange = editorDoc.createRange();
         afterRange.setStartAfter(finalNode);
         afterRange.collapse(true);
         sel.addRange(afterRange);

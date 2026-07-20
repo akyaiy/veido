@@ -116,8 +116,25 @@ function getActiveBlockScript() {
     }
 
     const scriptElement = scriptContainer.querySelector('script');
+    if (scriptElement) {
+        return scriptElement;
+    }
 
-    return scriptElement || null;
+    // Если в JS-контейнере хранится чистый текст без тега <script>, работаем с ним как с виртуальным скриптом
+    const fallbackScript = {
+        closest: selector => scriptContainer.closest(selector)
+    };
+
+    Object.defineProperty(fallbackScript, 'textContent', {
+        get() {
+            return scriptContainer.textContent || '';
+        },
+        set(value) {
+            scriptContainer.textContent = value || '';
+        }
+    });
+
+    return fallbackScript;
 }
 
 function getActiveBlockHtml() {
@@ -291,6 +308,14 @@ function applySelectorToSelectedElement() {
 
     syncSelectorPanel();
     renderEventsTable();
+
+    if (window.editorBlock && typeof window.editorBlock.syncEditors === 'function') {
+        window.editorBlock.syncEditors();
+    }
+    if (window.editorBlock && typeof window.editorBlock.saveHistoryState === 'function') {
+        window.editorBlock.saveHistoryState();
+    }
+
     return null;
 }
 
@@ -800,6 +825,13 @@ function handleElementSelected(event) {
     syncSelectorPanel();
     renderEventsTable();
 
+    if (window.editorBlock && typeof window.editorBlock.syncEditors === 'function') {
+        window.editorBlock.syncEditors();
+    }
+    if (window.editorBlock && typeof window.editorBlock.saveHistoryState === 'function') {
+        window.editorBlock.saveHistoryState();
+    }
+
     return null;
 }
 
@@ -868,10 +900,6 @@ function handleRowFieldChange(tr) {
 /* ===
  * Инициализация интерфейса и базовые подписки на события
 === */
-
-// Инициализация идентификатора для элемента автодополнения
-jsAutocompleteBox.id = 'jsAutocompleteBox';
-document.body.appendChild(jsAutocompleteBox);
 
 // Добавление слушателей изменений на элементы панели селекторов
 selectorTypeSelect.addEventListener('change', handleSelectorTypeChange);

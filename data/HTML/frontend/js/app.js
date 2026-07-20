@@ -556,7 +556,7 @@ async function loadMenu() {
  * - Вызывает pageInit() блока, если есть.
  * - Обрабатывает ошибки.
  **********************************************************************************/
-async function loadBlock(path, block_Name, itemsHowText = false, jsCommunication = false) {
+async function loadBlock(path, block_Name, itemsHowText = false) {
     //console.log(path);
     // Получаем контейнер блока
     const container = document.getElementById(block_Name);
@@ -586,29 +586,41 @@ async function loadBlock(path, block_Name, itemsHowText = false, jsCommunication
             await loadMdScript('/js/markdown-it.min.js');
         }
         const { content: mdContent, css, js } = response;
-       // Преобразуем markdown в HTML
+        
+        // Вставка HTML / MD содержимого
         if (mdContent) {
-            const md = window.markdownit({ html: true, linkify: true, typographer: true });
-            /* container.innerHTML = itemsHowText?.includes('html') ? mdContent : md.render(mdContent); */
-            container.innerHTML = md.render(mdContent);
-            container?.id?.match(/^loadedBlock_\d+_view$/) && (document.getElementById(container.id.replace('_view', '_html')).innerHTML = mdContent);
+            if (itemsHowText) {
+                container.textContent = mdContent;
+            } else {
+                const md = window.markdownit({ html: true, linkify: true, typographer: true });
+                /* container.innerHTML = itemsHowText?.includes('html') ? mdContent : md.render(mdContent); */
+                container.innerHTML = md.render(mdContent);
+                container?.id?.match(/^loadedBlock_\d+_view$/) && (document.getElementById(container.id.replace('_view', '_html')).innerHTML = mdContent);
+            }
         }
+
         // Добавление CSS блока
         if (css) {
-            const style = document.createElement('style');
-            style.dataset.dynamic = block_Name;
-            style.textContent = css;
-            document.head.appendChild(style);
+            if (itemsHowText) {
+                const cssDiv = document.getElementById(block_Name.replace(/Html$/, 'Css'));
+                if (cssDiv) cssDiv.textContent = css;
+            } else {
+                const style = document.createElement('style');
+                style.dataset.dynamic = block_Name;
+                style.textContent = css;
+                document.head.appendChild(style);
+            }
         }
+
         // Добавление JS блока
         if (js) {
-            const script = document.createElement('script');
-            script.dataset.dynamic = block_Name;
+            if (itemsHowText) {
+                const jsDiv = document.getElementById(block_Name.replace(/Html$/, 'Js'));
+                if (jsDiv) jsDiv.textContent = js;
+            } else {
+                const script = document.createElement('script');
+                script.dataset.dynamic = block_Name;
 
-            if (itemsHowText === true) {
-                script.type = 'text/plain';
-                script.textContent = `${js}`;
-            } else if (jsCommunication == false) {
                 script.textContent = `
                     (() => {
                         try {
@@ -619,21 +631,9 @@ async function loadBlock(path, block_Name, itemsHowText = false, jsCommunication
                         }
                     })();
                 `;
-            } else {
-                script.textContent = `
-                    try {
-                        (function(scope){
-                            const exports = scope;
-                            ${js}
-                            if (typeof exports.pageInit === "function") exports.pageInit();
-                        })((window.__blocks ||= {})["${blockName}"] ||= {});
-                    } catch (e) {
-                        console.error("Ошибка в блоке [${blockName}]:", e);
-                    }
-                `;
-            }
 
-            document.body.appendChild(script);
+                document.body.appendChild(script);
+            }
         }
     // Обработка ошибок
     } catch (err) {
@@ -641,6 +641,7 @@ async function loadBlock(path, block_Name, itemsHowText = false, jsCommunication
         container.innerHTML = "<h2>блок не найден</h2>";
     }
 }
+
 /*****************************************************************************
  * Глобальный вызов функций блоков
  * - Позволяет вызывать функции внутри динамических блоков

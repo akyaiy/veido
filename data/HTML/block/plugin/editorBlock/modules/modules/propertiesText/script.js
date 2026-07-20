@@ -43,7 +43,9 @@ const formatSelects = [
  * - отдает объект Range или null
 *** */
 function getSelectedRange() {
-    const selection = window.getSelection();
+    const selection = window.editorBlock && typeof window.editorBlock.getEditorSelection === 'function'
+        ? window.editorBlock.getEditorSelection()
+        : null;
 
     if (!selection || selection.rangeCount === 0) {
         return null;
@@ -77,8 +79,11 @@ function getRootElement(range) {
 function getTextNodes(range) {
     const rootElement = getRootElement(range);
     const textNodes = [];
+    const editorDoc = window.editorBlock && typeof window.editorBlock.getEditorDocument === 'function'
+        ? window.editorBlock.getEditorDocument()
+        : document;
     
-    const treeWalker = document.createTreeWalker(rootElement, NodeFilter.SHOW_TEXT, {
+    const treeWalker = (rootElement.ownerDocument || editorDoc).createTreeWalker(rootElement, NodeFilter.SHOW_TEXT, {
         acceptNode(node) {
             if (!node.nodeValue || !node.nodeValue.trim()) {
                 return NodeFilter.FILTER_REJECT;
@@ -130,7 +135,10 @@ function isolateNodes(range) {
         startNode = newNode;
     }
 
-    const newRange = document.createRange();
+    const editorDoc = window.editorBlock && typeof window.editorBlock.getEditorDocument === 'function'
+        ? window.editorBlock.getEditorDocument()
+        : document;
+    const newRange = editorDoc.createRange();
     
     if (startNode.nodeType === Node.TEXT_NODE) {
         newRange.setStart(startNode, 0);
@@ -144,9 +152,13 @@ function isolateNodes(range) {
         newRange.setEnd(endNode, endOffset);
     }
 
-    const selection = window.getSelection();
-    selection.removeAllRanges();
-    selection.addRange(newRange);
+    const selection = window.editorBlock && typeof window.editorBlock.getEditorSelection === 'function'
+        ? window.editorBlock.getEditorSelection()
+        : null;
+    if (selection) {
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+    }
 
     return getTextNodes(newRange);
 }
@@ -224,7 +236,9 @@ function wrapTextNode(textNode) {
         return parent;
     }
 
-    const spanElement = document.createElement('span');
+    const spanElement = (window.editorBlock && typeof window.editorBlock.getEditorDocument === 'function'
+        ? window.editorBlock.getEditorDocument()
+        : document).createElement('span');
     spanElement.setAttribute('data-format', 'true');
     parent.insertBefore(spanElement, textNode);
     spanElement.appendChild(textNode);
@@ -469,11 +483,15 @@ function getBlockNodes(range) {
     const rootElement = getRootElement(range);
     const textNodes = getTextNodes(range);
     const blockContainers = new Set();
+    const editorDoc = window.editorBlock && typeof window.editorBlock.getEditorDocument === 'function'
+        ? window.editorBlock.getEditorDocument()
+        : document;
+    const editorBody = editorDoc.body || editorDoc.documentElement;
 
     for (const textNode of textNodes) {
         let currentElement = textNode.parentElement;
 
-        while (currentElement && currentElement !== rootElement && currentElement !== document.body) {
+        while (currentElement && currentElement !== rootElement && currentElement !== editorBody) {
             const computedStyle = window.getComputedStyle(currentElement);
             
             if (computedStyle && computedStyle.display && computedStyle.display !== 'inline' && computedStyle.display !== 'inline-block') {
@@ -510,8 +528,11 @@ function applyBlockStyle(styleProperty, styleValue) {
         window.editorBlock.saveHistoryState();
     }
 
+    const editorDoc = window.editorBlock && typeof window.editorBlock.getEditorDocument === 'function'
+        ? window.editorBlock.getEditorDocument()
+        : document;
     const fragmentNode = range.extractContents();
-    const tempContainer = document.createElement('div');
+    const tempContainer = editorDoc.createElement('div');
     tempContainer.appendChild(fragmentNode);
 
     const oldDivs = tempContainer.querySelectorAll(`div[style*="${styleProperty}"]`);
@@ -523,7 +544,7 @@ function applyBlockStyle(styleProperty, styleValue) {
         oldDiv.remove();
     }
 
-    const newContainer = document.createElement('div');
+    const newContainer = editorDoc.createElement('div');
     
     if (styleValue) {
         newContainer.style[styleProperty] = styleValue;
@@ -535,11 +556,15 @@ function applyBlockStyle(styleProperty, styleValue) {
 
     range.insertNode(newContainer);
 
-    const selection = window.getSelection();
-    selection.removeAllRanges();
-    const newRange = document.createRange();
-    newRange.selectNodeContents(newContainer);
-    selection.addRange(newRange);
+    const selection = window.editorBlock && typeof window.editorBlock.getEditorSelection === 'function'
+        ? window.editorBlock.getEditorSelection()
+        : null;
+    if (selection) {
+        selection.removeAllRanges();
+        const newRange = editorDoc.createRange();
+        newRange.selectNodeContents(newContainer);
+        selection.addRange(newRange);
+    }
 
     syncEditorsData();
     updateActiveStates();
@@ -572,16 +597,23 @@ function toggleListStyle(listType) {
     let blockNodes = getBlockNodes(range);
 
     if (blockNodes.length === 0) {
+        const editorDoc = window.editorBlock && typeof window.editorBlock.getEditorDocument === 'function'
+            ? window.editorBlock.getEditorDocument()
+            : document;
         const fragmentNode = range.extractContents();
-        const wrapperElement = document.createElement('div');
+        const wrapperElement = editorDoc.createElement('div');
         wrapperElement.appendChild(fragmentNode);
         range.insertNode(wrapperElement);
 
-        const selection = window.getSelection();
-        selection.removeAllRanges();
-        const newRange = document.createRange();
-        newRange.selectNodeContents(wrapperElement);
-        selection.addRange(newRange);
+        const selection = window.editorBlock && typeof window.editorBlock.getEditorSelection === 'function'
+            ? window.editorBlock.getEditorSelection()
+            : null;
+        if (selection) {
+            selection.removeAllRanges();
+            const newRange = editorDoc.createRange();
+            newRange.selectNodeContents(wrapperElement);
+            selection.addRange(newRange);
+        }
 
         blockNodes = [wrapperElement];
     }
@@ -655,7 +687,10 @@ function createLists(blockNodes, listType) {
         }
 
         const isDecimal = listType === 'decimal';
-        const listElement = isDecimal ? document.createElement('ol') : document.createElement('ul');
+        const editorDoc = window.editorBlock && typeof window.editorBlock.getEditorDocument === 'function'
+            ? window.editorBlock.getEditorDocument()
+            : document;
+        const listElement = isDecimal ? editorDoc.createElement('ol') : editorDoc.createElement('ul');
         
         if (!isDecimal) {
             listElement.style.listStyleType = listType;
@@ -665,7 +700,7 @@ function createLists(blockNodes, listType) {
         firstNode.parentNode.insertBefore(listElement, firstNode);
 
         for (const groupNode of groupNodes) {
-            const listItem = document.createElement('li');
+            const listItem = editorDoc.createElement('li');
             
             while (groupNode.firstChild) {
                 listItem.appendChild(groupNode.firstChild);
@@ -689,7 +724,11 @@ function createLists(blockNodes, listType) {
 *** */
 function updateListType(parentList, listType) {
     if (listType === 'decimal' && parentList.tagName !== 'OL') {
-        const orderedList = document.createElement('ol');
+        const editorDoc = parentList.ownerDocument ||
+            (window.editorBlock && typeof window.editorBlock.getEditorDocument === 'function'
+                ? window.editorBlock.getEditorDocument()
+                : document);
+        const orderedList = editorDoc.createElement('ol');
         
         if (parentList.parentNode) {
             while (parentList.firstChild) {
@@ -699,7 +738,11 @@ function updateListType(parentList, listType) {
         }
     } else if (listType !== 'decimal') {
         if (parentList.tagName !== 'UL') {
-            const unorderedList = document.createElement('ul');
+            const editorDoc = parentList.ownerDocument ||
+                (window.editorBlock && typeof window.editorBlock.getEditorDocument === 'function'
+                    ? window.editorBlock.getEditorDocument()
+                    : document);
+            const unorderedList = editorDoc.createElement('ul');
             
             if (parentList.parentNode) {
                 while (parentList.firstChild) {
@@ -753,7 +796,11 @@ function clearNodeFormat(nodeElement) {
     }
 
     if (tagName === 'UL' || tagName === 'OL') {
-        const fragment = document.createDocumentFragment();
+        const doc = nodeElement.ownerDocument ||
+            (window.editorBlock && typeof window.editorBlock.getEditorDocument === 'function'
+                ? window.editorBlock.getEditorDocument()
+                : document);
+        const fragment = doc.createDocumentFragment();
         const listItems = Array.from(nodeElement.children).filter(item => item.tagName === 'LI');
         
         for (const listItem of listItems) {
@@ -761,7 +808,7 @@ function clearNodeFormat(nodeElement) {
                 fragment.appendChild(listItem.firstChild);
             }
             
-            const lineBreak = document.createElement('br');
+            const lineBreak = doc.createElement('br');
             fragment.appendChild(lineBreak);
         }
         
@@ -803,7 +850,11 @@ function clearNodeFormat(nodeElement) {
  * - отдает null
 *** */
 function collapseDuplicateBrs(rootElement) {
-    const treeWalker = document.createTreeWalker(rootElement, NodeFilter.SHOW_ELEMENT, null);
+    const doc = rootElement.ownerDocument ||
+        (window.editorBlock && typeof window.editorBlock.getEditorDocument === 'function'
+            ? window.editorBlock.getEditorDocument()
+            : document);
+    const treeWalker = doc.createTreeWalker(rootElement, NodeFilter.SHOW_ELEMENT, null);
     const elements = [];
 
     while (treeWalker.nextNode()) {
@@ -859,10 +910,17 @@ function removeFormatting() {
     
     range.insertNode(fragmentNode);
 
-    const selection = window.getSelection();
-    selection.removeAllRanges();
+    const selection = window.editorBlock && typeof window.editorBlock.getEditorSelection === 'function'
+        ? window.editorBlock.getEditorSelection()
+        : null;
+    if (selection) {
+        selection.removeAllRanges();
+    }
 
-    const newRange = document.createRange();
+    const editorDoc = window.editorBlock && typeof window.editorBlock.getEditorDocument === 'function'
+        ? window.editorBlock.getEditorDocument()
+        : document;
+    const newRange = editorDoc.createRange();
 
     try {
         const startNode = range.startContainer;
@@ -957,7 +1015,7 @@ function updateActiveStates() {
         return null;
     }
 
-    const buttons = document.querySelectorAll('[data-simpleformats-button]');
+    const buttons = document.getElementById('editorBlock').querySelectorAll('[data-simpleformats-button]');
 
     for (const button of buttons) {
         const key = button.getAttribute('data-simpleformats-button');
@@ -1039,7 +1097,7 @@ function updateActiveStates() {
         }
     }
 
-    const selects = document.querySelectorAll('[data-property-item]');
+    const selects = document.getElementById('editorBlock').querySelectorAll('[data-property-item]');
 
     for (const select of selects) {
         const propertyName = select.getAttribute('data-property-item');
@@ -1192,7 +1250,7 @@ function handleSelectionChange(event) {
 }
 
 // Поиск кнопок на панели форматирования
-const actionButtons = document.querySelectorAll('[data-simpleformats-button]');
+const actionButtons = document.getElementById('editorBlock').querySelectorAll('[data-simpleformats-button]');
 
 // Навешивание обработчиков событий для кнопок
 for (const actionButton of actionButtons) {
@@ -1200,7 +1258,7 @@ for (const actionButton of actionButtons) {
 }
 
 // Поиск выпадающих списков на панели форматирования
-const actionSelects = document.querySelectorAll('[data-property-item]');
+const actionSelects = document.getElementById('editorBlock').querySelectorAll('[data-property-item]');
 
 // Навешивание обработчиков событий для выпадающих списков
 for (const actionSelect of actionSelects) {

@@ -143,6 +143,11 @@ function getBlockStyleElement(element) {
     const blockContainer = element.closest('[id^="loadedBlock"]');
     if (blockContainer) {
         blockId = blockContainer.id;
+    } else if (element.ownerDocument && element.ownerDocument.defaultView && element.ownerDocument.defaultView.frameElement) {
+        const frameBlock = element.ownerDocument.defaultView.frameElement.closest('[id^="loadedBlock"]');
+        if (frameBlock) {
+            blockId = frameBlock.id;
+        }
     } else {
         // если элемент вынесен, ищем ID блока через активную вкладку редактора
         const activeTab = document.querySelector('#blocksTabs .blockTab.active, .blockTab.active');
@@ -446,7 +451,10 @@ function markBlockDirty(element) {
         return;
     }
 
-    const view = element.closest('[id^="loadedBlock"]');
+    let view = element.closest('[id^="loadedBlock"]');
+    if (!view && element.ownerDocument && element.ownerDocument.defaultView && element.ownerDocument.defaultView.frameElement) {
+        view = element.ownerDocument.defaultView.frameElement.closest('[id^="loadedBlock"]');
+    }
 
     if (view) {
         view.dataset.dirty = 'true';

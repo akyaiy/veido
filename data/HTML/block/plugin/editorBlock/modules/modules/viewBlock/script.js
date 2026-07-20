@@ -35,6 +35,7 @@ switchEditor('viewEditor');
 // Кнопки переключения режимов редактора
 document.getElementById('viewEditorButton').onclick = () => {
     switchEditor('viewEditor');
+    document.dispatchEvent(new CustomEvent('editorBlock:openLoadedBlock'));
 };
 document.getElementById('mdEditorButton').onclick = () => {
     switchEditor('mdEditor');

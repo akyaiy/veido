@@ -11,7 +11,10 @@ function markBlockDirty(element) {
         return;
     }
 
-    const view = element.closest('[id^="loadedBlock_"][id$="_view"]');
+    let view = element.closest('[id^="loadedBlock_"][id$="_view"]');
+    if (!view && element.ownerDocument && element.ownerDocument.defaultView && element.ownerDocument.defaultView.frameElement) {
+        view = element.ownerDocument.defaultView.frameElement.closest('[id^="loadedBlock_"][id$="_view"]');
+    }
 
     if (view) {
         view.dataset.dirty = 'true';

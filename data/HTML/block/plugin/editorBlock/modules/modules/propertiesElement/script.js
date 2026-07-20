@@ -57,8 +57,8 @@ const propertyMap = {
  * принимает выбранный HTML-элемент
 *** */
 function updatePropertiesPanel(element) {
-    const controls = document.querySelectorAll('[data-prop]');
-    const targets = document.querySelectorAll('[data-target]');
+    const controls = document.getElementById('editorBlock').querySelectorAll('[data-prop]');
+    const targets = document.getElementById('editorBlock').querySelectorAll('[data-target]');
 
     // безопасный сброс полей при отсутствии элемента
     if (!element) {
@@ -79,7 +79,10 @@ function updatePropertiesPanel(element) {
     const inputType = tagName === 'input' ? (element.getAttribute('type') || 'text').toLowerCase() : '';
 
     // получаем итоговые стили элемента из css правил
-    const computedStyles = window.getComputedStyle(element);
+    const elementWindow = element && element.ownerDocument && element.ownerDocument.defaultView
+        ? element.ownerDocument.defaultView
+        : window;
+    const computedStyles = elementWindow.getComputedStyle(element);
 
     // функция перевода rgb в hex
     const rgbToHex = (rgbStr) => {
@@ -278,7 +281,10 @@ function markBlockDirty(element) {
         return;
     }
 
-    const view = element.closest('[id^="loadedBlock_"][id$="_view"]');
+    const view = element.closest('[id^="loadedBlock_"][id$="_view"]') ||
+        (element.ownerDocument && element.ownerDocument.defaultView && element.ownerDocument.defaultView.frameElement
+            ? element.ownerDocument.defaultView.frameElement.closest('[id^="loadedBlock_"][id$="_view"]')
+            : null);
 
     if (view) {
         view.dataset.dirty = 'true';
@@ -570,15 +576,16 @@ function syncElementId(newId, element, highlightElements) {
 
     // Проверка уникальности
     let isDuplicate = false;
+    const checkDocument = element.ownerDocument || document;
 
     try {
-        const existingElements = document.querySelectorAll(`[id="${CSS.escape(id)}"]`);
+        const existingElements = checkDocument.querySelectorAll(`[id="${CSS.escape(id)}"]`);
         
         isDuplicate = Array.from(existingElements).some(
             node => node !== element && node.tagName !== 'SCRIPT' && node.tagName !== 'STYLE'
         );
     } catch (error) {
-        const fallbackElement = document.getElementById(id);
+        const fallbackElement = checkDocument.getElementById(id);
 
         isDuplicate = fallbackElement && fallbackElement !== element && 
                       fallbackElement.tagName !== 'SCRIPT' && fallbackElement.tagName !== 'STYLE';
@@ -792,6 +799,22 @@ function hideClassAutocomplete() {
 // разделяем события input и change чтобы не терять фокус при вводе текста
 let isApplyingColorFromPicker = false;
 
+function commitPropertiesChange(selectedElement) {
+    if (!selectedElement) {
+        return;
+    }
+
+    if (window.editorBlock && typeof window.editorBlock.syncEditors === 'function') {
+        window.editorBlock.syncEditors();
+    }
+
+    if (window.editorBlock && typeof window.editorBlock.saveHistoryState === 'function') {
+        window.editorBlock.saveHistoryState();
+    }
+
+    updatePropertiesPanel(selectedElement);
+}
+
 // Обработчик клика по полю выбора цвета, чтобы открыть кастомный Color Picker
 document.addEventListener('mousedown', event => {
     const control = event.target.closest('input[type="color"][data-prop]');
@@ -811,7 +834,10 @@ document.addEventListener('mousedown', event => {
     let initialColor = normalizeColorString(control.value || '#000000');
 
     if (selectedElement) {
-        const computedColor = window.getComputedStyle(selectedElement)[propertyName];
+        const selectedWindow = selectedElement.ownerDocument && selectedElement.ownerDocument.defaultView
+            ? selectedElement.ownerDocument.defaultView
+            : window;
+        const computedColor = selectedWindow.getComputedStyle(selectedElement)[propertyName];
         if (computedColor) {
             initialColor = normalizeColorString(computedColor);
         }
@@ -831,7 +857,7 @@ document.addEventListener('mousedown', event => {
             isApplyingColorFromPicker = true;
             applyPropertyToElement(selectedElement, propertyName, color);
             control.value = color;
-            window.editorBlock.syncEditors();
+            commitPropertiesChange(selectedElement);
             setTimeout(() => {
                 isApplyingColorFromPicker = false;
             }, 0);
@@ -870,8 +896,7 @@ document.addEventListener('input', event => {
 
     applyPropertyToElement(selectedElement, propertyName, value);
 
-    window.editorBlock.syncEditors();
-    window.editorBlock.saveHistoryState();
+    commitPropertiesChange(selectedElement);
 });
 
 // отслеживаем финальное изменение для текстовых полей ввода
