@@ -37,14 +37,14 @@ func CanUserAccess(db *sql.DB, userID int64, permissionKey string) (bool, error)
 	var args []interface{}
 	if userID > 0 {
 		// Для зарегистрированного пользователя:
-		// берем права тех ролей, что назначены юзеру (user_roles),
+		// берем права тех ролей, что назначены юзеру (user_groups),
 		// а также права роли с именем '*' (глобальные для всех).
 		query = `
 			SELECT DISTINCT p.key
-			FROM role_permissions rp
+			FROM group_permissions rp
 			JOIN permissions p ON p.id = rp.permission_id
-			JOIN roles r ON r.id = rp.role_id
-			LEFT JOIN user_roles ur ON ur.role_id = r.id
+			JOIN groups r ON r.id = rp.group_id
+			LEFT JOIN user_groups ur ON ur.group_id = r.id
 			WHERE (ur.user_id = ? OR r.name = '*')
 		`
 		args = []interface{}{userID}
@@ -52,9 +52,9 @@ func CanUserAccess(db *sql.DB, userID int64, permissionKey string) (bool, error)
 		// Для гостя: права роли 'guest' + права роли '*'
 		query = `
 			SELECT DISTINCT p.key
-			FROM role_permissions rp
+			FROM group_permissions rp
 			JOIN permissions p ON p.id = rp.permission_id
-			JOIN roles r ON r.id = rp.role_id
+			JOIN groups r ON r.id = rp.group_id
 			WHERE r.name IN ('guest','*')
 		`
 	}

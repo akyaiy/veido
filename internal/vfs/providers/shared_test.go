@@ -120,7 +120,7 @@ func openSharedProviderTestDB(t *testing.T) *sql.DB {
 			id INTEGER PRIMARY KEY,
 			username TEXT NOT NULL
 		);
-		CREATE TABLE roles (
+		CREATE TABLE groups (
 			id INTEGER PRIMARY KEY,
 			name TEXT NOT NULL UNIQUE
 		);
@@ -128,12 +128,12 @@ func openSharedProviderTestDB(t *testing.T) *sql.DB {
 			id INTEGER PRIMARY KEY,
 			key TEXT NOT NULL UNIQUE
 		);
-		CREATE TABLE user_roles (
+		CREATE TABLE user_groups (
 			user_id INTEGER NOT NULL,
-			role_id INTEGER NOT NULL
+			group_id INTEGER NOT NULL
 		);
-		CREATE TABLE role_permissions (
-			role_id INTEGER NOT NULL,
+		CREATE TABLE group_permissions (
+			group_id INTEGER NOT NULL,
 			permission_id INTEGER NOT NULL
 		);
 		CREATE TABLE shares (
@@ -143,13 +143,13 @@ func openSharedProviderTestDB(t *testing.T) *sql.DB {
 		);
 
 		INSERT INTO users(id, username) VALUES (7, 'shared-user');
-		INSERT INTO roles(id, name) VALUES (11, 'shared-role');
+		INSERT INTO groups(id, name) VALUES (11, 'shared-group');
 		INSERT INTO permissions(id, key) VALUES
 			(21, 'vfs.shared:node-root'),
 			(22, 'vfs.shared:missing-node'),
 			(23, 'vfs.home:ignored');
-		INSERT INTO user_roles(user_id, role_id) VALUES (7, 11);
-		INSERT INTO role_permissions(role_id, permission_id) VALUES
+		INSERT INTO user_groups(user_id, group_id) VALUES (7, 11);
+		INSERT INTO group_permissions(group_id, permission_id) VALUES
 			(11, 21),
 			(11, 22),
 			(11, 23);

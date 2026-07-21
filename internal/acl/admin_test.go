@@ -10,7 +10,7 @@ import (
 )
 
 func setupTestDB(t *testing.T) *sql.DB {
-	testDBPath := filepath.Join("testdata", "test_roles.db")
+	testDBPath := filepath.Join("testdata", "test_groups.db")
 	
 	_ = os.Remove(testDBPath)
 
@@ -20,19 +20,19 @@ func setupTestDB(t *testing.T) *sql.DB {
 		t.Fatalf("failed to open test database: %v", err)
 	}
 
-	// Создаём таблицу roles
+	// Создаём таблицу groups
 	schema := `
-	CREATE TABLE IF NOT EXISTS roles (
+	CREATE TABLE IF NOT EXISTS groups (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		name TEXT NOT NULL UNIQUE
 	);
 	`
 	if _, err := db.Exec(schema); err != nil {
 		db.Close()
-		t.Fatalf("failed to create roles table: %v", err)
+		t.Fatalf("failed to create groups table: %v", err)
 	}
 
-	testRoles := []string{
+	testGroups := []string{
 		"Admin",
 		"User",
 		"Editor",
@@ -45,18 +45,18 @@ func setupTestDB(t *testing.T) *sql.DB {
 		"Manager",
 	}
 
-	for _, name := range testRoles {
-		_, err := db.Exec("INSERT INTO roles(name) VALUES (?)", name)
+	for _, name := range testGroups {
+		_, err := db.Exec("INSERT INTO groups(name) VALUES (?)", name)
 		if err != nil {
 			db.Close()
-			t.Fatalf("failed to insert test role: %v", err)
+			t.Fatalf("failed to insert test group: %v", err)
 		}
 	}
 
 	return db
 }
 
-func TestGetRoles(t *testing.T) {
+func TestGetGroups(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
@@ -67,19 +67,19 @@ func TestGetRoles(t *testing.T) {
 		wantCount int
 	}{
 		{
-			name:      "first 3 roles",
+			name:      "first 3 groups",
 			limit:     3,
 			offset:    0,
 			wantCount: 3,
 		},
 		{
-			name:      "next 3 roles",
+			name:      "next 3 groups",
 			limit:     3,
 			offset:    3,
 			wantCount: 3,
 		},
 		{
-			name:      "last 2 roles",
+			name:      "last 2 groups",
 			limit:     2,
 			offset:    8,
 			wantCount: 2,
@@ -91,7 +91,7 @@ func TestGetRoles(t *testing.T) {
 			wantCount: 0,
 		},
 		{
-			name:      "get all roles",
+			name:      "get all groups",
 			limit:     100,
 			offset:    0,
 			wantCount: 10,
@@ -106,51 +106,51 @@ func TestGetRoles(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := GetRoles(db, tt.limit, tt.offset)
+			result := GetGroups(db, tt.limit, tt.offset)
 			
 			if len(result) != tt.wantCount {
-				t.Errorf("GetRoles(%d, %d) returned %d roles, want %d",
+				t.Errorf("GetGroups(%d, %d) returned %d groups, want %d",
 					tt.limit, tt.offset, len(result), tt.wantCount)
 			}
 
-			for i, role := range result {
-				if role.ID == 0 {
-					t.Errorf("role[%d] has zero ID", i)
+			for i, group := range result {
+				if group.ID == 0 {
+					t.Errorf("group[%d] has zero ID", i)
 				}
-				if role.Name == "" {
-					t.Errorf("role[%d] has empty Name", i)
+				if group.Name == "" {
+					t.Errorf("group[%d] has empty Name", i)
 				}
 			}
 		})
 	}
 }
 
-func TestGetRoles_OrderAndConsistency(t *testing.T) {
+func TestGetGroups_OrderAndConsistency(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	firstBatch := GetRoles(db, 5, 0)
-	secondBatch := GetRoles(db, 5, 5)
+	firstBatch := GetGroups(db, 5, 0)
+	secondBatch := GetGroups(db, 5, 5)
 
 	if len(firstBatch) != 5 || len(secondBatch) != 5 {
-		t.Fatalf("expected 5 roles in each batch, got %d and %d", len(firstBatch), len(secondBatch))
+		t.Fatalf("expected 5 groups in each batch, got %d and %d", len(firstBatch), len(secondBatch))
 	}
 
 	// Проверяем что роли отличаются
 	firstIDs := make(map[int64]bool)
-	for _, role := range firstBatch {
-		firstIDs[role.ID] = true
+	for _, group := range firstBatch {
+		firstIDs[group.ID] = true
 	}
 
-	for _, role := range secondBatch {
-		if firstIDs[role.ID] {
-			t.Errorf("role ID %d appears in both batches - pagination is broken", role.ID)
+	for _, group := range secondBatch {
+		if firstIDs[group.ID] {
+			t.Errorf("group ID %d appears in both batches - pagination is broken", group.ID)
 		}
 	}
 }
 
-func TestGetRoles_EmptyDatabase(t *testing.T) {
-	testDBPath := filepath.Join("testdata", "test_roles_empty.db")
+func TestGetGroups_EmptyDatabase(t *testing.T) {
+	testDBPath := filepath.Join("testdata", "test_groups_empty.db")
 	_ = os.Remove(testDBPath)
 
 	db, err := sql.Open("sqlite3", testDBPath)
@@ -159,14 +159,14 @@ func TestGetRoles_EmptyDatabase(t *testing.T) {
 	}
 	defer db.Close()
 
-	schema := `CREATE TABLE IF NOT EXISTS roles (id INTEGER PRIMARY KEY, name TEXT);`
+	schema := `CREATE TABLE IF NOT EXISTS groups (id INTEGER PRIMARY KEY, name TEXT);`
 	if _, err := db.Exec(schema); err != nil {
-		t.Fatalf("failed to create roles table: %v", err)
+		t.Fatalf("failed to create groups table: %v", err)
 	}
 
-	result := GetRoles(db, 10, 0)
+	result := GetGroups(db, 10, 0)
 	
 	if len(result) != 0 {
-		t.Errorf("GetRoles on empty table should return empty slice, got %d roles", len(result))
+		t.Errorf("GetGroups on empty table should return empty slice, got %d groups", len(result))
 	}
 }
