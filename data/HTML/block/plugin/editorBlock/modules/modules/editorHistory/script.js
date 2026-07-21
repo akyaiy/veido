@@ -13,6 +13,9 @@ const blockHistoryMap = new Map();
 // Флаг для группировки непрерывного ввода текста
 let isTyping = false;
 
+// Флаг, что блок ещё загружается и пустое состояние не нужно сохранять в историю
+let isHistoryInitializing = false;
+
 
 
 /* ===
@@ -47,6 +50,10 @@ function getEditorContent(editorElement) {
         return '';
     }
 
+    if (window.editorBlock && typeof window.editorBlock.getEditorContentByElement === 'function') {
+        return window.editorBlock.getEditorContentByElement(editorElement);
+    }
+
     const contentDiv = editorElement.querySelector('[contenteditable]');
     if (!contentDiv) {
         return '';
@@ -64,6 +71,11 @@ function getEditorContent(editorElement) {
 *** */
 function setEditorContent(editorElement, content) {
     if (!editorElement) {
+        return;
+    }
+
+    if (window.editorBlock && typeof window.editorBlock.setEditorContentByElement === 'function') {
+        window.editorBlock.setEditorContentByElement(editorElement, content);
         return;
     }
 
@@ -213,7 +225,15 @@ function saveHistoryState() {
         return;
     }
 
+    if (window.editorBlock && typeof window.editorBlock.syncEditors === 'function') {
+        window.editorBlock.syncEditors();
+    }
+
     const currentState = getEditorState(info.editorId);
+
+    if (isHistoryInitializing && isStateEmpty(info.editorId, currentState) && stack.past.length === 0) {
+        return;
+    }
 
     // Если история пуста, сохраняем текущее состояние как стартовое
     if (stack.past.length === 0) {
@@ -229,7 +249,7 @@ function saveHistoryState() {
     }
 
     stack.past.push(currentState);
-    stack.future = []; 
+    stack.future = [];
     isTyping = false; // Сбрасываем режим ввода при фиксации точки
 
     if (stack.past.length > maxStepsDepth) {
@@ -247,6 +267,10 @@ function undoHistory() {
     const info = getActiveEditorInfo();
     if (!info.blockId || !info.editorId) {
         return;
+    }
+
+    if (window.editorBlock && typeof window.editorBlock.syncEditors === 'function') {
+        window.editorBlock.syncEditors();
     }
 
     const stack = getOrCreateHistoryStack(info.blockId, info.editorId);
@@ -299,6 +323,10 @@ function redoHistory() {
         return;
     }
 
+    if (window.editorBlock && typeof window.editorBlock.syncEditors === 'function') {
+        window.editorBlock.syncEditors();
+    }
+
     const stack = getOrCreateHistoryStack(info.blockId, info.editorId);
     if (!stack || stack.future.length === 0) {
         return;
@@ -341,9 +369,43 @@ document.addEventListener('click', event => {
     }
 });
 
-// Отслеживание клавиатурного ввода
-document.addEventListener('keydown', event => {
-    const target = event.target.closest('#viewBlock [contenteditable]');
+function handleEditorInput(event) {
+    const target = event.target && typeof event.target.closest === 'function'
+        ? event.target.closest('[contenteditable]')
+        : null;
+    if (!target) {
+        return;
+    }
+
+    if (!isTyping) {
+        saveHistoryState();
+        isTyping = true;
+    }
+}
+
+function setHistoryInitializing(value) {
+    isHistoryInitializing = value;
+}
+
+/* ***
+ * attachIframeHistoryEvents - подписка iframe на события ввода/клавиатуры
+ * - принимает элемент iframe
+ * - навешивает обработчики истории в документ iframe
+*** */
+function attachIframeHistoryEvents(iframe) {
+    if (!iframe || !iframe.contentDocument) {
+        return;
+    }
+
+    const iframeDoc = iframe.contentDocument;
+    iframeDoc.addEventListener('input', handleEditorInput);
+    iframeDoc.addEventListener('keydown', handleEditorKeydown);
+}
+
+function handleEditorKeydown(event) {
+    const target = event.target && typeof event.target.closest === 'function'
+        ? event.target.closest('[contenteditable]')
+        : null;
     if (!target) {
         return;
     }
@@ -370,7 +432,8 @@ document.addEventListener('keydown', event => {
         ' ', 'Spacebar', 
         'Backspace', 
         'Delete', 
-        ';', ',', '.', '{', '}', '[', ']'
+        ';', ',', '.', '{', '}', '[', ']',
+        '!', '?', ':', '(', ')', '-', '_', '=', '+', '/', '\\', '"', "'", '~', '@', '#', '$', '%', '^', '&', '*'
     ];
 
     if (saveKeys.includes(event.key)) {
@@ -383,7 +446,14 @@ document.addEventListener('keydown', event => {
             isTyping = true;    // Входим в режим непрерывного ввода
         }
     }
-});
+}
+
+window.editorBlock.attachIframeHistoryEvents = attachIframeHistoryEvents;
+window.editorBlock.setHistoryInitializing = setHistoryInitializing;
+
+// Отслеживание клавиатурного ввода
+document.addEventListener('keydown', handleEditorKeydown);
+document.addEventListener('input', handleEditorInput);
 
 // Сброс режима ввода при переключении табов
 document.addEventListener('click', event => {

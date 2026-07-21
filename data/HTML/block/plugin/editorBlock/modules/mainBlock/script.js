@@ -202,6 +202,10 @@ function openLoadedBlock(blockId) {
     const cssContent = cssDiv ? cssDiv.textContent : '';
     const jsContent = jsDiv ? jsDiv.textContent : '';
 
+    if (window.editorBlock && typeof window.editorBlock.setHistoryInitializing === 'function') {
+        window.editorBlock.setHistoryInitializing(true);
+    }
+
     // Вставка содержимого в редакторы
     if (viewEditorContent) {
         viewEditorContent.innerHTML = '';
@@ -229,6 +233,15 @@ function openLoadedBlock(blockId) {
             }
 
             attachIframeSelectionHandlers(iframe);
+            if (window.editorBlock && typeof window.editorBlock.attachIframeHistoryEvents === 'function') {
+                window.editorBlock.attachIframeHistoryEvents(iframe);
+            }
+            if (window.editorBlock && typeof window.editorBlock.setHistoryInitializing === 'function') {
+                window.editorBlock.setHistoryInitializing(false);
+            }
+            if (window.editorBlock && typeof window.editorBlock.saveHistoryState === 'function') {
+                window.editorBlock.saveHistoryState();
+            }
             const inputTarget = iframeDoc.body || iframeDoc.documentElement;
 
             inputTarget.addEventListener('input', () => {
@@ -259,10 +272,6 @@ function openLoadedBlock(blockId) {
     // Обновление текущего активного блока
     currentBlockId = blockId;
     setActiveBlockTab(blockId);
-
-    if (window.editorBlock && typeof window.editorBlock.saveHistoryState === 'function') {
-        window.editorBlock.saveHistoryState();
-    }
 }
 
 // Обновление блока при открытии вкладки
@@ -763,6 +772,75 @@ function getEditorSelection() {
 }
 
 /* ***
+ * getEditorIframeDocument - получение документа iframe редактора
+ * - проверяет наличие активного iframe
+ * - возвращает документ iframe или null
+*** */
+function getEditorIframeDocument() {
+    const iframe = getViewIframe();
+    return iframe ? (iframe.contentDocument || iframe.contentWindow?.document || null) : null;
+}
+
+/* ***
+ * getEditorContentByElement - получение содержимого редактора по DOM-элементу
+ * - для viewEditor читает содержимое из iframe body
+ * - для mdEditor/jsEditor читает из contenteditable
+*** */
+function getEditorContentByElement(editorElement) {
+    if (!editorElement) {
+        return '';
+    }
+
+    if (editorElement.id === 'viewEditor') {
+        const iframeDoc = getEditorIframeDocument();
+        const body = iframeDoc ? iframeDoc.body : null;
+        return body ? body.innerHTML : '';
+    }
+
+    const contentDiv = editorElement.querySelector('[contenteditable]');
+    if (!contentDiv) {
+        return '';
+    }
+
+    if (editorElement.id === 'mdEditor' || editorElement.id === 'jsEditor') {
+        return contentDiv.textContent;
+    }
+
+    return contentDiv.innerHTML;
+}
+
+/* ***
+ * setEditorContentByElement - запись содержимого в редактор по DOM-элементу
+ * - для viewEditor записывает содержимое в iframe body
+ * - для mdEditor/jsEditor записывает в contenteditable
+*** */
+function setEditorContentByElement(editorElement, content) {
+    if (!editorElement) {
+        return;
+    }
+
+    if (editorElement.id === 'viewEditor') {
+        const iframeDoc = getEditorIframeDocument();
+        const body = iframeDoc ? iframeDoc.body : null;
+        if (body) {
+            body.innerHTML = content || '';
+        }
+        return;
+    }
+
+    const contentDiv = editorElement.querySelector('[contenteditable]');
+    if (!contentDiv) {
+        return;
+    }
+
+    if (editorElement.id === 'mdEditor' || editorElement.id === 'jsEditor') {
+        contentDiv.textContent = content || '';
+    } else {
+        contentDiv.innerHTML = content || '';
+    }
+}
+
+/* ***
  * attachIframeSelectionHandlers - подписка iframe на события выделения
  * - принимает элемент iframe
  * - навешивает обработчики событий мыши, клавиатуры и смены выделения
@@ -782,3 +860,5 @@ function attachIframeSelectionHandlers(iframe) {
 // Экспорт функций в глобальный объект editorBlock
 window.editorBlock.getEditorSelection = getEditorSelection;
 window.editorBlock.getEditorDocument = getEditorDocument;
+window.editorBlock.getEditorContentByElement = getEditorContentByElement;
+window.editorBlock.setEditorContentByElement = setEditorContentByElement;
