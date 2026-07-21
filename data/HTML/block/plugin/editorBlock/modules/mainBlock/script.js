@@ -618,9 +618,32 @@ function highlightElement(element) {
 }
 
 /* ***
+ * isInsideIframeBody - проверка, находится ли элемент внутри body iframe
+ * - принимает DOM-элемент target
+ * - возвращает true, если элемент является частью тела iframe
+*** */
+function isInsideIframeBody(target) {
+    if (!target) {
+        return false;
+    }
+
+    const iframe = getViewIframe();
+    const iframeDoc = iframe ? (iframe.contentDocument || iframe.contentWindow?.document) : null;
+    const body = iframeDoc ? iframeDoc.body : null;
+
+    if (!body) {
+        return false;
+    }
+
+    const targetNode = target.nodeType === Node.TEXT_NODE ? target.parentElement : target;
+
+    return !!(targetNode && targetNode !== body && body.contains(targetNode));
+}
+
+/* ***
  * handleVisualEditorClick - обработка клика в визуальном редакторе
  * - принимает объект события клика event
- * - сбрасывает подсветку при клике на контейнер редактора или на предварительно выделенный текст
+ * - сбрасывает подсветку при клике на контейнер редактора, вне body iframe или на предварительно выделенный текст
  * - устанавливает выделение для нового элемента, если условия сброса не выполнены
  * - отдает null
 *** */
@@ -632,8 +655,8 @@ function handleVisualEditorClick(event) {
         return null;
     }
 
-    // Если кликнули по самому контейнеру редактора, сбрасываем выделение
-    if (target === viewEditorContent) {
+    // Если кликнули по самому контейнеру редактора или вне body iframe, сбрасываем выделение
+    if (target === viewEditorContent || !isInsideIframeBody(target)) {
         clearElementHighlight();
         return null;
     }
