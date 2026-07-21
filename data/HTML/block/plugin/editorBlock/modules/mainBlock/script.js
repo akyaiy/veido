@@ -29,7 +29,7 @@ async function openBlock(path, initialElement = null) {
     } else if (existingBlock) {
         // Если блок уже загружен, сохраняем предыдущий и открываем его вкладку
         savePreviousBlock(currentBlockId);
-        const blockId = await openLoadedBlock(existingBlock.id);
+        await openLoadedBlock(existingBlock.id);
     } else {
         // Если блок не загружен, сохраняем предыдущий, загружаем новый и создаём вкладку
         savePreviousBlock(currentBlockId);
@@ -56,7 +56,11 @@ async function loadBlockContainer(path, initialElement = null) {
     // Создание контейнера блока
     const block = document.createElement('div');
     block.id = blockId;
-    block.dataset.path = path;
+
+    // Задаем data-path только если путь передан
+    if (path) {
+        block.dataset.path = path;
+    }
 
     const htmlDiv = document.createElement('div');
     htmlDiv.id = blockId + 'Html';
@@ -102,8 +106,8 @@ async function loadBlockContainer(path, initialElement = null) {
 
 /* ***
  * addBlockTab - добавление вкладки блока
- * - принимает идентификатор блока
- * - создаёт вкладку
+ * - принимает идентификатор блока и путь
+ * - создаёт вкладку с соответствующим названием
 *** */
 function addBlockTab(blockId, path) {
     // Создание вкладки блока
@@ -115,7 +119,15 @@ function addBlockTab(blockId, path) {
     if (path) {
         name.textContent = path.split('/').pop();
     } else {
-        name.textContent = '*new';
+        // Собираем названия всех текущих вкладок
+        const existingNames = Array.from(blocksTabs.querySelectorAll('.tabName')).map(el => el.textContent);
+        
+        // Находим наименьший свободный номер для *new
+        let newNum = 1;
+        while (existingNames.includes('*new' + newNum)) {
+            newNum++;
+        }
+        name.textContent = '*new' + newNum;
     }
     name.className = 'tabName';
     name.addEventListener('click', () => {
