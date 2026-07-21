@@ -576,7 +576,7 @@ document.addEventListener('selectionchange', saveSelection);
 
 
 /* ===
- * Выделение элементов в визуальном редакторе (Outline)
+ * Выделение элементов в визуальном редакторе (Outline / Overlay)
 === */
 
 // Текущий выделенный элемент в визуальном редакторе
@@ -588,22 +588,72 @@ let originalOutlineStyle = '';
 // Хранилище диапазона выделения текста перед совершением клика
 let textSelectionRangeBeforeClick = null;
 
+// Вспомогательная переменная для хранения ссылки на overlay выделения
+let highlightOverlay = null;
+
 // Сохранение выделенного элемента в глобальном объекте
 window.editorBlock.selectedElement = null;
 
 /* ***
- * clearElementHighlight - снятие выделения с текущего элемента
- * - не принимает параметров
- * - восстанавливает оригинальный стиль outline у активного элемента и обнуляет ссылки на него
- * - отдает null
+ * updateHighlightPosition - обновление позиции и размеров подсветки
+ * - пересчитывает координаты overlay относительно выделенного элемента
 *** */
-function clearElementHighlight() {
-    if (!activeSelectedElement) {
-        return null;
+function updateHighlightPosition() {
+    if (!activeSelectedElement || !highlightOverlay) {
+        return;
     }
 
-    // Восстановление оригинального outline
-    activeSelectedElement.style.outline = originalOutlineStyle;
+    const documentRoot = activeSelectedElement.ownerDocument;
+    const win = documentRoot ? documentRoot.defaultView : window;
+    if (!win) return;
+
+    const rect = activeSelectedElement.getBoundingClientRect();
+
+    Object.assign(highlightOverlay.style, {
+        left: `${rect.left + win.scrollX - 1}px`,
+        top: `${rect.top + win.scrollY - 1}px`,
+        width: `${rect.width}px`,
+        height: `${rect.height}px`
+    });
+}
+
+/* ***
+ * clearElementHighlight - снятие выделения с текущего элемента
+ * - удаляет overlay, отписывается от событий и сбрасывает ссылки
+*** */
+function clearElementHighlight() {
+    // Удаление рамки overlay
+    if (highlightOverlay) {
+        highlightOverlay.remove();
+        highlightOverlay = null;
+    }
+
+    // Восстановление оригинального outline, если он был сохранен
+    if (activeSelectedElement) {
+        activeSelectedElement.style.outline = originalOutlineStyle;
+
+        // Отписка от событий внутреннего окна iframe, если оно доступно
+        const win = activeSelectedElement.ownerDocument?.defaultView;
+        if (win) {
+            win.removeEventListener('resize', updateHighlightPosition);
+            win.removeEventListener('scroll', updateHighlightPosition);
+        }
+    }
+
+    // Отписка от событий основного окна и документа
+    window.removeEventListener('resize', updateHighlightPosition);
+    window.removeEventListener('scroll', updateHighlightPosition);
+    window.removeEventListener('input', updateHighlightPosition);
+    window.removeEventListener('keydown', updateHighlightPosition);
+
+    // Отписка от событий iframe-окна, если она была добавлена
+    const iframeWin = activeSelectedElement?.ownerDocument?.defaultView;
+    if (iframeWin && iframeWin !== window) {
+        iframeWin.removeEventListener('resize', updateHighlightPosition);
+        iframeWin.removeEventListener('scroll', updateHighlightPosition);
+        iframeWin.removeEventListener('input', updateHighlightPosition);
+        iframeWin.removeEventListener('keydown', updateHighlightPosition);
+    }
 
     // Сброс переменных состояния
     activeSelectedElement = null;
@@ -611,42 +661,76 @@ function clearElementHighlight() {
 
     // Сброс выделенного элемента в глобальном объекте
     window.editorBlock.selectedElement = null;
-    currentSelectedEl = null;
+    if (typeof currentSelectedEl !== 'undefined') {
+        currentSelectedEl = null;
+    }
 
-    // Оповещение панелей о снятии выделения (передаем null)
+    // Оповещение панелей о снятии выделения
     document.dispatchEvent(new CustomEvent('editorBlock:elementSelected', { detail: null }));
     return null;
 }
 
 /* ***
- * highlightElement - установка выделения для элемента
- * - принимает HTML-элемент для выделения element
- * - сохраняет оригинальный outline, задает новую рамку подсветки и обновляет глобальные ссылки
- * - отдает null
+ * highlightElement - выделение элемента через overlay
+ * - создаёт рамку внутри документа элемента
+ * - удаляет предыдущее выделение
+ * - не изменяет HTML элемента
 *** */
 function highlightElement(element) {
     if (!element) {
         return null;
     }
 
-    // Снимаем выделение с предыдущего элемента, если он был выделен
-    if (activeSelectedElement) {
-        clearElementHighlight();
-    }
+    clearElementHighlight();
 
-    // Сохранение текущего элемента и его оригинального стиля outline
+    const documentRoot = element.ownerDocument;
+    const win = documentRoot ? documentRoot.defaultView : window;
+    const rect = element.getBoundingClientRect();
+
+    const overlay = documentRoot.createElement('div');
+    overlay.className = 'elementHighlight';
+
+    Object.assign(overlay.style, {
+        position: 'absolute',
+        left: `${rect.left + win.scrollX - 1}px`,
+        top: `${rect.top + win.scrollY - 1}px`,
+        width: `${rect.width}px`,
+        height: `${rect.height}px`,
+        border: '1px solid #007bff',
+        pointerEvents: 'none',
+        zIndex: '9999'
+    });
+
+    documentRoot.documentElement.appendChild(overlay);
+
+    highlightOverlay = overlay;
     activeSelectedElement = element;
     originalOutlineStyle = element.style.outline;
 
-    // Применение нового стиля outline (рамка выделения)
-    element.style.outline = '2px solid #007bff';
-
-    // Сохранение выделенного элемента в глобальном объекте и переменных ядра
     window.editorBlock.selectedElement = element;
-    currentSelectedEl = element;
+    if (typeof currentSelectedEl !== 'undefined') {
+        currentSelectedEl = element;
+    }
 
-    // Генерация кастомного события с передачей выделенного элемента
-    document.dispatchEvent(new CustomEvent('editorBlock:elementSelected', { detail: element }));
+    // Подписка на события для пересчета позиции подсветки при скролле, ресайзе и вводе
+    window.addEventListener('resize', updateHighlightPosition);
+    window.addEventListener('scroll', updateHighlightPosition);
+    window.addEventListener('input', updateHighlightPosition);
+    window.addEventListener('keydown', updateHighlightPosition);
+
+    if (win && win !== window) {
+        win.addEventListener('resize', updateHighlightPosition);
+        win.addEventListener('scroll', updateHighlightPosition);
+        win.addEventListener('input', updateHighlightPosition);
+        win.addEventListener('keydown', updateHighlightPosition);
+    }
+
+    document.dispatchEvent(
+        new CustomEvent('editorBlock:elementSelected', {
+            detail: element
+        })
+    );
+
     return null;
 }
 
@@ -719,7 +803,8 @@ function handleVisualEditorClick(event) {
 // Добавление обработчика клика после загрузки блоков редактора
 document.addEventListener('editorBlock:loaded', () => {
     const viewEditorContent = document.getElementById('viewEditorContent');
-    
+    if (!viewEditorContent) return;
+
     // Фиксируем выделение текста в момент нажатия кнопки мыши
     viewEditorContent.addEventListener('mousedown', () => {
         const selection = window.getSelection();
