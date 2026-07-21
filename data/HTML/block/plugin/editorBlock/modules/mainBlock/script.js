@@ -227,13 +227,15 @@ function openLoadedBlock(blockId) {
         iframe.id = 'viewEditorIframe';
 
         const safeCss = cssContent || '';
+        const md = window.markdownit({ html: true, linkify: true, typographer: true });
+        const renderedHtml = md.render(htmlContent);
         iframe.srcdoc = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
 <style>${safeCss}</style>
 </head>
-<body contenteditable="true" spellcheck="false">${htmlContent}</body>
+<body contenteditable="true" spellcheck="false">${renderedHtml}</body>
 </html>`;
 
         iframe.addEventListener('load', () => {
