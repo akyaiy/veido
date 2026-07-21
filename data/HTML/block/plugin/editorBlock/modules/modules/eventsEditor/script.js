@@ -279,7 +279,7 @@ function syncSelectorPanel() {
     return null;
 }
 
-function applySelectorToSelectedElement() {
+function applySelectorToSelectedElement(previousValue) {
     if (!window.editorBlock || !window.editorBlock.selectedElement) {
         return null;
     }
@@ -295,7 +295,7 @@ function applySelectorToSelectedElement() {
             element.removeAttribute('id');
         }
     } else {
-        const oldClass = selectorClassSelect.value || Array.from(element.classList)[0] || '';
+        const oldClass = previousValue || selectorClassSelect.value || Array.from(element.classList)[0] || '';
 
         if (oldClass && element.classList.contains(oldClass)) {
             element.classList.remove(oldClass);
@@ -910,8 +910,9 @@ selectorNameInput.addEventListener('change', () => {
     applySelectorToSelectedElement();
 });
 selectorClassSelect.addEventListener('change', () => {
+    const previousValue = selectorNameInput.value.trim();
     selectorNameInput.value = selectorClassSelect.value;
-    applySelectorToSelectedElement();
+    applySelectorToSelectedElement(previousValue);
 });
 
 // Добавление глобального слушателя события выделения элемента
