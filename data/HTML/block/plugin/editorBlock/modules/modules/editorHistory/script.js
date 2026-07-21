@@ -215,6 +215,10 @@ function isStateEmpty(editorId, state) {
  * saveHistoryState - записывает текущее состояние в историю Undo
 *** */
 function saveHistoryState() {
+    if (!window.editorBlock.isBlockActive()) {
+        return;
+    }
+
     const info = getActiveEditorInfo();
     if (!info.blockId || !info.editorId) {
         return;
@@ -264,6 +268,10 @@ window.editorBlock.saveHistoryState = saveHistoryState;
  * undoHistory - отмена действия (Undo)
 *** */
 function undoHistory() {
+    if (!window.editorBlock.isBlockActive()) {
+        return;
+    }
+
     const info = getActiveEditorInfo();
     if (!info.blockId || !info.editorId) {
         return;
@@ -318,6 +326,10 @@ function undoHistory() {
  * redoHistory - повторение действия (Redo)
 *** */
 function redoHistory() {
+    if (!window.editorBlock.isBlockActive()) {
+        return;
+    }
+
     const info = getActiveEditorInfo();
     if (!info.blockId || !info.editorId) {
         return;
@@ -370,6 +382,10 @@ document.addEventListener('click', event => {
 });
 
 function handleEditorInput(event) {
+    if (!window.editorBlock.isBlockActive()) {
+        return;
+    }
+
     const target = event.target && typeof event.target.closest === 'function'
         ? event.target.closest('[contenteditable]')
         : null;
@@ -403,6 +419,10 @@ function attachIframeHistoryEvents(iframe) {
 }
 
 function handleEditorKeydown(event) {
+    if (!window.editorBlock.isBlockActive()) {
+        return;
+    }
+
     const target = event.target && typeof event.target.closest === 'function'
         ? event.target.closest('[contenteditable]')
         : null;

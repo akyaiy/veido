@@ -180,6 +180,7 @@ function closeBlockTab(blockId) {
     // Если закрываемый блок был активным, очистить текущий активный блок и редакторы
     if (currentBlockId === blockId) {
         currentBlockId = null;
+        setEditorReadOnlyState(true);
         const viewEditorContent = document.getElementById('viewEditorContent');
         const mdEditorContent = document.getElementById('mdEditorContent');
         const jsEditorContent = document.getElementById('jsEditorContent');
@@ -260,13 +261,15 @@ function openLoadedBlock(blockId) {
                 syncEditors();
             });
 
-            iframeDoc.addEventListener('mousedown', () => {
+            iframeDoc.addEventListener('mousedown', (event) => {
+                blockEditorSelection(event);
                 const iframeWin = iframe.contentWindow;
                 const iframeSelection = iframeWin && iframeWin.getSelection ? iframeWin.getSelection() : null;
                 textSelectionRangeBeforeClick = (iframeSelection && !iframeSelection.isCollapsed)
                     ? iframeSelection.getRangeAt(0).cloneRange()
                     : null;
             });
+            iframeDoc.addEventListener('selectstart', blockEditorSelection);
 
             iframeDoc.addEventListener('click', handleVisualEditorClick);
             iframeDoc.addEventListener('contextmenu', handleVisualEditorClick);
@@ -283,6 +286,7 @@ function openLoadedBlock(blockId) {
 
     // Обновление текущего активного блока
     currentBlockId = blockId;
+    setEditorReadOnlyState(false);
     setActiveBlockTab(blockId);
 }
 
@@ -411,6 +415,8 @@ function focusEditor(editorContent) {
 }
 
 document.addEventListener('editorBlock:loaded', () => {
+    setEditorReadOnlyState(!Boolean(currentBlockId));
+
     // Редакторы
     const viewEditor = document.getElementById('viewEditor');
     const mdEditor = document.getElementById('mdEditor');
@@ -478,6 +484,10 @@ function syncEditors() {
 window.editorBlock.syncEditors = syncEditors;
 
 document.addEventListener('editorBlock:loaded', () => {
+    document.addEventListener('mousedown', blockEditorSelection, true);
+    document.addEventListener('mouseup', blockEditorSelection, true);
+    document.addEventListener('selectstart', blockEditorSelection, true);
+
     // Контейнеры для содержимого редакторов
     const mdEditorContent = document.getElementById('mdEditorContent');
     const viewEditorContent = document.getElementById('viewEditorContent');
@@ -874,3 +884,77 @@ window.editorBlock.getEditorSelection = getEditorSelection;
 window.editorBlock.getEditorDocument = getEditorDocument;
 window.editorBlock.getEditorContentByElement = getEditorContentByElement;
 window.editorBlock.setEditorContentByElement = setEditorContentByElement;
+
+
+
+/* ===
+ * Управление активным блоком
+=== */
+
+/* ***
+ * isBlockActive - проверка наличия активного блока
+ * - проверяет наличие активного блока
+ * - возвращает результат проверки
+*** */
+function isBlockActive() {
+    return currentBlockId !== null;
+}
+
+/* ***
+ * setEditorReadOnlyState - переключение режима редактирования
+ * - принимает режим редактирования
+ * - изменяет состояние редакторов
+ * - обновляет состояние iframe
+*** */
+function setEditorReadOnlyState(readOnly) {
+
+    // Редакторы
+    const editors = ['viewEditorContent', 'mdEditorContent', 'jsEditorContent'];
+
+    editors.forEach(id => {
+        const editor = document.getElementById(id);
+
+        if (editor === null) {
+            return;
+        }
+
+        const editableValue = readOnly
+            ? 'false'
+            : (id === 'viewEditorContent' ? 'true' : 'plaintext-only');
+
+        editor.setAttribute('contenteditable', editableValue);
+    });
+
+    // iframe редактора
+    const iframeBody = document.getElementById('viewEditorContent')
+        ?.querySelector('iframe')
+        ?.contentDocument?.body;
+
+    if (iframeBody !== undefined && iframeBody !== null) {
+        iframeBody.contentEditable = readOnly ? 'false' : 'true';
+    }
+}
+
+/* ***
+ * blockEditorSelection - блокировка изменения выделения
+ * - принимает объект события
+ * - блокирует изменение выделения без активного блока
+*** */
+function blockEditorSelection(event) {
+    if (currentBlockId !== null) {
+        return;
+    }
+
+    const target = event.target;
+
+    if (
+        target !== null &&
+        target.closest('#viewEditorContent, #mdEditorContent, #jsEditorContent')
+    ) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+}
+
+// Экспорт проверки активного блока
+window.editorBlock.isBlockActive = isBlockActive;

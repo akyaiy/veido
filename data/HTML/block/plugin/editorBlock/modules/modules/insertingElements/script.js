@@ -219,8 +219,11 @@ async function insertClickHandler(event, customTemplate=null) {
         textContent = button.textContent || 'текст';
     }
 
-    // Проверяем, какой редактор активен: визуальный или HTML
+    // Проверяем, что разрешено редактирование и текущая область редактирования — именно viewEditor
     const activeEditor = document.querySelector('#viewBlock > .active');
+    if (!window.editorBlock?.isBlockActive?.() || !activeEditor || activeEditor.id !== 'viewEditor') {
+        return;
+    }
 
     // Парсим вставляемый элемент, чтобы узнать его тег
     const parsed = parseDataEl(dataEl);
