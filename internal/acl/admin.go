@@ -47,7 +47,8 @@ func CreateRole(db *sql.DB, name string) int64 {
 		slog.Error("CreateRole db error", "err", err.Error())
 		return 0
 	}
-	id, err := result.LastInsertId()
+	id, err := result.LastInsertId() 
+
 	if err != nil {
 		slog.Error("CreateRole db error", "err", err.Error())
 		return 0
