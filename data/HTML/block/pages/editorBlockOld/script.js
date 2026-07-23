@@ -1,1 +1,0 @@
-loadBlock("plugin/editorBlockOld", "content");

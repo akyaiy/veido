@@ -635,12 +635,25 @@ async function loadBlock(path, block_Name, itemsHowText = false) {
                 document.body.appendChild(script);
             }
         }
-    // Обработка ошибок
+
+        // Автоматическая рекурсивная подгрузка вложенных data-block-src блоков
+        loadBlockAttribute(container);
+
     } catch (err) {
         console.error(err);
         container.innerHTML = "<h2>блок не найден</h2>";
     }
 }
+
+// Функция поиска и загрузки блоков с атрибутом data-block-src
+function loadBlockAttribute(scope = document) {
+    scope.querySelectorAll('[data-block-src]').forEach((el, index) => {
+        const path = el.getAttribute('data-block-src');
+        if (!el.id) el.id = `block_${Date.now()}_${index}`;
+        loadBlock(path, el.id);
+    });
+}
+
 
 /*****************************************************************************
  * Глобальный вызов функций блоков
