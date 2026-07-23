@@ -3,6 +3,7 @@
 
 <!-- Свойства -->
 <div data-target="all">ID: <input type="text" data-prop="id"><br></div>
+<div data-target="div main section article">Подключение блока: <input type="text" data-prop="data-block-src"><br></div>
 <div data-target="block">Отображение элемента: <select data-prop="display">
     <option value="">По умолчанию</option>
     <option value="block">Блочный</option>

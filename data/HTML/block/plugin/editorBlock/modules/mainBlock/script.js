@@ -310,15 +310,20 @@ document.addEventListener('editorBlock:openLoadedBlock', () => {
 function savePreviousBlock(currentBlockId) {
     if (!currentBlockId) return;
 
-    // Синхронизация содержимого между редакторами
-    syncEditors();
-
     // Контейнеры для содержимого редакторов
     const htmlDiv = document.getElementById(currentBlockId + 'Html');
     const jsDiv = document.getElementById(currentBlockId + 'Js');
     const mdEditorContent = document.getElementById('mdEditorContent');
     const viewEditorContent = document.getElementById('viewEditorContent');
     const jsEditorContent = document.getElementById('jsEditorContent');
+
+    // Если viewEditorContent находится в режиме предпросмотра, выходим
+    if (!currentBlockId || (viewEditorContent && viewEditorContent.classList.contains('preview'))) {
+        return;
+    }
+
+    // Синхронизация содержимого между редакторами
+    syncEditors();
 
     // Сохранение содержимого редакторов в контейнер блока
     if (htmlDiv) {

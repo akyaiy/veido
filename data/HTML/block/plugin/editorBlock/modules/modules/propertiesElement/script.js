@@ -31,6 +31,7 @@ const propertyMap = {
 
     // Атрибуты
     id: { type: 'attr', attrName: 'id' },
+    'data-block-src': { type: 'attr', attrName: 'data-block-src' },
     link: { type: 'attr', attrName: 'universalLink' },
     inputPlaceholder: { type: 'attr', attrName: 'placeholder', tag: 'input' },
     inputType: { type: 'attr', attrName: 'type', tag: 'input' },
