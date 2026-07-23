@@ -1,1 +1,0 @@
-<button id="jsApplyButton" style="display:none">Применить JS</button>
