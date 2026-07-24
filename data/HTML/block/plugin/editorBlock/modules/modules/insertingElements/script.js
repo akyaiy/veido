@@ -186,10 +186,11 @@ async function insertClickHandler(event, customTemplate=null) {
     const menuButton = event.target.closest('.insertElementMenu');
     if (menuButton && !customTemplate) {
         // Получаем имя меню из атрибута data-menu
-        const menuId = menuButton.dataset.menu;
+        const menuId = menuButton.dataset.menu || (menuButton.dataset.element === 'divGrid' ? 'tableSizeMenu' : null);
         const menuElement = document.getElementById(menuId);
         
         if (menuElement) {
+            menuElement.dataset.element = menuButton.dataset.element;
             showElementMenu(menuElement, menuButton);
         }
         return;
@@ -747,16 +748,25 @@ async function tableSizeGridClickHandler(event) {
     const rows = Number(cell.dataset.row);
     const cols = Number(cell.dataset.col);
 
-    // Генерируем HTML-код таблицы
-    let tableHtml = '<table style="width: 100%; border-collapse: collapse; border: 1px solid #000;"><tbody>';
-    for (let r = 0; r < rows; r++) {
-        tableHtml += '<tr>';
-        for (let c = 0; c < cols; c++) {
-            tableHtml += '<td style="border: 1px solid #000;"><br></td>';
+    // Генерируем HTML-код таблицы или CSS Grid
+    let tableHtml = '';
+    if (tableSizeGrid.closest('#tableSizeMenu')?.dataset.element === 'divGrid') {
+        tableHtml = `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);">`;
+        for (let r = 0; r < rows * cols; r++) {
+            tableHtml += `<div style="border:1px solid #ccc;">${r === 0 ? '[ST]' : '<br>'}</div>`;
         }
-        tableHtml += '</tr>';
+        tableHtml += '</div>';
+    } else {
+        tableHtml = '<table style="width: 100%; border-collapse: collapse; border: 1px solid #000;"><tbody>';
+        for (let r = 0; r < rows; r++) {
+            tableHtml += '<tr>';
+            for (let c = 0; c < cols; c++) {
+                tableHtml += '<td style="border: 1px solid #000;"><br></td>';
+            }
+            tableHtml += '</tr>';
+        }
+        tableHtml += '</tbody></table>';
     }
-    tableHtml += '</tbody></table>';
 
     // Вызываем общую функцию вставки, передавая готовый шаблон таблицы в customTemplate
     await insertClickHandler(event, tableHtml);

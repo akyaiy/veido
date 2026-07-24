@@ -10,10 +10,21 @@
     <option value="inline">Строчный</option>
     <option value="inline-block">Инлайн блок</option>
     <option value="flex">Flex</option>
+    <option value="grid">Grid</option>
     <option value="none">Не отображать</option>
 </select></div>
+
 <div data-target="all">Ширина: <input data-prop="widthValue"></div>
 <div data-target="all">Высота: <br><input data-prop="heightValue"></div>
+
+<div data-target="grid">Направление Grid: <select data-prop="gridDirection">
+    <option value="grid-template-columns">Колонки</option>
+    <option value="grid-template-rows">Строки</option>
+</select></div>
+<div data-target="grid">Количество Grid: <input data-prop="gridTemplateCount" placeholder="Количество"></div>
+<div data-target="grid">Размер Grid: <input data-prop="gridTemplateSize" placeholder="Размер"></div>
+<div data-target="grid-item">Размер по колонкам: <input data-prop="gridColumn"></div>
+<div data-target="grid-item">Размер по строкам: <input data-prop="gridRow"></div>
 
 <div data-target="all">Внешние отступы: <div class="marginGrid">
     <div class="col left"><input data-prop="marginLeft" placeholder="Слева"></div>

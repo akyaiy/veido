@@ -1,8 +1,9 @@
 <div class="insertElements" data-tab-content="basic">
     <div class="insertElement" data-element="div" title="Блок"><svg class="svgIcon" use="4x19"></svg></div>
+    <div class="insertElementMenu" data-element="divGrid" title="Сетка"><svg class="svgIcon" use="9x28"></svg></div>
     <div class="insertElementMenu" data-menu="imageInsertMenu" data-element="img" title="Изображение"><svg class="svgIcon" use="19x19"></svg></div>
     <div class="insertElement" data-element="a" title="Ссылка"><svg class="svgIcon" use="14x23"></svg></div>
-    <div class="insertElementMenu" data-menu="tableSizeMenu"  data-element="table" title="Таблица"><svg class="svgIcon" use="19x6"></svg></div>
+    <div class="insertElementMenu" data-menu="tableSizeMenu" data-element="table" title="Таблица"><svg class="svgIcon" use="19x6"></svg></div>
     <div class="insertElement" data-element="hr" title="Линия"><svg class="svgIcon" use="4x7"></svg></div>
 </div>
 

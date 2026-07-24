@@ -27,6 +27,11 @@ const propertyMap = {
     cursor: { type: 'style', cssName: 'cursor' },
     zIndex: { type: 'style', cssName: 'zIndex' },
     display: { type: 'style', cssName: 'display' },
+    gridDirection: { type: 'special', action: 'gridDirection' },
+    gridTemplateCount: { type: 'special', action: 'gridTemplate', part: 'count' },
+    gridTemplateSize: { type: 'special', action: 'gridTemplate', part: 'size' },
+    gridColumn: { type: 'style', cssName: 'gridColumn' },
+    gridRow: { type: 'style', cssName: 'gridRow' },
     resize: { type: 'style', cssName: 'resize' },
 
     // Атрибуты
@@ -84,6 +89,12 @@ function updatePropertiesPanel(element) {
         ? element.ownerDocument.defaultView
         : window;
     const computedStyles = elementWindow.getComputedStyle(element);
+    const isGrid = computedStyles.display === 'grid';
+    const parentElement = element.parentElement;
+    const parentWindow = parentElement && parentElement.ownerDocument && parentElement.ownerDocument.defaultView
+        ? parentElement.ownerDocument.defaultView
+        : elementWindow;
+    const isGridItem = !!(parentElement && parentWindow.getComputedStyle(parentElement).display === 'grid');
 
     // функция перевода rgb в hex
     const rgbToHex = (rgbStr) => {
@@ -136,6 +147,21 @@ function updatePropertiesPanel(element) {
             } else {
                 finalValue = element.getAttribute(attrName) || '';
             }
+        } else if (config.type === 'special' && config.action === 'gridDirection') {
+            finalValue = element.style.getPropertyValue('grid-template-rows')
+                ? 'grid-template-rows'
+                : 'grid-template-columns';
+        } else if (config.type === 'special' && config.action === 'gridTemplate') {
+            const gridProperty = element.style.getPropertyValue('grid-template-rows')
+                ? 'grid-template-rows'
+                : 'grid-template-columns';
+            const gridTemplate = element.style.getPropertyValue(gridProperty)
+                || computedStyles.getPropertyValue(gridProperty)
+                || '';
+            const match = gridTemplate.match(/repeat\(\s*(\d+)\s*,\s*([^\)]+)\)/i);
+            if (match) {
+                finalValue = config.part === 'count' ? match[1] : match[2].trim();
+            }
         } else if (config.type === 'special' && config.action === 'tableDimensions' && tagName === 'table') {
             if (prop === 'tableRows') {
                 finalValue = element.querySelectorAll('tr').length;
@@ -187,6 +213,14 @@ function updatePropertiesPanel(element) {
             }
             // добавляем проверку для ссылок
             if (key === 'link' && tagName === 'a') {
+                isVisible = true;
+                break;
+            }
+            if (key === 'grid' && isGrid) {
+                isVisible = true;
+                break;
+            }
+            if (key === 'grid-item' && isGridItem) {
                 isVisible = true;
                 break;
             }
@@ -300,10 +334,10 @@ function markBlockDirty(element) {
 
 /* ***
  * applyPropertyToElement - применение значения из панели к элементу
- * - принимает целевой элемент, имя свойства и значение
+ * - принимает целевой элемент, имя свойства, значение и (опционально) целевой CSS-атрибут (targetProperty)
  * - обновляет стили, атрибуты или вызывает специальные функции
 *** */
-function applyPropertyToElement(element, propertyName, rawValue) {
+function applyPropertyToElement(element, propertyName, rawValue, targetProperty = null) {
     if (!element || !propertyName) {
         return;
     }
@@ -319,6 +353,102 @@ function applyPropertyToElement(element, propertyName, rawValue) {
 
     const tagName = element.tagName.toLowerCase();
 
+    if (config.type === 'special' && config.action === 'gridDirection') {
+        const oldValue = value === 'grid-template-rows'
+            ? element.style.getPropertyValue('grid-template-columns')
+            : element.style.getPropertyValue('grid-template-rows');
+        const computedStyles = element.ownerDocument.defaultView.getComputedStyle(element);
+        const rawTemplate = oldValue
+            || (value === 'grid-template-rows'
+                ? computedStyles.getPropertyValue('grid-template-columns')
+                : computedStyles.getPropertyValue('grid-template-rows'))
+            || 'repeat(1,1fr)';
+
+        let gridTemplate = rawTemplate;
+        const match = rawTemplate.match(/repeat\(\s*(\d+)\s*,\s*([^\)]+)\)/i);
+        if (!match) {
+            const parts = rawTemplate.trim().split(/\s+/).filter(Boolean);
+            const count = parts.length || 1;
+            let size = parts[0] || '1fr';
+            if (/px$/i.test(size) && !oldValue) {
+                size = '1fr';
+            }
+            gridTemplate = `repeat(${count},${size})`;
+        }
+
+        element.style.setProperty(value, gridTemplate);
+        element.style.removeProperty(value === 'grid-template-rows'
+            ? 'grid-template-columns'
+            : 'grid-template-rows');
+        element.style.setProperty('grid-auto-flow', value === 'grid-template-columns' ? 'row' : 'column');
+        markBlockDirty(element);
+        return;
+    }
+
+    if (config.type === 'special' && config.action === 'gridTemplate') {
+        let gridProperty = targetProperty || config.cssName;
+
+        if (!gridProperty) {
+            if (propertyName.toLowerCase().includes('row')) {
+                gridProperty = 'grid-template-rows';
+            } else if (propertyName.toLowerCase().includes('column') || propertyName.toLowerCase().includes('col')) {
+                gridProperty = 'grid-template-columns';
+            } else {
+                const autoFlow = element.style.getPropertyValue('grid-auto-flow') || 
+                                 element.ownerDocument.defaultView.getComputedStyle(element).getPropertyValue('grid-auto-flow');
+                
+                if (autoFlow.includes('column')) {
+                    gridProperty = 'grid-template-rows';
+                } else if (element.style.getPropertyValue('grid-template-rows')) {
+                    gridProperty = 'grid-template-rows';
+                } else {
+                    gridProperty = 'grid-template-columns';
+                }
+            }
+        }
+
+        const inlineTemplate = element.style.getPropertyValue(gridProperty);
+        const rawTemplate = inlineTemplate
+            || element.ownerDocument.defaultView.getComputedStyle(element).getPropertyValue(gridProperty)
+            || '';
+
+        let currentCount = '1';
+        let currentSize = '1fr';
+
+        // Разбираем текущее значение
+        const match = rawTemplate.match(/repeat\(\s*(\d+)\s*,\s*([^\)]+)\)/i);
+        if (match) {
+            currentCount = match[1];
+            currentSize = match[2].trim();
+        } else if (rawTemplate) {
+            const parts = rawTemplate.trim().split(/\s+/).filter(Boolean);
+            if (parts.length > 0) {
+                currentCount = String(parts.length);
+                const firstPart = parts[0].trim();
+                currentSize = (/px$/i.test(firstPart) && !inlineTemplate) ? '1fr' : firstPart;
+            }
+        }
+
+        // Если изменяем количество (count), оно должно быть чистым числом
+        const count = config.part === 'count' ? (value.trim() || '1') : currentCount;
+
+        // Если изменяем размер (size) и введено простое число без единиц — автоматически добавляем 'px'
+        let formattedSize = value.trim();
+        if (config.part === 'size') {
+            if (!formattedSize) {
+                formattedSize = '1fr';
+            } else if (/^\d+(\.\d+)?$/.test(formattedSize)) {
+                formattedSize = `${formattedSize}px`; // '20' превращается в '20px'
+            }
+        }
+
+        const size = config.part === 'size' ? formattedSize : currentSize;
+
+        element.style.setProperty(gridProperty, `repeat(${count},${size})`);
+        markBlockDirty(element);
+        return;
+    }
+
     // Обработка CSS стилей
     if (config.type === 'style') {
         const cssName = config.cssName || dashedToCamel(propertyName);
@@ -328,6 +458,10 @@ function applyPropertyToElement(element, propertyName, rawValue) {
             finalValue = '';
         } else if (config.isNumeric && checkIsNumericString(value)) {
             finalValue = `${Number(value)}px`;
+        }
+
+        if ((propertyName === 'gridColumn' || propertyName === 'gridRow') && /^\d+$/.test(value.trim())) {
+            finalValue = `span ${value.trim()}`;
         }
 
         applyStyleToElement(element, tagName, cssName, finalValue);
