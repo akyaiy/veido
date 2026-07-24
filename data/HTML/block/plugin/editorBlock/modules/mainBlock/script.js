@@ -275,6 +275,11 @@ function openLoadedBlock(blockId) {
 
             iframeDoc.addEventListener('click', handleVisualEditorClick);
             iframeDoc.addEventListener('contextmenu', handleVisualEditorClick);
+
+            if (viewEditorContent.classList.contains('preview') &&
+                window.editorBlock && typeof window.editorBlock.loadNestedBlocksInPreview === 'function') {
+                window.editorBlock.loadNestedBlocksInPreview();
+            }
         });
         viewEditorContent.appendChild(iframe);
     }
@@ -355,6 +360,7 @@ function savePreviousBlock(currentBlockId) {
         }
     }
 }
+window.editorBlock.savePreviousBlock = savePreviousBlock;
 
 /* ***
  * newBlock - создание нового блока
@@ -674,6 +680,7 @@ function clearElementHighlight() {
     document.dispatchEvent(new CustomEvent('editorBlock:elementSelected', { detail: null }));
     return null;
 }
+window.editorBlock.clearElementHighlight = clearElementHighlight;
 
 /* ***
  * highlightElement - выделение элемента через overlay
@@ -774,6 +781,10 @@ function handleVisualEditorClick(event) {
     const viewEditorContent = document.getElementById('viewEditorContent');
 
     if (!viewEditorContent || !target) {
+        return null;
+    }
+
+    if (viewEditorContent.classList.contains('preview')) {
         return null;
     }
 

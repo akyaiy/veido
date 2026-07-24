@@ -16,6 +16,7 @@
     resize: both;
     overflow: auto;
     display: inline-block;
+    overflow: hidden;
 }
 
 #centerPanel.preview {

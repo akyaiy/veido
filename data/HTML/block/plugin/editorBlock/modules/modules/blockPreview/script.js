@@ -62,6 +62,7 @@ function loadNestedBlocksInPreview() {
 
     loader(iframeDoc.body);
 }
+window.editorBlock.loadNestedBlocksInPreview = loadNestedBlocksInPreview;
 
 /* ***
  * togglePreviewMode - переключение режима предпросмотра блока
@@ -80,6 +81,13 @@ async function togglePreviewMode() {
     const shouldActivatePreview = !isPreviewActive;
     isPreviewActive = shouldActivatePreview;
 
+    // Получение текущего активного блока
+    let activeBlockTab = document.querySelector('.blockTab.active');
+    let currentBlockId = activeBlockTab ? activeBlockTab.dataset.blockId : null;
+
+    // Сохранение текущего блока перед переключением режима
+    window.editorBlock.savePreviousBlock(currentBlockId);
+
     // Переключение видимости панелей
     ['rightPanel', 'leftPanel', 'editorsTabs'].forEach(id => {
         const element = document.getElementById(id);
@@ -89,12 +97,28 @@ async function togglePreviewMode() {
     });
 
     // Переключение класса предпросмотра
-    ['viewEditor', 'viewEditorContent', 'centerPanel'].forEach(id => {
-        const element = document.getElementById(id);
-        if (element) {
-            element.classList.toggle('preview', isPreviewActive);
+    if (shouldActivatePreview) {
+        if (window.editorBlock && typeof window.editorBlock.clearElementHighlight === 'function') {
+            window.editorBlock.clearElementHighlight();
         }
-    });
+
+        const iframe = getPreviewEditorIframe();
+        const iframeSelection = iframe?.contentWindow?.getSelection();
+        if (iframeSelection) {
+            iframeSelection.removeAllRanges();
+        }
+        const selection = window.getSelection();
+        if (selection) {
+            selection.removeAllRanges();
+        }
+
+        ['viewEditor', 'viewEditorContent', 'centerPanel'].forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.classList.add('preview');
+            }
+        });
+    }
 
     // Активация визуального режима и загрузка блоков
     const viewEditorButton = document.getElementById('viewEditorButton');
@@ -110,14 +134,21 @@ async function togglePreviewMode() {
     } else {
         setPreviewEditorReadOnly(false);
 
-        const activeBlockTab = document.querySelector('.blockTab.active');
-        const currentBlockId = activeBlockTab ? activeBlockTab.dataset.blockId : null;
+        activeBlockTab = document.querySelector('.blockTab.active');
+        currentBlockId = activeBlockTab ? activeBlockTab.dataset.blockId : null;
         const currentBlock = currentBlockId ? document.getElementById(currentBlockId) : null;
         const blockPath = currentBlock ? currentBlock.dataset.path || null : null;
 
         if (currentBlockId && blockPath && window.editorBlock && typeof window.editorBlock.openBlock === 'function') {
             await window.editorBlock.openBlock(blockPath);
         }
+
+        ['viewEditor', 'viewEditorContent', 'centerPanel'].forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.classList.remove('preview');
+            }
+        });
     }
 
     blockPreviewButton.classList.toggle('active', isPreviewActive);
