@@ -3,3 +3,7 @@
     cursor: pointer;
     padding: 0px 2px;
 }
+
+.historyButton.inactive .svgIcon {
+    opacity: 0.6;
+}

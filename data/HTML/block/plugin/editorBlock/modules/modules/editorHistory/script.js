@@ -23,6 +23,51 @@ let isHistoryInitializing = false;
 === */
 
 /* ***
+ * isPreviewMode - проверяет, находится ли редактор в режиме предпросмотра
+*** */
+function isPreviewMode() {
+    const viewEditorContent = document.getElementById('viewEditorContent');
+    return viewEditorContent ? viewEditorContent.classList.contains('preview') : false;
+}
+
+/* ***
+ * updateHistoryUI - обновляет класс inactive у кнопок отмены и повтора
+*** */
+function updateHistoryUI() {
+    const undoBtn = document.querySelector('.historyButton[data-action="undo"]');
+    const redoBtn = document.querySelector('.historyButton[data-action="redo"]');
+
+    if (!undoBtn && !redoBtn) {
+        return;
+    }
+
+    const info = getActiveEditorInfo();
+    const stack = (info.blockId && info.editorId && blockHistoryMap.has(info.blockId))
+        ? blockHistoryMap.get(info.blockId).get(info.editorId)
+        : null;
+
+    let canUndo = false;
+    let canRedo = false;
+
+    if (stack && !isPreviewMode()) {
+        const currentState = getEditorState(info.editorId);
+        if (stack.past.length > 1) {
+            canUndo = true;
+        } else if (stack.past.length === 1) {
+            canUndo = !isEqualState(info.editorId, currentState, stack.past[0]);
+        }
+        canRedo = stack.future.length > 0;
+    }
+
+    if (undoBtn) {
+        undoBtn.classList.toggle('inactive', !canUndo);
+    }
+    if (redoBtn) {
+        redoBtn.classList.toggle('inactive', !canRedo);
+    }
+}
+
+/* ***
  * getActiveEditorInfo - определяет текущий активный блок и открытый редактор
  * - Объединяет 'viewEditor' и 'mdEditor' в единую историю 'markupEditor'
 *** */
@@ -215,7 +260,7 @@ function isStateEmpty(editorId, state) {
  * saveHistoryState - записывает текущее состояние в историю Undo
 *** */
 function saveHistoryState() {
-    if (!window.editorBlock.isBlockActive()) {
+    if (!window.editorBlock.isBlockActive() || isPreviewMode()) {
         return;
     }
 
@@ -242,6 +287,7 @@ function saveHistoryState() {
     // Если история пуста, сохраняем текущее состояние как стартовое
     if (stack.past.length === 0) {
         stack.past.push(currentState);
+        updateHistoryUI();
         return;
     }
 
@@ -259,6 +305,8 @@ function saveHistoryState() {
     if (stack.past.length > maxStepsDepth) {
         stack.past.shift();
     }
+
+    updateHistoryUI();
 }
 
 // Экспорт в глобальный объект
@@ -268,7 +316,7 @@ window.editorBlock.saveHistoryState = saveHistoryState;
  * undoHistory - отмена действия (Undo)
 *** */
 function undoHistory() {
-    if (!window.editorBlock.isBlockActive()) {
+    if (!window.editorBlock.isBlockActive() || isPreviewMode()) {
         return;
     }
 
@@ -320,13 +368,15 @@ function undoHistory() {
     if (window.editorBlock && typeof window.editorBlock.syncEditors === 'function') {
         window.editorBlock.syncEditors();
     }
+
+    updateHistoryUI();
 }
 
 /* ***
  * redoHistory - повторение действия (Redo)
 *** */
 function redoHistory() {
-    if (!window.editorBlock.isBlockActive()) {
+    if (!window.editorBlock.isBlockActive() || isPreviewMode()) {
         return;
     }
 
@@ -358,6 +408,8 @@ function redoHistory() {
     if (window.editorBlock && typeof window.editorBlock.syncEditors === 'function') {
         window.editorBlock.syncEditors();
     }
+
+    updateHistoryUI();
 }
 
 
@@ -369,7 +421,7 @@ function redoHistory() {
 // Клики по кнопкам истории в интерфейсе
 document.addEventListener('click', event => {
     const btn = event.target.closest('.historyButton');
-    if (!btn) {
+    if (!btn || btn.classList.contains('inactive')) {
         return;
     }
 
@@ -382,7 +434,7 @@ document.addEventListener('click', event => {
 });
 
 function handleEditorInput(event) {
-    if (!window.editorBlock.isBlockActive()) {
+    if (!window.editorBlock.isBlockActive() || isPreviewMode()) {
         return;
     }
 
@@ -397,6 +449,8 @@ function handleEditorInput(event) {
         saveHistoryState();
         isTyping = true;
     }
+
+    updateHistoryUI();
 }
 
 function setHistoryInitializing(value) {
@@ -419,7 +473,7 @@ function attachIframeHistoryEvents(iframe) {
 }
 
 function handleEditorKeydown(event) {
-    if (!window.editorBlock.isBlockActive()) {
+    if (!window.editorBlock.isBlockActive() || isPreviewMode()) {
         return;
     }
 
@@ -466,19 +520,23 @@ function handleEditorKeydown(event) {
             isTyping = true;    // Входим в режим непрерывного ввода
         }
     }
+
+    updateHistoryUI();
 }
 
 window.editorBlock.attachIframeHistoryEvents = attachIframeHistoryEvents;
 window.editorBlock.setHistoryInitializing = setHistoryInitializing;
+window.editorBlock.updateHistoryUI = updateHistoryUI;
 
 // Отслеживание клавиатурного ввода
 document.addEventListener('keydown', handleEditorKeydown);
 document.addEventListener('input', handleEditorInput);
 
-// Сброс режима ввода при переключении табов
+// Сброс режима ввода и обновление UI при переключении табов
 document.addEventListener('click', event => {
     const tab = event.target.closest('.blockTab, .editorsTab');
     if (tab) {
         isTyping = false;
+        setTimeout(updateHistoryUI, 0);
     }
 });
