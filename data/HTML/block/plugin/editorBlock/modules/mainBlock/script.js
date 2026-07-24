@@ -769,11 +769,14 @@ function isInsideIframeBody(target) {
     return !!(targetNode && targetNode !== body && body.contains(targetNode));
 }
 
+// Глобальная переменная для хранения последнего выделенного элемента
+let lastHighlightedElement = null;
+
 /* ***
  * handleVisualEditorClick - обработка клика в визуальном редакторе
  * - принимает объект события клика event
  * - сбрасывает подсветку при клике на контейнер редактора, вне body iframe или на предварительно выделенный текст
- * - устанавливает выделение для нового элемента, если условия сброса не выполнены
+ * - при повторном/многократном клике по тому же элементу поднимает выделение к родителю (до contenteditable)
  * - отдает null
 *** */
 function handleVisualEditorClick(event) {
@@ -791,6 +794,7 @@ function handleVisualEditorClick(event) {
     // Если кликнули по самому контейнеру редактора или вне body iframe, сбрасываем выделение
     if (target === viewEditorContent || !isInsideIframeBody(target)) {
         clearElementHighlight();
+        lastHighlightedElement = null;
         return null;
     }
 
@@ -807,12 +811,34 @@ function handleVisualEditorClick(event) {
 
     if (activeRange && activeRange.intersectsNode(target)) {
         clearElementHighlight();
+        lastHighlightedElement = null;
         textSelectionRangeBeforeClick = null;
         return null;
     }
 
-    // Иначе выделяем кликнутый элемент
-    highlightElement(target);
+    let elementToHighlight = target;
+
+    // Проверяем: кликнули ли по уже выделенному элементу или внутрь него
+    if (lastHighlightedElement && (lastHighlightedElement === target || lastHighlightedElement.contains(target))) {
+        const parent = lastHighlightedElement.parentElement;
+
+        // Граница подьема: contenteditable="true", BODY или контейнер редактора
+        const isAtBoundary = !parent || 
+            parent.tagName === 'BODY' || 
+            parent.getAttribute('contenteditable') === 'true' || 
+            parent === viewEditorContent;
+
+        if (!isAtBoundary) {
+            elementToHighlight = parent;
+        } else {
+            elementToHighlight = lastHighlightedElement;
+        }
+    }
+
+    // Сохраняем текущий выбранный элемент и выделяем его
+    lastHighlightedElement = elementToHighlight;
+    highlightElement(elementToHighlight);
+
     return null;
 }
 
