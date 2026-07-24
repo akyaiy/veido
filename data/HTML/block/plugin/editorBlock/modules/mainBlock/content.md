@@ -6,6 +6,7 @@
     <div id="editorHistory"></div>
     <div id="blockPreview"></div>
 </div>
+<div id="topPanelResizer"></div>
 
 
 
@@ -16,11 +17,13 @@
 <div id="leftPanel">
     <div id="insertingElements"></div>
 </div>
+<div id="leftPanelResizer"></div>
 
 <div id="centerPanel">
     <div id="viewBlock"></div>
 </div>
 
+<div id="rightPanelResizer"></div>
 <div id="rightPanel">
     <div id="rightPanelTabs"></div>
     <div id="propertiesText"></div>

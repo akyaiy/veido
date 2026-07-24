@@ -1087,3 +1087,120 @@ function blockEditorSelection(event) {
 
 // Экспорт проверки активного блока
 window.editorBlock.isBlockActive = isBlockActive;
+
+
+
+/* ===
+ * Изменение размеров панелей
+=== */
+
+document.addEventListener('editorBlock:loaded', () => {
+
+// Контейнеры панелей
+const topPanel = document.getElementById('topPanel');
+const mainPanel = document.getElementById('mainPanel');
+const leftPanel = document.getElementById('leftPanel');
+const rightPanel = document.getElementById('rightPanel');
+
+// Элементы разделителей панелей
+const topResizer = document.getElementById('topPanelResizer');
+const leftResizer = document.getElementById('leftPanelResizer');
+const rightResizer = document.getElementById('rightPanelResizer');
+
+// Изменение высоты topPanel
+attachPanelResizer(topResizer, (e, delta) => {
+    const currentHeight = topPanel.getBoundingClientRect().height;
+    const newHeight = Math.max(0, currentHeight + delta.y);
+    const maxHeight = window.innerHeight;
+
+    if (newHeight <= maxHeight) {
+        topPanel.style.height = `${newHeight}px`;
+    }
+});
+
+// Изменение ширины leftPanel
+attachPanelResizer(leftResizer, (e, delta) => {
+    const currentWidth = leftPanel.getBoundingClientRect().width;
+    const newWidth = Math.max(0, currentWidth + delta.x);
+    const maxWidth = mainPanel.offsetWidth - rightPanel.getBoundingClientRect().width;
+
+    if (newWidth <= maxWidth) {
+        leftPanel.style.width = `${newWidth}px`;
+    }
+});
+
+// Изменение ширины rightPanel
+attachPanelResizer(rightResizer, (e, delta) => {
+    const currentWidth = rightPanel.getBoundingClientRect().width;
+    const newWidth = Math.max(0, currentWidth - delta.x);
+    const maxWidth = mainPanel.offsetWidth - leftPanel.getBoundingClientRect().width;
+
+    if (newWidth <= maxWidth) {
+        rightPanel.style.width = `${newWidth}px`;
+    }
+});
+
+// Двойной клик: удаляет только свойство height или width из style
+topResizer?.addEventListener('dblclick', () => {
+    topPanel.style.removeProperty('height');
+    if (window.editorBlock?.updateHighlightPosition) window.editorBlock.updateHighlightPosition();
+});
+
+leftResizer?.addEventListener('dblclick', () => {
+    leftPanel.style.removeProperty('width');
+    if (window.editorBlock?.updateHighlightPosition) window.editorBlock.updateHighlightPosition();
+});
+
+rightResizer?.addEventListener('dblclick', () => {
+    rightPanel.style.removeProperty('width');
+    if (window.editorBlock?.updateHighlightPosition) window.editorBlock.updateHighlightPosition();
+});
+
+});
+
+/* ***
+ * attachPanelResizer - навешивание логики перетаскивания
+ * - принимает элемент разделителя resizer
+ * - принимает функцию обратного вызова onMove
+*** */
+function attachPanelResizer(resizer, onMove) {
+    if (!resizer) return;
+
+    resizer.addEventListener('mousedown', event => {
+        event.preventDefault();
+
+        let startX = event.clientX;
+        let startY = event.clientY;
+
+        const iframes = document.querySelectorAll('iframe');
+        iframes.forEach(iframe => {
+            iframe.style.pointerEvents = 'none';
+        });
+
+        function onMouseMove(e) {
+            const deltaX = e.clientX - startX;
+            const deltaY = e.clientY - startY;
+
+            startX = e.clientX;
+            startY = e.clientY;
+
+            onMove(e, { x: deltaX, y: deltaY });
+
+            if (window.editorBlock && typeof window.editorBlock.updateHighlightPosition === 'function') {
+                window.editorBlock.updateHighlightPosition();
+            }
+        }
+
+        function onMouseUp() {
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+
+            iframes.forEach(iframe => {
+                iframe.style.pointerEvents = 'auto';
+            });
+        }
+
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+    });
+}

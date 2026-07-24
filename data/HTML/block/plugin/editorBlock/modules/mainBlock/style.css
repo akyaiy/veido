@@ -6,7 +6,9 @@
     padding: 0px 5px;
     gap: 5px;
     user-select: none;
-    min-height: 39px;
+    height: 39px;
+    overflow: auto;
+    box-sizing: border-box;
 }
 
 #fileMenu {
@@ -35,6 +37,7 @@
 }
 
 
+
 /* Основная панель */
 #mainPanel {
     display: flex;
@@ -45,8 +48,10 @@
 
 
 /* Левая панель */
-/* #leftPanel {
-} */
+#leftPanel {
+    flex-shrink: 0;
+    overflow: auto;
+}
 
 /* Элементы вставки */
 #insertingElements {
@@ -62,6 +67,7 @@
     min-width: 0;
     border-left: 1px solid #ccc;
     border-right: 1px solid #ccc;
+    overflow: hidden;
 }
 
 #viewBlock {
@@ -77,10 +83,12 @@
 /* Правая панель */
 #rightPanel {
     width: 20%;
+    flex-shrink: 0;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
     height: 100%; 
+    overflow: auto;
 }
 
 #propertiesText,
@@ -97,6 +105,34 @@
     flex: 1;
     overflow-y: auto; 
     min-height: 0;
+}
+
+
+
+/* Разделители панелей */
+#topPanelResizer {
+    height: 2px;
+    width: 100%;
+    cursor: row-resize;
+    background-color: #e0e0e0;
+    z-index: 100;
+    user-select: none;
+}
+
+#leftPanelResizer,
+#rightPanelResizer {
+    width: 2px;
+    height: 100%;
+    cursor: col-resize;
+    background-color: #e0e0e0;
+    z-index: 100;
+    user-select: none;
+}
+
+#topPanelResizer:hover,
+#leftPanelResizer:hover,
+#rightPanelResizer:hover {
+    background-color: #007bff;
 }
 
 
