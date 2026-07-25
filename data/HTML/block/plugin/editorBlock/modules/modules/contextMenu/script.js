@@ -6,9 +6,60 @@ const contextMenu = document.getElementById('contextMenu');
 // Идентификаторы действий, относящихся к работе с таблицами
 const tableActions = ['addLine', 'addColumn', 'deleteLine', 'deleteColumn'];
 
+/* ***
+ * getActiveEditorSelection - получение текущего выделения в активном редакторе
+ * - проверяет наличие глобального объекта редактора и его метода получения выделения
+ * - возвращает объект Selection или null
+*** */
+function getActiveEditorSelection() {
+    if (window.editorBlock && typeof window.editorBlock.getEditorSelection === 'function') {
+        return window.editorBlock.getEditorSelection();
+    }
+    return window.getSelection ? window.getSelection() : null;
+}
 
+/* ***
+ * getActiveEditorDocument - получение документа активного редактора
+ * - проверяет наличие глобального объекта редактора и его метода получения документа
+ * - возвращает объект Document или null
+*** */
+function getActiveEditorDocument() {
+    if (window.editorBlock && typeof window.editorBlock.getEditorDocument === 'function') {
+        return window.editorBlock.getEditorDocument();
+    }
+    return document;
+}
 
 /* === Действия контекстного меню (Хелперы) === */
+
+/* ***
+ * getContextMenuPosition - вычисление координат клика для позиционирования контекстного меню
+ * - принимает объект события event
+ * - учитывает прокрутку страницы и вложенность в iframe
+ * - возвращает объект с координатами { pageX, pageY }
+*** */
+function getContextMenuPosition(event) {
+    let clientX = event.clientX;
+    let clientY = event.clientY;
+
+    // Если событие пришло из iframe
+    if (event.view && event.view !== window && event.view.frameElement) {
+        const iframe = event.view.frameElement;
+        const iframeRect = iframe.getBoundingClientRect();
+
+        // Позиция внутри viewport родительского окна:
+        // Координата внутри iframe + положение самого iframe на основном экране
+        clientX += iframeRect.left;
+        clientY += iframeRect.top;
+    }
+
+    // Прибавляем скролл главного (родительского) окна, так как #contextMenu 
+    // спозиционирован абсолютно в документе верхнего уровня
+    const pageX = clientX + (window.scrollX || window.pageXOffset || 0);
+    const pageY = clientY + (window.scrollY || window.pageYOffset || 0);
+
+    return { pageX, pageY };
+}
 
 /* ***
  * executeCopyAction - копирование outerHTML выбранного элемента в буфер обмена
@@ -17,10 +68,11 @@ const tableActions = ['addLine', 'addColumn', 'deleteLine', 'deleteColumn'];
  * - отдает Promise
 *** */
 async function executeCopyAction() {
-    const selection = window.getSelection();
+    const selection = getActiveEditorSelection();
+    const editorDoc = getActiveEditorDocument();
     if (selection && !selection.isCollapsed) {
         const range = selection.getRangeAt(0);
-        const container = document.createElement('div');
+        const container = editorDoc.createElement('div');
         container.appendChild(range.cloneContents());
 
         const html = container.innerHTML;
@@ -49,10 +101,11 @@ async function executeCopyAction() {
  * - отдает Promise
 *** */
 async function executeCutAction() {
-    const selection = window.getSelection();
+    const selection = getActiveEditorSelection();
+    const editorDoc = getActiveEditorDocument();
     if (selection && !selection.isCollapsed) {
         const range = selection.getRangeAt(0);
-        const container = document.createElement('div');
+        const container = editorDoc.createElement('div');
         container.appendChild(range.cloneContents());
 
         const html = container.innerHTML;
@@ -97,8 +150,8 @@ async function executePasteAction() {
     }
     
     await window.editorBlock.restoreSelection();
-    const activeSelection = window.getSelection();
-    if (!activeSelection.rangeCount) {
+    const activeSelection = getActiveEditorSelection();
+    if (!activeSelection || !activeSelection.rangeCount) {
         return;
     }
     
@@ -121,13 +174,15 @@ async function executePasteAction() {
     const dataBlob = await clipboardItem.getType(targetType);
     let nodesFragment = null;
 
+    const editorDoc = getActiveEditorDocument();
+
     if (targetType.startsWith('image/')) {
         const imageUrl = URL.createObjectURL(dataBlob);
-        nodesFragment = document.createElement('img');
+        nodesFragment = editorDoc.createElement('img');
         nodesFragment.src = imageUrl;
     } else if (targetType === 'text/html' || targetType === 'text/plain') {
         const contentText = await dataBlob.text();
-        nodesFragment = document.createRange().createContextualFragment(contentText);
+        nodesFragment = editorDoc.createRange().createContextualFragment(contentText);
     }
 
     if (nodesFragment) {
@@ -156,7 +211,7 @@ async function executePasteAction() {
  * - отдает null
 *** */
 function executeDeleteAction() {
-    const selection = window.getSelection();
+    const selection = getActiveEditorSelection();
     if (selection && !selection.isCollapsed) {
         const range = selection.getRangeAt(0);
         range.deleteContents();
@@ -305,11 +360,12 @@ function executeAddColumnAction(currentTable, currentCell) {
  * - возвращает либо HTML-строку, либо Element, либо null
 *** */
 function getNewLoadedBlockSource() {
-    const selection = window.getSelection();
+    const selection = getActiveEditorSelection();
+    const editorDoc = getActiveEditorDocument();
     const hasActiveTextSelection = selection && !selection.isCollapsed;
     if (hasActiveTextSelection) {
         const range = selection.getRangeAt(0);
-        const container = document.createElement('div');
+        const container = editorDoc.createElement('div');
         container.appendChild(range.cloneContents());
         return container.innerHTML;
     }
@@ -333,11 +389,12 @@ function getNewLoadedBlockSource() {
  * - отдает null
 *** */
 function handleContextMenu(event) {
-    const windowSelection = window.getSelection();
+    const windowSelection = getActiveEditorSelection();
     const hasActiveTextSelection = windowSelection && !windowSelection.isCollapsed;
     const selectedElement = window.editorBlock ? window.editorBlock.selectedElement : null;
     const selectionAnchorElement = hasActiveTextSelection ? (windowSelection.anchorNode?.nodeType === Node.TEXT_NODE ? windowSelection.anchorNode.parentElement : windowSelection.anchorNode) : null;
-    const activeSelectionElement = selectedElement || selectionAnchorElement || event.target.closest('[contenteditable="true"]');
+    const targetElement = event.target && event.target.nodeType === Node.TEXT_NODE ? event.target.parentElement : event.target;
+    const activeSelectionElement = selectedElement || selectionAnchorElement || (targetElement && targetElement.closest ? targetElement.closest('[contenteditable="true"]') : null);
 
     if (!window.editorBlock || !activeSelectionElement) {
         return;
@@ -345,11 +402,13 @@ function handleContextMenu(event) {
 
     event.preventDefault();
 
-    contextMenu.style.display = 'block';
-    contextMenu.style.top = event.pageY + 5 + 'px';
-    contextMenu.style.left = event.pageX + 5 + 'px';
+    const { pageX, pageY } = getContextMenuPosition(event);
 
-    const targetEditableArea = event.target.closest('[contenteditable="true"]');
+    contextMenu.style.display = 'block';
+    contextMenu.style.top = pageY + 5 + 'px';
+    contextMenu.style.left = pageX + 5 + 'px';
+
+    const targetEditableArea = targetElement && targetElement.closest ? targetElement.closest('[contenteditable="true"]') : null;
     if (!targetEditableArea) {
         contextMenu.style.display = 'none';
         return;
@@ -388,6 +447,7 @@ function handleContextMenu(event) {
         contextMenu.style.display = 'none';
     }
 }
+window.editorBlock.handleContextMenu = handleContextMenu;
 
 /* ***
  * handleMenuHide - базовое сокрытие контекстного меню при интеракциях
@@ -397,6 +457,7 @@ function handleContextMenu(event) {
 function handleMenuHide() {
     contextMenu.style.display = 'none';
 }
+window.editorBlock.handleContextMenu = handleContextMenu;
 
 /* ***
  * handleMenuClick - маршрутизация кликов по пунктам действий контекстного меню
@@ -415,7 +476,7 @@ async function handleMenuClick(event) {
         window.editorBlock.restoreSelection();
     }
 
-    const activeSelection = window.getSelection();
+    const activeSelection = getActiveEditorSelection();
     const hasActiveTextSelection = activeSelection && !activeSelection.isCollapsed;
     const selectedElement = window.editorBlock ? window.editorBlock.selectedElement : null;
     const selectionAnchorElement = hasActiveTextSelection ? (activeSelection.anchorNode?.nodeType === Node.TEXT_NODE ? activeSelection.anchorNode.parentElement : activeSelection.anchorNode) : null;
@@ -474,10 +535,4 @@ async function handleMenuClick(event) {
 }
 
 // Регистрация глобальных слушателей событий
-document.addEventListener('contextmenu', handleContextMenu);
-
-document.addEventListener('click', handleMenuHide);
-document.addEventListener('input', handleMenuHide);
-document.addEventListener('paste', handleMenuHide);
-
 contextMenu.addEventListener('click', handleMenuClick);

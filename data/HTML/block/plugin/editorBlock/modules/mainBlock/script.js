@@ -18,10 +18,10 @@ let currentBlockId = null;
  * - если блок не загружен, загружает новый и создаёт вкладку
 *** */
 async function openBlock(path, initialElement = null) {
-    // Проверка, загружен ли блок
-    const existingBlock = Array.from(blocksContainers.querySelectorAll('div[data-path]')).find(el => el.dataset.path === path);
-    
-    if (path === null) {
+    const resolvedPath = normalizeBlockPath(path || initialElement.getAttribute('data-block-src') || null);
+    const existingBlock = resolvedPath ? Array.from(blocksContainers.querySelectorAll('div[data-path]')).find(el => normalizeBlockPath(el.dataset.path) === resolvedPath) : null;
+
+    if (resolvedPath === null && path === null) {
         // Если путь не указан, открываем пустой блок или блок из элемента
         savePreviousBlock(currentBlockId);
         const blockId = await loadBlockContainer(null, initialElement);
@@ -33,11 +33,20 @@ async function openBlock(path, initialElement = null) {
     } else {
         // Если блок не загружен, сохраняем предыдущий, загружаем новый и создаём вкладку
         savePreviousBlock(currentBlockId);
-        const blockId = await loadBlockContainer(path);
-        addBlockTab(blockId, path);
+        const blockId = await loadBlockContainer(resolvedPath, initialElement);
+        addBlockTab(blockId, resolvedPath);
     }
 }
 window.editorBlock.openBlock = openBlock;
+
+/* ***
+ * getBlockPathById - получение пути блока по его идентификатору
+ * - принимает идентификатор блока
+ * - возвращает путь блока или null, если блок не найден
+*** */
+function normalizeBlockPath(path) {
+    return path ? path.replace(/^\/+/, '') : null;
+}
 
 /* ***
  * loadBlockContainer - загрузка блока в контейнер
@@ -247,6 +256,20 @@ function openLoadedBlock(blockId) {
                 iframeDoc.head.appendChild(scriptEl);
             }
 
+            if (iframeDoc && iframeDoc.body) {
+                const blockLoader = (typeof window.loadBlockAttribute === 'function' && window.loadBlockAttribute)
+                    || (typeof loadBlockAttribute === 'function' && loadBlockAttribute);
+
+                if (blockLoader) {
+                    blockLoader(iframeDoc.body);
+                }
+
+                iframeDoc.body.querySelectorAll('[data-block-src]').forEach(element => {
+                    element.setAttribute('contenteditable', 'false');
+                    element.querySelectorAll('*').forEach(child => child.setAttribute('contenteditable', 'false'));
+                });
+            }
+
             attachIframeSelectionHandlers(iframe);
             if (window.editorBlock && typeof window.editorBlock.attachIframeHistoryEvents === 'function') {
                 window.editorBlock.attachIframeHistoryEvents(iframe);
@@ -275,6 +298,12 @@ function openLoadedBlock(blockId) {
 
             iframeDoc.addEventListener('click', handleVisualEditorClick);
             iframeDoc.addEventListener('contextmenu', handleVisualEditorClick);
+
+            iframeDoc.addEventListener('contextmenu', window.editorBlock.handleContextMenu);
+
+            iframeDoc.addEventListener('click', window.editorBlock.handleMenuHide);
+            iframeDoc.addEventListener('input', window.editorBlock.handleMenuHide);
+            iframeDoc.addEventListener('paste', window.editorBlock.handleMenuHide);
 
             if (viewEditorContent.classList.contains('preview') &&
                 window.editorBlock && typeof window.editorBlock.loadNestedBlocksInPreview === 'function') {
@@ -818,20 +847,25 @@ function handleVisualEditorClick(event) {
 
     let elementToHighlight = target;
 
-    // Проверяем: кликнули ли по уже выделенному элементу или внутрь него
-    if (lastHighlightedElement && (lastHighlightedElement === target || lastHighlightedElement.contains(target))) {
-        const parent = lastHighlightedElement.parentElement;
+    const blockSourceContainer = target && target.closest ? target.closest('[data-block-src]') : null;
+    if (blockSourceContainer) {
+        elementToHighlight = blockSourceContainer;
+    } else {
+        // Проверяем: кликнули ли по уже выделенному элементу или внутрь него
+        if (lastHighlightedElement && (lastHighlightedElement === target || lastHighlightedElement.contains(target))) {
+            const parent = lastHighlightedElement.parentElement;
 
-        // Граница подьема: contenteditable="true", BODY или контейнер редактора
-        const isAtBoundary = !parent || 
-            parent.tagName === 'BODY' || 
-            parent.getAttribute('contenteditable') === 'true' || 
-            parent === viewEditorContent;
+            // Граница подьема: contenteditable="true", BODY или контейнер редактора
+            const isAtBoundary = !parent || 
+                parent.tagName === 'BODY' || 
+                parent.getAttribute('contenteditable') === 'true' || 
+                parent === viewEditorContent;
 
-        if (!isAtBoundary) {
-            elementToHighlight = parent;
-        } else {
-            elementToHighlight = lastHighlightedElement;
+            if (!isAtBoundary) {
+                elementToHighlight = parent;
+            } else {
+                elementToHighlight = lastHighlightedElement;
+            }
         }
     }
 
