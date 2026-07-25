@@ -4,22 +4,22 @@
 
 // Шаблоны элементов для вставки
 const elementsTemplates = [
-    { element: 'div', html: "<div style='border:1px solid #000; display: inline-block;'>[ST]</div>" },
+    { element: 'div', html: "<div style='border:1px solid #ccc; display: inline-block; width: 50%;'>[ST]</div>" },
     { element: 'img', html: "[MENU]" },
     { element: 'a', html: "<a href='[LINK]'>[ST]</a>" },
     { element: 'table', html: '[MENU]' },
-    { element: 'hr', html: "<hr style='height:2px;border:0;background:#000;'>" },
-    { element: 'form', html: "<form style='border:1px solid #000;'>[ST]</form>" },
+    { element: 'hr', html: "<hr style='height:2px;border:0;background:#ccc;'>" },
+    { element: 'form', html: "<form style='border:1px solid #ccc;'>[ST]</form>" },
     { element: 'input', html: "<input placeholder='[ST]'>" },
-    { element: 'textarea', html: "<textarea style='border:1px solid #000;'>[ST]</textarea>" },
+    { element: 'textarea', html: "<textarea style='border:1px solid #ccc;'>[ST]</textarea>" },
     { element: 'select', html: "<select><option>[ST]</option><option>вариант 2</option></select>" },
-    { element: 'code', html: "<code style='border:1px solid #000;'>[ST]</code>" },
+    { element: 'code', html: "<code style='border:1px solid #ccc;'>[ST]</code>" },
     { element: 'figure', html: "<figure><img src='[LINK]'><figcaption>[ST]</figcaption></figure>" },
     { element: 'video', html: "<video src='[LINK]' controls style='max-width:100%;'></video>" },
     { element: 'audio', html: "<audio src='[LINK]' controls></audio>" },
     { element: 'iframe', html: "<iframe src='[LINK]' style='width:100%;height:160px;'></iframe>" },
-    { element: 'button', html: "<button style='border:1px solid #000;'>[ST]</button>" },
-    { element: 'details', html: "<details style='border:1px solid #000;width:160px;'><summary>Заголовок</summary><div>[ST]</div></details>" },
+    { element: 'button', html: "<button style='border:1px solid #ccc;'>[ST]</button>" },
+    { element: 'details', html: "<details style='border:1px solid #ccc;width:160px;'><summary>Заголовок</summary><div>[ST]</div></details>" },
     { element: 'range', html: "<input type='range' min='0' max='100' value='50' style='width:160px;'>" },
     { element: 'progress', html: "<progress value='50' max='100' style='width:160px;'></progress>" },
     { element: 'file', html: "<input type='file'>" }
@@ -757,11 +757,11 @@ async function tableSizeGridClickHandler(event) {
         }
         tableHtml += '</div>';
     } else {
-        tableHtml = '<table style="width: 100%; border-collapse: collapse; border: 1px solid #000;"><tbody>';
+        tableHtml = '<table style="width: 100%; border-collapse: collapse; border: 1px solid #ccc;"><tbody>';
         for (let r = 0; r < rows; r++) {
             tableHtml += '<tr>';
             for (let c = 0; c < cols; c++) {
-                tableHtml += '<td style="border: 1px solid #000;"><br></td>';
+                tableHtml += '<td style="border: 1px solid #ccc;"><br></td>';
             }
             tableHtml += '</tr>';
         }

@@ -1009,13 +1009,28 @@ function getListPropertyValue() {
  * - отдает null
 *** */
 function updateActiveStates() {
+    const hasSelection = Boolean(getSelectedRange() && !getSelectedRange().collapsed);
+
+    const buttons = document.getElementById('editorBlock').querySelectorAll('[data-simpleformats-button]');
+    const selects = document.getElementById('editorBlock').querySelectorAll('.propertiesList');
+
+    buttons.forEach(button => {
+        button.style.display = hasSelection ? '' : 'none';
+    });
+
+    selects.forEach(select => {
+        select.style.display = hasSelection ? '' : 'none';
+    });
+
+    if (!hasSelection) {
+        return null;
+    }
+
     const element = getSelectionParentElement();
 
     if (!element) {
         return null;
     }
-
-    const buttons = document.getElementById('editorBlock').querySelectorAll('[data-simpleformats-button]');
 
     for (const button of buttons) {
         const key = button.getAttribute('data-simpleformats-button');
@@ -1096,8 +1111,6 @@ function updateActiveStates() {
                 break;
         }
     }
-
-    const selects = document.getElementById('editorBlock').querySelectorAll('[data-property-item]');
 
     for (const select of selects) {
         const propertyName = select.getAttribute('data-property-item');

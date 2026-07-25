@@ -457,7 +457,7 @@ window.editorBlock.handleContextMenu = handleContextMenu;
 function handleMenuHide() {
     contextMenu.style.display = 'none';
 }
-window.editorBlock.handleContextMenu = handleContextMenu;
+window.editorBlock.handleMenuHide = handleMenuHide;
 
 /* ***
  * handleMenuClick - маршрутизация кликов по пунктам действий контекстного меню

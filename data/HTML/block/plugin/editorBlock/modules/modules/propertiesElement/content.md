@@ -31,7 +31,7 @@
     <div class="col center"><input data-prop="marginTop" placeholder="Сверху"><input data-prop="marginBottom" placeholder="Снизу"></div>
     <div class="col right"><input data-prop="marginRight" placeholder="Справа"></div>
 </div></div>
-<div data-target="all">Отступы от границ: <div class="paddingGrid">
+<div data-target="all">Внутренние отступы: <div class="paddingGrid">
     <div class="col left"><input data-prop="paddingLeft" placeholder="Слева"></div>
     <div class="col center"><input data-prop="paddingTop" placeholder="Сверху"><input data-prop="paddingBottom" placeholder="Снизу"></div>
     <div class="col right"><input data-prop="paddingRight" placeholder="Справа"></div>
@@ -48,7 +48,7 @@
 <div data-target="img a figure video audio iframe">Ссылка: <input type="text" data-prop="link"></div>
 
 <div data-target="all">Фон: <input type="color" data-prop="backgroundColor"><br></div>
-<div data-target="all">Граница: <input type="color" data-prop="borderColor">
+<div data-target="all">Рамка: <input type="color" data-prop="borderColor">
     <select data-prop="borderWidth">
         <option value="">По умолчанию</option>
         <option value="1">1</option>

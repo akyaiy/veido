@@ -1,185 +1,101 @@
-<div id="page" class="page" data-block="main" data-version="1">
-    <header class="header" id="mainHeader" data-section="header">
-        <div class="headerInner" data-container="true">
-            <div class="logoBox" title="Логотип сайта">
-                <span class="logoText" data-name="logo">
-                    <b>Trigger</b>
-                    <i>Smith</i>
-                </span>
-            </div>
-            <nav class="menu" role="navigation" aria-label="Главное меню">
-                <span href="#" class="menuLink" data-page="home" title="Главная страница">
-                    <span>Главная</span>
-                </span>
-                <span href="#" class="menuLink active" data-page="documents" aria-current="page">
-                    <strong>Документы</strong>
-                </span>
-                <span href="#" class="menuLink" data-page="settings">
-                    <span style="color:red;font-weight:bold;" title="Настройки пользователя">
-                        Настройки
-                    </span>
-                </span>
-            </nav>
-        </div>
+<div class="page">
+    <header>
+        <img src="logo.png" alt="Логотип">
+        <nav>
+            <a href="#">Главная</a>
+            <a href="#">О нас</a>
+            <a href="#">Услуги</a>
+            <a href="#">Контакты</a>
+        </nav>
     </header>
-    <main class="main" id="content" data-layout="main">
-        <section class="hero" id="heroBlock" data-type="section">
-            <div class="heroContent">
-                <h1 class="heroTitle" title="Главный заголовок">
-                    Создание
-                    <span class="blue" data-color="blue">
-                        <b>сложного</b>
-                    </span>
-                    HTML
-                    <span style="color:red;" data-color="red">
-                        редактора
-                    </span>
-                </h1>
-                <p class="heroText" data-text="description">
-                    Текст
-                    <strong>
-                        жирный
-                        <em>
-                            курсив
-                            <u>
-                                подчеркнутый
-                            </u>
-                        </em>
-                    </strong>
-                    <span class="highlight" data-highlight="true">
-                        выделение
-                    </span>
-                </p>
+    <main>
+        <section class="hero">
+            <h1>Название сайта</h1>
+            <p>Краткое описание страницы с текстом для проверки форматирования.</p>
+            <button>Подробнее</button>
+        </section>
+        <section class="grid">
+            <div class="card">
+                <img src="image1.jpg" alt="Изображение">
+                <h2>Блок 1</h2>
+                <p>Описание первого блока.</p>
+                <ul>
+                    <li>Первый пункт</li>
+                    <li>Второй пункт</li>
+                    <li>Третий пункт</li>
+                </ul>
+                <button>Открыть</button>
+            </div>
+            <div class="card">
+                <h2>Блок 2</h2>
+                <ol>
+                    <li>Шаг первый</li>
+                    <li>Шаг второй</li>
+                    <li>Шаг третий</li>
+                </ol>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Название</th>
+                            <th>Количество</th>
+                            <th>Статус</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Элемент 1</td>
+                            <td>10</td>
+                            <td>Активен</td>
+                        </tr>
+                        <tr>
+                            <td>Элемент 2</td>
+                            <td>5</td>
+                            <td>Новый</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="card">
+                <h2>Блок 3</h2>
+                <form>
+                    <label>Имя:
+                        <input type="text">
+                    </label>
+                    <label>Email:
+                        <input type="email">
+                    </label>
+                    <label>Категория:
+                        <select>
+                            <option>Первый вариант</option>
+                            <option>Второй вариант</option>
+                        </select>
+                    </label>
+                    <label>Сообщение:
+                        <textarea></textarea>
+                    </label>
+                    <input type="checkbox">
+                    Согласен
+                    <button type="submit">Отправить</button>
+                </form>
             </div>
         </section>
+        <section>
+            <h2>Дополнительная информация</h2>
+            <details>
+                <summary>Подробнее</summary>
+                <p>Скрытый текст внутри details.</p>
+            </details>
+            <figure>
+                <img src="photo.jpg" alt="Фото">
+                <figcaption>Подпись изображения</figcaption>
+            </figure>
+            <video controls>
+                <source src="video.mp4">
+            </video>
+        </section>
     </main>
+    <footer>
+        <p>Контакты: example@mail.com</p>
+        <a href="#">Политика конфиденциальности</a>
+    </footer>
 </div>
-
-<div id="testBlock2">
-    <div id="testBlock" class="box card active large333" data-type="example" data-state="open" title="Тестовый блок" aria-label="Пример элемента">
-        Текстовый блок
-    </div>
-</div>
-
-<section class="tableSection" id="tableBlock" data-component="table">
-    <div class="tableWrapper">
-        <div class="tableTitle" title="Название таблицы">
-            Таблица данных
-        </div>
-        <table class="dataTable" border="1" data-table="users">
-            <thead>
-                <tr data-row="header">
-                    <th scope="col">
-                        <span>
-                            Название
-                        </span>
-                    </th>
-                    <th scope="col">
-                        <span class="blue">
-                            Тип
-                        </span>
-                    </th>
-                    <th scope="col">
-                        <span style="color:red;font-weight:bold;">
-                            Статус
-                        </span>
-                    </th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr class="tableRow" data-id="1">
-                    <td>
-                        <div class="cell">
-                            <span>
-                                HTML
-                            </span>
-                            <b>
-                                блок
-                            </b>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="cell">
-                            <span class="tag" data-tag="section">
-                                section
-                            </span>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="status success" data-status="active">
-                            <strong>
-                                Активен
-                            </strong>
-                        </div>
-                    </td>
-                </tr>
-                <tr class="tableRow" data-id="2">
-                    <td>
-                        <div class="cell">
-                            <span>
-                                CSS
-                                <i>
-                                    стиль
-                                </i>
-                            </span>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="cell">
-                            <span data-type="class">
-                                class
-                                <b>
-                                    selector
-                                </b>
-                            </span>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="status warning" style="font-weight:bold;" data-status="waiting">
-                            <span>
-                                Ожидание
-                            </span>
-                        </div>
-                    </td>
-                </tr>
-                <tr class="tableRow" data-id="3">
-                    <td>
-                        <div class="cell">
-                            <span>
-                                JavaScript
-                            </span>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="cell">
-                            <code data-language="javascript">
-                                function()
-                            </code>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="status error" data-status="error">
-                            <span>
-                                Ошибка
-                            </span>
-                        </div>
-                    </td>
-                </tr>
-            </tbody>
-            <tfoot>
-                <tr>
-                    <td colspan="3">
-                        <div class="tableFooter" data-total="3">
-                            <span>
-                                Всего элементов:
-                            </span>
-                            <b>
-                                3
-                            </b>
-                        </div>
-                    </td>
-                </tr>
-            </tfoot>
-        </table>
-    </div>
-</section>

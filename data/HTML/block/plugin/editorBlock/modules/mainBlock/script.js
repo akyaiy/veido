@@ -18,7 +18,7 @@ let currentBlockId = null;
  * - если блок не загружен, загружает новый и создаёт вкладку
 *** */
 async function openBlock(path, initialElement = null) {
-    const resolvedPath = normalizeBlockPath(path || initialElement.getAttribute('data-block-src') || null);
+    const resolvedPath = normalizeBlockPath(path || (initialElement ? initialElement.getAttribute('data-block-src') : null));
     const existingBlock = resolvedPath ? Array.from(blocksContainers.querySelectorAll('div[data-path]')).find(el => normalizeBlockPath(el.dataset.path) === resolvedPath) : null;
 
     if (resolvedPath === null && path === null) {
@@ -83,15 +83,23 @@ async function loadBlockContainer(path, initialElement = null) {
     block.appendChild(cssDiv);
     block.appendChild(jsDiv);
 
+    // Убеждаемся, что получаем правильный конструктор Element даже из iframe
+    const isElementNode = initialElement && (
+        (initialElement.ownerDocument && initialElement instanceof initialElement.ownerDocument.defaultView.Element) ||
+        initialElement.nodeType === Node.ELEMENT_NODE
+    );
+
+    const isFragmentNode = initialElement && initialElement.nodeType === Node.DOCUMENT_FRAGMENT_NODE;
+
     if (path !== null) {
         // Загрузка содержимого блока как текст
         await loadBlock(path, htmlDiv.id, true);
-    } else if (initialElement instanceof Element) {
-        // Открываем новый блок из переданного DOM-элемента
+    } else if (isElementNode) {
+        // Открываем новый блок из переданного DOM-элемента (учитывая элементы из iframe)
         htmlDiv.textContent = initialElement.outerHTML;
         cssDiv.textContent = '';
         jsDiv.textContent = '';
-    } else if (initialElement instanceof DocumentFragment || (initialElement && initialElement.nodeType === Node.DOCUMENT_FRAGMENT_NODE)) {
+    } else if (isFragmentNode) {
         // Открываем новый блок из переданного фрагмента HTML
         const tempDiv = document.createElement('div');
         tempDiv.appendChild(initialElement.cloneNode(true));
@@ -104,7 +112,7 @@ async function loadBlockContainer(path, initialElement = null) {
         cssDiv.textContent = '';
         jsDiv.textContent = '';
     } else {
-        // Если путь не указан, создаём пустой текстовый блок
+        // Если путь не указан и элемент не передан, создаём пустой текстовый блок
         htmlDiv.textContent = '';
         cssDiv.textContent = '';
         jsDiv.textContent = '';
@@ -193,7 +201,10 @@ function closeBlockTab(blockId) {
         const viewEditorContent = document.getElementById('viewEditorContent');
         const mdEditorContent = document.getElementById('mdEditorContent');
         const jsEditorContent = document.getElementById('jsEditorContent');
-        if (viewEditorContent) viewEditorContent.innerHTML = '';
+        if (viewEditorContent) {
+            viewEditorContent.innerHTML = '';
+            showViewEditorEmptyState();
+        }
         if (mdEditorContent) mdEditorContent.textContent = '';
         if (jsEditorContent) jsEditorContent.innerHTML = '';
     }
@@ -231,6 +242,7 @@ function openLoadedBlock(blockId) {
     // Вставка содержимого в редакторы
     if (viewEditorContent) {
         viewEditorContent.innerHTML = '';
+        showViewEditorEmptyState();
 
         const iframe = document.createElement('iframe');
         iframe.id = 'viewEditorIframe';
@@ -257,6 +269,8 @@ function openLoadedBlock(blockId) {
             }
 
             if (iframeDoc && iframeDoc.body) {
+                showViewEditorEmptyState();
+
                 const blockLoader = (typeof window.loadBlockAttribute === 'function' && window.loadBlockAttribute)
                     || (typeof loadBlockAttribute === 'function' && loadBlockAttribute);
 
@@ -284,6 +298,7 @@ function openLoadedBlock(blockId) {
 
             inputTarget.addEventListener('input', () => {
                 syncEditors();
+                showViewEditorEmptyState();
             });
 
             iframeDoc.addEventListener('mousedown', (event) => {
@@ -336,6 +351,41 @@ document.addEventListener('editorBlock:openLoadedBlock', () => {
         openLoadedBlock(currentBlockId);
     }
 });
+
+/* ***
+ * showViewEditorEmptyState - показать пустое состояние визуального редактора
+ * - отображает подсказку, если активного блока нет и в iframe нет содержимого
+ * - скрывает подсказку, как только контент появился
+*** */
+function showViewEditorEmptyState() {
+    const viewEditorContent = document.getElementById('viewEditorContent');
+    if (!viewEditorContent) {
+        return;
+    }
+
+    const iframe = viewEditorContent.querySelector('iframe');
+    const iframeDoc = iframe ? (iframe.contentDocument || iframe.contentWindow?.document) : null;
+    const iframeBody = iframeDoc ? iframeDoc.body : null;
+    const htmlContent = iframeBody ? iframeBody.innerHTML : '';
+    const hasActualContent = Boolean(htmlContent && htmlContent.trim().replace(/<(br|hr)\s*\/?>/gi, '').trim());
+
+    if (!hasActualContent && !currentBlockId) {
+        if (!document.getElementById('viewEditorEmptyState')) {
+            const emptyState = document.createElement('div');
+            emptyState.id = 'viewEditorEmptyState';
+            emptyState.textContent = 'Откройте или создайте редактируемый блок';
+            viewEditorContent.style.position = 'relative';
+            viewEditorContent.appendChild(emptyState);
+        }
+        return;
+    }
+
+    const emptyState = document.getElementById('viewEditorEmptyState');
+    if (emptyState) {
+        emptyState.remove();
+    }
+}
+
 
 /* ***
  * savePreviousBlock - сохранение содержимого предыдущего блока
