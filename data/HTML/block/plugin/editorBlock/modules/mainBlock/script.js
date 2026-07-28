@@ -313,6 +313,8 @@ function openLoadedBlock(blockId) {
 
             iframeDoc.addEventListener('click', handleVisualEditorClick);
             iframeDoc.addEventListener('contextmenu', handleVisualEditorClick);
+            iframeDoc.addEventListener('mouseover', handleVisualEditorHover);
+            iframeDoc.addEventListener('mouseout', handleVisualEditorMouseOut);
 
             iframeDoc.addEventListener('contextmenu', window.editorBlock.handleContextMenu);
 
@@ -681,6 +683,9 @@ let textSelectionRangeBeforeClick = null;
 // Вспомогательная переменная для хранения ссылки на overlay выделения
 let highlightOverlay = null;
 
+// Вспомогательная переменная для хранения ссылки на hover overlay
+let hoverHighlightOverlay = null;
+
 // Сохранение выделенного элемента в глобальном объекте
 window.editorBlock.selectedElement = null;
 
@@ -716,6 +721,11 @@ function clearElementHighlight() {
     if (highlightOverlay) {
         highlightOverlay.remove();
         highlightOverlay = null;
+    }
+
+    if (hoverHighlightOverlay) {
+        hoverHighlightOverlay.remove();
+        hoverHighlightOverlay = null;
     }
 
     // Восстановление оригинального outline, если он был сохранен
@@ -826,6 +836,54 @@ function highlightElement(element) {
 }
 
 /* ***
+ * clearHoverHighlight - удаление подсветки при наведении
+ * - удаляет overlay подсветки при наведении
+*** */
+function clearHoverHighlight() {
+    if (hoverHighlightOverlay) {
+        hoverHighlightOverlay.remove();
+        hoverHighlightOverlay = null;
+    }
+}
+
+/* ***
+ * highlightHoverElement - подсветка элемента при наведении
+ * - создаёт рамку внутри документа элемента при наведении
+ * - удаляет предыдущую подсветку
+*** */
+function highlightHoverElement(element) {
+    if (!element || element === activeSelectedElement) {
+        return null;
+    }
+
+    clearHoverHighlight();
+
+    const documentRoot = element.ownerDocument;
+    const win = documentRoot ? documentRoot.defaultView : window;
+    const rect = element.getBoundingClientRect();
+
+    const overlay = documentRoot.createElement('div');
+    overlay.className = 'elementHighlight hoverHighlight';
+
+    Object.assign(overlay.style, {
+        position: 'absolute',
+        left: `${rect.left + win.scrollX - 1}px`,
+        top: `${rect.top + win.scrollY - 1}px`,
+        width: `${rect.width}px`,
+        height: `${rect.height}px`,
+        border: '1px solid #007bff',
+        opacity: '0.4',
+        pointerEvents: 'none',
+        zIndex: '9998'
+    });
+
+    documentRoot.documentElement.appendChild(overlay);
+    hoverHighlightOverlay = overlay;
+
+    return null;
+}
+
+/* ***
  * isInsideIframeBody - проверка, находится ли элемент внутри body iframe
  * - принимает DOM-элемент target
  * - возвращает true, если элемент является частью тела iframe
@@ -900,28 +958,66 @@ function handleVisualEditorClick(event) {
     const blockSourceContainer = target && target.closest ? target.closest('[data-block-src]') : null;
     if (blockSourceContainer) {
         elementToHighlight = blockSourceContainer;
-    } else {
-        // Проверяем: кликнули ли по уже выделенному элементу или внутрь него
-        if (lastHighlightedElement && (lastHighlightedElement === target || lastHighlightedElement.contains(target))) {
-            const parent = lastHighlightedElement.parentElement;
-
-            // Граница подьема: contenteditable="true", BODY или контейнер редактора
-            const isAtBoundary = !parent || 
-                parent.tagName === 'BODY' || 
-                parent.getAttribute('contenteditable') === 'true' || 
-                parent === viewEditorContent;
-
-            if (!isAtBoundary) {
-                elementToHighlight = parent;
-            } else {
-                elementToHighlight = lastHighlightedElement;
-            }
-        }
     }
 
     // Сохраняем текущий выбранный элемент и выделяем его
     lastHighlightedElement = elementToHighlight;
     highlightElement(elementToHighlight);
+
+    return null;
+}
+
+/* ***
+ * handleVisualEditorHover - обработка наведения мыши в визуальном редакторе
+ * - принимает объект события наведения event
+ * - подсвечивает элемент при наведении, если он не является активным выделенным элементом
+ * - отдает null
+*** */
+function handleVisualEditorHover(event) {
+    const target = event.target;
+    const viewEditorContent = document.getElementById('viewEditorContent');
+
+    if (!viewEditorContent || !target || viewEditorContent.classList.contains('preview')) {
+        return null;
+    }
+
+    if (target === viewEditorContent || !isInsideIframeBody(target)) {
+        clearHoverHighlight();
+        return null;
+    }
+
+    const hoverTarget = target.nodeType === Node.TEXT_NODE ? target.parentElement : target;
+    const blockSourceContainer = hoverTarget && hoverTarget.closest ? hoverTarget.closest('[data-block-src]') : null;
+    const elementToHover = blockSourceContainer || hoverTarget;
+
+    if (!elementToHover || elementToHover === activeSelectedElement) {
+        clearHoverHighlight();
+        return null;
+    }
+
+    highlightHoverElement(elementToHover);
+    return null;
+}
+
+/* ***
+ * handleVisualEditorMouseOut - обработка ухода мыши из визуального редактора
+ * - принимает объект события ухода мыши event
+ * - снимает подсветку при уходе мыши за пределы редактора или iframe body
+ * - отдает null
+*** */
+function handleVisualEditorMouseOut(event) {
+    const relatedTarget = event.relatedTarget;
+    const viewEditorContent = document.getElementById('viewEditorContent');
+
+    if (!viewEditorContent || !relatedTarget || viewEditorContent.classList.contains('preview')) {
+        clearHoverHighlight();
+        return null;
+    }
+
+    if (relatedTarget === viewEditorContent || !isInsideIframeBody(relatedTarget)) {
+        clearHoverHighlight();
+        return null;
+    }
 
     return null;
 }
