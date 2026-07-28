@@ -1384,3 +1384,245 @@ function attachPanelResizer(resizer, onMove) {
         document.addEventListener('mouseup', onMouseUp);
     });
 }
+
+
+
+/* ===
+ * Селективное преобразование HTML в Markdown через DOM-дерево
+=== */
+
+// Список сложных HTML-тегов, которые должны оставаться как HTML без изменений
+const complexHtmlTags = new Set([
+    'DIV',
+    'TABLE',
+    'THEAD',
+    'TBODY',
+    'TR',
+    'TD',
+    'TH',
+    'BUTTON',
+    'FORM',
+    'INPUT',
+    'SELECT',
+    'TEXTAREA',
+    'SECTION',
+    'ARTICLE',
+    'HEADER',
+    'FOOTER',
+    'NAV',
+    'MAIN',
+    'ASIDE',
+    'FIGURE',
+    'FIGCAPTION',
+    'CODE',
+    'PRE',
+    'VIDEO',
+    'AUDIO',
+    'CANVAS',
+    'SVG',
+    'IFRAME',
+    'OBJECT',
+    'EMBED',
+    'PARAM',
+    'SOURCE',
+    'TRACK'
+]);
+
+/* ***
+ * isComplexElement - проверка, является ли элемент сложным HTML-блоком
+ * - принимает DOM-узел element
+ * - проверяет тег на соответствие списку сложных тегов
+ * - проверяет наличие классов или сложных атрибутов
+ * - возвращает true, если элемент нужно оставить в HTML
+*** */
+function isComplexElement(element) {
+    if (!element || element.nodeType !== Node.ELEMENT_NODE) {
+        return false;
+    }
+
+    const tagName = element.tagName.toUpperCase();
+
+    if (complexHtmlTags.has(tagName)) {
+        return true;
+    }
+
+    if (element.classList && element.classList.length > 0) {
+        return true;
+    }
+
+    return false;
+}
+
+/* ***
+ * parseDomNodeToMd - рекурсивное преобразование узла DOM в Markdown или HTML
+ * - принимает DOM-узел node
+ * - принимает уровень вложенности списка depth
+ * - обходит дочерние элементы
+ * - конвертирует поддерживаемые элементы в Markdown
+ * - возвращает сгенерированную строку
+*** */
+function parseDomNodeToMd(node, depth = 0) {
+    if (!node) {
+        return '';
+    }
+
+    // Текстовые узлы
+    if (node.nodeType === Node.TEXT_NODE) {
+        if (!node.textContent.trim()) {
+            return '';
+        }
+
+        return node.textContent;
+    }
+
+    // Обрабатываем только узлы элементов
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+        return '';
+    }
+
+    // Если узел является сложной структурой, оставляем его чистым HTML
+    if (isComplexElement(node)) {
+        return `\n\n${node.outerHTML}\n\n`;
+    }
+
+    const tagName = node.tagName.toUpperCase();
+
+    // Рекурсивный обход детей
+    let childrenContent = '';
+
+    for (const child of node.childNodes) {
+        const nextDepth = (tagName === 'UL' || tagName === 'OL') ? depth + 1 : depth;
+
+        childrenContent += parseDomNodeToMd(child, nextDepth);
+    }
+
+    const trimmedChildren = childrenContent.trim();
+
+    switch (tagName) {
+        case 'H1':
+            return `# ${trimmedChildren}\n\n`;
+
+        case 'H2':
+            return `## ${trimmedChildren}\n\n`;
+
+        case 'H3':
+            return `### ${trimmedChildren}\n\n`;
+
+        case 'H4':
+            return `#### ${trimmedChildren}\n\n`;
+
+        case 'H5':
+            return `##### ${trimmedChildren}\n\n`;
+
+        case 'H6':
+            return `###### ${trimmedChildren}\n\n`;
+
+        case 'P':
+            return `${trimmedChildren}\n\n`;
+
+        case 'STRONG':
+        case 'B':
+            return `**${trimmedChildren}**`;
+
+        case 'EM':
+        case 'I':
+            return `*${trimmedChildren}*`;
+
+        case 'A': {
+            const href = node.getAttribute('href') || '';
+
+            return `[${trimmedChildren}](${href})`;
+        }
+
+        case 'IMG': {
+            const src = node.getAttribute('src') || '';
+            const alt = node.getAttribute('alt') || '';
+
+            return `![${alt}](${src})\n\n`;
+        }
+
+        case 'UL':
+        case 'OL':
+            return `${childrenContent}\n`;
+
+        case 'LI': {
+            let itemText = '';
+            let nestedLists = '';
+
+            // Разделяем текст элемента и вложенные списки
+            for (const child of node.childNodes) {
+                const childTag = child.nodeType === Node.ELEMENT_NODE
+                    ? child.tagName.toUpperCase()
+                    : '';
+
+                if (childTag === 'UL' || childTag === 'OL') {
+                    nestedLists += parseDomNodeToMd(child, depth);
+                } else {
+                    itemText += parseDomNodeToMd(child, depth);
+                }
+            }
+
+            const indent = '    '.repeat(Math.max(0, depth - 1));
+            const cleanItemText = itemText.replace(/\s+/g, ' ').trim();
+
+            return `${indent}- ${cleanItemText}\n${nestedLists}`;
+        }
+
+        case 'BLOCKQUOTE':
+            return `> ${trimmedChildren}\n\n`;
+
+        case 'BR':
+            return '\n';
+
+        default:
+            return childrenContent;
+    }
+}
+
+/* ***
+ * cleanMixedContent - очистка и нормализация строк
+ * - принимает преобразованный текст
+ * - убирает избыточные пустые строки
+ * - возвращает результирующий Markdown
+*** */
+function cleanMixedContent(text) {
+    if (!text) {
+        return '';
+    }
+
+    let cleanText = text;
+
+    // Замена 3 и более переносов подряд на 2 переноса (одна пустая строка между блоками)
+    cleanText = cleanText.replace(/\n{3,}/g, '\n\n');
+
+    return cleanText.trim();
+}
+
+/* ***
+ * convertHtmlToMd - главная функция избирательного преобразования HTML в MD
+ * - принимает строку с HTML-содержимым
+ * - парсит документ через DOMParser
+ * - конвертирует поддерживаемые элементы в Markdown
+ * - сохраняет сложные структуры (div, table и др.) как HTML
+*** */
+function convertHtmlToMd(htmlString) {
+    if (!htmlString) {
+        return '';
+    }
+
+    const parser = new DOMParser();
+    const parsedDoc = parser.parseFromString(htmlString, 'text/html');
+    const body = parsedDoc.body;
+
+    let markdownResult = '';
+
+    for (const child of body.childNodes) {
+        markdownResult += parseDomNodeToMd(child, 0);
+    }
+
+    markdownResult = cleanMixedContent(markdownResult);
+
+    return markdownResult;
+}
+
+window.editorBlock.convertHtmlToMd = convertHtmlToMd;

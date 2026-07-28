@@ -6,6 +6,7 @@
  * switchEditor - переключение между режимами редактора
  * - скрывает неактивные редакторы
  * - показывает выбранный редактор
+ * - преобразует HTML в Markdown при открытии mdEditor
 *** */
 function switchEditor(editorId) {
     const editors = [
@@ -13,6 +14,7 @@ function switchEditor(editorId) {
         'mdEditor',
         'jsEditor'
     ];
+    const currentActiveEditor = document.querySelector('#viewBlock > .active');
 
     // Переключение отображения редакторов
     for (const id of editors) {
@@ -27,6 +29,16 @@ function switchEditor(editorId) {
             editor.style.display = 'none';
             editor.classList.remove('active');
             if (button) button.classList.remove('active');
+        }
+    }
+
+    if (editorId === 'mdEditor') {
+        const mdEditorContent = document.getElementById('mdEditorContent');
+        const iframe = document.querySelector('#viewEditorContent iframe');
+        const html = iframe.contentDocument.body.innerHTML || '';
+
+        if (mdEditorContent && window.editorBlock.convertHtmlToMd) {
+            mdEditorContent.textContent = window.editorBlock.convertHtmlToMd(html);
         }
     }
 }
