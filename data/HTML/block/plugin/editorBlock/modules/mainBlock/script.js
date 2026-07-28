@@ -490,14 +490,19 @@ function focusEditor(editorContent) {
         return;
     }
 
-    // Если внутри редактора уже есть активное выделение, не сбрасываем его
+    const iframe = editorContent.querySelector('iframe');
+
+    if (iframe) {
+        iframe.contentWindow.focus();
+        return;
+    }
+
     const selection = window.getSelection();
     if (selection && !selection.isCollapsed &&
         (editorContent.contains(selection.anchorNode) || editorContent.contains(selection.focusNode))) {
         return;
     }
 
-    // Устанавливаем фокус в содержимом редактора
     editorContent.focus();
 
     const range = document.createRange();
@@ -1227,10 +1232,14 @@ function setEditorReadOnlyState(readOnly) {
             return;
         }
 
-        const editableValue = readOnly
+        /* const editableValue = readOnly
             ? 'false'
-            : (id === 'viewEditorContent' ? 'true' : 'plaintext-only');
+            : (id === 'viewEditorContent' ? 'true' : 'plaintext-only'); */
+        if (id === 'viewEditorContent') {
+            return;
+        }
 
+        const editableValue = readOnly ? 'false' : 'plaintext-only';
         editor.setAttribute('contenteditable', editableValue);
     });
 

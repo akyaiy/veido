@@ -26,7 +26,7 @@ function setPreviewEditorReadOnly(readOnly) {
     const jsEditorContent = document.getElementById('jsEditorContent');
 
     if (viewEditorContent) {
-        viewEditorContent.setAttribute('contenteditable', readOnly ? 'false' : 'true');
+        // viewEditorContent.setAttribute('contenteditable', readOnly ? 'false' : 'true');
     }
     if (mdEditorContent) {
         mdEditorContent.setAttribute('contenteditable', readOnly ? 'false' : 'plaintext-only');
