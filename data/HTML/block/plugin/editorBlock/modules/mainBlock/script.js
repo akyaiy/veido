@@ -321,6 +321,9 @@ function openLoadedBlock(blockId) {
             iframeDoc.addEventListener('click', window.editorBlock.handleMenuHide);
             iframeDoc.addEventListener('input', window.editorBlock.handleMenuHide);
             iframeDoc.addEventListener('paste', window.editorBlock.handleMenuHide);
+            
+            iframeDoc.addEventListener('mousedown', window.editorBlock.handleMenuHide);
+            iframeDoc.addEventListener('click', window.editorBlock.hideElementMenu);
 
             if (viewEditorContent.classList.contains('preview') &&
                 window.editorBlock && typeof window.editorBlock.loadNestedBlocksInPreview === 'function') {

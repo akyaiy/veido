@@ -658,6 +658,7 @@ function hideElementMenu(event) {
         document.querySelectorAll('.elementMenu').forEach(el => el.style.display = 'none');
     }
 }
+window.editorBlock.hideElementMenu = hideElementMenu;
 
 // Закрываем открытые меню при клике в любое другое место документа
 document.addEventListener('click', hideElementMenu);

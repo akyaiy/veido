@@ -47,6 +47,8 @@ const colorPickerContainer = document.getElementById('colorPicker');
 let colorPickerCallback = null;
 let colorPickerAnchor = null;
 let colorPickerDocumentListener = null;
+let colorPickerEditorDocument = null;
+let colorPickerEditorDocumentListener = null;
 
 /* ***
  * positionColorPicker - позиционирование контейнера Color Picker относительно якорного элемента
@@ -347,6 +349,12 @@ function closeColorPicker(saveHistory = true) {
         colorPickerDocumentListener = null;
     }
 
+    if (colorPickerEditorDocumentListener && colorPickerEditorDocument) {
+        colorPickerEditorDocument.removeEventListener('mousedown', colorPickerEditorDocumentListener, true);
+        colorPickerEditorDocumentListener = null;
+        colorPickerEditorDocument = null;
+    }
+
     if (saveHistory && window.editorBlock && typeof window.editorBlock.saveHistoryState === 'function') {
         window.editorBlock.saveHistoryState();
     }
@@ -374,6 +382,23 @@ function openColorPicker(options = {}) {
     if (!colorPickerDocumentListener) {
         colorPickerDocumentListener = handleDocumentMouseDown;
         document.addEventListener('mousedown', colorPickerDocumentListener, true);
+    }
+
+    const editorDocument = window.editorBlock && typeof window.editorBlock.getEditorDocument === 'function'
+        ? window.editorBlock.getEditorDocument()
+        : null;
+
+    if (editorDocument && editorDocument !== document) {
+        if (colorPickerEditorDocumentListener && colorPickerEditorDocument && colorPickerEditorDocument !== editorDocument) {
+            colorPickerEditorDocument.removeEventListener('mousedown', colorPickerEditorDocumentListener, true);
+        }
+
+        if (!colorPickerEditorDocumentListener) {
+            colorPickerEditorDocumentListener = handleDocumentMouseDown;
+        }
+
+        colorPickerEditorDocument = editorDocument;
+        colorPickerEditorDocument.addEventListener('mousedown', colorPickerEditorDocumentListener, true);
     }
 
     return true;

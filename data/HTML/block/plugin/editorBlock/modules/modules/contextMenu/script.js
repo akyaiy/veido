@@ -536,3 +536,8 @@ async function handleMenuClick(event) {
 
 // Регистрация глобальных слушателей событий
 contextMenu.addEventListener('click', handleMenuClick);
+document.addEventListener('mousedown', event => {
+    if (!contextMenu.contains(event.target)) {
+        handleMenuHide();
+    }
+});
