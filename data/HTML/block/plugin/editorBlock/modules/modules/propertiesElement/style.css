@@ -1,20 +1,72 @@
+/* Стили для блока свойств */
+#propertiesElement [data-target]:not(:has(input[type="checkbox"])) {
+    display: flex;
+    flex-direction: column;
+}
+
+.borderSettings {
+    width: fit-content;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 5px;
+}
+.borderSettings div {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Стили для вкладок */
+.propertiesTabContent {
+    height: 0;
+    display: none;
+    padding: 7px;
+    overflow: auto;
+}
+.propertiesTabContent.active {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.propertiesTabsHeader {
+    display: flex;
+    width: 100%;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    font-size: 0.9em;
+}
+
+.propertiesTabBtn {
+    flex: 1 0 auto;
+    padding: 5px 7px;
+    cursor: pointer;
+    border-right: 1px solid #ccc;
+    border-bottom: 1px solid #ccc;
+    text-align: center;
+    white-space: nowrap;
+}
+
+
+
 /* Выравнивание по 4 сторонам */
 .marginGrid,
 .paddingGrid {
     display: flex;
     align-items: center;
+    min-width: 0;
 }
 
 .marginGrid .left,
 .paddingGrid .left,
 .marginGrid .right,
-.paddingGrid .right {
-    flex: 1;
+.paddingGrid .right,
+.marginGrid .center,
+.paddingGrid .center {
+    min-width: 0;
 }
 
 .marginGrid .center,
 .paddingGrid .center {
-    flex: 1;
     display: flex;
     flex-direction: column;
 }
@@ -22,5 +74,7 @@
 .marginGrid input,
 .paddingGrid input {
     width: 100%;
+    max-width: 226px;
+    min-width: 0;
     box-sizing: border-box;
 }

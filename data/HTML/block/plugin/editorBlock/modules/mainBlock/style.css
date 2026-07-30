@@ -88,7 +88,6 @@
     display: flex;
     flex-direction: column;
     height: 100%; 
-    overflow: auto;
 }
 
 #propertiesText,
@@ -103,10 +102,12 @@
     box-sizing: border-box;
     width: 100%;
     flex: 1;
-    overflow-y: auto; 
+    overflow: auto;
     min-height: 0;
 }
-
+#propertiesElement {
+    padding: 0px;
+}
 
 
 /* Разделители панелей */
