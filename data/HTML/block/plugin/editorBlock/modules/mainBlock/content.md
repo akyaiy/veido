@@ -28,6 +28,7 @@
     <div id="rightPanelTabs"></div>
     <div id="propertiesText"></div>
     <div id="propertiesElement" style="display: none;"></div>
+    <div id="treeElements" style="display: none;"></div>
     <div id="attributesElement" style="display: none;"></div>
     <div id="cssEditor" style="display: none;"></div>
     <div id="eventsEditor" style="display: none;"></div>

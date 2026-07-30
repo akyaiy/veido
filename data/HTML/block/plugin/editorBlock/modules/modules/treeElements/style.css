@@ -1,0 +1,63 @@
+/* Главные контейнеры */
+.treeElementsContainer {
+    font-family: monospace;
+    font-size: 0.75rem;
+    padding: 0px 5px;
+}
+
+
+
+/* Линии вложенности дерева */
+.treeElementsChildren {
+    margin-left: 11px;
+    padding-left: 2px;
+    position: relative;
+}
+.treeElementsContainer > .treeElementsChildren {
+    margin-left: 0;
+}
+
+.treeElementsChildren::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 8px;
+    left: 0;
+    border-left: 1px dashed #ccc;
+}
+
+
+
+/* Элементы дерева */
+.treeElementsItem {
+    position: relative;
+    padding: 2px 5px 2px 12px;
+    cursor: pointer;
+    user-select: none;
+    border-radius: 3px;
+    white-space: nowrap;
+}
+.treeElementsContainer > .treeElementsItem {
+    padding-left: 0;
+}
+
+.treeElementsItem::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 8px;
+    border-top: 1px dashed #ccc;
+}
+.treeElementsContainer > .treeElementsItem::before {
+    display: none;
+}
+
+.treeElementsItem:hover {
+    background-color: #eee;
+}
+
+.treeElementsItem.active {
+    background-color: #ddd;
+    font-weight: bold;
+}

@@ -285,6 +285,9 @@ function openLoadedBlock(blockId) {
             }
 
             attachIframeSelectionHandlers(iframe);
+            if (window.editorBlock && typeof window.editorBlock.initTreeElements === 'function') {
+                window.editorBlock.initTreeElements(iframe);
+            }
             if (window.editorBlock && typeof window.editorBlock.attachIframeHistoryEvents === 'function') {
                 window.editorBlock.attachIframeHistoryEvents(iframe);
             }
