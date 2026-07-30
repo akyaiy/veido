@@ -1,9 +1,9 @@
 <!-- Свойства -->
 
 <div class="propertiesTabsHeader">
-    <div type="button" class="propertiesTabBtn active" data-tab="propertiesMain">Основные</div>
-    <div type="button" class="propertiesTabBtn" data-tab="propertiesStyles">Стили</div>
-    <div type="button" class="propertiesTabBtn" data-tab="propertiesSpecial">Специальные</div>
+    <div class="propertiesTabBtn active" data-tab="propertiesMain">Основные</div>
+    <div class="propertiesTabBtn" data-tab="propertiesStyles">Стили</div>
+    <div class="propertiesTabBtn" data-tab="propertiesSpecial">Специальные</div>
 </div>
 
 

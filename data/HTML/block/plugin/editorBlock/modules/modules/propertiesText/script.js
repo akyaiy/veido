@@ -1112,6 +1112,8 @@ function updateActiveStates() {
         }
     }
 
+    const selects = document.getElementById('editorBlock').querySelectorAll('[data-property-item]');
+
     for (const select of selects) {
         const propertyName = select.getAttribute('data-property-item');
         let propertyValue = '';
