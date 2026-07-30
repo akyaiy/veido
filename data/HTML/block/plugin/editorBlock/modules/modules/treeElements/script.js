@@ -167,11 +167,20 @@ function buildTreeNode(element, container) {
         toggleArrow.className = 'treeToggleArrow';
         toggleArrow.innerHTML = '&#9660;';
 
+        // Восстановление сохраненного состояния сворачивания при пересборке
+        if (element.__treeCollapsed) {
+            childrenContainer.classList.add('collapsed');
+            toggleArrow.classList.add('collapsed');
+        }
+
         // Переключение скрыть/открыть по клику на стрелочку
         toggleArrow.addEventListener('click', (event) => {
             event.stopPropagation();
-            childrenContainer.classList.toggle('collapsed');
+            const isCollapsed = childrenContainer.classList.toggle('collapsed');
             toggleArrow.classList.toggle('collapsed');
+
+            // Запоминаем состояние свёрнутости в самом элементе
+            element.__treeCollapsed = isCollapsed;
         });
 
         nodeItem.appendChild(toggleArrow);
@@ -206,6 +215,22 @@ function attachTreeNodeEvents(nodeItem, element) {
     nodeItem.addEventListener('click', (event) => {
         event.stopPropagation();
         selectElementInIframe(element);
+    });
+
+    // Открытие контекстного меню для элемента из iframe
+    nodeItem.addEventListener('contextmenu', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        selectElementInIframe(element);
+
+        if (window.editorBlock) {
+            window.editorBlock.selectedElement = element;
+        }
+
+        if (window.editorBlock && typeof window.editorBlock.handleContextMenu === 'function') {
+            window.editorBlock.handleContextMenu(event);
+        }
     });
 
     // Начало перетаскивания элемента
@@ -273,8 +298,11 @@ function attachTreeNodeEvents(nodeItem, element) {
 
                     toggleArrow.addEventListener('click', (ev) => {
                         ev.stopPropagation();
-                        childrenContainer.classList.toggle('collapsed');
+                        const isCollapsed = childrenContainer.classList.toggle('collapsed');
                         toggleArrow.classList.toggle('collapsed');
+
+                        // Запоминаем состояние свёрнутости в самом элементе
+                        element.__treeCollapsed = isCollapsed;
                     });
 
                     nodeItem.appendChild(toggleArrow);
@@ -283,6 +311,7 @@ function attachTreeNodeEvents(nodeItem, element) {
                 // Раскрытие списка, если узел был свёрнут при вставке
                 if (childrenContainer.classList.contains('collapsed')) {
                     childrenContainer.classList.remove('collapsed');
+                    element.__treeCollapsed = false;
                     const arrow = nodeItem.querySelector('.treeToggleArrow');
                     if (arrow) {
                         arrow.classList.remove('collapsed');

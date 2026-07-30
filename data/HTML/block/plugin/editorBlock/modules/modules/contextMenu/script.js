@@ -400,7 +400,9 @@ function handleContextMenu(event) {
         return;
     }
 
-    event.preventDefault();
+    if (event && typeof event.preventDefault === 'function') {
+        event.preventDefault();
+    }
 
     const { pageX, pageY } = getContextMenuPosition(event);
 
@@ -409,7 +411,7 @@ function handleContextMenu(event) {
     contextMenu.style.left = pageX + 5 + 'px';
 
     const targetEditableArea = targetElement && targetElement.closest ? targetElement.closest('[contenteditable="true"]') : null;
-    if (!targetEditableArea) {
+    if (!targetEditableArea && !selectedElement && !hasActiveTextSelection) {
         contextMenu.style.display = 'none';
         return;
     }
