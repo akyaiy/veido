@@ -13,6 +13,11 @@
     padding-left: 2px;
     position: relative;
 }
+/* Скрытие дочерних элементов при сворачивании */
+.treeElementsChildren.collapsed {
+    display: none;
+}
+
 .treeElementsContainer > .treeElementsChildren {
     margin-left: 0;
 }
@@ -36,6 +41,11 @@
     user-select: none;
     border-radius: 3px;
     white-space: nowrap;
+
+    /* Выравнивание содержимого и стрелочки справа */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 .treeElementsContainer > .treeElementsItem {
     padding-left: 0;
@@ -60,4 +70,26 @@
 .treeElementsItem.active {
     background-color: #ddd;
     font-weight: bold;
+}
+
+
+
+/* Кнопка-стрелочка скрыть/открыть */
+.treeToggleArrow {
+    margin-left: auto;
+    font-size: 0.6rem;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+    transition: transform 0.15s ease;
+    user-select: none;
+    opacity: 0.7;
+}
+
+.treeToggleArrow:hover {
+    opacity: 1;
+}
+
+.treeToggleArrow.collapsed {
+    transform: rotate(-90deg);
 }
