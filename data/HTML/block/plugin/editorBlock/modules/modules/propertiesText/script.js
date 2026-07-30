@@ -1012,14 +1012,14 @@ function updateActiveStates() {
     const hasSelection = Boolean(getSelectedRange() && !getSelectedRange().collapsed);
 
     const buttons = document.getElementById('editorBlock').querySelectorAll('[data-simpleformats-button]');
-    const selects = document.getElementById('editorBlock').querySelectorAll('.propertiesList');
+    const selectWrappers = document.getElementById('editorBlock').querySelectorAll('.propertiesList');
 
     buttons.forEach(button => {
         button.style.display = hasSelection ? '' : 'none';
     });
 
-    selects.forEach(select => {
-        select.style.display = hasSelection ? '' : 'none';
+    selectWrappers.forEach(wrapper => {
+        wrapper.style.display = hasSelection ? '' : 'none';
     });
 
     if (!hasSelection) {
@@ -1129,18 +1129,24 @@ function updateActiveStates() {
 
         let isFound = false;
 
-        for (const option of select.options) {
+        const control = select.querySelector('select');
+
+        if (!control || !control.options) {
+            continue;
+        }
+
+        for (const option of control.options) {
             const optionValue = option.value.replace(/['"]/g, '');
             
             if (optionValue === propertyValue) {
-                select.value = option.value;
+                control.value = option.value;
                 isFound = true;
                 break;
             }
         }
 
         if (!isFound) {
-            select.value = '';
+            control.value = '';
         }
     }
 

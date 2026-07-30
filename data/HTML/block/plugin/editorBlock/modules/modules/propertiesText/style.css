@@ -10,11 +10,11 @@
     gap: 5px;
 }
 
-#propertiesSimpleFormats > div {
+.simpleFormatsButton > div {
     display: inline-block;
     cursor: pointer;
 }
-#propertiesSimpleFormats > div.active {
+.simpleFormatsButton > div.active {
     background-color: #f0f0f0;
 }
 
@@ -23,6 +23,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 5px;
+    flex-direction: column;
 }
 
 .propertiesList {

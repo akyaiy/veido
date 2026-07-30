@@ -2,6 +2,7 @@
 
 <div id="propertiesTextTitle">Свойства текста</div>
 
+<div class="simpleFormatsButton">
 <div data-simpleformats-button="bold" title="Жирный"><svg class="svgIcon" use="8x4"></svg></div>
 <div data-simpleformats-button="italic" title="Курсив"><svg class="svgIcon" use="8x5"></svg></div>
 <div data-simpleformats-button="underline" title="Подчёркнутый"><svg class="svgIcon" use="8x6"></svg></div>
@@ -11,7 +12,9 @@
 <div data-simpleformats-button="sup" title="Верхний индекс"><svg class="svgIcon" use="8x8"></svg></div>
 <div data-simpleformats-button="sub" title="Нижний индекс"><svg class="svgIcon" use="8x9"></svg></div>
 <div data-simpleformats-button="delete" title="Удалить форматирование"><svg class="svgIcon" use="1x28"></svg></div>
+</div>
 
+<div class="simpleFormatsButton">
 <div data-simpleformats-button="textAlignLeft" title="По левому краю"><svg class="svgIcon" use="8x10"></svg></div>
 <div data-simpleformats-button="textAlignCenter" title="По центру"><svg class="svgIcon" use="8x11"></svg></div>
 <div data-simpleformats-button="textAlignRight" title="По правому краю"><svg class="svgIcon" use="8x12"></svg></div>
@@ -20,6 +23,7 @@
 <div data-simpleformats-button="listCircle" title="Список с кругами"><svg class="svgIcon" use="10x10"></svg></div>
 <div data-simpleformats-button="listSquare" title="Список с квадратами"><svg class="svgIcon" use="19x24"></svg></div>
 <div data-simpleformats-button="listDecimal" title="Список с нумерацией"><svg class="svgIcon" use="10x11"></svg></div>
+</div>
 
 </div>
 

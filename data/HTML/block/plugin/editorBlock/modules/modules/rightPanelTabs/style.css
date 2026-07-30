@@ -4,6 +4,7 @@
     width: 100%;
     overflow: auto;
     scrollbar-width: thin;
+    font-size: 0.9em;
 }
 
 .rightPanelTab {
