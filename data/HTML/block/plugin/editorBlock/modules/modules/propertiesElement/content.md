@@ -1,14 +1,6 @@
 <!-- Свойства -->
 
-<div class="propertiesTabsHeader">
-    <div class="propertiesTabBtn active" data-tab="propertiesMain">Основные</div>
-    <div class="propertiesTabBtn" data-tab="propertiesStyles">Стили</div>
-    <div class="propertiesTabBtn" data-tab="propertiesSpecial">Специальные</div>
-</div>
-
-
-
-<div class="propertiesTabContent active" id="propertiesMain">
+<div class="propertiesTabContent" data-tab="propertiesMain">
 
 <div data-target="all">ID: <input type="text" data-prop="id"></div>
 
@@ -40,7 +32,7 @@
 
 
 
-<div class="propertiesTabContent" id="propertiesStyles">
+<div class="propertiesTabContent" data-tab="propertiesStyles" style="display: none;">
 
 <div data-target="all">Внешние отступы: <div class="marginGrid">
     <div class="col left"><input data-prop="marginLeft" placeholder="Слева"></div>
@@ -95,7 +87,7 @@
 
 
 
-<div class="propertiesTabContent" id="propertiesSpecial">
+<div class="propertiesTabContent" data-tab="propertiesSpecial" style="display: none;">
 
 <div data-target="input">Подсказка: <input type="text" data-prop="inputPlaceholder"></div>
 <div data-target="input">Тип: <select data-prop="inputType">

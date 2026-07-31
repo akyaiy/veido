@@ -15,6 +15,7 @@
 }
 .editorsTab.active {
     background-color: #f0f0f0;
+    border-bottom: 3px solid #ccc;
 }
 .editorsTab:last-child {
     border-right: none;

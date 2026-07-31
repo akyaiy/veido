@@ -239,30 +239,6 @@ document.addEventListener('editorBlock:elementSelected', event => {
     updatePropertiesPanel(event.detail);
 });
 
-/* ***
- * initPropertiesTabs - инициализация вкладок панели свойств 
- * - добавляет обработчики клика на кнопки вкладок
- * - переключает активные классы и отображение контента
-*** */
-function initPropertiesTabs() {
-    const buttons = document.querySelectorAll('.propertiesTabBtn');
-    const contents = document.querySelectorAll('.propertiesTabContent');
-
-    buttons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            buttons.forEach(b => b.classList.remove('active'));
-            contents.forEach(c => c.classList.remove('active'));
-
-            btn.classList.add('active');
-            const targetId = btn.getAttribute('data-tab');
-            document.getElementById(targetId)?.classList.add('active');
-        });
-    });
-}
-
-// Вызов функции
-initPropertiesTabs();
-
 
 
 /* ===

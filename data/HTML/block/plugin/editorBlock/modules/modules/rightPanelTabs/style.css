@@ -1,5 +1,13 @@
+/* Основные стили для вкладок правой панели */
+#rightPanelTabs .active {
+    background-color: #f0f0f0;
+    border-bottom: 3px solid #ccc;
+}
+
+
+
 /* Переключатель вкладок правой панели */
-#rightPanelTabs {
+#rightPanelTabsMain {
     display: flex;
     width: 100%;
     overflow: auto;
@@ -14,4 +22,27 @@
     border-right: 1px solid #ccc;
     border-bottom: 1px solid #ccc;
     text-align: center;
+}
+
+
+
+/* Вкладки свойств */
+.subTabsHeader {
+    display: flex;
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    font-size: 0.85rem;
+    align-items: center;
+}
+
+.subTabBtn {
+    flex: 1 0 auto;
+    padding: 3px 4px;
+    cursor: pointer;
+    border-right: 1px solid #ccc;
+    border-bottom: 1px solid #ccc;
+    text-align: center;
+    white-space: nowrap;
 }
