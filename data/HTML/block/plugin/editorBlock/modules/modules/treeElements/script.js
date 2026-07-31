@@ -17,6 +17,24 @@ let iframeDOMObserver = null;
 // Перетаскиваемый в данный момент элемент страницы
 let draggedElement = null;
 
+// Список тегов, которые не могут содержать дочерние элементы и не поддерживаются в дереве
+const unsupportedTags = [
+    'area',
+    'base',
+    'br',
+    'col',
+    'embed',
+    'hr',
+    'img',
+    'input',
+    'link',
+    'meta',
+    'param',
+    'source',
+    'track',
+    'wbr'
+];
+
 
 
 /* ===
@@ -99,7 +117,23 @@ function initTreeElements(iframeElement) {
 // Экспорт функции в глобальный объект редактора
 window.editorBlock.initTreeElements = initTreeElements;
 
+/* ***
+ * canAcceptChildren - проверка, может ли элемент принимать дочерние узлы
+ * - запрещает вставку в элементы без дочерних узлов и в неподходящие теги
+*** */
+function canAcceptChildren(element) {
+    if (!element || element.nodeType !== Node.ELEMENT_NODE) {
+        return false;
+    }
 
+    const tagName = element.tagName.toLowerCase();
+
+    if (unsupportedTags.includes(tagName)) {
+        return false;
+    }
+
+    return true;
+}
 
 /* ***
  * buildTreeNode - рекурсивное создание узлов дерева
@@ -127,6 +161,17 @@ function buildTreeNode(element, container) {
     // Строка элемента в интерфейсе дерева
     const nodeItem = document.createElement('div');
     nodeItem.className = 'treeElementsItem';
+
+    const isBlockNode = element.hasAttribute('data-block-src');
+    const isLeafNode = !canAcceptChildren(element);
+
+    if (isBlockNode) {
+        nodeItem.classList.add('treeBlockNode');
+    }
+
+    if (isLeafNode) {
+        nodeItem.classList.add('treeLeafNode');
+    }
     
     // Текст названия тега
     const labelSpan = document.createElement('span');
@@ -167,10 +212,13 @@ function buildTreeNode(element, container) {
         toggleArrow.className = 'treeToggleArrow';
         toggleArrow.innerHTML = '&#9660;';
 
+        const shouldCollapse = isBlockNode || element.__treeCollapsed;
+
         // Восстановление сохраненного состояния сворачивания при пересборке
-        if (element.__treeCollapsed) {
+        if (shouldCollapse) {
             childrenContainer.classList.add('collapsed');
             toggleArrow.classList.add('collapsed');
+            element.__treeCollapsed = true;
         }
 
         // Переключение скрыть/открыть по клику на стрелочку
@@ -183,10 +231,12 @@ function buildTreeNode(element, container) {
             element.__treeCollapsed = isCollapsed;
         });
 
-        nodeItem.appendChild(toggleArrow);
+        if (!isBlockNode) {
+            nodeItem.appendChild(toggleArrow);
 
-        for (const child of children) {
-            buildTreeNode(child, childrenContainer);
+            for (const child of children) {
+                buildTreeNode(child, childrenContainer);
+            }
         }
 
         container.appendChild(childrenContainer);
@@ -271,6 +321,10 @@ function attachTreeNodeEvents(nodeItem, element) {
 
         // Проверка смещения курсора вправо (более 50% ширины) для вставки внутрь в качестве дочернего
         if (event.clientX > nodeRect.left + (nodeRect.width * 0.5)) {
+            if (!canAcceptChildren(element)) {
+                return;
+            }
+
             if (element.lastElementChild !== draggedElement) {
                 // Добавление элемента в конец списка детей родителя в iframe
                 element.appendChild(draggedElement);

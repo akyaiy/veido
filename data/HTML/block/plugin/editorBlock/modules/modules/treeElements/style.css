@@ -72,6 +72,18 @@
     font-weight: bold;
 }
 
+.treeElementsItem.treeBlockNode {
+    color: #2563eb;
+    text-decoration: underline;
+}
+
+.treeElementsItem.treeBlockNode .treeToggleArrow {
+    display: none;
+}
+
+.treeElementsItem.treeLeafNode {
+    color: #686868;
+}
 
 
 /* Кнопка-стрелочка скрыть/открыть */
