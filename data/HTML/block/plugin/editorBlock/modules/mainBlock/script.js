@@ -211,6 +211,22 @@ function closeBlockTab(blockId) {
 }
 
 /* ***
+ * normalizeViewEditorHtml - удаление пустых строк без изменения HTML-структуры
+ * - убирает только строки, состоящие из пробелов/переносов
+*** */
+function normalizeViewEditorHtml(html) {
+    if (!html) {
+        return '';
+    }
+
+    return html
+        .replace(/\r\n/g, '\n')
+        .split('\n')
+        .filter(line => line.trim() !== '')
+        .join('\n');
+}
+
+/* ***
  * openLoadedBlock - загрузка сохраненного блока в редакторы
  * - принимает ID загружаемого блока
  * - вставляет HTML-код в редактор представления
@@ -249,7 +265,8 @@ function openLoadedBlock(blockId) {
 
         const safeCss = cssContent || '';
         const md = window.markdownit({ html: true, linkify: true, typographer: true });
-        const renderedHtml = md.render(htmlContent);
+        const normalizedHtml = normalizeViewEditorHtml(htmlContent);
+        const renderedHtml = md.render(normalizedHtml);
         iframe.srcdoc = `<!DOCTYPE html>
 <html>
 <head>
