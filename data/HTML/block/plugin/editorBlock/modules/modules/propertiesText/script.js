@@ -364,8 +364,12 @@ function mergeAdjacentSpans(rootElement) {
 /* ***
  * applyInlineStyle - применение строчного стиля
  * - принимает имя CSS-свойства и его новое строковое значение
- * - изолирует текст, режет span и точечно обновляет инлайновые CSS-стили выделения
- * - сшивает соседние одинаковые span элементы и синхронизирует состояние редактора
+ * - изолирует текстовые узлы и определяет уровень их выделения (частично или полностью)
+ * - применяет стиль к ближайшему родительскому блоку, если он выделен целиком
+ * - оборачивает текст в span только при частичном выделении
+ * - обрабатывает обратную логику (отключение унаследованного стиля на части текста)
+ * - очищает дублирующиеся стили внутри родительских блоков
+ * - сшивает соседние span элементы и синхронизирует состояние редактора
  * - отдает null
 *** */
 function applyInlineStyle(styleProperty, styleValue) {
@@ -388,32 +392,168 @@ function applyInlineStyle(styleProperty, styleValue) {
     splitParents(textNodes[0], true);  
     splitParents(textNodes[textNodes.length - 1], false);
 
+    const selectedTextNodes = new Set(textNodes);
+
+    /* ***
+     * isEditorRoot - проверка элемента на корневой контейнер
+     * - принимает HTML элемент
+     * - возвращает true, если элемент является корнем редактора
+    *** */
+    function isEditorRoot(element) {
+        if (!element || !element.tagName) {
+            return true;
+        }
+
+        const tag = element.tagName.toLowerCase();
+
+        return (
+            tag === 'body' || 
+            tag === 'html' || 
+            element.hasAttribute('contenteditable') || 
+            element.id === 'viewEditor' || 
+            element.classList.contains('viewEditor')
+        );
+    }
+
+    /* ***
+     * isElementFullySelected - проверка полного выделения элемента
+     * - принимает HTML элемент
+     * - проверяет, входят ли все его непустые текстовые узлы в наше выделение
+     * - возвращает boolean
+    *** */
+    function isElementFullySelected(element) {
+        const editorDoc = window.editorBlock && typeof window.editorBlock.getEditorDocument === 'function'
+            ? window.editorBlock.getEditorDocument()
+            : document;
+        const walker = (element.ownerDocument || editorDoc).createTreeWalker(element, NodeFilter.SHOW_TEXT, null, false);
+        let node;
+
+        while ((node = walker.nextNode())) {
+            if (node.nodeValue && node.nodeValue.trim() !== '' && !selectedTextNodes.has(node)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    const targetElements = new Set();
+    const partialTextNodes = new Set();
+
     for (const textNode of textNodes) {
-        if (!textNode.textContent.trim() && textNode.parentNode.tagName !== 'SPAN') {
+        if (!textNode.nodeValue || (!textNode.nodeValue.trim() && textNode.parentNode.tagName !== 'SPAN')) {
             continue;
         }
 
-        const parentElement = wrapTextNode(textNode);
-        const isDecoration = styleProperty === 'textDecoration';
-        const currentDecoration = parentElement.style.textDecoration || '';
+        let currentElement = textNode.parentElement;
+        let bestTargetElement = null;
+
+        while (currentElement && !isEditorRoot(currentElement) && isElementFullySelected(currentElement)) {
+            bestTargetElement = currentElement;
+            currentElement = currentElement.parentElement;
+        }
+
+        if (bestTargetElement) {
+            targetElements.add(bestTargetElement);
+        } else {
+            partialTextNodes.add(textNode);
+        }
+    }
+
+    /* ***
+     * toggleStyle - переключение или установка конкретного стиля
+     * - принимает HTML элемент, свойство, значение и флаг частичного выделения
+     * - обрабатывает логику textDecoration и стандартных стилей
+     * - применяет обратную логику для снятия наследуемых стилей
+     * - очищает дублирующиеся стили у дочерних элементов
+    *** */
+    function toggleStyle(element, prop, val, isPartial) {
+        const isDecoration = prop === 'textDecoration';
+        const currentDecoration = element.style.textDecoration || '';
         const decorationParts = currentDecoration.split(/\s+/).filter(Boolean);
-                    
+
         if (isDecoration) {
-            if (!styleValue) {
-                parentElement.style.textDecoration = '';
+            if (!val) {
+                element.style.textDecoration = isPartial ? 'none' : '';
             } else {
-                if (decorationParts.includes(styleValue)) {
-                    parentElement.style.textDecoration = decorationParts.filter(value => value !== styleValue).join(' ');
+                if (decorationParts.includes(val)) {
+                    element.style.textDecoration = decorationParts.filter((v) => v !== val).join(' ');
+                    
+                    if (element.style.textDecoration === '' && isPartial) {
+                        const parentDeco = getComputedProp(element.parentElement, 'textDecorationLine') || getComputedProp(element.parentElement, 'textDecoration') || '';
+                        
+                        if (parentDeco && parentDeco !== 'none') {
+                            element.style.textDecoration = 'none';
+                        }
+                    }
                 } else {
-                    decorationParts.push(styleValue);
-                    parentElement.style.textDecoration = decorationParts.join(' ');
+                    decorationParts.push(val);
+                    element.style.textDecoration = decorationParts.join(' ');
                 }
             }
         } else {
-            parentElement.style[styleProperty] = styleValue || '';
+            if (val) {
+                element.style[prop] = val;
+            } else {
+                if (isPartial) {
+                    const computed = getComputedProp(element.parentElement, prop);
+                    const isInheritingBold = prop === 'fontWeight' && (computed === 'bold' || computed === '700' || parseInt(computed) >= 700);
+                    const isInheritingItalic = prop === 'fontStyle' && computed === 'italic';
+                    
+                    if (isInheritingBold) {
+                        element.style.fontWeight = 'normal';
+                    } else if (isInheritingItalic) {
+                        element.style.fontStyle = 'normal';
+                    } else if (prop === 'verticalAlign') {
+                        element.style.verticalAlign = 'baseline';
+                    } else if (prop === 'color' || prop === 'backgroundColor') {
+                        element.style[prop] = 'inherit';
+                    } else {
+                        element.style[prop] = '';
+                    }
+                } else {
+                    element.style[prop] = '';
+                }
+            }
         }
 
-        clearEmptySpan(parentElement);
+        if (!isPartial) {
+            const children = element.querySelectorAll('*');
+            
+            for (const child of children) {
+                if (isDecoration) {
+                    if (val && child.style.textDecoration.includes(val)) {
+                        child.style.textDecoration = child.style.textDecoration.replace(val, '').trim();
+                    }
+                } else {
+                    if (val && child.style[prop] === val) {
+                        child.style[prop] = '';
+                    }
+                }
+
+                if (typeof clearEmptySpan === 'function') {
+                    clearEmptySpan(child);
+                }
+            }
+        }
+    }
+
+    for (const targetElement of targetElements) {
+        toggleStyle(targetElement, styleProperty, styleValue, false);
+        
+        if (typeof clearEmptySpan === 'function') {
+            clearEmptySpan(targetElement);
+        }
+    }
+
+    for (const textNode of partialTextNodes) {
+        const parentElement = wrapTextNode(textNode);
+        
+        toggleStyle(parentElement, styleProperty, styleValue, true);
+        
+        if (typeof clearEmptySpan === 'function') {
+            clearEmptySpan(parentElement);
+        }
     }
 
     const rootElement = getRootElement(range);
@@ -421,12 +561,14 @@ function applyInlineStyle(styleProperty, styleValue) {
 
     syncEditorsData();
     updateActiveStates();
+    
     return null;
 }
 
 /* ***
  * toggleInlineStyle - переключение строчного стиля
  * - принимает строковый ключ формата из массива конфигурации buttons
+ * - проверяет вычисленные стили элементов выделения (включая унаследованные)
  * - включает или выключает инлайновый стиль в зависимости от его текущего наличия на узлах
  * - отдает null
 *** */
@@ -454,16 +596,27 @@ function toggleInlineStyle(formatKey) {
     let hasFullStyle = true;
 
     for (const textNode of textNodes) {
-        const parent = textNode.parentNode;
-        const isStyledSpan = parent && parent.tagName === 'SPAN' && parent.style[propertyName] === expectedValue;
+        const parent = textNode.parentElement;
+        const computedStyle = getComputedProp(parent, propertyName);
+
+        let isActive = false;
+
+        if (propertyName === 'fontWeight') {
+            isActive = (computedStyle === 'bold' || computedStyle === '700' || parseInt(computedStyle, 10) >= 700);
+        } else if (propertyName === 'textDecoration') {
+            isActive = computedStyle.includes(expectedValue);
+        } else {
+            isActive = (computedStyle === expectedValue);
+        }
         
-        if (!isStyledSpan) { 
+        if (!isActive) { 
             hasFullStyle = false; 
             break; 
         }
     }
 
     applyInlineStyle(propertyName, hasFullStyle ? '' : expectedValue);
+    
     return null;
 }
 
@@ -632,7 +785,7 @@ function toggleListStyle(listType) {
 /* ***
  * removeLists - удаление списков
  * - принимает массив блочных узлов, входящих в списки
- * - извлекает содержимое элементов li наружу и удаляет пустые теги ul/ol
+ * - извлекает содержимое элементов li наружу с сохранением стилей и удаляет пустые теги ul/ol
  * - отдает null
 *** */
 function removeLists(blockNodes) {
@@ -643,10 +796,25 @@ function removeLists(blockNodes) {
             const parentList = listItem.parentElement;
             const grandParent = parentList.parentElement;
             
-            while (listItem.firstChild) {
-                grandParent.insertBefore(listItem.firstChild, parentList);
+            const editorDoc = listItem.ownerDocument ||
+                (window.editorBlock && typeof window.editorBlock.getEditorDocument === 'function'
+                    ? window.editorBlock.getEditorDocument()
+                    : document);
+            const newBlock = editorDoc.createElement('div');
+
+            // Сохранение стилей и классов из li при возврате в блочный элемент
+            if (listItem.hasAttribute('style') && listItem.getAttribute('style').trim()) {
+                newBlock.setAttribute('style', listItem.getAttribute('style'));
+            }
+            if (listItem.className) {
+                newBlock.className = listItem.className;
             }
             
+            while (listItem.firstChild) {
+                newBlock.appendChild(listItem.firstChild);
+            }
+            
+            grandParent.insertBefore(newBlock, parentList);
             listItem.remove();
             
             if (!parentList.querySelector('li')) {
@@ -661,7 +829,7 @@ function removeLists(blockNodes) {
 /* ***
  * createLists - создание списков
  * - принимает массив блоков и строку с типом генерируемого списка
- * - группирует выбранные блоки и переносит их контент внутрь нового списка ul или ol
+ * - группирует выбранные блоки и переносит их контент внутрь нового списка ul или ol с сохранением стилей
  * - если блок уже находится внутри списка, то вызывает функцию обновления типа маркера
  * - отдает null
 *** */
@@ -702,6 +870,14 @@ function createLists(blockNodes, listType) {
         for (const groupNode of groupNodes) {
             const listItem = editorDoc.createElement('li');
             
+            // Сохранение стилей и классов исходного блока внутри списка для предотвращения потери форматирования
+            if (groupNode.hasAttribute('style') && groupNode.getAttribute('style').trim()) {
+                listItem.setAttribute('style', groupNode.getAttribute('style'));
+            }
+            if (groupNode.className) {
+                listItem.className = groupNode.className;
+            }
+
             while (groupNode.firstChild) {
                 listItem.appendChild(groupNode.firstChild);
             }
@@ -1004,12 +1180,13 @@ function getListPropertyValue() {
 
 /* ***
  * updateActiveStates - синхронизация состояния панели форматирования
- * - опрашивает CSS-стили и типы списков у родительского элемента выделенного текста
+ * - опрашивает все текстовые узлы в области выделения и их унаследованные стили
  * - перебирает все кнопки и списки на панели, переключая класс active и выставляя нужные значения
  * - отдает null
 *** */
 function updateActiveStates() {
-    const hasSelection = Boolean(getSelectedRange() && !getSelectedRange().collapsed);
+    const range = getSelectedRange();
+    const hasSelection = Boolean(range && !range.collapsed);
 
     const buttons = document.getElementById('editorBlock').querySelectorAll('[data-simpleformats-button]');
     const selectWrappers = document.getElementById('editorBlock').querySelectorAll('.propertiesList');
@@ -1026,6 +1203,7 @@ function updateActiveStates() {
         return null;
     }
 
+    const textNodes = getTextNodes(range);
     const element = getSelectionParentElement();
 
     if (!element) {
@@ -1036,79 +1214,52 @@ function updateActiveStates() {
         const key = button.getAttribute('data-simpleformats-button');
         button.classList.remove('active');
 
-        const textAlign = getComputedProp(element, 'textAlign') || 'left';
+        let propertyName = '';
+        let expectedValue = '';
+        let isToggle = false;
 
-        switch (key) {
-            case 'bold':
-                if (getComputedProp(element, 'fontWeight') === 'bold' || getComputedProp(element, 'fontWeight') === '700') {
-                    button.classList.add('active');
+        if (key === 'bold') { propertyName = 'fontWeight'; expectedValue = 'bold'; isToggle = true; }
+        else if (key === 'italic') { propertyName = 'fontStyle'; expectedValue = 'italic'; isToggle = true; }
+        else if (key === 'underline') { propertyName = 'textDecoration'; expectedValue = 'underline'; isToggle = true; }
+        else if (key === 'strike') { propertyName = 'textDecoration'; expectedValue = 'line-through'; isToggle = true; }
+        else if (key === 'sup') { propertyName = 'verticalAlign'; expectedValue = 'super'; isToggle = true; }
+        else if (key === 'sub') { propertyName = 'verticalAlign'; expectedValue = 'sub'; isToggle = true; }
+
+        if (isToggle) {
+            let allHaveStyle = textNodes.length > 0;
+            for (const textNode of textNodes) {
+                const parent = textNode.parentElement;
+                const computedStyle = getComputedProp(parent, propertyName);
+                let isActive = false;
+
+                if (propertyName === 'fontWeight') {
+                    isActive = (computedStyle === 'bold' || computedStyle === '700' || parseInt(computedStyle, 10) >= 700);
+                } else if (propertyName === 'textDecoration') {
+                    isActive = computedStyle.includes(expectedValue);
+                } else {
+                    isActive = (computedStyle === expectedValue);
                 }
-                break;
-            case 'italic':
-                if (getComputedProp(element, 'fontStyle') === 'italic') {
-                    button.classList.add('active');
+
+                if (!isActive) {
+                    allHaveStyle = false;
+                    break;
                 }
-                break;
-            case 'underline':
-                if (getComputedProp(element, 'textDecoration').includes('underline')) {
-                    button.classList.add('active');
-                }
-                break;
-            case 'strike':
-                if (getComputedProp(element, 'textDecoration').includes('line-through')) {
-                    button.classList.add('active');
-                }
-                break;
-            case 'sup':
-                if (getComputedProp(element, 'verticalAlign') === 'super') {
-                    button.classList.add('active');
-                }
-                break;
-            case 'sub':
-                if (getComputedProp(element, 'verticalAlign') === 'sub') {
-                    button.classList.add('active');
-                }
-                break;
-            case 'textAlignLeft':
-                if (textAlign === 'left' || textAlign === 'start') {
-                    button.classList.add('active');
-                }
-                break;
-            case 'textAlignCenter':
-                if (textAlign === 'center') {
-                    button.classList.add('active');
-                }
-                break;
-            case 'textAlignRight':
-                if (textAlign === 'right' || textAlign === 'end') {
-                    button.classList.add('active');
-                }
-                break;
-            case 'textAlignJustify':
-                if (textAlign === 'justify') {
-                    button.classList.add('active');
-                }
-                break;
-            case 'listDisc':
-                if (getListPropertyValue() === 'disc') {
-                    button.classList.add('active');
-                }
-                break;
-            case 'listCircle':
-                if (getListPropertyValue() === 'circle') {
-                    button.classList.add('active');
-                }
-                break;
-            case 'listSquare':
-                if (getListPropertyValue() === 'square') {
-                    button.classList.add('active');
-                }
-                break;
-            case 'listDecimal':
-                if (getListPropertyValue() === 'decimal') {
-                    button.classList.add('active');
-                }
-                break;
+            }
+            if (allHaveStyle) {
+                button.classList.add('active');
+            }
+        } else if (key.startsWith('textAlign')) {
+            const textAlign = getComputedProp(element, 'textAlign') || 'left';
+            const alignVal = key === 'textAlignLeft' ? 'left' : key === 'textAlignCenter' ? 'center' : key === 'textAlignRight' ? 'right' : 'justify';
+            
+            if ((alignVal === 'left' && (textAlign === 'left' || textAlign === 'start')) || textAlign === alignVal) {
+                button.classList.add('active');
+            }
+        } else if (key.startsWith('list')) {
+            const listVal = key === 'listDisc' ? 'disc' : key === 'listCircle' ? 'circle' : key === 'listSquare' ? 'square' : 'decimal';
+            if (getListPropertyValue() === listVal) {
+                button.classList.add('active');
+            }
         }
     }
 
