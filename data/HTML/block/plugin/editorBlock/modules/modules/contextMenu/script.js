@@ -86,12 +86,15 @@ async function executeCopyAction() {
         } else if (navigator.clipboard?.writeText) {
             await navigator.clipboard.writeText(text || html);
         }
-        return;
+        return true;
     }
 
     if (navigator.clipboard?.writeText && window.editorBlock.selectedElement) {
         await navigator.clipboard.writeText(window.editorBlock.selectedElement.outerHTML);
+        return true;
     }
+
+    return false;
 }
 
 /* ***
@@ -122,14 +125,17 @@ async function executeCutAction() {
 
         range.deleteContents();
         selection.removeAllRanges();
-        return;
+        return true;
     }
 
     if (navigator.clipboard?.writeText && window.editorBlock.selectedElement) {
         await navigator.clipboard.writeText(window.editorBlock.selectedElement.outerHTML);
         window.editorBlock.selectedElement.remove();
         window.editorBlock.selectedElement = null;
+        return true;
     }
+
+    return false;
 }
 
 /* ***
@@ -141,12 +147,12 @@ async function executeCutAction() {
 *** */
 async function executePasteAction() {
     if (!navigator.clipboard?.read) {
-        return;
+        return false;
     }
 
     const clipboardItems = await navigator.clipboard.read();
     if (!clipboardItems.length) {
-        return;
+        return false;
     }
     
     await window.editorBlock.restoreSelection();
@@ -168,7 +174,7 @@ async function executePasteAction() {
     }
 
     if (!targetType) {
-        return;
+        return false;
     }
 
     const dataBlob = await clipboardItem.getType(targetType);
@@ -187,13 +193,13 @@ async function executePasteAction() {
 
     if (nodesFragment) {
         selectionRange.deleteContents();
-        
-        const lastChild = nodesFragment.nodeType === Node.DOCUMENT_FRAGMENT_NODE 
-            ? nodesFragment.lastChild 
+
+        const lastChild = nodesFragment.nodeType === Node.DOCUMENT_FRAGMENT_NODE
+            ? nodesFragment.lastChild
             : nodesFragment;
 
         selectionRange.insertNode(nodesFragment);
-        
+
         if (lastChild) {
             selectionRange.setStartAfter(lastChild);
             selectionRange.collapse(true);
@@ -202,6 +208,7 @@ async function executePasteAction() {
 
     activeSelection.removeAllRanges();
     activeSelection.addRange(selectionRange);
+    return true;
 }
 
 /* ***
@@ -216,13 +223,16 @@ function executeDeleteAction() {
         const range = selection.getRangeAt(0);
         range.deleteContents();
         selection.removeAllRanges();
-        return;
+        return true;
     }
 
     if (window.editorBlock.selectedElement) {
         window.editorBlock.selectedElement.remove();
         window.editorBlock.selectedElement = null;
+        return true;
     }
+
+    return false;
 }
 
 /* ***
@@ -535,6 +545,78 @@ async function handleMenuClick(event) {
 
     contextMenu.style.display = 'none';
 }
+
+/* ***
+ * handleEditorKeyboardShortcuts - обработка горячих клавиш редактора
+ * - перехватывает нажатия клавиш для копирования, вставки, вырезания, закрытия меню и удаления
+ * - поддерживает любую раскладку клавиатуры
+ * - отдает null
+*** */
+function handleEditorKeyboardShortcuts(event) {
+    if (!event) {
+        return;
+    }
+
+    const isModifiedShortcut = (event.ctrlKey || event.metaKey) && !event.altKey;
+    const code = event.code;
+
+    if (isModifiedShortcut) {
+        if (code === 'KeyC') {
+            event.preventDefault();
+            executeCopyAction();
+            return;
+        }
+
+        if (code === 'KeyV') {
+            event.preventDefault();
+            executePasteAction();
+            return;
+        }
+
+        if (code === 'KeyX') {
+            event.preventDefault();
+            executeCutAction();
+            return;
+        }
+    }
+
+    if (event.key === 'Escape') {
+        const hadVisibleMenu = contextMenu.style.display !== 'none';
+
+        if (hadVisibleMenu) {
+            contextMenu.style.display = 'none';
+            event.preventDefault();
+        }
+
+        return;
+    }
+
+    if (event.key === 'Delete') {
+        const handled = executeDeleteAction();
+
+        if (handled) {
+            event.preventDefault();
+        }
+    }
+}
+
+/* ***
+ * attachContextMenuShortcutHandlers - добавление обработчика горячих клавиш контекстного меню
+ * - принимает документ редактора
+ * - добавляет обработчик keydown только один раз
+*** */
+function attachContextMenuShortcutHandlers(targetDocument) {
+    if (!targetDocument || targetDocument.contextMenuShortcutsBound) {
+        return;
+    }
+
+    targetDocument.addEventListener('keydown', handleEditorKeyboardShortcuts);
+    targetDocument.contextMenuShortcutsBound = true;
+}
+
+// Инициализация обработчиков горячих клавиш контекстного меню для текущего документа
+attachContextMenuShortcutHandlers(document);
+window.editorBlock.attachContextMenuShortcutHandlers = attachContextMenuShortcutHandlers;
 
 // Регистрация глобальных слушателей событий
 contextMenu.addEventListener('click', handleMenuClick);

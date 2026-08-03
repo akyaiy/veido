@@ -433,6 +433,48 @@ document.addEventListener('click', event => {
     }
 });
 
+/* ***
+ * handleHistoryKeyboardShortcuts - обработка горячих клавиш истории изменений
+ * - перехватывает комбинации Ctrl+Z / Ctrl+Y для отмены и возврата действий
+ * - отдает null
+*** */
+function handleHistoryKeyboardShortcuts(event) {
+    if (!event || event.altKey || !event.ctrlKey) {
+        return;
+    }
+
+    const key = event.key ? event.key.toLowerCase() : '';
+
+    if (key === 'z') {
+        event.preventDefault();
+        undoHistory();
+        return;
+    }
+
+    if (key === 'y') {
+        event.preventDefault();
+        redoHistory();
+    }
+}
+
+/* ***
+ * attachHistoryShortcutHandlers - добавление обработчика горячих клавиш истории
+ * - принимает документ редактора
+ * - добавляет обработчик keydown только один раз
+*** */
+function attachHistoryShortcutHandlers(targetDocument) {
+    if (!targetDocument || targetDocument.historyShortcutsBound) {
+        return;
+    }
+
+    targetDocument.addEventListener('keydown', handleHistoryKeyboardShortcuts);
+    targetDocument.historyShortcutsBound = true;
+}
+
+// Инициализация обработчиков горячих клавиш истории для текущего документа
+attachHistoryShortcutHandlers(document);
+window.editorBlock.attachHistoryShortcutHandlers = attachHistoryShortcutHandlers;
+
 function handleEditorInput(event) {
     if (!window.editorBlock.isBlockActive() || isPreviewMode()) {
         return;

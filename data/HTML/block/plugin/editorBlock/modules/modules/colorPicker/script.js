@@ -361,6 +361,39 @@ function closeColorPicker(saveHistory = true) {
 }
 
 /* ***
+ * handleColorPickerKeyboardShortcuts - обработка горячей клавиши Escape
+ * - закрывает color picker при нажатии Escape
+*** */
+function handleColorPickerKeyboardShortcuts(event) {
+    if (event.key !== 'Escape' || colorPickerContainer.style.display === 'none') {
+        return;
+    }
+
+    event.preventDefault();
+    closeColorPicker(true);
+}
+
+/* ***
+ * attachColorPickerShortcutHandlers - добавление обработчика горячих клавиш
+ * - принимает документ редактора
+ * - добавляет обработчик Escape только один раз
+*** */
+function attachColorPickerShortcutHandlers(targetDocument) {
+    if (!targetDocument || targetDocument.colorPickerShortcutsBound) {
+        return;
+    }
+
+    targetDocument.addEventListener('keydown', handleColorPickerKeyboardShortcuts);
+    targetDocument.colorPickerShortcutsBound = true;
+}
+
+// Инициализация обработчиков горячих клавиш для текущего документа
+attachColorPickerShortcutHandlers(document);
+window.editorBlock.attachColorPickerShortcutHandlers = attachColorPickerShortcutHandlers;
+
+
+
+/* ***
  * openColorPicker - открытие окна и инициализация параметров
  * - принимает объект настроек options (цвет, формат, callback, anchor)
  * - сохраняет текущее текстовое выделение в редакторе

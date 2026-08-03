@@ -576,19 +576,19 @@ function toggleInlineStyle(formatKey) {
     const formatConfig = formatButtons.find(item => item.key === formatKey);
 
     if (!formatConfig) {
-        return null;
+        return false;
     }
 
     const range = getSelectedRange();
 
     if (!range || range.collapsed) {
-        return null;
+        return false;
     }
 
     const textNodes = getTextNodes(range);
 
     if (textNodes.length === 0) {
-        return null;
+        return false;
     }
 
     const propertyName = formatConfig.property;
@@ -608,16 +608,16 @@ function toggleInlineStyle(formatKey) {
         } else {
             isActive = (computedStyle === expectedValue);
         }
-        
-        if (!isActive) { 
-            hasFullStyle = false; 
-            break; 
+
+        if (!isActive) {
+            hasFullStyle = false;
+            break;
         }
     }
 
     applyInlineStyle(propertyName, hasFullStyle ? '' : expectedValue);
-    
-    return null;
+
+    return true;
 }
 
 
@@ -1420,6 +1420,66 @@ function handleSelectionChange(event) {
     updateActiveStates();
     return null;
 }
+
+/* ===
+ * Горячие клавиши форматирования текста
+=== */
+
+/* ***
+ * handleTextFormatShortcuts - обработка горячих клавиш форматирования текста
+ * - перехватывает комбинации Ctrl+B, Ctrl+I, Ctrl+U, Ctrl+Shift+X, Ctrl+. и Ctrl+,
+ * - отдает null
+*** */
+function handleTextFormatShortcuts(event) {
+    if (!event || !event.ctrlKey || event.altKey) {
+        return null;
+    }
+
+    const key = event.key ? event.key.toLowerCase() : '';
+    let formatKey = '';
+
+    if (key === 'b') {
+        formatKey = 'bold';
+    } else if (key === 'i') {
+        formatKey = 'italic';
+    } else if (key === 'u') {
+        formatKey = 'underline';
+    } else if (event.shiftKey && key === 'x') {
+        formatKey = 'strike';
+    } else if (key === '.') {
+        formatKey = 'sup';
+    } else if (key === ',') {
+        formatKey = 'sub';
+    }
+
+    if (formatKey) {
+        event.preventDefault();
+        toggleInlineStyle(formatKey);
+    }
+
+    return null;
+}
+
+/* ***
+ * attachTextFormatShortcutHandlers - добавление обработчика горячих клавиш форматирования
+ * - принимает документ редактора
+ * - добавляет обработчик keydown только один раз
+ * - отдает null
+*** */
+function attachTextFormatShortcutHandlers(targetDocument) {
+    if (!targetDocument || targetDocument.textFormatShortcutsBound) {
+        return null;
+    }
+
+    targetDocument.addEventListener('keydown', handleTextFormatShortcuts);
+    targetDocument.textFormatShortcutsBound = true;
+
+    return null;
+}
+
+// Инициализация обработчиков горячих клавиш форматирования для текущего документа
+attachTextFormatShortcutHandlers(document);
+window.editorBlock.attachTextFormatShortcutHandlers = attachTextFormatShortcutHandlers;
 
 // Поиск кнопок на панели форматирования
 const actionButtons = document.getElementById('editorBlock').querySelectorAll('[data-simpleformats-button]');

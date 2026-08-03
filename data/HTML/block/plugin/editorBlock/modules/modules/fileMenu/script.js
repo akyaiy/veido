@@ -51,9 +51,7 @@ document.addEventListener('click', closeFileMenu);
  * Действия файлового меню
 === */
 
-async function selectFileMenu(event) {
-    const selectedItem = event.target;
-    const action = selectedItem.getAttribute('data-action');
+async function executeFileMenuAction(action) {
     let blockContent = null;
 
     switch (action) {
@@ -73,7 +71,7 @@ async function selectFileMenu(event) {
 
         case 'saveAs':
             blockContent = window.editorBlock.saveBlock();
-            
+
             // Заменить потом!!!!!
             const blob2 = new Blob([blockContent], { type: 'application/zip' });
             const downloadUrl2 = URL.createObjectURL(blob2);
@@ -82,13 +80,13 @@ async function selectFileMenu(event) {
             downloadLink2.download = 'block.json';
             downloadLink2.click();
             URL.revokeObjectURL(downloadUrl2);
-            
+
             break;
 
         case 'open':
             const path = await window.editorBlock.prompt('Введите путь к файлу для открытия:');
             if (path === null || path.trim() === '') return;
-            window.editorBlock.openBlock(path);
+            await window.editorBlock.openBlock(path);
             break;
 
         case 'new':
@@ -102,3 +100,73 @@ async function selectFileMenu(event) {
 
 // Обработка выбора пункта меню
 fileMenuList.addEventListener('click', selectFileMenu);
+
+
+
+/* ===
+ * Меню файла и горячие клавиши
+=== */
+
+/* ***
+ * selectFileMenu - обработка выбора пункта меню файла
+ * - получает действие из дата-атрибута и вызывает его выполнение
+ * - отдает null
+*** */
+async function selectFileMenu(event) {
+    const selectedItem = event.target;
+    const action = selectedItem.getAttribute('data-action');
+
+    if (!action) {
+        return;
+    }
+
+    await executeFileMenuAction(action);
+}
+
+/* ***
+ * handleFileMenuKeyboardShortcuts - обработка горячих клавиш меню файла
+ * - перехватывает комбинации Ctrl+S, Ctrl+Shift+S, Ctrl+N, Ctrl+O
+ * - поддерживает любую раскладку клавиатуры
+ * - отдает null
+*** */
+function handleFileMenuKeyboardShortcuts(event) {
+    if (!event || !event.ctrlKey || event.altKey) {
+        return;
+    }
+
+    const code = event.code;
+
+    if (code === 'KeyS') {
+        const editor = window.editorBlock;
+        if (!editor || typeof editor.isBlockActive !== 'function' || !editor.isBlockActive()) {
+            return;
+        }
+
+        event.preventDefault();
+        executeFileMenuAction(event.shiftKey ? 'saveAs' : 'save');
+        return;
+    }
+
+    if (code === 'KeyO') {
+        event.preventDefault();
+        executeFileMenuAction('open');
+    }
+}
+
+/* ***
+ * attachFileMenuShortcutHandlers - добавление обработчика горячих клавиш меню файла
+ * - принимает документ редактора
+ * - добавляет обработчик keydown только один раз
+*** */
+function attachFileMenuShortcutHandlers(targetDocument) {
+    if (!targetDocument || targetDocument.fileMenuShortcutsBound) {
+        return;
+    }
+
+    targetDocument.addEventListener('keydown', handleFileMenuKeyboardShortcuts);
+    targetDocument.fileMenuShortcutsBound = true;
+}
+
+// Инициализация обработчиков горячих клавиш меню файла для текущего документа
+attachFileMenuShortcutHandlers(document);
+window.editorBlock.attachFileMenuShortcutHandlers = attachFileMenuShortcutHandlers;

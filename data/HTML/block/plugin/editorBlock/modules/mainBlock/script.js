@@ -302,6 +302,25 @@ function openLoadedBlock(blockId) {
             }
 
             attachIframeSelectionHandlers(iframe);
+
+            // Присоединение обработчиков клавиатурных сокращений к документу iframe
+            if (window.editorBlock && typeof window.editorBlock.attachFileMenuShortcutHandlers === 'function') {
+                window.editorBlock.attachFileMenuShortcutHandlers(iframeDoc);
+            }
+            if (window.editorBlock && typeof window.editorBlock.attachContextMenuShortcutHandlers === 'function') {
+                window.editorBlock.attachContextMenuShortcutHandlers(iframeDoc);
+            }
+            if (window.editorBlock && typeof window.editorBlock.attachColorPickerShortcutHandlers === 'function') {
+                window.editorBlock.attachColorPickerShortcutHandlers(iframeDoc);
+            }
+            if (window.editorBlock && typeof window.editorBlock.attachHistoryShortcutHandlers === 'function') {
+                window.editorBlock.attachHistoryShortcutHandlers(iframeDoc);
+            }
+            if (window.editorBlock && typeof window.editorBlock.attachTextFormatShortcutHandlers === 'function') {
+                window.editorBlock.attachTextFormatShortcutHandlers(iframeDoc);
+            }
+
+            // Инициализация элементов дерева и событий истории в iframe
             if (window.editorBlock && typeof window.editorBlock.initTreeElements === 'function') {
                 window.editorBlock.initTreeElements(iframe);
             }
@@ -362,6 +381,7 @@ function openLoadedBlock(blockId) {
 
     // Обновление текущего активного блока
     currentBlockId = blockId;
+    window.editorBlock.currentBlockId = currentBlockId;
     setEditorReadOnlyState(false);
     setActiveBlockTab(blockId);
 }
