@@ -116,6 +116,42 @@ func InitDB(path string) *sql.DB {
 	
 	CREATE UNIQUE INDEX IF NOT EXISTS idx_metadata_root_name ON metadata(name) WHERE parent_id IS NULL;
 
+	-- VFS v2 tables
+	CREATE TABLE IF NOT EXISTS vfs_scopes (
+	    id TEXT PRIMARY KEY,
+	    kind TEXT NOT NULL,
+	    name TEXT NOT NULL,
+	    owner_subject_key TEXT NOT NULL,
+	    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		
+	    UNIQUE(kind, name)
+	);
+	
+	CREATE TABLE IF NOT EXISTS vfs_provider_connections (
+	    id TEXT PRIMARY KEY,
+	    scope_id TEXT NOT NULL,
+	    provider TEXT NOT NULL,
+	    connection_name TEXT NOT NULL,
+	    config_json TEXT NOT NULL DEFAULT '{}',
+	    status TEXT NOT NULL DEFAULT 'active',
+	    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		
+	    FOREIGN KEY (scope_id) REFERENCES vfs_scopes(id) ON DELETE CASCADE,
+	    UNIQUE(scope_id, provider, connection_name)
+	);
+	
+	CREATE TABLE IF NOT EXISTS vfs_principal_default_scopes (
+    	principal_type TEXT NOT NULL,
+     	principal_id TEXT NOT NULL,
+      	provider TEXT NOT NULL,
+       	connection_name TEXT NOT NULL,
+        scope_id TEXT NOT NULL,
+	
+	    PRIMARY KEY (principal_type, principal_id, provider, connection_name),
+	    FOREIGN KEY (scope_id) REFERENCES vfs_scopes(id) ON DELETE CASCADE
+	);66
 	`
 	_, err = db.Exec(stmt)
 	if err != nil {
