@@ -151,7 +151,7 @@ func InitDB(path string) *sql.DB {
 	
 	    PRIMARY KEY (principal_type, principal_id, provider, connection_name),
 	    FOREIGN KEY (scope_id) REFERENCES vfs_scopes(id) ON DELETE CASCADE
-	);66
+	);
 	`
 	_, err = db.Exec(stmt)
 	if err != nil {
