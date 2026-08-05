@@ -1,0 +1,49 @@
+/* Стили окна свойств страницы */
+.pagePropertiesWindow {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    max-width: 400px;
+    max-height: 600px;
+    overflow-y: auto;
+    background-color: #ffffff;
+    border: 1px solid #cccccc;
+    border-radius: 8px;
+}
+
+.pagePropertiesHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background-color: #f0f0f0;
+    cursor: move;
+}
+
+.pagePropertiesContent {
+    padding: 10px;
+}
+
+/* Стили строк/колонок свойств */
+.pagePropertiesRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+}
+
+.pagePropertiesLabel {
+    width: 100px;
+}
+
+/* Кнопки */
+.pagePropertiesCloseBtn {
+    cursor: pointer;
+}
+
+.pagePropertiesActions {
+    display: flex;
+    justify-content: flex-end;
+    padding: 6px 0;
+}

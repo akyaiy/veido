@@ -5,5 +5,6 @@
         <div class="fileMenuItem" data-action="saveAs">Сохранить как</div>
         <div class="fileMenuItem" data-action="open">Открыть</div>
         <div class="fileMenuItem" data-action="new">Новый</div>
+        <div class="fileMenuItem" data-action="pageProperties">Свойства блока</div>
     </div>
 </div>

@@ -125,6 +125,10 @@ async function togglePreviewMode() {
     if (shouldActivatePreview && viewEditorButton) {
         viewEditorButton.click();
 
+        if (window.editorBlock && typeof window.editorBlock.hideAllPagePropertiesWindows === 'function') {
+            window.editorBlock.hideAllPagePropertiesWindows();
+        }
+
         await new Promise(resolve => {
             setTimeout(resolve, 100);
         });

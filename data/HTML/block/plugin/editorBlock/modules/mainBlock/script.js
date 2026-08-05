@@ -77,11 +77,14 @@ async function loadBlockContainer(path, initialElement = null) {
     cssDiv.id = blockId + 'Css';
     const jsDiv = document.createElement('div');
     jsDiv.id = blockId + 'Js';
+    const settingsDiv = document.createElement('div');
+    settingsDiv.id = blockId + 'Settings';
 
     blocksContainers.appendChild(block);
     block.appendChild(htmlDiv);
     block.appendChild(cssDiv);
     block.appendChild(jsDiv);
+    block.appendChild(settingsDiv);
 
     // Убеждаемся, что получаем правильный конструктор Element даже из iframe
     const isElementNode = initialElement && (
@@ -118,7 +121,35 @@ async function loadBlockContainer(path, initialElement = null) {
         jsDiv.textContent = '';
     }
 
+    initBlockSettings(blockId);
+
     return blockId;
+}
+
+/* ***
+ * initBlockSettings - инициализация настроек блока
+ * - принимает идентификатор блока
+ * - создает настройки размеров редактора представления при первом открытии
+ * - применяет сохраненные размеры к viewEditorContent
+*** */
+function initBlockSettings(blockId) {
+    const settingsDiv = document.getElementById(blockId + 'Settings');
+    const viewEditorContent = document.getElementById('viewEditorContent');
+
+    if (!settingsDiv || !viewEditorContent) {
+        return;
+    }
+
+    if (!settingsDiv.dataset.viewEditorWidth) {
+        settingsDiv.dataset.viewEditorWidth = '100%';
+    }
+
+    if (!settingsDiv.dataset.viewEditorHeight) {
+        settingsDiv.dataset.viewEditorHeight = '100%';
+    }
+
+    viewEditorContent.style.width = settingsDiv.dataset.viewEditorWidth;
+    viewEditorContent.style.height = settingsDiv.dataset.viewEditorHeight;
 }
 
 /* ***
@@ -257,6 +288,18 @@ function openLoadedBlock(blockId) {
 
     // Вставка содержимого в редакторы
     if (viewEditorContent) {
+        // Применяем сохранённые размеры из settingsDiv для данного блока, если они есть
+        try {
+            const settingsEl = document.getElementById(blockId + 'Settings');
+            if (settingsEl) {
+                const w = settingsEl.dataset.viewEditorWidth || '100%';
+                const h = settingsEl.dataset.viewEditorHeight || '100%';
+                if (w) viewEditorContent.style.width = String(w);
+                if (h) viewEditorContent.style.height = String(h);
+            }
+        } catch (e) {
+            // silent
+        }
         viewEditorContent.innerHTML = '';
         showViewEditorEmptyState();
 
@@ -384,6 +427,10 @@ function openLoadedBlock(blockId) {
     window.editorBlock.currentBlockId = currentBlockId;
     setEditorReadOnlyState(false);
     setActiveBlockTab(blockId);
+
+    if (window.editorBlock && typeof window.editorBlock.syncPagePropertiesWindowForBlock === 'function') {
+        window.editorBlock.syncPagePropertiesWindowForBlock(blockId);
+    }
 }
 
 // Обновление блока при открытии вкладки
@@ -641,6 +688,21 @@ document.addEventListener('editorBlock:loaded', () => {
     mdEditorContent.addEventListener('input', () => {
         syncEditors();
     });
+
+    // Добавление ResizeObserver для отслеживания изменений размеров viewEditorContent
+    const ro = new ResizeObserver(entries => {
+        for (const entry of entries) {
+            const width = entry.target.style.width || Math.round(entry.contentRect.width) + 'px';
+            const height = entry.target.style.height || Math.round(entry.contentRect.height) + 'px';
+
+            const settingsEl = currentBlockId ? document.getElementById(currentBlockId + 'Settings') : null;
+            if (!settingsEl) continue;
+
+            settingsEl.dataset.viewEditorWidth = width;
+            settingsEl.dataset.viewEditorHeight = height;
+        }
+    });
+    ro.observe(viewEditorContent);
 });
 
 

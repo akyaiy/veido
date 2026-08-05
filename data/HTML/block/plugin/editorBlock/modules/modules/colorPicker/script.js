@@ -68,7 +68,7 @@ function positionColorPicker(anchor) {
 
     colorPickerContainer.style.position = 'absolute';
     colorPickerContainer.style.visibility = 'hidden';
-    colorPickerContainer.style.display = 'block';
+    colorPickerContainer.style.display = '';
 
     const pickerWidth = colorPickerContainer.offsetWidth;
     const pickerHeight = colorPickerContainer.offsetHeight;
@@ -409,7 +409,7 @@ function openColorPicker(options = {}) {
     setColorPickerColor(initialColor);
     positionColorPicker(colorPickerAnchor);
 
-    colorPickerContainer.style.display = 'block';
+    colorPickerContainer.style.display = '';
     updatePickerUi(false, false);
 
     if (!colorPickerDocumentListener) {

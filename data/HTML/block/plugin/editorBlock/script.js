@@ -28,6 +28,7 @@ async function loadEditorBlock() {
         'blocksContainers',
         'contextMenu',
         'fileMenu',
+        'pageProperties',
 
         'rightPanelTabs',
         'propertiesText',

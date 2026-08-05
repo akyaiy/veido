@@ -93,6 +93,12 @@ async function executeFileMenuAction(action) {
             window.editorBlock.newBlock();
             break;
 
+        case 'pageProperties':
+            if (window.editorBlock && typeof window.editorBlock.openPageProperties === 'function') {
+                window.editorBlock.openPageProperties();
+            }
+            break;
+
         default:
             console.log('Неизвестное действие:', action);
     }
