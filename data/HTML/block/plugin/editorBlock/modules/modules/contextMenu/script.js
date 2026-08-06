@@ -591,7 +591,7 @@ function handleEditorKeyboardShortcuts(event) {
         return;
     }
 
-    if (event.key === 'Delete') {
+    if (event.key === 'Delete' || event.key === 'Backspace') {
         const handled = executeDeleteAction();
 
         if (handled) {
