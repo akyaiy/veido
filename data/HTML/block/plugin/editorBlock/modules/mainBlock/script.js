@@ -400,6 +400,9 @@ function openLoadedBlock(blockId) {
             }
 
             attachIframeSelectionHandlers(iframe);
+            if (typeof setupEditorKeyBindings === 'function' && iframeDoc && iframeDoc.body) {
+                setupEditorKeyBindings(iframeDoc.body);
+            }
 
             // Присоединение обработчиков клавиатурных сокращений к документу iframe
             if (window.editorBlock && typeof window.editorBlock.attachFileMenuShortcutHandlers === 'function') {
@@ -1801,3 +1804,192 @@ function convertHtmlToMd(htmlString) {
 }
 
 window.editorBlock.convertHtmlToMd = convertHtmlToMd;
+
+
+
+/* ===
+ * Обработка клавиш (Enter / Shift + Enter)
+=== */
+
+/* ***
+ * isInList - проверяет, находится ли курсор внутри списка (ul, ol, li)
+ * принимает узел DOM и корневой элемент редактора
+ * проверяет теги текущего узла и его родителей
+ * возвращает true, если узел внутри списка, иначе false
+*** */
+function isInList(node, editorElement) {
+    let current = node.nodeType === Node.TEXT_NODE ? node.parentNode : node;
+
+    while (current && current !== editorElement) {
+        const tagName = current.tagName ? current.tagName.toLowerCase() : '';
+        if (tagName === 'ul' || tagName === 'ol' || tagName === 'li') {
+            return true;
+        }
+        current = current.parentNode;
+    }
+
+    return false;
+}
+
+/* ***
+ * getImmediateParentElement - получает родительский элемент строго на один уровень выше
+ * принимает узел DOM и корневой элемент редактора
+ * возвращает непосредственного родителя без перемещения выше по цепочке
+ * возвращает родительский элемент или null
+*** */
+function getImmediateParentElement(node, editorElement) {
+    let current = node.nodeType === Node.TEXT_NODE ? node.parentNode : node;
+
+    if (current && current !== editorElement) {
+        return current;
+    }
+
+    return null;
+}
+
+/* ***
+ * insertBrAtRange - вставляет перенос строки
+ * принимает текущий диапазон (range) и объект выделения (selection)
+ * проверяет наличие br после текста и при необходимости добавляет два br
+ * ничего не возвращает
+*** */
+function insertBrAtRange(range, selection) {
+    const endContainer = range.endContainer;
+    const endOffset = range.endOffset;
+
+    const isTextNode = endContainer.nodeType === Node.TEXT_NODE;
+    const isAtEnd = isTextNode 
+        ? endOffset === endContainer.length 
+        : endOffset === endContainer.childNodes.length;
+
+    let hasBrAfter = false;
+    if (isTextNode) {
+        let next = endContainer.nextSibling;
+        if (next && next.nodeName === 'BR') {
+            hasBrAfter = true;
+        }
+    } else {
+        let nodeAtCursor = endContainer.childNodes[endOffset];
+        if (nodeAtCursor && nodeAtCursor.nodeName === 'BR') {
+            hasBrAfter = true;
+        }
+    }
+
+    range.deleteContents();
+
+    const br1 = document.createElement('br');
+    range.insertNode(br1);
+
+    if (isAtEnd && !hasBrAfter) {
+        const br2 = document.createElement('br');
+        br1.parentNode.insertBefore(br2, br1.nextSibling);
+    }
+
+    range.setStartAfter(br1);
+    range.setEndAfter(br1);
+
+    selection.removeAllRanges();
+    selection.addRange(range);
+}
+
+/* ***
+ * insertLineAfterBlock - выходит из элемента на один уровень и создает новую строку
+ * принимает текущий элемент и объект выделения (selection)
+ * создает пустую строку после элемента и переносит каретку
+ * ничего не возвращает
+*** */
+function insertLineAfterBlock(currentElement, selection) {
+    const parent = currentElement.parentNode;
+    if (!parent) {
+        return;
+    }
+
+    const newLine = document.createElement('div');
+    newLine.appendChild(document.createElement('br'));
+
+    if (currentElement.nextSibling) {
+        parent.insertBefore(newLine, currentElement.nextSibling);
+    } else {
+        parent.appendChild(newLine);
+    }
+
+    const newRange = document.createRange();
+    newRange.setStart(newLine, 0);
+    newRange.collapse(true);
+
+    selection.removeAllRanges();
+    selection.addRange(newRange);
+}
+
+/* ***
+ * handleShiftEnter - обработка комбинации Shift + Enter
+ * принимает объект события, выделение (selection), диапазон (range) и корневой элемент редактора
+ * выйдет на один уровень выше при вводе в конце текста или вставит br
+ * ничего не возвращает
+*** */
+function handleShiftEnter(event, selection, range, editorElement) {
+    event.preventDefault();
+
+    const endNode = range.endContainer;
+    const isTextNode = endNode.nodeType === Node.TEXT_NODE;
+
+    const isAtEnd = isTextNode 
+        ? range.endOffset === endNode.length 
+        : range.endOffset === endNode.childNodes.length;
+
+    if (!isAtEnd) {
+        insertBrAtRange(range, selection);
+        return;
+    }
+
+    const parentElement = getImmediateParentElement(endNode, editorElement);
+
+    if (parentElement) {
+        insertLineAfterBlock(parentElement, selection);
+    } else {
+        insertBrAtRange(range, selection);
+    }
+}
+
+/* ***
+ * handleEnter - обработка обычного нажатия Enter
+ * принимает объект события, выделение (selection) и диапазон (range)
+ * предотвращает стандартное поведение и вставляет перенос строки
+ * ничего не возвращает
+*** */
+function handleEnter(event, selection, range) {
+    event.preventDefault();
+    insertBrAtRange(range, selection);
+}
+
+/* ***
+ * setupEditorKeyBindings - добавление обработки клавиш
+ * принимает корневой элемент редактора
+ * пропускает стандартную обработку внутри списков и распределяет Enter / Shift + Enter
+ * ничего не возвращает
+*** */
+function setupEditorKeyBindings(editorElement) {
+    editorElement.addEventListener('keydown', function (event) {
+        if (event.key !== 'Enter') {
+            return;
+        }
+
+        const selection = editorElement.ownerDocument.defaultView.getSelection();
+
+        if (!selection || !selection.rangeCount) {
+            return;
+        }
+
+        const range = selection.getRangeAt(0);
+
+        if (isInList(range.endContainer, editorElement)) {
+            return;
+        }
+
+        if (event.shiftKey) {
+            handleShiftEnter(event, selection, range, editorElement);
+        } else {
+            handleEnter(event, selection, range);
+        }
+    });
+}
