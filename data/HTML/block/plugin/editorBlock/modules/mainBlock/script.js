@@ -148,8 +148,35 @@ function initBlockSettings(blockId) {
         settingsDiv.dataset.viewEditorHeight = '100%';
     }
 
+    // Поддержка новых свойств для тела iframe: padding, max-width и margin
+    if (!settingsDiv.dataset.viewEditorPadding) {
+        settingsDiv.dataset.viewEditorPadding = '20px';
+    }
+    if (!settingsDiv.dataset.viewEditorMaxWidth) {
+        settingsDiv.dataset.viewEditorMaxWidth = '90vw';
+    }
+    if (!settingsDiv.dataset.viewEditorMargin) {
+        settingsDiv.dataset.viewEditorMargin = '0 auto';
+    }
+    if (!settingsDiv.dataset.viewEditorMinWidth) {
+        settingsDiv.dataset.viewEditorMinWidth = '0';
+    }
+    if (!settingsDiv.dataset.viewEditorMinHeight) {
+        settingsDiv.dataset.viewEditorMinHeight = '0';
+    }
+    if (!settingsDiv.dataset.viewEditorMaxHeight) {
+        settingsDiv.dataset.viewEditorMaxHeight = 'none';
+    }
+
+    // Включаем прокрутку для контейнера viewEditorContent
+    viewEditorContent.style.overflow = 'auto';
+
     viewEditorContent.style.width = settingsDiv.dataset.viewEditorWidth;
     viewEditorContent.style.height = settingsDiv.dataset.viewEditorHeight;
+    viewEditorContent.style.minWidth = settingsDiv.dataset.viewEditorMinWidth;
+    viewEditorContent.style.minHeight = settingsDiv.dataset.viewEditorMinHeight;
+    viewEditorContent.style.maxWidth = settingsDiv.dataset.viewEditorMaxWidth;
+    viewEditorContent.style.maxHeight = settingsDiv.dataset.viewEditorMaxHeight;
 }
 
 /* ***
@@ -282,6 +309,8 @@ function openLoadedBlock(blockId) {
     const cssContent = cssDiv ? cssDiv.textContent : '';
     const jsContent = jsDiv ? jsDiv.textContent : '';
 
+    initBlockSettings(blockId);
+
     if (window.editorBlock && typeof window.editorBlock.setHistoryInitializing === 'function') {
         window.editorBlock.setHistoryInitializing(true);
     }
@@ -342,6 +371,32 @@ function openLoadedBlock(blockId) {
                     element.setAttribute('contenteditable', 'false');
                     element.querySelectorAll('*').forEach(child => child.setAttribute('contenteditable', 'false'));
                 });
+
+                // Применяем стили к body внутри iframe: padding, margin, min/max размеры
+                try {
+                    const settingsEl = document.getElementById(blockId + 'Settings');
+                    if (settingsEl) {
+                        const padding = settingsEl.dataset.viewEditorPadding || '20px';
+                        const margin = settingsEl.dataset.viewEditorMargin || '0 auto';
+                        const minWidth = settingsEl.dataset.viewEditorMinWidth || '0';
+                        const minHeight = settingsEl.dataset.viewEditorMinHeight || '0';
+                        const maxWidth = settingsEl.dataset.viewEditorMaxWidth || '90vw';
+                        const maxHeight = settingsEl.dataset.viewEditorMaxHeight || 'none';
+
+                        iframeDoc.body.style.padding = padding;
+                        iframeDoc.body.style.margin = margin;
+                        iframeDoc.body.style.minWidth = minWidth;
+                        iframeDoc.body.style.minHeight = minHeight;
+                        iframeDoc.body.style.maxWidth = maxWidth;
+                        iframeDoc.body.style.maxHeight = maxHeight;
+                    }
+
+                    // Переносим управление resize на body внутри iframe и включаем прокрутку
+                    iframeDoc.body.style.resize = 'both';
+                    iframeDoc.body.style.overflow = 'auto';
+                } catch (e) {
+                    // silent
+                }
             }
 
             attachIframeSelectionHandlers(iframe);
@@ -431,6 +486,12 @@ function openLoadedBlock(blockId) {
     if (window.editorBlock && typeof window.editorBlock.syncPagePropertiesWindowForBlock === 'function') {
         window.editorBlock.syncPagePropertiesWindowForBlock(blockId);
     }
+
+    document.dispatchEvent(new CustomEvent('editorBlock:blockOpened', {
+        detail: {
+            blockId
+        }
+    }));
 }
 
 // Обновление блока при открытии вкладки
