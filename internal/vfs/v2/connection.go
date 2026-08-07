@@ -8,6 +8,7 @@ type ProviderConnection struct {
     Provider string
     Name     string
     Config   []byte
+    Status   string
 }
 
 type ConnectionResolverContract interface {
