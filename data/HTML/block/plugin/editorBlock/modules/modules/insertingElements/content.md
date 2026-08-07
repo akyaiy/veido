@@ -16,7 +16,7 @@
 </div>
 
 <div class="insertElements" data-tab-content="media">
-    <div class="insertElement" data-element="figure" title="Фигура"><svg class="svgIcon" use="9x13"></svg></div>
+    <div class="insertElement" data-element="figure" title="Изображение с надписью"><svg class="svgIcon" use="9x13"></svg></div>
     <div class="insertElement" data-element="video" title="Видео"><svg class="svgIcon" use="15x4"></svg></div>
     <div class="insertElement" data-element="audio" title="Аудио"><svg class="svgIcon" use="15x3"></svg></div>
     <div class="insertElement" data-element="iframe" title="Встроенный документ"><svg class="svgIcon" use="15x5"></svg></div>

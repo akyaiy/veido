@@ -369,7 +369,15 @@ function openLoadedBlock(blockId) {
 
                 iframeDoc.body.querySelectorAll('[data-block-src]').forEach(element => {
                     element.setAttribute('contenteditable', 'false');
-                    element.querySelectorAll('*').forEach(child => child.setAttribute('contenteditable', 'false'));
+
+                    element.style.userSelect = 'none';
+                    element.style.pointerEvents = 'auto';
+
+                    element.querySelectorAll('*').forEach(child => {
+                        child.setAttribute('contenteditable', 'false');
+                        child.style.userSelect = 'none';
+                        child.style.pointerEvents = 'none';
+                    });
                 });
 
                 // Применяем стили к body внутри iframe: padding, margin, min/max размеры
