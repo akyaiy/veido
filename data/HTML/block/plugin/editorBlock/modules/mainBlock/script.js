@@ -465,6 +465,8 @@ function openLoadedBlock(blockId) {
             iframeDoc.addEventListener('mousedown', window.editorBlock.handleMenuHide);
             iframeDoc.addEventListener('click', window.editorBlock.hideElementMenu);
 
+            iframeDoc.addEventListener('keydown', handleBackspaceEvent);
+
             if (viewEditorContent.classList.contains('preview') &&
                 window.editorBlock && typeof window.editorBlock.loadNestedBlocksInPreview === 'function') {
                 window.editorBlock.loadNestedBlocksInPreview();
@@ -1825,7 +1827,7 @@ window.editorBlock.convertHtmlToMd = convertHtmlToMd;
 
 
 /* ===
- * Обработка клавиш (Enter / Shift + Enter)
+ * Обработка клавиш
 === */
 
 /* ***
@@ -2009,4 +2011,90 @@ function setupEditorKeyBindings(editorElement) {
             handleEnter(event, selection, range);
         }
     });
+}
+
+/* ***
+ * executeBackspaceAction - кастомная обработка нажатия Backspace в редакторе
+ * принимает event (событие нажатия клавиши) и targetDocument (целевой документ, по умолчанию document)
+ * проверяет отсутствие выделения, определяет текущий элемент под курсором, предотвращает схлопывание элемента до полной пустоты путем подстановки <br> на первом этапе и очистки <br> на втором, либо разрешает стандартное удаление
+*** */
+function executeBackspaceAction(event, targetDocument) {
+    const doc = targetDocument || document;
+    const selection = doc.defaultView?.getSelection ? doc.defaultView.getSelection() : null;
+
+    if (!selection || !selection.isCollapsed) return;
+
+    const anchorNode = selection.anchorNode;
+    if (!anchorNode) return;
+
+    const currentElement = anchorNode.nodeType === Node.TEXT_NODE ? anchorNode.parentElement : anchorNode;
+    if (!currentElement) return;
+
+    const html = currentElement.innerHTML.toLowerCase().trim();
+
+    if (html === '') return;
+
+    if (html === '<br>' || html === '<br/>') {
+        event.preventDefault();
+        currentElement.innerHTML = '';
+        const newRange = doc.createRange();
+        newRange.setStart(currentElement, 0);
+        newRange.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+        return;
+    }
+
+    if (
+        currentElement.childNodes.length === 1 && 
+        anchorNode.nodeType === Node.TEXT_NODE && 
+        anchorNode.textContent.length === 1 && 
+        selection.anchorOffset === 1
+    ) {
+        event.preventDefault();
+        currentElement.innerHTML = '<br>';
+        const newRange = doc.createRange();
+        newRange.setStartAfter(currentElement.firstChild);
+        newRange.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+    }
+}
+
+/* ***
+ * handleBackspaceEvent - обработчик нажатия клавиши Backspace в редакторе
+ * принимает event (событие нажатия клавиши)
+ * определяет document, в котором произошло событие, включая document внутри iframe
+ * получает текущее выделение и элемент под курсором
+ * проверяет нахождение элемента внутри области contenteditable
+ * передает текущий элемент и целевой document в executeBackspaceAction
+*** */
+function handleBackspaceEvent(event) {
+    if (event.key !== 'Backspace') {
+        return;
+    }
+
+    const targetDocument = event.target.ownerDocument;
+
+    const selection = targetDocument.defaultView?.getSelection
+        ? targetDocument.defaultView.getSelection()
+        : null;
+
+    if (!selection || !selection.anchorNode) {
+        return;
+    }
+
+    const currentElement = selection.anchorNode.nodeType === Node.TEXT_NODE
+        ? selection.anchorNode.parentElement
+        : selection.anchorNode;
+
+    const editableRoot = currentElement.closest
+        ? currentElement.closest('[contenteditable="true"]')
+        : null;
+
+    if (!editableRoot) {
+        return;
+    }
+
+    executeBackspaceAction(event, targetDocument, currentElement);
 }
