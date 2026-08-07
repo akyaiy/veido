@@ -433,7 +433,7 @@ function handleContextMenu(event) {
         const itemAction = itemButton.getAttribute('data-action');
         
         if (itemAction === 'paste') {
-            itemButton.style.display = navigator.clipboard?.readText ? '' : 'none';
+            itemButton.style.display = navigator.clipboard?.read ? '' : 'none';
             return;
         }
 
@@ -485,7 +485,7 @@ async function handleMenuClick(event) {
     }
 
     if (typeof window.editorBlock.restoreSelection === 'function') {
-        window.editorBlock.restoreSelection();
+        await window.editorBlock.restoreSelection();
     }
 
     const activeSelection = getActiveEditorSelection();
@@ -494,12 +494,12 @@ async function handleMenuClick(event) {
     const selectionAnchorElement = hasActiveTextSelection ? (activeSelection.anchorNode?.nodeType === Node.TEXT_NODE ? activeSelection.anchorNode.parentElement : activeSelection.anchorNode) : null;
     const activeSelectionElement = selectedElement || selectionAnchorElement;
 
-    if (!activeSelectionElement) {
+    if (!activeSelectionElement && executedAction !== 'paste') {
         return;
     }
 
-    const currentTable = activeSelectionElement.closest('table');
-    const currentCell = activeSelectionElement.closest('td,th');
+    const currentTable = activeSelectionElement ? activeSelectionElement.closest('table') : null;
+    const currentCell = activeSelectionElement ? activeSelectionElement.closest('td,th') : null;
 
     try {
         switch (executedAction) {
@@ -545,21 +545,19 @@ async function handleMenuClick(event) {
 
     contextMenu.style.display = 'none';
 }
-
 /* ***
  * handleEditorKeyboardShortcuts - обработка горячих клавиш редактора
- * - принимает событие клавиатуры event
- * - проверяет, находится ли фокус в элементе с contenteditable="true"
- * - перехватывает нажатия Ctrl+C, Ctrl+V, Ctrl+X, Escape и Delete только для таких элементов
- * - отдает null
- *** */
+ * принимает событие клавиатуры event
+ * проверяет, находится ли фокус в элементе с contenteditable="true"
+ * перехватывает нажатия Ctrl+C, Ctrl+V, Ctrl+X, Escape и Delete только для таких элементов
+ * отдает null
+*** */
 function handleEditorKeyboardShortcuts(event) {
     if (!event) {
         return;
     }
 
-    // Проверяем, находится ли фокус внутри элемента с contenteditable="true"
-    const activeEl = document.activeElement;
+    const activeEl = event.target;
     const isEditable = activeEl && activeEl.getAttribute('contenteditable') === 'true';
 
     if (!isEditable) {
