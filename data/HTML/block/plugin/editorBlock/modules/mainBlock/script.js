@@ -929,6 +929,11 @@ function clearElementHighlight() {
         iframeWin.removeEventListener('keydown', updateHighlightPosition);
     }
 
+    if (highlightObserver) {
+        highlightObserver.disconnect();
+        highlightObserver = null;
+    }
+
     // Сброс переменных состояния
     activeSelectedElement = null;
     originalOutlineStyle = '';
@@ -998,6 +1003,17 @@ function highlightElement(element) {
         win.addEventListener('scroll', updateHighlightPosition);
         win.addEventListener('input', updateHighlightPosition);
         win.addEventListener('keydown', updateHighlightPosition);
+
+        const iframeDoc = documentRoot;
+        if (iframeDoc && iframeDoc.body) {
+            highlightObserver = new MutationObserver(updateHighlightPosition);
+            highlightObserver.observe(iframeDoc.body, {
+                attributes: true,
+                childList: true,
+                subtree: true,
+                characterData: true
+            });
+        }
     }
 
     document.dispatchEvent(
@@ -1080,8 +1096,9 @@ function isInsideIframeBody(target) {
     return !!(targetNode && targetNode !== body && body.contains(targetNode));
 }
 
-// Глобальная переменная для хранения последнего выделенного элемента
+// Глобальная переменная для хранения last highlighted element
 let lastHighlightedElement = null;
+let highlightObserver = null;
 
 /* ***
  * handleVisualEditorClick - обработка клика в визуальном редакторе
