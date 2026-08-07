@@ -17,7 +17,7 @@ const eventsTable = document.getElementById('eventsPanel')
 // Список событий
 const eventTypes = [
     {
-        label: 'Мышь',
+        label: 'Мышь и указатель',
         events: [
             'click',
             'dblclick',
@@ -25,67 +25,94 @@ const eventTypes = [
             'mouseup',
             'mouseenter',
             'mouseleave',
+            'mouseover',
+            'mouseout',
             'mousemove',
-            'contextmenu'
+            'contextmenu',
+            'pointerdown',
+            'pointerup',
+            'pointermove',
+            'pointerenter',
+            'pointerleave',
+            'pointerover',
+            'pointerout',
+            'pointercancel',
+            'wheel'
         ]
     },
     {
-        label: 'Клавиатура',
+        label: 'Клавиатура и ввод',
         events: [
             'keydown',
-            'keyup'
-        ]
-    },
-    {
-        label: 'Форма',
-        events: [
+            'keyup',
+            'keypress',
             'input',
-            'change',
-            'submit',
-            'focus',
-            'blur'
+            'beforeinput',
+            'change'
         ]
     },
     {
-        label: 'Буфер',
+        label: 'Форма и взаимодействие',
         events: [
+            'submit',
+            'reset',
+            'focus',
+            'blur',
+            'focusin',
+            'focusout',
+            'invalid',
             'copy',
             'cut',
             'paste'
         ]
     },
     {
-        label: 'Drag',
+        label: 'Drag и Touch',
         events: [
             'dragstart',
+            'drag',
+            'dragenter',
             'dragover',
+            'dragleave',
             'drop',
-            'dragend'
+            'dragend',
+            'touchstart',
+            'touchmove',
+            'touchend',
+            'touchcancel'
         ]
     },
     {
-        label: 'Указатель',
-        events: [
-            'pointerdown',
-            'pointerup',
-            'pointermove'
-        ]
-    },
-    {
-        label: 'Документ',
+        label: 'Документ, окно и медиа',
         events: [
             'load',
             'DOMContentLoaded',
             'scroll',
-            'resize'
-        ]
-    },
-    {
-        label: 'Медиа',
-        events: [
+            'resize',
+            'beforeunload',
+            'unload',
+            'visibilitychange',
+            'animationstart',
+            'animationend',
+            'animationiteration',
+            'transitionstart',
+            'transitionend',
+            'transitioncancel',
             'play',
             'pause',
-            'ended'
+            'ended',
+            'volumechange',
+            'timeupdate',
+            'seeking',
+            'seeked',
+            'loadeddata',
+            'loadedmetadata',
+            'canplay',
+            'waiting',
+            'hashchange',
+            'popstate',
+            'online',
+            'offline'
         ]
     }
 ];
