@@ -548,12 +548,21 @@ async function handleMenuClick(event) {
 
 /* ***
  * handleEditorKeyboardShortcuts - обработка горячих клавиш редактора
- * - перехватывает нажатия клавиш для копирования, вставки, вырезания, закрытия меню и удаления
- * - поддерживает любую раскладку клавиатуры
+ * - принимает событие клавиатуры event
+ * - проверяет, находится ли фокус в элементе с contenteditable="true"
+ * - перехватывает нажатия Ctrl+C, Ctrl+V, Ctrl+X, Escape и Delete только для таких элементов
  * - отдает null
-*** */
+ *** */
 function handleEditorKeyboardShortcuts(event) {
     if (!event) {
+        return;
+    }
+
+    // Проверяем, находится ли фокус внутри элемента с contenteditable="true"
+    const activeEl = document.activeElement;
+    const isEditable = activeEl && activeEl.getAttribute('contenteditable') === 'true';
+
+    if (!isEditable) {
         return;
     }
 
@@ -566,13 +575,11 @@ function handleEditorKeyboardShortcuts(event) {
             executeCopyAction();
             return;
         }
-
         if (code === 'KeyV') {
             event.preventDefault();
             executePasteAction();
             return;
         }
-
         if (code === 'KeyX') {
             event.preventDefault();
             executeCutAction();
@@ -581,19 +588,16 @@ function handleEditorKeyboardShortcuts(event) {
     }
 
     if (event.key === 'Escape') {
-        const hadVisibleMenu = contextMenu.style.display !== 'none';
-
+        const hadVisibleMenu = contextMenu && contextMenu.style.display !== 'none';
         if (hadVisibleMenu) {
             contextMenu.style.display = 'none';
             event.preventDefault();
         }
-
         return;
     }
 
     if (event.key === 'Delete') {
         const handled = executeDeleteAction();
-
         if (handled) {
             event.preventDefault();
         }
