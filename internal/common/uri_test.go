@@ -138,6 +138,78 @@ func TestCastURI(t *testing.T) {
 	})
 }
 
+func TestCanonURIHelpers(t *testing.T) {
+	tests := []struct {
+		name           string
+		uri            CanonURI
+		wantProvider   string
+		wantConnection string
+		wantScope      string
+		wantHasScope   bool
+		wantPath       string
+	}{
+		{
+			name:           "full resource reference",
+			uri:            "filesystem@main[user]:///documents/test.txt",
+			wantProvider:   "filesystem",
+			wantConnection: "main",
+			wantScope:      "user",
+			wantHasScope:   true,
+			wantPath:       "/documents/test.txt",
+		},
+		{
+			name:           "empty scope",
+			uri:            "filesystem@main[]:///documents/test.txt",
+			wantProvider:   "filesystem",
+			wantConnection: "main",
+			wantScope:      "",
+			wantHasScope:   false,
+			wantPath:       "/documents/test.txt",
+		},
+		{
+			name:           "invalid URI",
+			uri:            "not a URI",
+			wantProvider:   "",
+			wantConnection: "",
+			wantScope:      "",
+			wantHasScope:   false,
+			wantPath:       "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.uri.Provider(); got != tt.wantProvider {
+				t.Fatalf("Provider() = %q, want %q", got, tt.wantProvider)
+			}
+
+			if got := tt.uri.HasProvider(); got != (tt.wantProvider != "") {
+				t.Fatalf("HasProvider() = %v, want %v", got, tt.wantProvider != "")
+			}
+
+			if got := tt.uri.ConnectionName(); got != tt.wantConnection {
+				t.Fatalf("ConnectionName() = %q, want %q", got, tt.wantConnection)
+			}
+
+			if got := tt.uri.HasConnection(); got != (tt.wantConnection != "") {
+				t.Fatalf("HasConnection() = %v, want %v", got, tt.wantConnection != "")
+			}
+
+			if got := tt.uri.ScopeName(); got != tt.wantScope {
+				t.Fatalf("ScopeName() = %q, want %q", got, tt.wantScope)
+			}
+
+			if got := tt.uri.HasScope(); got != tt.wantHasScope {
+				t.Fatalf("HasScope() = %v, want %v", got, tt.wantHasScope)
+			}
+
+			if got := tt.uri.Path(); got != tt.wantPath {
+				t.Fatalf("Path() = %q, want %q", got, tt.wantPath)
+			}
+		})
+	}
+}
+
 func TestParseResourceRef(t *testing.T) {
 	tests := []struct {
 		name string

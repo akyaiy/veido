@@ -58,3 +58,80 @@ func CastURI(raw string) (CanonURI, error) {
 	}
 	return uri, nil
 }
+
+// HasScope reports whether uri has an explicitly specified non-empty scope.
+func (uri CanonURI) HasScope() bool {
+	return uri.ScopeName() != ""
+}
+
+// ScopeName returns the canonical URI scope name, or an empty string when the
+// URI is invalid or the scope segment is empty.
+func (uri CanonURI) ScopeName() string {
+	ref := uri.resourceRef()
+	if ref == nil {
+		return ""
+	}
+
+	return ref.ScopeName
+}
+
+func (uri CanonURI) ScopeId() string {
+	ref := uri.resourceRef()
+	if ref == nil {
+		return ""
+	}
+
+	return ref.ScopeID
+}
+
+// HasProvider reports whether uri has a valid provider segment.
+func (uri CanonURI) HasProvider() bool {
+	return uri.Provider() != ""
+}
+
+// Provider returns the canonical URI provider, or an empty string for invalid
+// URIs.
+func (uri CanonURI) Provider() string {
+	ref := uri.resourceRef()
+	if ref == nil {
+		return ""
+	}
+
+	return ref.Provider
+}
+
+// HasConnection reports whether uri has a valid connection name segment.
+func (uri CanonURI) HasConnection() bool {
+	return uri.ConnectionName() != ""
+}
+
+// ConnectionName returns the canonical URI connection name, or an empty string
+// for invalid URIs.
+func (uri CanonURI) ConnectionName() string {
+	ref := uri.resourceRef()
+	if ref == nil {
+		return ""
+	}
+
+	return ref.ConnectionName
+}
+
+// Path returns the canonical URI path, or an empty string for invalid URIs.
+func (uri CanonURI) Path() string {
+	ref := uri.resourceRef()
+	if ref == nil {
+		return ""
+	}
+
+	return ref.Path
+}
+
+func (uri CanonURI) resourceRef() *ResourceRef {
+	refContract := ParseResourceRef(uri)
+	if refContract == nil {
+		return nil
+	}
+
+	ref := refContract.Payload()
+	return &ref
+}
