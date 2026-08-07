@@ -139,20 +139,24 @@ function getBlockStyleElement(element) {
 
     let blockId = null;
 
-    // пробуем найти блок по родителю элемента в DOM
-    const blockContainer = element.closest('[id^="loadedBlock"]');
-    if (blockContainer) {
-        blockId = blockContainer.id;
-    } else if (element.ownerDocument && element.ownerDocument.defaultView && element.ownerDocument.defaultView.frameElement) {
-        const frameBlock = element.ownerDocument.defaultView.frameElement.closest('[id^="loadedBlock"]');
-        if (frameBlock) {
-            blockId = frameBlock.id;
-        }
+    if (window.editorBlock && window.editorBlock.currentBlockId) {
+        blockId = window.editorBlock.currentBlockId;
     } else {
-        // если элемент вынесен, ищем ID блока через активную вкладку редактора
-        const activeTab = document.querySelector('#blocksTabs .blockTab.active, .blockTab.active');
-        if (activeTab) {
-            blockId = activeTab.getAttribute('data-block-id');
+        // пробуем найти блок по родителю элемента в DOM
+        const blockContainer = element.closest('[id^="loadedBlock"]');
+        if (blockContainer) {
+            blockId = blockContainer.id;
+        } else if (element.ownerDocument && element.ownerDocument.defaultView && element.ownerDocument.defaultView.frameElement) {
+            const frameBlock = element.ownerDocument.defaultView.frameElement.closest('[id^="loadedBlock"]');
+            if (frameBlock) {
+                blockId = frameBlock.id;
+            }
+        } else {
+            // если элемент вынесен, ищем ID блока через активную вкладку редактора
+            const activeTab = document.querySelector('#blocksTabs .blockTab.active, .blockTab.active');
+            if (activeTab) {
+                blockId = activeTab.getAttribute('data-block-id');
+            }
         }
     }
 
@@ -170,7 +174,11 @@ function getBlockStyleElement(element) {
     if (!style) {
         style = document.createElement('style');
         style.setAttribute('data-dynamic', `${blockId}Html`);
+        const cssText = (cssContainer.textContent || '').trim();
+        style.textContent = cssText;
         cssContainer.appendChild(style);
+    } else if (!style.textContent && cssContainer.textContent) {
+        style.textContent = cssContainer.textContent;
     }
     return style;
 }
@@ -201,6 +209,48 @@ function matchesElement(element, selector) {
 }
 
 /* ***
+ * getSelectorCategory - определяет категорию селектора для его группировки в таблице
+ * - принимает строку селектора
+ * - возвращает категорию tag / class / id / attribute / pseudo
+*** */
+function getSelectorCategory(selector) {
+    const rawSelector = (selector || '').trim();
+    if (!rawSelector) {
+        return 'attribute';
+    }
+
+    if (rawSelector.includes(':')) {
+        return 'pseudo';
+    }
+
+    if (rawSelector.includes('[')) {
+        return 'attribute';
+    }
+
+    const parts = rawSelector.split(',');
+    const firstPart = parts[0].trim();
+    const segments = firstPart
+        .split(/\s+/)
+        .filter(Boolean)
+        .flatMap(part => part.split(/[>+~]/).filter(Boolean));
+    const lastSegment = segments[segments.length - 1] || '';
+
+    if (lastSegment.includes('#')) {
+        return 'id';
+    }
+
+    if (lastSegment.includes('.')) {
+        return 'class';
+    }
+
+    if (/^[a-zA-Z0-9-]+$/.test(lastSegment)) {
+        return 'tag';
+    }
+
+    return 'attribute';
+}
+
+/* ***
  * categorizeRule - определяет тип CSS правила для его группировки в таблице
  * - принимает объект правила и выбранный элемент
  * - возвращает строку категории типа правила
@@ -210,40 +260,7 @@ function categorizeRule(rule, element) {
         return 'media';
     }
 
-    const selector = rule.selector;
-
-    // Псевдоклассы и псевдоэлементы
-    if (selector.includes(':')) {
-        return 'pseudo';
-    }
-
-    // Атрибуты
-    if (selector.includes('[')) {
-        return 'attribute';
-    }
-
-    // Разбиваем селектор, чтобы получить его конечную, самую значимую часть
-    const parts = selector.split(',');
-    const firstPart = parts[0].trim();
-    const segments = firstPart.split(/\s+/);
-    const lastSegment = segments[segments.length - 1];
-
-    // Если в последнем сегменте есть решетка — это ID
-    if (lastSegment.includes('#')) {
-        return 'id';
-    }
-
-    // Если в последнем сегменте есть точка — это класс
-    if (lastSegment.includes('.')) {
-        return 'class';
-    }
-
-    // Если это просто буквы/цифры/дефисы без спецсимволов — это тег
-    if (/^[a-zA-Z0-9-]+$/.test(lastSegment)) {
-        return 'tag';
-    }
-
-    return 'attribute';
+    return getSelectorCategory(rule.selector);
 }
 
 /* ***
@@ -379,22 +396,24 @@ function updateCssPanel(element) {
         }
     }
 
-    // если класс уже стилизован через сложный селектор (например "#testBlock2 .box")
+    // если базовый селектор уже покрыт сложным правилом, например #block .box
     const isBaseCovered = (baseStr, type) => {
         return matchedRules.some(r => {
             if (r.media || r.selector.includes(':') || r.selector.includes('[')) return false;
-            
-            const parts = r.selector.split(',');
-            return parts.some(p => {
-                const segments = p.trim().split(/\s+/);
-                const last = segments[segments.length - 1];
-                
-                if (type === 'tag') return last.toLowerCase() === baseStr.toLowerCase();
-                if (type === 'id') return last.includes(baseStr);
+
+            const category = getSelectorCategory(r.selector);
+            return r.selector.split(',').some(p => {
+                const segments = p.trim()
+                    .split(/\s+/)
+                    .filter(Boolean)
+                    .flatMap(part => part.split(/[>+~]/).filter(Boolean));
+                const last = segments[segments.length - 1] || '';
+
+                if (type === 'tag') return category === 'tag' && last.toLowerCase() === baseStr.toLowerCase();
+                if (type === 'id') return category === 'id' && last.includes(baseStr);
                 if (type === 'class') {
-                    // разбиваем сложный конец (например div.box.active) на массив классов
                     const classList = last.split(/[.#]/);
-                    return classList.includes(baseStr.replace('.', ''));
+                    return category === 'class' && classList.includes(baseStr.replace('.', ''));
                 }
                 return false;
             });
