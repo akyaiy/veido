@@ -350,6 +350,34 @@ function openLoadedBlock(blockId) {
 
         iframe.addEventListener('load', () => {
             const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+            const iframeWin = iframe.contentWindow;
+
+            if (!iframeDoc || !iframeWin) {
+                return;
+            }
+
+            // Загрузка стандартныч стилей в iframe
+            const parentWin = (window.parent && window.parent !== window) ? window.parent : window;
+            if (typeof parentWin.loadBlock === 'function') {
+                iframeWin.loadBlock = parentWin.loadBlock.bind(parentWin);
+            }
+            if (typeof parentWin.loadBlockAttribute === 'function') {
+                iframeWin.loadBlockAttribute = parentWin.loadBlockAttribute.bind(parentWin);
+            }
+            const dynamicElements = document.querySelectorAll('[data-dynamic="header"], [data-dynamic="content"]');
+            dynamicElements.forEach(element => {
+                if (element.tagName === 'STYLE') {
+                    const styleEl = iframeDoc.createElement('style');
+                    styleEl.textContent = element.textContent || '';
+                    iframeDoc.head.appendChild(styleEl);
+                    return;
+                }
+            });
+            const linkEl = iframeDoc.createElement('link');
+            linkEl.rel = 'stylesheet';
+            linkEl.href = '/css/style.css';
+            iframeDoc.head.appendChild(linkEl);
+
             if (iframeDoc && jsContent) {
                 const scriptEl = iframeDoc.createElement('script');
                 scriptEl.type = 'text/javascript';
