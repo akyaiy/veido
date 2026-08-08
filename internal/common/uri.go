@@ -2,53 +2,25 @@ package common
 
 import (
 	"path"
-	"strings"
+	"regexp"
 )
 
 type CanonURI string
 
 const EmptyURI CanonURI = "://"
 
+var canonURIRe = regexp.MustCompile(
+	`^([^@\[\]:/]+)@([^@\[\]:/]+)(?:\[([^\[\]]*)\])?://(/.*)$`,
+)
+
 func IsCanonURI(uri CanonURI) bool {
-	s := string(uri)
-
-	if s == "" {
+	matches := canonURIRe.FindStringSubmatch(string(uri))
+	if matches == nil {
 		return false
 	}
 
-	at := strings.IndexByte(s, '@')
-	open := strings.IndexByte(s, '[')
-	close := strings.IndexByte(s, ']')
-	scheme := strings.Index(s, "://")
-
-	if at == -1 || open == -1 || close == -1 || scheme == -1 {
-		return false
-	}
-
-	// provider@connection[scope]://path
-	if at == 0 ||                // provider empty
-		open <= at+1 ||          // connection empty
-		close <= open ||         // malformed scope
-		scheme != close+1 {      // "]://" must be adjacent
-		return false
-	}
-
-	rawPath := s[scheme+3:]
-	
-	if rawPath == "" || rawPath[0] != '/' {
-		return false
-	}
-	
-	if path.Clean(rawPath) != rawPath {
-		return false
-	}
-
-	p := path.Clean(s[scheme+3:])
-	if p != s[scheme+3:] {
-		return false
-	}
-
-	return true
+	rawPath := matches[4]
+	return path.Clean(rawPath) == rawPath
 }
 
 func CastURI(raw string) (CanonURI, error) {
@@ -61,27 +33,18 @@ func CastURI(raw string) (CanonURI, error) {
 
 // HasScope reports whether uri has an explicitly specified non-empty scope.
 func (uri CanonURI) HasScope() bool {
-	return uri.ScopeName() != ""
+	return uri.ScopeKey() != ""
 }
 
-// ScopeName returns the canonical URI scope name, or an empty string when the
+// ScopeKey returns the canonical URI scope key, or an empty string when the
 // URI is invalid or the scope segment is empty.
-func (uri CanonURI) ScopeName() string {
-	ref := uri.resourceRef()
-	if ref == nil {
+func (uri CanonURI) ScopeKey() string {
+	address := uri.resourceAddress()
+	if address == nil {
 		return ""
 	}
 
-	return ref.ScopeName
-}
-
-func (uri CanonURI) ScopeId() string {
-	ref := uri.resourceRef()
-	if ref == nil {
-		return ""
-	}
-
-	return ref.ScopeID
+	return address.ScopeKey
 }
 
 // HasProvider reports whether uri has a valid provider segment.
@@ -92,46 +55,46 @@ func (uri CanonURI) HasProvider() bool {
 // Provider returns the canonical URI provider, or an empty string for invalid
 // URIs.
 func (uri CanonURI) Provider() string {
-	ref := uri.resourceRef()
-	if ref == nil {
+	address := uri.resourceAddress()
+	if address == nil {
 		return ""
 	}
 
-	return ref.Provider
+	return address.ProviderKey
 }
 
-// HasConnection reports whether uri has a valid connection name segment.
+// HasConnection reports whether uri has a valid connection key segment.
 func (uri CanonURI) HasConnection() bool {
-	return uri.ConnectionName() != ""
+	return uri.ConnectionKey() != ""
 }
 
-// ConnectionName returns the canonical URI connection name, or an empty string
+// ConnectionKey returns the canonical URI connection key, or an empty string
 // for invalid URIs.
-func (uri CanonURI) ConnectionName() string {
-	ref := uri.resourceRef()
-	if ref == nil {
+func (uri CanonURI) ConnectionKey() string {
+	address := uri.resourceAddress()
+	if address == nil {
 		return ""
 	}
 
-	return ref.ConnectionName
+	return address.ConnectionKey
 }
 
 // Path returns the canonical URI path, or an empty string for invalid URIs.
 func (uri CanonURI) Path() string {
-	ref := uri.resourceRef()
-	if ref == nil {
+	address := uri.resourceAddress()
+	if address == nil {
 		return ""
 	}
 
-	return ref.Path
+	return address.Path
 }
 
-func (uri CanonURI) resourceRef() *ResourceRef {
-	refContract := ParseResourceRef(uri)
-	if refContract == nil {
+func (uri CanonURI) resourceAddress() *ResourceAddress {
+	addressContract := ParseResourceAddress(uri)
+	if addressContract == nil {
 		return nil
 	}
 
-	ref := refContract.Payload()
-	return &ref
+	address := addressContract.Payload()
+	return &address
 }

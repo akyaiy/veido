@@ -187,16 +187,16 @@ func TestCanonURIHelpers(t *testing.T) {
 				t.Fatalf("HasProvider() = %v, want %v", got, tt.wantProvider != "")
 			}
 
-			if got := tt.uri.ConnectionName(); got != tt.wantConnection {
-				t.Fatalf("ConnectionName() = %q, want %q", got, tt.wantConnection)
+			if got := tt.uri.ConnectionKey(); got != tt.wantConnection {
+				t.Fatalf("ConnectionKey() = %q, want %q", got, tt.wantConnection)
 			}
 
 			if got := tt.uri.HasConnection(); got != (tt.wantConnection != "") {
 				t.Fatalf("HasConnection() = %v, want %v", got, tt.wantConnection != "")
 			}
 
-			if got := tt.uri.ScopeName(); got != tt.wantScope {
-				t.Fatalf("ScopeName() = %q, want %q", got, tt.wantScope)
+			if got := tt.uri.ScopeKey(); got != tt.wantScope {
+				t.Fatalf("ScopeKey() = %q, want %q", got, tt.wantScope)
 			}
 
 			if got := tt.uri.HasScope(); got != tt.wantHasScope {
@@ -210,62 +210,62 @@ func TestCanonURIHelpers(t *testing.T) {
 	}
 }
 
-func TestParseResourceRef(t *testing.T) {
+func TestParseResourceAddress(t *testing.T) {
 	tests := []struct {
 		name string
 		uri  CanonURI
-		want ResourceRef
+		want ResourceAddress
 	}{
 		{
 			name: "full resource reference",
 			uri:  "filesystem@main[user]:///documents/test.txt",
-			want: ResourceRef{
-				Provider:       "filesystem",
-				ConnectionName: "main",
-				ScopeName:      "user",
-				Path:           "/documents/test.txt",
+			want: ResourceAddress{
+				ProviderKey:   "filesystem",
+				ConnectionKey: "main",
+				ScopeKey:      "user",
+				Path:          "/documents/test.txt",
 			},
 		},
 		{
 			name: "root path",
 			uri:  "filesystem@main[user]:///",
-			want: ResourceRef{
-				Provider:       "filesystem",
-				ConnectionName: "main",
-				ScopeName:      "user",
-				Path:           "/",
+			want: ResourceAddress{
+				ProviderKey:   "filesystem",
+				ConnectionKey: "main",
+				ScopeKey:      "user",
+				Path:          "/",
 			},
 		},
 		{
 			name: "empty scope",
 			uri:  "filesystem@main[]:///documents/test.txt",
-			want: ResourceRef{
-				Provider:       "filesystem",
-				ConnectionName: "main",
-				ScopeName:      "",
-				Path:           "/documents/test.txt",
+			want: ResourceAddress{
+				ProviderKey:   "filesystem",
+				ConnectionKey: "main",
+				ScopeKey:      "",
+				Path:          "/documents/test.txt",
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotContract := ParseResourceRef(tt.uri)
+			gotContract := ParseResourceAddress(tt.uri)
 			if gotContract == nil {
-				t.Fatalf("ParseResourceRef(%q) returned nil", tt.uri)
+				t.Fatalf("ParseResourceAddress(%q) returned nil", tt.uri)
 			}
 
-			got, ok := gotContract.(ResourceRef)
+			got, ok := gotContract.(ResourceAddress)
 			if !ok {
 				t.Fatalf(
-					"ParseResourceRef(%q) returned %T, want ResourceRef",
+					"ParseResourceAddress(%q) returned %T, want ResourceAddress",
 					tt.uri,
 					gotContract,
 				)
 			}
 
 			if got != tt.want {
-				t.Errorf("ParseResourceRef(%q) mismatch", tt.uri)
+				t.Errorf("ParseResourceAddress(%q) mismatch", tt.uri)
 				t.Errorf("got:  %+v", got)
 				t.Errorf("want: %+v", tt.want)
 			}
@@ -273,36 +273,36 @@ func TestParseResourceRef(t *testing.T) {
 	}
 }
 
-func TestParseResourceRef_InvalidURI(t *testing.T) {
-	got := ParseResourceRef("not a URI")
+func TestParseResourceAddress_InvalidURI(t *testing.T) {
+	got := ParseResourceAddress("not a URI")
 
 	if got != nil {
-		t.Fatalf("ParseResourceRef(invalid URI) = %#v, want nil", got)
+		t.Fatalf("ParseResourceAddress(invalid URI) = %#v, want nil", got)
 	}
 }
 
-func TestResourceRef_URI_RoundTrip(t *testing.T) {
-	original := ResourceRef{
-		Provider:       "filesystem",
-		ConnectionName: "main",
-		ScopeName:      "user",
-		Path:           "/documents/test.txt",
+func TestResourceAddress_URI_RoundTrip(t *testing.T) {
+	original := ResourceAddress{
+		ProviderKey:   "filesystem",
+		ConnectionKey: "main",
+		ScopeKey:      "user",
+		Path:          "/documents/test.txt",
 	}
 
 	uri, err := original.URI()
 	if err != nil {
-		t.Fatalf("ResourceRef.URI() returned error: %v", err)
+		t.Fatalf("ResourceAddress.URI() returned error: %v", err)
 	}
 
-	parsedContract := ParseResourceRef(uri)
+	parsedContract := ParseResourceAddress(uri)
 	if parsedContract == nil {
-		t.Fatalf("ParseResourceRef(%q) returned nil", uri)
+		t.Fatalf("ParseResourceAddress(%q) returned nil", uri)
 	}
 
-	parsed, ok := parsedContract.(ResourceRef)
+	parsed, ok := parsedContract.(ResourceAddress)
 	if !ok {
 		t.Fatalf(
-			"ParseResourceRef(%q) returned %T, want ResourceRef",
+			"ParseResourceAddress(%q) returned %T, want ResourceAddress",
 			uri,
 			parsedContract,
 		)
