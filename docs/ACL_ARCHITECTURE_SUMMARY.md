@@ -267,7 +267,7 @@ URI удобен для людей, API и логов.
 ```go
 type ResourceRef struct {
     Provider     string // local, users, functions, html, acl, gdrive, s3
-    ConnectionID string // system, default, conn:8842
+    ConnectionKey string // system, default, conn:8842
 
     AreaType string // user, system, org, project, service
     AreaID   string // 42, acme, empty for system

@@ -204,7 +204,7 @@ provider_connections
   id
   scope_id
   provider_type      // local, gdrive, s3, functions, users, shared
-  connection_name    // имя подключения: default, work, system, me, assets
+  connection_key     // ключ подключения: default, work, system, me, assets
   config_json
   status
   created_at
@@ -214,13 +214,13 @@ provider_connections
 Уникальность:
 
 ```text
-UNIQUE(scope_id, provider_type, connection_name)
+UNIQUE(scope_id, provider_type, connection_key)
 ```
 
 Примеры:
 
 ```text
-scope_id  provider_type  connection_name  config_json
+scope_id  provider_type  connection_key  config_json
 1         local          default          {"root_node_id":"105"}
 2         local          default          {"root_node_id":"220"}
 1         gdrive         work             {"credentials_ref":"..."}
@@ -317,7 +317,7 @@ scope = область ресурсов 88 напрямую
 7. Проверить ACL на вход в область:
    Can(исполнитель, x, scope@system:///scopes/{scope_id})
 8. Найти `provider_connections` по:
-   scope_id + provider_type + connection_name
+   scope_id + provider_type + connection_key
 9. Создать или взять из кеша экземпляр FSProvider
 10. Распознать путь внутри провайдера в стабильную идентичность, если провайдер это умеет
 11. Построить ResourceRef
@@ -338,7 +338,7 @@ type ResourceURI struct {
 
 type ResourceRef struct {
     Provider     string
-    ConnectionID string
+    ConnectionKey string
     AreaID      int64
     IdentityKind string // id, путь
     ResourceID   string // metadata:105, file-id:abc123, func:resize-image
@@ -367,7 +367,7 @@ user:42
 2. Проверить вход:
    Can(user:42, x, scope@system:///scopes/1)
 3. Найти подключение провайдера:
-   scope_id=1, provider_type=local, connection_name=default
+   scope_id=1, provider_type=local, connection_key=default
 4. config_json дает root_node_id=105
 5. local провайдер распознает /docs/a.txt -> metadata:300
 6. Построить ResourceRef:

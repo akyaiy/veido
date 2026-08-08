@@ -261,7 +261,7 @@ Meaning:
 
 ```text
 provider   = provider type: local, shared, users, functions, gdrive, s3, github
-connection = optional provider instance/account/bucket/repo/connection name
+connection = optional provider instance/account/bucket/repo/connection key
 scope      = optional explicit owner/security context, such as [user:42]
 path       = resource path inside that provider connection
 query      = read/list/stat/open modifiers, not the main operation
@@ -493,7 +493,7 @@ Writing `userdata.json` does not mean bytes are blindly stored. It means the pro
 
 A single user may connect several instances of the same provider type. Google Drive is only one example; the same rule applies to S3, GitHub, WebDAV, external databases, project stores, and other providers.
 
-Use `@connection` as the connection name in the current user context:
+Use `@connection` as the connection key in the current user context:
 
 ```text
 gdrive@personal:///
@@ -554,14 +554,14 @@ provider_connections
   id
   scope_id
   provider_type      // gdrive, s3, github, etc.
-  connection_name    // personal, work, assets, client-acme
+  connection_key     // personal, work, assets, client-acme
   config_json
 ```
 
 Recommended uniqueness:
 
 ```text
-UNIQUE(scope_id, provider_type, connection_name)
+UNIQUE(scope_id, provider_type, connection_key)
 ```
 
 This allows:
@@ -973,7 +973,7 @@ provider_connections
   id
   scope_id
   provider_type      // local, gdrive, s3, functions, users, shared
-  connection_name    // default, work, system, me, assets
+  connection_key     // default, work, system, me, assets
   config_json
   status
   created_at
@@ -983,13 +983,13 @@ provider_connections
 Recommended uniqueness:
 
 ```text
-UNIQUE(scope_id, provider_type, connection_name)
+UNIQUE(scope_id, provider_type, connection_key)
 ```
 
 Example records:
 
 ```text
-scope_id  provider_type  connection_name  config_json
+scope_id  provider_type  connection_key  config_json
 1         local          default          {"root_node_id":"105"}
 2         local          default          {"root_node_id":"220"}
 1         gdrive         work             {"credentials_ref":"..."}

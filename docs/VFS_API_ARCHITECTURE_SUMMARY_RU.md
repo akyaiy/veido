@@ -652,14 +652,14 @@ provider_connections
   id
   scope_id
   provider_type      // тип провайдера: gdrive, s3, github и т.д.
-  connection_name    // имя подключения: personal, work, assets, client-acme
+  connection_key     // ключ подключения: personal, work, assets, client-acme
   config_json        // настройки подключения
 ```
 
 Рекомендуемая уникальность:
 
 ```text
-UNIQUE(scope_id, provider_type, connection_name)
+UNIQUE(scope_id, provider_type, connection_key)
 ```
 
 Это позволяет:
@@ -1073,7 +1073,7 @@ provider_connections
   id
   scope_id
   provider_type      // local, gdrive, s3, functions, users, shared
-  connection_name    // имя подключения: default, work, system, me, assets
+  connection_key     // ключ подключения: default, work, system, me, assets
   config_json
   status
   created_at
@@ -1083,13 +1083,13 @@ provider_connections
 Рекомендуемая уникальность:
 
 ```text
-UNIQUE(scope_id, provider_type, connection_name)
+UNIQUE(scope_id, provider_type, connection_key)
 ```
 
 Примеры записей:
 
 ```text
-scope_id  provider_type  connection_name  config_json
+scope_id  provider_type  connection_key  config_json
 1         local          default          {"root_node_id":"105"}
 2         local          default          {"root_node_id":"220"}
 1         gdrive         work             {"credentials_ref":"..."}
