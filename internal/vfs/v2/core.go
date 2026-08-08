@@ -3,53 +3,392 @@ package v2
 import (
 	"MyServer/internal/common"
 	"context"
+	"fmt"
+	"os"
 )
 
-type VFSCore struct {
-    scopeResolver      ScopeResolverContract
-    connectionResolver ConnectionResolverContract
-    
-    providerRegistry   ProviderRegistry
-    providerPool       ProviderPool
-    
-    authorizer         Authorizer
-    lifecycle          ResourceLifecycleSink
-}
-
+// VFSFrontend is the main interface for the VFS core.
+// All VFS operations are forwarded to the providers through the core.
+// Most operations are UNIX-stylish.
 type VFSFrontend interface {
-	Stat(ctx context.Context, actor Actor, uri common.CanonURI) (Node, error)
-    ReadDir(ctx context.Context, actor Actor, uri common.CanonURI) ([]Node, error)
-    OpenFile(ctx context.Context, actor Actor, uri common.CanonURI, flag int) (File, error)
-    Mkdir(ctx context.Context, actor Actor, uri common.CanonURI) (Node, error)
-    Move(ctx context.Context, actor Actor, source common.CanonURI, target common.CanonURI) error
-    Delete(ctx context.Context, actor Actor, uri common.CanonURI) error
-    Control(ctx context.Context, actor Actor, uri common.CanonURI, input []byte) ([]byte, error)
+	// Stat returns the node at the given URI.
+	Stat(ctx context.Context, actor Actor, uri common.CanonURI) (*Node, error)
+
+	// ReadDir returns the directory contents at the given URI.
+	ReadDir(ctx context.Context, actor Actor, uri common.CanonURI) ([]*Node, error)
+
+	// OpenFile returns a file handle for the given URI.
+	// Uses UNIX-style flags (os.O_RDONLY, os.O_WRONLY, os.O_RDWR, etc.)
+	OpenFile(ctx context.Context, actor Actor, uri common.CanonURI, flag int) (File, error)
+
+	// Mkdir creates a new directory at the given URI.
+	Mkdir(ctx context.Context, actor Actor, uri common.CanonURI) (*Node, error)
+
+	// Move moves a resource from the source URI to the target URI.
+	Move(ctx context.Context, actor Actor, source common.CanonURI, target common.CanonURI) error
+
+	// Delete deletes the resource at the given URI.
+	Delete(ctx context.Context, actor Actor, uri common.CanonURI) error
+
+	// Control sends a control request to the provider.
+	Control(ctx context.Context, actor Actor, uri common.CanonURI, command string, input []byte) ([]byte, error)
 }
 
-// NewVFS creates new VFS core instance. 
-// Requires [ScopeResolverContract], [ConnectionResolverContract], [ProviderRegistry], 
-// [ProviderPool], [Authorizer], [ResourceLifecycleSink].
-func NewVFS(scopeResolver ScopeResolverContract, 
+// VFSCore is the main struct implementing the VFS core.
+type VFSCore struct {
+	// scopeResolver resolves the scope for a given actor and scope name.
+	scopeResolver ScopeResolverContract
+
+	// connectionResolver resolves the connection for a given scope and provider key.
+	connectionResolver ConnectionResolverContract
+
+	// providerPool manages the lifecycle of provider connections.
+	providerPool ProviderPool
+
+	// authorizer authorizes the actor for a given resource.
+	authorizer Authorizer
+
+	// lifecycle is the sink for resource lifecycle events.
+	lifecycle ResourceLifecycleSink
+}
+
+// resolvedResource holds the resolved state of a resource.
+type resolvedResource struct {
+	Address    common.ResourceAddress
+	Scope      Scope
+	Connection ProviderConnection
+	Ref        common.ResourceRef
+}
+
+// NewVFS creates new VFS core instance.
+// Requires [ScopeResolverContract], [ConnectionResolverContract], [ProviderPool], [Authorizer], [ResourceLifecycleSink].
+func NewVFS(scopeResolver ScopeResolverContract,
 	connectionResolver ConnectionResolverContract,
-	providerRegistry ProviderRegistry,
 	providerPool ProviderPool,
 	authorizer Authorizer,
 	lifecycle ResourceLifecycleSink) (VFSFrontend, error) {
-	if scopeResolver == nil || 
-		connectionResolver == nil || 
-		providerRegistry == nil || 
+	if scopeResolver == nil ||
+		connectionResolver == nil ||
 		providerPool == nil ||
 		authorizer == nil ||
 		lifecycle == nil {
 		return nil, ErrInvalidNewInstanceParams
 	}
 	newCore := &VFSCore{
-		scopeResolver: scopeResolver,
+		scopeResolver:      scopeResolver,
 		connectionResolver: connectionResolver,
-		providerRegistry: providerRegistry,
-		authorizer: authorizer,
-		lifecycle: lifecycle,
+		providerPool:       providerPool,
+		authorizer:         authorizer,
+		lifecycle:          lifecycle,
 	}
 	return newCore, nil
 }
 
+// getProvider resolves the provider instance for the given connection.
+func (c *VFSCore) getProvider(ctx context.Context, connection ProviderConnection) (FSProvider, error) {
+	return c.providerPool.Get(ctx, connection)
+}
+
+// canActorAccessScope checks if the actor has access to the given scope.
+// Actor must have the "r" and "w" action on the scope to access it.
+func (c *VFSCore) canActorAccessScope(ctx context.Context, actor Actor, scope Scope) (bool, error) {
+	ref := common.ResourceRef{
+		ProviderKey:   "scopes",
+		ConnectionKey: "scopes",
+		ScopeKey:      "system",
+		Path:          fmt.Sprintf("/%s", scope.Key),
+	}
+	ok, err := c.authorizer.Can(ctx, actor, common.ActionRead, ref)
+	if err != nil {
+		return false, err
+	}
+	if !ok {
+		return false, nil
+	}
+	ok, err = c.authorizer.Can(ctx, actor, common.ActionWrite, ref)
+	return ok, err
+}
+
+func (c *VFSCore) canActorAccessResource(ctx context.Context, actor Actor, action common.Action, resolvedResource *resolvedResource) (bool, error) {
+	return c.authorizer.Can(ctx, actor, action, resolvedResource.Ref)
+}
+
+// resolveResource resolves a resource URI to a resolvedResource, checking that the actor has access to the scope.
+func (c *VFSCore) resolveResource(ctx context.Context, actor Actor, uri common.CanonURI) (*resolvedResource, error) {
+	addressContract := common.ParseResourceAddress(uri)
+	if addressContract == nil {
+		return nil, common.ErrNotURI
+	}
+
+	address := addressContract.Payload()
+	scope, err := c.scopeResolver.ResolveScope(ctx, actor, address.ScopeKey)
+	if err != nil {
+		return nil, err
+	}
+
+	ok, err := c.canActorAccessScope(ctx, actor, *scope)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, fmt.Errorf("%w: actor %s does not have access to scope %s", ErrScopeResolutionFailed, actor.String(), address.ScopeKey)
+	}
+
+	connection, err := c.connectionResolver.ResolveConnection(ctx, *scope, address.ProviderKey, address.ConnectionKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return &resolvedResource{
+		Address:    address,
+		Scope:      *scope,
+		Connection: *connection,
+		Ref: common.ResourceRef{
+			ProviderKey:   address.ProviderKey,
+			ConnectionKey: connection.ConnectionKey,
+			ScopeKey:      scope.Key,
+			Path:          address.Path,
+		},
+	}, nil
+}
+
+func (c *VFSCore) resolveProvider(ctx context.Context, actor Actor, uri common.CanonURI) (FSProvider, *resolvedResource, error) {
+	resolved, err := c.resolveResource(ctx, actor, uri)
+	if err != nil {
+		return nil, nil, err
+	}
+	provider, err := c.getProvider(ctx, resolved.Connection)
+	return provider, resolved, err
+}
+
+func (c *VFSCore) Stat(ctx context.Context, actor Actor, uri common.CanonURI) (*Node, error) {
+	resolved, err := c.resolveResource(ctx, actor, uri)
+	if err != nil {
+		return nil, err
+	}
+
+	// access checking section
+	// pattern:
+	//    - can 'r' on resource
+	ok, err := c.canActorAccessResource(ctx, actor, common.ActionRead, resolved)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, WrapError(ErrPermissionDenied, fmt.Errorf("cannot access %s", resolved.Ref.Path))
+	}
+
+	provider, err := c.getProvider(ctx, resolved.Connection)
+	if err != nil {
+		return nil, err
+	}
+
+	return provider.Stat(ctx, resolved.Ref.Path)
+}
+
+func (c *VFSCore) ReadDir(ctx context.Context, actor Actor, uri common.CanonURI) ([]*Node, error) {
+	resolved, err := c.resolveResource(ctx, actor, uri)
+	if err != nil {
+		return nil, err
+	}
+
+	// access checking section
+	// pattern:
+	//    - can 'r' on resource
+	ok, err := c.canActorAccessResource(ctx, actor, common.ActionRead, resolved)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, WrapError(ErrPermissionDenied, fmt.Errorf("cannot access %s", resolved.Ref.Path))
+	}
+
+	provider, err := c.getProvider(ctx, resolved.Connection)
+	if err != nil {
+		return nil, err
+	}
+
+	return provider.ReadDir(ctx, resolved.Ref.Path)
+}
+
+func (c *VFSCore) OpenFile(ctx context.Context, actor Actor, uri common.CanonURI, flag int) (File, error) {
+	resolved, err := c.resolveResource(ctx, actor, uri)
+	if err != nil {
+		return nil, err
+	}
+
+	isRead := flag&os.O_WRONLY == 0 || flag&os.O_RDWR != 0
+	isWrite := flag&(os.O_WRONLY|os.O_RDWR|os.O_APPEND|os.O_TRUNC) != 0
+
+	// access checking section
+	// pattern:
+	//    - can 'r' on resource when opening for read
+	//    - can 'w' on resource when opening for write/truncate/append
+	//    - can 'w' on parent when opening with O_CREATE
+	if isRead {
+		if err := c.requireResourceAccess(ctx, actor, common.ActionRead, resolved.Ref); err != nil {
+			return nil, err
+		}
+	}
+	if isWrite {
+		if err := c.requireResourceAccess(ctx, actor, common.ActionWrite, resolved.Ref); err != nil {
+			return nil, err
+		}
+	}
+	if flag&os.O_CREATE != 0 {
+		if err := c.requireResourceAccess(ctx, actor, common.ActionWrite, parentResourceRef(resolved.Ref)); err != nil {
+			return nil, err
+		}
+		if err := c.lifecycle.OnResourceCreated(ctx, actor, resolved.Ref); err != nil {
+			return nil, err
+		}
+	}
+
+	provider, err := c.getProvider(ctx, resolved.Connection)
+	if err != nil {
+		return nil, err
+	}
+
+	return provider.OpenFile(ctx, resolved.Ref.Path, flag)
+}
+
+func (c *VFSCore) Mkdir(ctx context.Context, actor Actor, uri common.CanonURI) (*Node, error) {
+	resolved, err := c.resolveResource(ctx, actor, uri)
+	if err != nil {
+		return nil, err
+	}
+
+	// access checking section
+	// pattern:
+	//    - can 'w' on parent
+	// lifecycle section:
+	//    - provider.Mkdir creates resource first
+	//    - lifecycle.OnResourceCreated registers resource
+	if err := c.requireResourceAccess(ctx, actor, common.ActionWrite, parentResourceRef(resolved.Ref)); err != nil {
+		return nil, err
+	}
+
+	provider, err := c.getProvider(ctx, resolved.Connection)
+	if err != nil {
+		return nil, err
+	}
+
+	parentPath, name := splitResourcePath(resolved.Ref.Path)
+	node, err := provider.Mkdir(ctx, parentPath, name)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := c.lifecycle.OnResourceCreated(ctx, actor, resolved.Ref); err != nil {
+		return node, err
+	}
+
+	return node, nil
+}
+
+func (c *VFSCore) Move(ctx context.Context, actor Actor, source common.CanonURI, target common.CanonURI) error {
+	resolvedSource, err := c.resolveResource(ctx, actor, source)
+	if err != nil {
+		return err
+	}
+
+	resolvedTarget, err := c.resolveResource(ctx, actor, target)
+	if err != nil {
+		return err
+	}
+
+	if resolvedSource.Connection.ScopeKey != resolvedTarget.Connection.ScopeKey ||
+		resolvedSource.Connection.ProviderKey != resolvedTarget.Connection.ProviderKey ||
+		resolvedSource.Connection.ConnectionKey != resolvedTarget.Connection.ConnectionKey {
+		return fmt.Errorf("%w: cross-provider move is not supported", ErrNotImplemented)
+	}
+
+	// access checking section
+	// pattern:
+	//    - can 'w' on source
+	//    - can 'w' on source parent
+	//    - can 'w' on target parent
+	// operation section:
+	//    - source and target must resolve to the same provider connection
+	//    - cross-provider move returns unsupported error
+	// lifecycle section:
+	//    - provider.Move moves resource first
+	//    - lifecycle.OnResourceMoved registers path change
+	if err := c.requireResourceAccess(ctx, actor, common.ActionWrite, resolvedSource.Ref); err != nil {
+		return err
+	}
+	if err := c.requireResourceAccess(ctx, actor, common.ActionWrite, parentResourceRef(resolvedSource.Ref)); err != nil {
+		return err
+	}
+	if err := c.requireResourceAccess(ctx, actor, common.ActionWrite, parentResourceRef(resolvedTarget.Ref)); err != nil {
+		return err
+	}
+
+	provider, err := c.getProvider(ctx, resolvedSource.Connection)
+	if err != nil {
+		return err
+	}
+
+	targetParentPath, newName := splitResourcePath(resolvedTarget.Ref.Path)
+	if err := provider.Move(ctx, resolvedSource.Ref.Path, targetParentPath, newName); err != nil {
+		return err
+	}
+
+	return c.lifecycle.OnResourceMoved(ctx, actor, resolvedSource.Ref, resolvedTarget.Ref)
+}
+
+func (c *VFSCore) Delete(ctx context.Context, actor Actor, uri common.CanonURI) error {
+	resolved, err := c.resolveResource(ctx, actor, uri)
+	if err != nil {
+		return err
+	}
+
+	// access checking section
+	// pattern:
+	//    - can 'w' on resource
+	// lifecycle section:
+	//    - lifecycle.OnResourceDeleted
+	ok, err := c.canActorAccessResource(ctx, actor, common.ActionWrite, resolved)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return WrapError(ErrPermissionDenied, fmt.Errorf("cannot access %s", resolved.Ref.Path))
+	}
+
+	provider, err := c.getProvider(ctx, resolved.Connection)
+	if err != nil {
+		return err
+	}
+
+	if err := provider.Delete(ctx, resolved.Ref.Path); err != nil {
+		return err
+	}
+
+	return c.lifecycle.OnResourceDeleted(ctx, actor, resolved.Ref)
+}
+
+func (c *VFSCore) Control(ctx context.Context, actor Actor, uri common.CanonURI, command string, input []byte) ([]byte, error) {
+	resolved, err := c.resolveResource(ctx, actor, uri)
+	if err != nil {
+		return nil, err
+	}
+
+	// access checking section
+	// pattern:
+	//    - can 'x' on resource
+	ok, err := c.canActorAccessResource(ctx, actor, common.ActionExec, resolved)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, WrapError(ErrPermissionDenied, fmt.Errorf("cannot access %s", resolved.Ref.Path))
+	}
+
+	provider, err := c.getProvider(ctx, resolved.Connection)
+	if err != nil {
+		return nil, err
+	}
+
+	return provider.Control(ctx, resolved.Ref.Path, command, input)
+}

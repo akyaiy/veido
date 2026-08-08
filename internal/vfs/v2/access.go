@@ -6,5 +6,5 @@ import (
 )
 
 type Authorizer interface {
-    Can(ctx context.Context, actor Actor, action common.Action, ref common.ResourceRef) (bool, error)
+	Can(ctx context.Context, actor Actor, action common.Action, ref common.ResourceRef) (bool, error)
 }

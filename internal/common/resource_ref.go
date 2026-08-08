@@ -3,25 +3,29 @@ package common
 import (
 	"fmt"
 	"path"
-	"strings"
 )
 
 type ResourceRefContract interface {
 	URI() (CanonURI, error)
-	Payload() ResourceRef
+	Payload() ResourceAddress
+}
+
+type ResourceAddress struct {
+	ProviderKey   string
+	ConnectionKey string
+	ScopeKey      string
+	Path          string
 }
 
 type ResourceRef struct {
-	Provider string
-	ConnectionName string
-	ConnectionID string
-	ScopeName string
-	ScopeID string
-	Path string
+	ProviderKey   string
+	ConnectionKey string
+	ScopeKey      string
+	Path          string
 }
 
-func (r ResourceRef) URI() (CanonURI, error) {
-	rawUri := fmt.Sprintf("%s@%s[%s]://%s", r.Provider, r.ConnectionName, r.ScopeName, path.Clean("/" + r.Path))
+func (a ResourceAddress) URI() (CanonURI, error) {
+	rawUri := fmt.Sprintf("%s@%s[%s]://%s", a.ProviderKey, a.ConnectionKey, a.ScopeKey, path.Clean("/"+a.Path))
 	uri, err := CastURI(rawUri)
 	if err != nil {
 		return EmptyURI, err
@@ -29,27 +33,29 @@ func (r ResourceRef) URI() (CanonURI, error) {
 	return uri, nil
 }
 
-func (r ResourceRef) Payload() ResourceRef {
-	return r
+func (a ResourceAddress) Payload() ResourceAddress {
+	return a
 }
 
-func ParseResourceRef(uri CanonURI) ResourceRefContract {
-	if !IsCanonURI(uri) {
+func ParseResourceAddress(uri CanonURI) ResourceRefContract {
+	matches := canonURIRe.FindStringSubmatch(string(uri))
+	if matches == nil {
 		return nil
 	}
 
-	s := string(uri)
+	resourcePath := matches[4]
+	if path.Clean(resourcePath) != resourcePath {
+		return nil
+	}
 
-	at := strings.IndexByte(s, '@')
-	open := strings.IndexByte(s, '[')
-	close := strings.IndexByte(s, ']')
-	scheme := strings.Index(s, "://")
-
-	return ResourceRef{
-		Provider:       s[:at],
-		ConnectionName: s[at+1 : open],
-		ScopeName:      s[open+1 : close],
-		Path:           s[scheme+3:],
+	return ResourceAddress{
+		ProviderKey:   matches[1],
+		ConnectionKey: matches[2],
+		ScopeKey:      matches[3],
+		Path:          resourcePath,
 	}
 }
 
+func ParseResourceRef(uri CanonURI) ResourceRefContract {
+	return ParseResourceAddress(uri)
+}

@@ -64,12 +64,11 @@ func TestScopeResolver_DefaultScopeForActor(t *testing.T) {
 	}
 
 	want := Scope{
-		ID:              "scope-user-42",
+		Key:             "alice-home",
 		Kind:            "user",
-		Name:            "alice-home",
 		OwnerSubjectKey: common.SubjectKey("user:42"),
 	}
-	if got != want {
+	if *got != want {
 		t.Fatalf("DefaultScopeForActor() = %+v, want %+v", got, want)
 	}
 }
@@ -110,12 +109,11 @@ func TestScopeResolver_ResolveExplicitScope(t *testing.T) {
 	}
 
 	want := Scope{
-		ID:              "scope-shared",
+		Key:             "shared-docs",
 		Kind:            "shared",
-		Name:            "shared-docs",
 		OwnerSubjectKey: common.SubjectKey("user:42"),
 	}
-	if got != want {
+	if *got != want {
 		t.Fatalf("ResolveExplicitScope() = %+v, want %+v", got, want)
 	}
 }
@@ -132,9 +130,8 @@ func TestScopeResolver_ResolveScope(t *testing.T) {
 			name: "uses default scope when uri scope is empty",
 			uri:  "filesystem@main[]:///documents/test.txt",
 			want: Scope{
-				ID:              "scope-user-42",
+				Key:             "alice-home",
 				Kind:            "user",
-				Name:            "alice-home",
 				OwnerSubjectKey: common.SubjectKey("user:42"),
 			},
 		},
@@ -142,9 +139,8 @@ func TestScopeResolver_ResolveScope(t *testing.T) {
 			name: "uses explicit scope from uri",
 			uri:  "filesystem@main[shared-docs]:///documents/test.txt",
 			want: Scope{
-				ID:              "scope-shared",
+				Key:             "shared-docs",
 				Kind:            "shared",
-				Name:            "shared-docs",
 				OwnerSubjectKey: common.SubjectKey("user:42"),
 			},
 		},
@@ -155,25 +151,25 @@ func TestScopeResolver_ResolveScope(t *testing.T) {
 			got, err := resolver.ResolveScope(context.Background(), Actor{
 				Kind: ActorUser,
 				ID:   "42",
-			}, tt.uri)
+			}, tt.uri.ScopeKey())
 			if err != nil {
 				t.Fatalf("ResolveScope() error = %v", err)
 			}
-			if got != tt.want {
+			if *got != tt.want {
 				t.Fatalf("ResolveScope() = %+v, want %+v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestScopeResolver_ResolveScope_InvalidURI(t *testing.T) {
+func TestScopeResolver_ResolveScope_UnknownScopeKey(t *testing.T) {
 	resolver := newTestScopeResolver(t)
 
 	_, err := resolver.ResolveScope(context.Background(), Actor{
 		Kind: ActorUser,
 		ID:   "42",
-	}, "not a uri")
-	if !errors.Is(err, common.ErrNotURI) {
-		t.Fatalf("ResolveScope() error = %v, want %v", err, common.ErrNotURI)
+	}, "missing-scope")
+	if !errors.Is(err, ErrScopeResolutionFailed) {
+		t.Fatalf("ResolveScope() error = %v, want %v", err, ErrScopeResolutionFailed)
 	}
 }

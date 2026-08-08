@@ -1,5 +1,7 @@
 package v2
 
+import "fmt"
+
 type ActorKind string
 
 const (
@@ -11,4 +13,8 @@ const (
 type Actor struct {
     Kind ActorKind
     ID   string
+}
+
+func (a Actor) String() string {
+    return fmt.Sprintf("%s:%s", a.Kind, a.ID)
 }

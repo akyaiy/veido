@@ -1,24 +1,71 @@
 package v2
 
-import "context"
+import (
+	"context"
+	"database/sql"
+	"fmt"
+)
 
 type ProviderConnection struct {
-    ID       string
-    ScopeID  string
-    Provider string
-    Name     string
-    Config   []byte
-    Status   string
+	ScopeKey      string
+	ProviderKey   string
+	ConnectionKey string
+	Config        []byte
+	Status        string
 }
 
 type ConnectionResolverContract interface {
-    ResolveConnection(ctx context.Context, scope Scope, provider string, name string) (ProviderConnection, error)
+	ResolveConnection(ctx context.Context, scope Scope, providerKey string, connectionKey string) (*ProviderConnection, error)
 }
 
 type ConnectionResolver struct {
-	// there will be database file
+	db *sql.DB
 }
 
-func (cr *ConnectionResolver) ResolveConnection(ctx context.Context, scope Scope, provider string, name string) (ProviderConnection, error) {
-	panic("not implemented!")
+func NewConnectionResolver(db *sql.DB) ConnectionResolverContract {
+	return &ConnectionResolver{db: db}
+}
+
+func (cr *ConnectionResolver) ResolveConnection(ctx context.Context,
+	scope Scope,
+	providerKey string,
+	connectionKey string,
+) (*ProviderConnection, error) {
+	if scope.Key == "" {
+		return nil, ErrInvalidScope
+	}
+	if providerKey == "" {
+		return nil, ErrInvalidProvider
+	}
+	if connectionKey == "" {
+		return nil, ErrConnectionNotFound
+	}
+
+	var c ProviderConnection
+	var config string
+	const query = `
+        SELECT scope_key, provider, connection_key, config_json, status
+        FROM vfs_provider_connections
+        WHERE scope_key = ?
+          AND provider = ?
+          AND connection_key = ?
+          AND status = 'active'
+    `
+
+	err := cr.db.QueryRowContext(ctx, query, scope.Key, providerKey, connectionKey).Scan(
+		&c.ScopeKey,
+		&c.ProviderKey,
+		&c.ConnectionKey,
+		&config,
+		&c.Status,
+	)
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("%w: %v", ErrConnectionNotFound, err)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	c.Config = []byte(config)
+	return &c, nil
 }

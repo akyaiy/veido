@@ -10,14 +10,15 @@ import (
 )
 
 type Scope struct {
-	ID              string
+	Key             string
 	Kind            string
-	Name            string
 	OwnerSubjectKey common.SubjectKey
 }
 
 type ScopeResolverContract interface {
-	ResolveScope(ctx context.Context, actor Actor, uri common.CanonURI) (Scope, error)
+	// ResolveScope resolves the scope for the given actor and scope key.
+	// If scopeKey is empty, the default scope for the actor is returned.
+	ResolveScope(ctx context.Context, actor Actor, scopeKey string) (*Scope, error)
 }
 
 type ScopeResolver struct {
@@ -34,38 +35,35 @@ func NewScopeResolver(db *sql.DB) (ScopeResolverContract, error) {
 	return newSR, nil
 }
 
-func (sr *ScopeResolver) ResolveScope(ctx context.Context, actor Actor, uri common.CanonURI) (Scope, error) {
-	if !common.IsCanonURI(uri) {
-		return Scope{}, common.ErrNotURI
+// ResolveScope resolves the scope for the given actor and scope key.
+// If scopeKey is empty, the default scope for the actor is returned.
+func (sr *ScopeResolver) ResolveScope(ctx context.Context, actor Actor, scopeKey string) (*Scope, error) {
+	if scopeKey == "" {
+		return sr.DefaultScopeForActor(ctx, actor)
 	}
 
-	if uri.HasScope() {
-		return sr.ResolveExplicitScope(ctx, actor, uri.ScopeName())
-	}
-
-	return sr.DefaultScopeForActor(ctx, actor)
+	return sr.ResolveExplicitScope(ctx, actor, scopeKey)
 }
 
-func (sr *ScopeResolver) DefaultScopeForActor(ctx context.Context, actor Actor) (Scope, error) {
+func (sr *ScopeResolver) DefaultScopeForActor(ctx context.Context, actor Actor) (*Scope, error) {
 	if actor.Kind != ActorUser || actor.ID == "" {
 		slog.Error(
 			"actor is not a user or has no ID",
 			"kind", actor.Kind,
 			"id", actor.ID,
 		)
-		return Scope{}, fmt.Errorf("%w: %v", ErrScopeResolutionFailed, 
+		return nil, fmt.Errorf("%w: %v", ErrScopeResolutionFailed,
 			fmt.Errorf("actor is not a user or has no ID"))
 	}
 
 	const query = `
 		SELECT
-			s.id,
+			s.scope_key,
 			s.kind,
-			s.name,
 			s.owner_subject_key
 		FROM vfs_principal_default_scopes AS ds
 		JOIN vfs_scopes AS s
-			ON s.id = ds.scope_id
+			ON s.scope_key = ds.scope_key
 		WHERE ds.principal_type = ?
 		  AND ds.principal_id = ?
 	`
@@ -78,9 +76,8 @@ func (sr *ScopeResolver) DefaultScopeForActor(ctx context.Context, actor Actor) 
 		string(actor.Kind),
 		actor.ID,
 	).Scan(
-		&scope.ID,
+		&scope.Key,
 		&scope.Kind,
-		&scope.Name,
 		&scope.OwnerSubjectKey,
 	)
 	if err != nil {
@@ -90,7 +87,7 @@ func (sr *ScopeResolver) DefaultScopeForActor(ctx context.Context, actor Actor) 
 				"kind", actor.Kind,
 				"id", actor.ID,
 			)
-			return Scope{}, fmt.Errorf("%w: %v", ErrScopeResolutionFailed, err)
+			return nil, fmt.Errorf("%w: %v", ErrScopeResolutionFailed, err)
 		}
 
 		slog.Error(
@@ -99,31 +96,31 @@ func (sr *ScopeResolver) DefaultScopeForActor(ctx context.Context, actor Actor) 
 			"kind", actor.Kind,
 			"id", actor.ID,
 		)
-		return Scope{}, fmt.Errorf("%w: %v", ErrScopeResolutionFailed, err)
+		return nil, fmt.Errorf("%w: %v", ErrScopeResolutionFailed, err)
 	}
 
-	return scope, nil
+	return &scope, nil
 }
 
-func (sr *ScopeResolver) ResolveExplicitScope(ctx context.Context, actor Actor, scopeName string) (Scope, error) {
+func (sr *ScopeResolver) ResolveExplicitScope(ctx context.Context, actor Actor, scopeKey string) (*Scope, error) {
 	if actor.Kind != ActorUser || actor.ID == "" {
 		slog.Error(
 			"actor is not a user or has no ID",
 			"kind", actor.Kind,
 			"id", actor.ID,
 		)
-		return Scope{}, fmt.Errorf("%w: %v", ErrScopeResolutionFailed, 
+		return nil, fmt.Errorf("%w: %v", ErrScopeResolutionFailed,
 			fmt.Errorf("actor is not a user or has no ID"))
 	}
 
 	const query = `
 		SELECT
-			s.id,
+			s.scope_key,
 			s.kind,
-			s.name,
 			s.owner_subject_key
 		FROM vfs_scopes AS s
-		WHERE s.name = ?
+		WHERE s.scope_key = ?
+		AND s.owner_subject_key = ?
 	`
 
 	var scope Scope
@@ -131,29 +128,29 @@ func (sr *ScopeResolver) ResolveExplicitScope(ctx context.Context, actor Actor, 
 	err := sr.db.QueryRowContext(
 		ctx,
 		query,
-		scopeName,
+		scopeKey,
+		actor.String(),
 	).Scan(
-		&scope.ID,
+		&scope.Key,
 		&scope.Kind,
-		&scope.Name,
 		&scope.OwnerSubjectKey,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			slog.Warn(
 				"scope not found",
-				"name", scopeName,
+				"key", scopeKey,
 			)
-			return Scope{}, fmt.Errorf("%w: %v", ErrScopeResolutionFailed, err)
+			return nil, fmt.Errorf("%w: %v", ErrScopeResolutionFailed, err)
 		}
 
 		slog.Error(
 			"failed to resolve scope",
 			"error", err,
-			"name", scopeName,
+			"key", scopeKey,
 		)
-		return Scope{}, fmt.Errorf("%w: %v", ErrScopeResolutionFailed, err)
+		return nil, fmt.Errorf("%w: %v", ErrScopeResolutionFailed, err)
 	}
 
-	return scope, nil
+	return &scope, nil
 }
