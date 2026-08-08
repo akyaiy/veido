@@ -33,6 +33,7 @@
     flex: 1;
     box-sizing: border-box;
     min-height: 0;
+    position: relative;
     display: flex;
     justify-content: center;
     align-items: flex-start;

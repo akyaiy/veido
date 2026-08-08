@@ -236,6 +236,160 @@ function executeDeleteAction() {
 }
 
 /* ***
+ * getJsWizardBlock - получение активного js-блока в режиме wizard
+ * - принимает DOM-элемент target
+ * - ищет ближайший .wizardBlock внутри #jsEditorContent
+ * - возвращает найденный блок или null
+ *** */
+function getJsWizardBlock(target) {
+    if (!target) {
+        return null;
+    }
+
+    const jsEditorContent = document.getElementById('jsEditorContent');
+    if (!jsEditorContent) {
+        return null;
+    }
+
+    const block = target.closest ? target.closest('.wizardBlock') : null;
+    if (!block || !jsEditorContent.contains(block)) {
+        return null;
+    }
+
+    return block;
+}
+
+/* ***
+ * getJsWizardText - преобразование wizard-блока в JS-код
+ * - принимает DOM-блок wizardBlock
+ * - клонирует блок, собирает его текст через существующий парсер parseToText
+ * - возвращает строку с JS-кодом
+ *** */
+function getJsWizardText(block) {
+    if (!block) {
+        return '';
+    }
+
+    const wrapper = document.createElement('div');
+    wrapper.appendChild(block.cloneNode(true));
+
+    if (typeof window.editorBlock.parseToText === 'function') {
+        return window.editorBlock.parseToText(wrapper);
+    }
+
+    return '';
+}
+
+/* ***
+ * insertJsWizardBlock - вставка JS-блоков в wizard-режим
+ * - принимает DOM-блок wizardBlock и DocumentFragment с новыми блоками
+ * - если выбранный блок является родительским, вставляет во внутреннее тело
+ * - иначе вставляет после выбранного блока в родительский контейнер
+ * - ничего не возвращает
+ *** */
+function insertJsWizardBlock(block, fragment) {
+    if (!block || !fragment) {
+        return;
+    }
+
+    const body = block.querySelector('.wizardBody');
+    if (body) {
+        body.appendChild(fragment);
+        return;
+    }
+
+    const parentContainer = block.parentNode;
+    if (parentContainer) {
+        parentContainer.insertBefore(fragment, block.nextSibling);
+    }
+}
+
+/* ***
+ * executeJsWizardCopyAction - копирование выбранного js-блока как JS-код
+ * - принимает DOM-блок wizardBlock
+ * - собирает JS текст и пишет его в буфер обмена
+ * - возвращает true при успехе
+ *** */
+async function executeJsWizardCopyAction(block) {
+    const jsText = getJsWizardText(block);
+    if (!jsText) {
+        return false;
+    }
+
+    if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(jsText);
+        return true;
+    }
+
+    return false;
+}
+
+/* ***
+ * executeJsWizardCutAction - вырезание выбранного js-блока как JS-код
+ * - принимает DOM-блок wizardBlock
+ * - копирует JS-код в буфер обмена и удаляет блок из DOM
+ * - возвращает true при успехе
+ *** */
+async function executeJsWizardCutAction(block) {
+    const copied = await executeJsWizardCopyAction(block);
+    if (!copied) {
+        return false;
+    }
+
+    if (block) {
+        block.remove();
+    }
+
+    return true;
+}
+
+/* ***
+ * executeJsWizardPasteAction - вставка JS-кода в wizard-режим
+ * - принимает DOM-блок wizardBlock
+ * - читает JS-текст из буфера обмена
+ * - преобразует его обратно в wizard-блоки через существующий парсер parseToBlocks
+ * - вставляет в выбранный блок
+ * - возвращает true при успехе
+ *** */
+async function executeJsWizardPasteAction(block) {
+    if (!navigator.clipboard?.readText) {
+        return false;
+    }
+
+    const jsText = await navigator.clipboard.readText();
+    if (!jsText) {
+        return false;
+    }
+
+    if (typeof window.editorBlock.parseToBlocks !== 'function') {
+        return false;
+    }
+
+    const fragment = window.editorBlock.parseToBlocks(jsText);
+    if (!fragment) {
+        return false;
+    }
+
+    insertJsWizardBlock(block, fragment);
+    return true;
+}
+
+/* ***
+ * executeJsWizardDeleteAction - удаление выбранного js-блока
+ * - принимает DOM-блок wizardBlock
+ * - удаляет блок из DOM
+ * - возвращает true при успехе
+ *** */
+function executeJsWizardDeleteAction(block) {
+    if (!block) {
+        return false;
+    }
+
+    block.remove();
+    return true;
+}
+
+/* ***
  * executeDeleteLineAction - удаление строки таблицы
  * - принимает элемент таблицы currentTable и текущую ячейку currentCell
  * - находит строку tr, в которой находится фокус пользователя, и полностью её удаляет
@@ -404,7 +558,17 @@ function handleContextMenu(event) {
     const selectedElement = window.editorBlock ? window.editorBlock.selectedElement : null;
     const selectionAnchorElement = hasActiveTextSelection ? (windowSelection.anchorNode?.nodeType === Node.TEXT_NODE ? windowSelection.anchorNode.parentElement : windowSelection.anchorNode) : null;
     const targetElement = event.target && event.target.nodeType === Node.TEXT_NODE ? event.target.parentElement : event.target;
-    const activeSelectionElement = selectedElement || selectionAnchorElement || (targetElement && targetElement.closest ? targetElement.closest('[contenteditable="true"]') : null);
+    const jsWizardBlock = getJsWizardBlock(targetElement);
+    let activeSelectionElement = selectedElement || selectionAnchorElement || (targetElement && targetElement.closest ? targetElement.closest('[contenteditable="true"]') : null);
+
+    if (jsWizardBlock) {
+        if (window.editorBlock) {
+            window.editorBlock.selectedJsWizardBlock = jsWizardBlock;
+        }
+        activeSelectionElement = jsWizardBlock;
+    } else if (window.editorBlock) {
+        window.editorBlock.selectedJsWizardBlock = null;
+    }
 
     if (!window.editorBlock || !activeSelectionElement) {
         return;
@@ -421,7 +585,7 @@ function handleContextMenu(event) {
     contextMenu.style.left = pageX + 5 + 'px';
 
     const targetEditableArea = targetElement && targetElement.closest ? targetElement.closest('[contenteditable="true"]') : null;
-    if (!targetEditableArea && !selectedElement && !hasActiveTextSelection) {
+    if (!targetEditableArea && !selectedElement && !hasActiveTextSelection && !jsWizardBlock) {
         contextMenu.style.display = 'none';
         return;
     }
@@ -433,7 +597,8 @@ function handleContextMenu(event) {
         const itemAction = itemButton.getAttribute('data-action');
         
         if (itemAction === 'paste') {
-            itemButton.style.display = navigator.clipboard?.read ? '' : 'none';
+            const canPaste = navigator.clipboard?.readText || navigator.clipboard?.read;
+            itemButton.style.display = canPaste ? '' : 'none';
             return;
         }
 
@@ -444,7 +609,8 @@ function handleContextMenu(event) {
         }
 
         if (itemAction === 'newLoadedBlock') {
-            itemButton.style.display = (selectedElement || hasActiveTextSelection) ? '' : 'none';
+            // Исключаем доступность этого пункта меню для JS Wizard-блоков
+            itemButton.style.display = ((selectedElement || hasActiveTextSelection) && !jsWizardBlock) ? '' : 'none';
             return;
         }
 
@@ -493,8 +659,9 @@ async function handleMenuClick(event) {
     const selectedElement = window.editorBlock ? window.editorBlock.selectedElement : null;
     const selectionAnchorElement = hasActiveTextSelection ? (activeSelection.anchorNode?.nodeType === Node.TEXT_NODE ? activeSelection.anchorNode.parentElement : activeSelection.anchorNode) : null;
     const activeSelectionElement = selectedElement || selectionAnchorElement;
+    const jsWizardBlock = window.editorBlock?.selectedJsWizardBlock || null;
 
-    if (!activeSelectionElement && executedAction !== 'paste') {
+    if (!activeSelectionElement && !jsWizardBlock && executedAction !== 'paste') {
         return;
     }
 
@@ -504,19 +671,35 @@ async function handleMenuClick(event) {
     try {
         switch (executedAction) {
             case 'copy':
-                await executeCopyAction();
+                if (jsWizardBlock) {
+                    await executeJsWizardCopyAction(jsWizardBlock);
+                } else {
+                    await executeCopyAction();
+                }
                 break;
 
             case 'cut':
-                await executeCutAction();
+                if (jsWizardBlock) {
+                    await executeJsWizardCutAction(jsWizardBlock);
+                } else {
+                    await executeCutAction();
+                }
                 break;
 
             case 'paste':
-                await executePasteAction();
+                if (jsWizardBlock) {
+                    await executeJsWizardPasteAction(jsWizardBlock);
+                } else {
+                    await executePasteAction();
+                }
                 break;
 
             case 'delete':
-                executeDeleteAction();
+                if (jsWizardBlock) {
+                    executeJsWizardDeleteAction(jsWizardBlock);
+                } else {
+                    executeDeleteAction();
+                }
                 break;
 
             case 'deleteLine':
@@ -545,12 +728,13 @@ async function handleMenuClick(event) {
 
     contextMenu.style.display = 'none';
 }
+
 /* ***
  * handleEditorKeyboardShortcuts - обработка горячих клавиш редактора
- * принимает событие клавиатуры event
- * проверяет, находится ли фокус в элементе с contenteditable="true"
- * перехватывает нажатия Ctrl+C, Ctrl+V, Ctrl+X, Escape и Delete только для таких элементов
- * отдает null
+ * - принимает событие клавиатуры event
+ * - проверяет, находится ли фокус в редактируемом элементе или выбран wizard-блок
+ * - перехватывает нажатия Ctrl+C, Ctrl+V, Ctrl+X, Escape и Delete 
+ * - отдает null
 *** */
 function handleEditorKeyboardShortcuts(event) {
     if (!event) {
@@ -558,9 +742,19 @@ function handleEditorKeyboardShortcuts(event) {
     }
 
     const activeEl = event.target;
-    const isEditable = activeEl && activeEl.getAttribute('contenteditable') === 'true';
+    
+    // Получаем активный wizard-блок, если он есть (через цель события или текущее выделение редактора)
+    const jsWizardBlockTarget = getJsWizardBlock(activeEl);
+    const jsWizardBlock = jsWizardBlockTarget || (window.editorBlock ? window.editorBlock.selectedJsWizardBlock : null);
 
-    if (!isEditable) {
+    let isEditable = false;
+    if (activeEl && typeof activeEl.getAttribute === 'function') {
+        const ce = activeEl.getAttribute('contenteditable');
+        isEditable = (ce === 'true' || ce === 'plaintext-only');
+    }
+
+    // Разрешаем выполнение комбинаций, если область редактируемая ИЛИ выбран JS-блок в wizard-режиме
+    if (!isEditable && !jsWizardBlock) {
         return;
     }
 
@@ -570,17 +764,29 @@ function handleEditorKeyboardShortcuts(event) {
     if (isModifiedShortcut) {
         if (code === 'KeyC') {
             event.preventDefault();
-            executeCopyAction();
+            if (jsWizardBlock) {
+                executeJsWizardCopyAction(jsWizardBlock);
+            } else {
+                executeCopyAction();
+            }
             return;
         }
         if (code === 'KeyV') {
             event.preventDefault();
-            executePasteAction();
+            if (jsWizardBlock) {
+                executeJsWizardPasteAction(jsWizardBlock);
+            } else {
+                executePasteAction();
+            }
             return;
         }
         if (code === 'KeyX') {
             event.preventDefault();
-            executeCutAction();
+            if (jsWizardBlock) {
+                executeJsWizardCutAction(jsWizardBlock);
+            } else {
+                executeCutAction();
+            }
             return;
         }
     }
@@ -595,9 +801,14 @@ function handleEditorKeyboardShortcuts(event) {
     }
 
     if (event.key === 'Delete') {
-        const handled = executeDeleteAction();
-        if (handled) {
+        if (jsWizardBlock) {
             event.preventDefault();
+            executeJsWizardDeleteAction(jsWizardBlock);
+        } else {
+            const handled = executeDeleteAction();
+            if (handled) {
+                event.preventDefault();
+            }
         }
     }
 }

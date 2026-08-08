@@ -264,7 +264,7 @@ function closeBlockTab(blockId) {
             showViewEditorEmptyState();
         }
         if (mdEditorContent) mdEditorContent.textContent = '';
-        if (jsEditorContent) jsEditorContent.innerHTML = '';
+        if (jsEditorContent) jsEditorContent.textContent = '';
     }
 }
 
@@ -493,8 +493,12 @@ function openLoadedBlock(blockId) {
             iframeDoc.addEventListener('mouseout', handleVisualEditorMouseOut);
 
             iframeDoc.addEventListener('contextmenu', window.editorBlock.handleContextMenu);
-
             iframeDoc.addEventListener('click', window.editorBlock.handleMenuHide);
+
+            const jsEditorContent = document.getElementById('jsEditorContent');
+            if (jsEditorContent && window.editorBlock.handleContextMenu) {
+                jsEditorContent.addEventListener('contextmenu', window.editorBlock.handleContextMenu);
+            }            
             iframeDoc.addEventListener('input', window.editorBlock.handleMenuHide);
             iframeDoc.addEventListener('paste', window.editorBlock.handleMenuHide);
             
@@ -515,7 +519,7 @@ function openLoadedBlock(blockId) {
         mdEditorContent.textContent = htmlContent;
     }
     if (jsEditorContent) {
-        jsEditorContent.innerHTML = jsContent;
+        jsEditorContent.textContent = jsContent;
     }
 
     // Обновление текущего активного блока
@@ -660,7 +664,7 @@ function saveBlock() {
     return JSON.stringify({
         html: viewEditorContent.innerHTML,
         md: mdEditorContent.textContent,
-        js: jsEditorContent.innerHTML,
+        js: jsEditorContent.textContent,
         blockId: currentBlockId
     });
 }
@@ -1251,9 +1255,46 @@ function handleVisualEditorMouseOut(event) {
     return null;
 }
 
+/* ***
+ * handleJsEditorClick - обработка клика в редакторе JS
+ * - принимает объект события клика event
+ * - подсвечивает .wizardBlock при клике по блоку
+ * - снимает подсветку при клике по пустому месту
+ * - ничего не возвращает
+*** */
+function handleJsEditorClick(event) {
+    const target = event.target;
+    const jsEditorContent = document.getElementById('jsEditorContent');
+
+    if (!jsEditorContent || !target) {
+        return null;
+    }
+
+    if (jsEditorContent.classList.contains('preview')) {
+        return null;
+    }
+
+    if (target === jsEditorContent) {
+        clearElementHighlight();
+        return null;
+    }
+
+    const block = target.closest ? target.closest('.wizardBlock') : null;
+
+    if (!block || !jsEditorContent.contains(block)) {
+        clearElementHighlight();
+        return null;
+    }
+
+    highlightElement(block);
+    return null;
+}
+
 // Добавление обработчика клика после загрузки блоков редактора
 document.addEventListener('editorBlock:loaded', () => {
     const viewEditorContent = document.getElementById('viewEditorContent');
+    const jsEditorContent = document.getElementById('jsEditorContent');
+
     if (!viewEditorContent) return;
 
     // Фиксируем выделение текста в момент нажатия кнопки мыши
@@ -1266,6 +1307,10 @@ document.addEventListener('editorBlock:loaded', () => {
 
     viewEditorContent.addEventListener('click', handleVisualEditorClick);
     viewEditorContent.addEventListener('contextmenu', handleVisualEditorClick);
+
+    if (jsEditorContent) {
+        jsEditorContent.addEventListener('click', handleJsEditorClick);
+    }
 });
 
 
