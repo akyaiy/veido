@@ -1,23 +1,5 @@
-/* Кнопка переключения режима редактора */
-#codeWizardToggle {
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    padding: 5px;
-    background-color: #ffffff;
-    border: 1px solid #ccc;
-    cursor: pointer;
-    border-radius: 5px;
-    user-select: none;
-}
+/* Scoped Scratch-style CSS for the JS visual editor */
 
-#codeWizardToggle.wizard {
-    background-color: #f0f0f0;
-}
-
-
-
-/* Содержимое JS редактора */
 #jsEditorContent {
     display: inline-block;
     width: 100%;
@@ -27,129 +9,109 @@
     padding: 5px;
 }
 
+/* Temporary style for the toggle button */
+#codeWizardToggle {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    padding: 6px 10px;
+    background: #ffffff;
+    color: #111111;
+    border: 1px solid #cccccc;
+    border-radius: 6px;
+    cursor: pointer;
+    z-index: 9999;
+}
 
+#codeWizardToggle.wizard {
+    background: #f0f0f0;
+}
 
-/* Блоки в режиме wizard (Scratch Style) */
 #jsEditorContent.wizard {
+    background: transparent;
+    color: inherit;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 12px;
-    background-color: #f9f9f9;
+    gap: 10px;
 }
 
-#jsEditorContent.wizard .wizardBlock {
-    box-sizing: border-box;
-    font-size: 14px;
-    color: #ffffff;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
+
+/* Базовый стиль блока */
+.block {
     position: relative;
-    user-select: none;
-    margin: 0;
     width: fit-content;
-    max-width: 100%;
+    padding: 6px 10px;
+    border-radius: 6px;
+    color: white;
+    font-weight: 600;
 }
+.block.transparent { background: transparent; color: white; padding: 4px 2px; font-weight: 600; }
 
-#jsEditorContent.wizard .wizardContent {
-    outline: none;
-    min-height: 1em;
-    font-family: monospace;
-    white-space: pre-wrap;
-    line-height: 1.4;
+/* Цветовые категории (пастельные) */
+.block.control       { background: #FFAB19; }
+.block.operators     { background: #59C059; }
+.block.variables     { background: #FF8C1A; }
+.block.function-call { background: #FF9B26; }
+.block.assign        { background: #e65100; }
+.block.looks         { background: #9966FF; }
+.block.functions     { background: #FF6680; }
+.block.events        { background: #FFBF00; }
+.block.dom           { background: #4CBFE6; }
+.block.data          { background: #FF6680; }
+
+/* Названия функций */
+.block .function-name,
+.chain .function-name {
+    background: #8A2BE2;
     color: #ffffff;
-    user-select: none;
-}
-
-
-
-/* Родительские C-блоки и темы */
-#jsEditorContent.wizard .wizardBlock.wizardParent > .wizardContent {
-    background-color: #FFAB19;
+    border-radius: 4px;
     padding: 6px 10px;
-    border-radius: 10px 10px 0 0;
-    box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.15);
-    white-space: pre-wrap;
-    width: fit-content;
-}
-
-#jsEditorContent.wizard .wizardBlock.wizardParent > .wizardBody {
-    display: flex;
-    flex-direction: column;
+    display: inline-flex;
+    align-items: center;
     gap: 6px;
-    margin: 0;
-    padding: 4px 0 4px 4px;
-    border-left: 10px solid #FFAB19;
-    background: transparent;
-    width: fit-content;
-    min-height: 12px;
 }
 
-#jsEditorContent.wizard .wizardBlock.wizardParent::after {
-    content: "";
-    display: block;
-    height: 10px;
-    min-width: 50px;
-    width: 100%;
-    background-color: #FFAB19;
-    border-radius: 0 10px 10px 10px;
-    box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.2);
+/* Карточки значений */
+.block.value {
+    background: #ffffff;
+    color: #333333;
+    font-weight: normal;
+    border-radius: 12px;
+    padding: 4px 10px;
 }
 
-#jsEditorContent.wizard .wizardBlock.wizardParent.wizardPurple > .wizardContent,
-#jsEditorContent.wizard .wizardBlock.wizardParent.wizardPurple::after {
-    background-color: #9966FF;
-}
+.block.modifier { background: transparent; color: #fff; padding: 4px 2px; }
 
-#jsEditorContent.wizard .wizardBlock.wizardParent.wizardPurple > .wizardBody {
-    border-left-color: #9966FF;
-}
+.block.scratch-condition { background: #59C059; padding: 6px 12px; clip-path: polygon(10px 0%, calc(100% - 10px) 0%, 100% 50%, calc(100% - 10px) 100%, 10px 100%, 0% 50%); border-radius: 0; }
 
-#jsEditorContent.wizard .wizardBlock.wizardParent.wizardGreen > .wizardContent,
-#jsEditorContent.wizard .wizardBlock.wizardParent.wizardGreen::after {
-    background-color: #0FBD8C;
-}
+.chain { display: inline-flex; align-items: center; gap: 0px !important; }
 
-#jsEditorContent.wizard .wizardBlock.wizardParent.wizardGreen > .wizardBody {
-    border-left-color: #0FBD8C;
-}
+.block.has-children { background: transparent; border-left: 8px solid currentColor; border-bottom: 8px solid currentColor; padding: 0; }
 
+.block.has-children.control   { color: #FFAB19; }
+.block.has-children.functions { color: #FF6680; }
+.block.has-children.events    { color: #FFBF00; }
+.block.has-children.data      { color: #FF6680; }
+.block.has-children.operators { color: #59C059; }
+.block.has-children.assign    { color: #e65100; }
 
+.block.has-children > .line:first-child { background: currentColor; border-radius: 0px 6px 6px 0px; padding: 6px 10px 6px 0px; }
 
-/* Команды, комментарии и служебные блоки */
-#jsEditorContent.wizard .wizardBlock.wizardStatement,
-#jsEditorContent.wizard .wizardBlock.wizardComment {
-    border-radius: 10px;
-    box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.2);
-}
+.inner { display: flex; flex-direction: column; gap: 6px; background: transparent; margin: 6px 0 6px 8px; }
 
-#jsEditorContent.wizard .wizardBlock.wizardStatement {
-    background-color: #4C97FF;
-}
+.line { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; width: fit-content; }
 
-#jsEditorContent.wizard .wizardBlock.wizardComment {
-    background-color: #9996A1;
-}
+.block.comments { background: #999999; color: #ffffff; font-style: italic; white-space: pre-wrap; padding: 8px 10px; border-radius: 8px; }
 
-#jsEditorContent.wizard .wizardBlock.wizardStatement > .wizardContent,
-#jsEditorContent.wizard .wizardBlock.wizardComment > .wizardContent {
-    padding: 6px 10px;
-}
+/* Дополнительные стили для составляющих */
+.block.variables { background: #FF8C1A; padding: 4px 8px; border-radius: 8px; }
+.block.transparent { background: transparent; padding: 4px 6px; }
+.block.function-name.sub-part { background: rgba(0,0,0,0.08); padding: 4px 8px; border-radius: 6px; }
+.block.function-name.sub-part > .block { margin-left: 6px; }
 
-#jsEditorContent.wizard .wizardBlock.wizardComment > .wizardContent {
-    font-style: italic;
-}
+/* Тонкая настройка для дочерних блоков внутри header */
+.block.has-children > .inner .block { margin: 4px 0; }
 
-#jsEditorContent.wizard .wizardBlock.wizardEmpty {
-    height: 8px;
-    padding: 0;
-    margin: 0;
-    border: none;
-    background: transparent;
-    box-shadow: none;
-}
+/* Уменьшаем шрифт значений в цепочках */
+.chain .block.value { font-size: 13px; }
 
-#jsEditorContent.wizard .wizardBlock.wizardClose {
-    display: none;
-}

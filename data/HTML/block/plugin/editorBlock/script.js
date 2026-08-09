@@ -107,9 +107,12 @@ document.addEventListener('editorBlock:loaded', initSvgIcons);
 
 // Заменить потом!!!!!
 document.addEventListener('editorBlock:loaded', async () => {
-    await window.editorBlock.openBlock("/pages/about");
-    await window.editorBlock.openBlock("pages/userSlava/login");
-    await window.editorBlock.openBlock("/pages/example4");
-    await window.editorBlock.openBlock("/pages/loadBlockAttribute");
-    await window.editorBlock.openBlock("/pages/example2");
+    // await window.editorBlock.openBlock("/pages/about");
+    // await window.editorBlock.openBlock("pages/userSlava/login");
+    // await window.editorBlock.openBlock("/pages/example4");
+    // await window.editorBlock.openBlock("/pages/loadBlockAttribute");
+    // await window.editorBlock.openBlock("/pages/example2");
+    await window.editorBlock.openBlock("/pages/example5");
+    await document.getElementById("jsEditorButton").click();
+    await document.getElementById("codeWizardToggle").click();
 });
