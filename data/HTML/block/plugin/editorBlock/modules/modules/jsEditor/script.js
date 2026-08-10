@@ -9,6 +9,163 @@ const jsEditorContent = document.getElementById('jsEditorContent');
 // Последний исходный код
 let lastSource = '';
 
+// Перменнная перевода ключевых слов, объектов, методов, событий, операторов и литералов
+const TRANSLATIONS = {
+    keywords: {
+        'function': 'функция',
+        'async': 'асинхронная',
+        'return': 'вернуть',
+        'if': 'если',
+        'else': 'иначе',
+        'for': 'цикл',
+        'while': 'цикл',
+        'await': 'ждать',
+        'addEventListener': 'При',
+        'typeof': 'тип',
+        'object': 'объект',
+        'array': 'массив',
+        'const': 'константа',
+        'let': 'пусть',
+        'var': 'переменная',
+        'new': 'создать',
+        'delete': 'удалить',
+        'throw': 'выбросить',
+        'try': 'попробовать',
+        'catch': 'если ошибка',
+        'finally': 'в конце',
+        'class': 'класс',
+        'extends': 'наследует',
+        'implements': 'реализует',
+        'import': 'импортировать',
+        'export': 'экспортировать',
+        'from': 'из',
+        'default': 'по умолчанию',
+        'yield': 'дать',
+        'void': 'без значения',
+        'instanceof': 'экземпляр',
+        'in': 'в',
+        'of': 'из'
+    },
+    objects: {
+        'console': 'консоль',
+        'document': 'документ',
+        'window': 'окно',
+        'Math': 'математика',
+        'JSON': 'json',
+        'Array': 'массив',
+        'Object': 'объект',
+        'String': 'строка',
+        'Number': 'число',
+        'Boolean': 'логика',
+        'Date': 'дата',
+        'Set': 'набор',
+        'Map': 'словарь',
+        'RegExp': 'регулярка'
+    },
+    methods: {
+        'log': 'вывести',
+        'map': 'преобразовать',
+        'push': 'добавить',
+        'length': 'длина',
+        'replace': 'заменить',
+        'createElement': 'создатьЭлемент',
+        'remove': 'удалить',
+        'forEach': 'для каждого',
+        'filter': 'отфильтровать',
+        'sort': 'отсортировать',
+        'reduce': 'свернуть',
+        'pop': 'убрать последнюю',
+        'shift': 'убрать первую',
+        'unshift': 'добавить первую',
+        'slice': 'вырезать',
+        'concat': 'соединить',
+        'join': 'соединить',
+        'split': 'разбить',
+        'includes': 'содержит',
+        'indexOf': 'индекс',
+        'find': 'найти',
+        'findIndex': 'найти индекс',
+        'includes': 'включает',
+        'toString': 'в строку',
+        'toUpperCase': 'в верхний регистр',
+        'toLowerCase': 'в нижний регистр',
+        'trim': 'обрезать',
+        'parseInt': 'разобрать число',
+        'parseFloat': 'разобрать дробь',
+        'setTimeout': 'таймер',
+        'setInterval': 'интервал',
+        'clearTimeout': 'остановить таймер',
+        'clearInterval': 'остановить интервал',
+        'alert': 'сообщить',
+        'confirm': 'подтвердить',
+        'prompt': 'спросить',
+        'querySelector': 'выбрать',
+        'querySelectorAll': 'выбрать все'
+    },
+    events: {
+        'click': 'клике',
+        'mouseover': 'наведении',
+        'input': 'вводе',
+        'submit': 'отправке',
+        'change': 'изменении',
+        'keyup': 'отпускании клавиши',
+        'keydown': 'нажатии клавиши',
+        'focus': 'фокусе',
+        'blur': 'потере фокуса',
+        'dblclick': 'двойном клике',
+        'mouseenter': 'входе курсора',
+        'mouseleave': 'выходе курсора',
+        'resize': 'изменении размера'
+    },
+    operators: {
+        '&&': 'и',
+        '||': 'или',
+        '++': 'увеличить на 1',
+        '--': 'уменьшить на 1',
+        '*': '×',
+        '+': '+',
+        '-': '-',
+        '/': '/',
+        '%': '%',
+        '**': 'возводить в степень',
+        '!': 'не',
+        '~': 'побитовое не',
+        '=': '=',
+        '+=': 'плюс равно',
+        '-=': 'минус равно',
+        '*=': 'умножить равно',
+        '/=': 'поделить равно',
+        '%=': 'остаток равно',
+        '**=': 'в степень равно',
+        '==': 'равно',
+        '===': 'строго равно',
+        '!=': 'не равно',
+        '!==': 'строго не равно',
+        '>=': '>=',
+        '<=': '<=',
+        '>': '>',
+        '<': '<',
+        '>>': 'сдвиг вправо',
+        '<<': 'сдвиг влево',
+        '>>>': 'беззнаковый сдвиг вправо',
+        '&': 'и побитово',
+        '|': 'или побитово',
+        '^': 'исключающее или',
+        '??': 'если нет',
+        '?.': 'опциональная часть',
+        '=>': 'стрелка'
+    },
+    literals: {
+        'true': 'правда',
+        'false': 'ложь',
+        'null': 'отсутствие',
+        'undefined': 'отсутствие',
+        'NaN': 'не число',
+        'Infinity': 'бесконечность',
+        '-Infinity': 'минус бесконечность'
+    }
+};
+
 
 
 /* === Лексический анализатор кода === */
@@ -1177,10 +1334,146 @@ function createElementNode(tag, cls, text) {
     }
 
     if (text !== undefined) {
-        e.textContent = text;
+        let outText = text;
+
+        if (typeof outText === 'string') {
+            // Автоматические переводы для меток интерфейса в специальных классах
+            if (cls && (cls.indexOf('transparent') !== -1 || cls.indexOf('operators') !== -1 || cls.indexOf('control') !== -1)) {
+                // Прозрачные блоки часто содержат ключевые слова (return, await, object ...)
+                outText = trKeyword(outText) || trMethod(outText) || trObject(outText) || trOperator(outText) || outText;
+            } else if (cls && cls.indexOf('modifier') !== -1) {
+                outText = trKeyword(outText) || trMethod(outText) || outText;
+            } else if (cls && cls.indexOf('functionName') !== -1 && outText.startsWith('.')) {
+                // Части типа ".log(...)" - переводим имя метода после точки
+                const rest = outText.slice(1);
+                const name = rest.split(/\(|\s/)[0];
+                const translated = trMethod(name);
+                outText = '.' + (translated || name) + outText.slice(1 + name.length);
+            } else if (cls && cls.indexOf('valueSpecial') !== -1) {
+                outText = displayValue(outText);
+            } else if (cls && cls.indexOf('value') !== -1) {
+                outText = displayValue(outText);
+            }
+        }
+
+        e.textContent = outText;
     }
 
     return e;
+}
+
+/* ***
+ * trKeyword - перевод ключевых слов
+ * - принимает ключевое слово
+ * - возвращает переведённое значение или исходное слово
+*** */
+function trKeyword(k) {
+   if (!k) return k;
+   return TRANSLATIONS.keywords[k] || TRANSLATIONS.keywords[String(k).toLowerCase()] || k;
+}
+
+/* ***
+ * trObject - перевод имён объектов
+ * - принимает имя объекта
+ * - возвращает переведённое значение или исходное имя
+*** */
+function trObject(name) {
+   if (!name) return name;
+   return TRANSLATIONS.objects[name] || name;
+}
+
+/* ***
+ * trMethod - перевод имён методов
+ * - принимает имя метода
+ * - возвращает переведённое значение или исходное имя
+*** */
+function trMethod(name) {
+   if (!name) return name;
+   return TRANSLATIONS.methods[name] || name;
+}
+
+/* ***
+ * trEvent - перевод имён событий
+ * - принимает имя события
+ * - возвращает переведённое значение или исходное имя
+*** */
+function trEvent(name) {
+   if (!name) return name;
+   return TRANSLATIONS.events[name] || name;
+}
+
+/* ***
+ * trOperator - перевод операторов
+ * - принимает оператор
+ * - возвращает переведённое значение или исходное имя
+*** */
+function trOperator(op) {
+   if (op === undefined || op === null) return op;
+   return TRANSLATIONS.operators[op] || op;
+}
+
+/* ***
+ * trLiteral - перевод литералов
+ * - принимает литерал
+ * - возвращает переведённое значение или исходное имя
+*** */
+function trLiteral(val) {
+   if (val === undefined) {
+       return 'отсутствие';
+   }
+
+   if (val === null) {
+       return 'отсутствие';
+   }
+
+   const s = String(val);
+   return TRANSLATIONS.literals[s] !== undefined ? TRANSLATIONS.literals[s] : val;
+}
+
+/* ***
+ * displayValue - отображение значения с переводом
+ * - принимает значение
+ * - возвращает строковое представление с переводом
+*** */
+function displayValue(raw) {
+   if (raw === undefined || raw === null) {
+       return trLiteral(raw) || 'отсутствие';
+   }
+
+   let s = String(raw);
+
+   // Если строка в кавычках — убираем их
+   if (/^['"`].*['"`]$/.test(s)) {
+       s = s.slice(1, -1);
+   }
+
+   const lit = trLiteral(s);
+   return lit !== s ? lit : s;
+}
+
+/* ***
+ * getSpecialLiteralText - получение текста для специальных литералов
+ * - принимает значение
+ * - возвращает строковое представление для true, false, null, undefined
+*** */
+function getSpecialLiteralText(value) {
+   if (value === true || value === 'true') {
+       return 'правда';
+   }
+
+   if (value === false || value === 'false') {
+       return 'ложь';
+   }
+
+   if (value === null || value === 'null') {
+       return 'отсутствие';
+   }
+
+   if (value === undefined || value === 'undefined') {
+       return 'отсутствие';
+   }
+
+   return null;
 }
 
 /* ***
@@ -1221,6 +1514,12 @@ function makeVariablesNode(value) {
  * - возвращает DOM-блок значения
 *** */
 function makeValueNodeLiteral(value) {
+    const specialText = getSpecialLiteralText(value);
+
+    if (specialText !== null) {
+        return createElementNode('div', 'block valueSpecial', specialText);
+    }
+
     let str = String(value);
 
     if (/^['"`].*['"`]$/.test(str)) {
@@ -1341,7 +1640,7 @@ function makeAwaitBlock(expr) {
     const outer = createElementNode('div', 'block dom');
     const line = createElementNode('div', 'line');
 
-    line.appendChild(createElementNode('div', 'block transparent', 'await'));
+    line.appendChild(createElementNode('div', 'block transparent', trKeyword('await')));
 
     if (expr.argument) {
         const argNode = makeArgBlock(expr.argument);
@@ -1389,7 +1688,8 @@ function makeUnaryBlock(expr) {
     const outer = createElementNode('div', expr.operator === 'typeof' ? 'block operators' : 'block dom');
     const line = createElementNode('div', 'line');
 
-    line.appendChild(createElementNode('div', 'block transparent', expr.operator));
+    // Для оператора typeof используем перевод "тип"
+    line.appendChild(createElementNode('div', 'block transparent', expr.operator === 'typeof' ? trKeyword('typeof') : expr.operator));
     line.appendChild(makeValueNode(expr.argument) || makeValueNodeLiteral(''));
     outer.appendChild(line);
 
@@ -1404,7 +1704,8 @@ function makeUnaryBlock(expr) {
 function makeCallChainNodeWithArgs(expr) {
     if (expr.callee.type === 'Identifier') {
         const fnName = createElementNode('div', 'block functionCall functionName');
-        fnName.appendChild(document.createTextNode(expr.callee.name));
+        // Показываем имя функции с круглыми скобками: name(...)
+        fnName.appendChild(document.createTextNode(expr.callee.name + '('));
 
         for (const a of expr.arguments) {
             const argNode = makeArgBlock(a);
@@ -1414,6 +1715,8 @@ function makeCallChainNodeWithArgs(expr) {
             }
         }
 
+        fnName.appendChild(document.createTextNode(')'));
+
         return fnName;
     }
 
@@ -1421,14 +1724,15 @@ function makeCallChainNodeWithArgs(expr) {
     const objName = flattenMember(expr.callee.object);
 
     if (objName === 'console' || objName === 'document') {
-        chain.appendChild(createElementNode('div', 'block transparent', objName));
+        chain.appendChild(createElementNode('div', 'block transparent', trObject(objName)));
     } else {
         chain.appendChild(createElementNode('div', 'block variables', objName));
     }
 
     const fnName = createElementNode('div', 'block functionName subPart');
 
-    fnName.appendChild(document.createTextNode('.' + expr.callee.property.name));
+    // Методная часть: .имя(...)
+    fnName.appendChild(document.createTextNode('.' + trMethod(expr.callee.property.name) + '('));
 
     for (const a of expr.arguments) {
         const argNode = makeArgBlock(a);
@@ -1437,6 +1741,8 @@ function makeCallChainNodeWithArgs(expr) {
             fnName.appendChild(argNode);
         }
     }
+
+    fnName.appendChild(document.createTextNode(')'));
 
     chain.appendChild(fnName);
 
@@ -1461,13 +1767,21 @@ function makeCallExpressionBlock(expr) {
             const outer = createElementNode('div', 'block events hasChildren');
             const topLine = createElementNode('div', 'line');
 
-            topLine.appendChild(createElementNode('div', 'block transparent', 'addEventListener'));
-            topLine.appendChild(createElementNode('div', 'block transparent', '='));
-            topLine.appendChild(makeVariablesNode(obj));
+            topLine.appendChild(createElementNode('div', 'block transparent', trKeyword('addEventListener')));
 
+            // Сначала показываем событие (например "клике"), затем "на" и объект (button)
             if (expr.arguments[0]) {
-                topLine.appendChild(makeValueNode(expr.arguments[0]));
+                if (expr.arguments[0].type === 'Literal') {
+                    const evRaw = displayValue(expr.arguments[0].value);
+                    const evLabel = trEvent(evRaw) || evRaw;
+                    topLine.appendChild(createElementNode('div', 'block value', evLabel));
+                } else {
+                    topLine.appendChild(makeValueNode(expr.arguments[0]));
+                }
             }
+
+            topLine.appendChild(createElementNode('div', 'block transparent', 'на'));
+            topLine.appendChild(makeVariablesNode(obj));
 
             outer.appendChild(topLine);
 
@@ -1566,23 +1880,23 @@ function makeAssignmentBlock(expr) {
         const outer = createElementNode('div', 'block functions hasChildren');
         const line = createElementNode('div', 'line');
 
-        if (expr.right.async) {
-            line.appendChild(createElementNode('div', 'block modifier', 'async'));
-        }
-
-        line.appendChild(createElementNode('div', 'block transparent', 'function'));
-        line.appendChild(createElementNode('div', 'block transparent', '='));
+        // Метка функции — объединяем async + function в одну прозрачную метку, убираем лишний '='
+        const funcLabel = expr.right.async ? trKeyword('async') + ' ' + trKeyword('function') : trKeyword('function');
+        line.appendChild(createElementNode('div', 'block transparent', funcLabel));
 
         const funcNameBlock = createElementNode('div', 'block functionName');
         const leftName = (expr.left.type === 'Identifier') ? expr.left.name : flattenMember(expr.left);
 
-        funcNameBlock.appendChild(document.createTextNode(leftName));
+        // Показываем имя функции с параметрами в скобках: name(...)
+        funcNameBlock.appendChild(document.createTextNode(leftName + '('));
 
         if (expr.right.params && expr.right.params.length > 0) {
             for (const p of expr.right.params) {
                 funcNameBlock.appendChild(createElementNode('div', 'block variables', p));
             }
         }
+
+        funcNameBlock.appendChild(document.createTextNode(')'));
 
         line.appendChild(funcNameBlock);
         outer.appendChild(line);
@@ -1623,7 +1937,7 @@ function makeAssignmentBlock(expr) {
     const line = createElementNode('div', 'line');
 
     if (expr.right && expr.right.type === 'ObjectExpression') {
-        line.appendChild(createElementNode('div', 'block transparent', 'object'));
+        line.appendChild(createElementNode('div', 'block transparent', trKeyword('object')));
         line.appendChild(makeValueNode(expr.left));
         outer.appendChild(line);
 
@@ -1641,7 +1955,7 @@ function makeAssignmentBlock(expr) {
     }
 
     if (expr.right && expr.right.type === 'ArrayExpression') {
-        line.appendChild(createElementNode('div', 'block transparent', 'array'));
+        line.appendChild(createElementNode('div', 'block transparent', trKeyword('array')));
         line.appendChild(makeValueNode(expr.left));
         outer.appendChild(line);
 
@@ -1811,18 +2125,12 @@ function makeArrowFunctionBlock(node) {
         }
 
         if (node.body.type === 'BinaryExpression') {
-            const left = makeValueNode(node.body.left) || createElementNode('div', 'block variables', '');
-            let op = node.body.operator;
+            const bodyBlock = makeValueNode(node.body) || createElementNode('div', 'block dom');
 
-            if (op === '*') {
-                op = '×';
+            if (bodyBlock) {
+                topLine.appendChild(bodyBlock);
             }
 
-            const right = makeValueNode(node.body.right) || createElementNode('div', 'block value', '');
-
-            topLine.appendChild(left);
-            topLine.appendChild(createElementNode('div', 'block transparent', op));
-            topLine.appendChild(right);
             outer.appendChild(topLine);
         } else {
             const bodyBlock = expressionToBlock(node.body);
@@ -2166,22 +2474,22 @@ function functionDeclarationToBlock(node) {
     const outer = createElementNode('div', 'block functions hasChildren');
     const line = createElementNode('div', 'line');
 
-    if (node.async) {
-        line.appendChild(createElementNode('div', 'block modifier', 'async'));
-    }
-
-    line.appendChild(createElementNode('div', 'block transparent', 'function'));
-    line.appendChild(createElementNode('div', 'block transparent', '='));
+    // Объединяем "async" и "function" в одну метку и убираем лишний '='
+    const funcLabel = node.async ? trKeyword('async') + ' ' + trKeyword('function') : trKeyword('function');
+    line.appendChild(createElementNode('div', 'block transparent', funcLabel));
 
     const funcNameBlock = createElementNode('div', 'block functionName');
 
-    funcNameBlock.appendChild(document.createTextNode(node.id || ''));
+    // Имя функции с перечислением параметров в скобках
+    funcNameBlock.appendChild(document.createTextNode((node.id || '') + '('));
 
     if (node.params && node.params.length > 0) {
         for (const p of node.params) {
             funcNameBlock.appendChild(createElementNode('div', 'block variables', p));
         }
     }
+
+    funcNameBlock.appendChild(document.createTextNode(')'));
 
     line.appendChild(funcNameBlock);
     outer.appendChild(line);
@@ -2215,7 +2523,7 @@ function ifStatementToBlock(node) {
     const outer = createElementNode('div', 'block control hasChildren');
     const line = createElementNode('div', 'line');
 
-    line.appendChild(createElementNode('div', 'block control', 'if'));
+    line.appendChild(createElementNode('div', 'block control', trKeyword('if')));
     line.appendChild(getConditionNode(node.test));
     outer.appendChild(line);
 
@@ -2248,7 +2556,7 @@ function forStatementToBlock(node) {
     const outer = createElementNode('div', 'block control hasChildren');
     const line = createElementNode('div', 'line');
 
-    line.appendChild(createElementNode('div', 'block control', 'for'));
+    line.appendChild(createElementNode('div', 'block control', trKeyword('for')));
 
     if (node.init) {
         const initBlock = makeValueNode(node.init) || (node.init.type === 'VariableDeclaration' ? variableDeclarationToBlock(node.init) : null);
@@ -2301,7 +2609,7 @@ function whileStatementToBlock(node) {
     const outer = createElementNode('div', 'block control hasChildren');
     const topLine = createElementNode('div', 'line');
 
-    topLine.appendChild(createElementNode('div', 'block control', 'while'));
+    topLine.appendChild(createElementNode('div', 'block control', trKeyword('while')));
     topLine.appendChild(getConditionNode(node.test));
     outer.appendChild(topLine);
 
@@ -2334,7 +2642,7 @@ function returnToBlock(node) {
     const outer = createElementNode('div', 'block dom');
     const line = createElementNode('div', 'line');
 
-    line.appendChild(createElementNode('div', 'block transparent', 'return'));
+    line.appendChild(createElementNode('div', 'block transparent', trKeyword('return')));
 
     if (node.argument) {
         line.appendChild(makeValueNode(node.argument));
@@ -2551,12 +2859,17 @@ function toggleCodeWizardMode() {
 
 /* === Инициализация редактора === */
 
+// Проверяем наличие элементов редактора на странице
 if (codeWizardToggle && jsEditorContent) {
+    // Добавляем обработчик события для кнопки переключения режима
     codeWizardToggle.addEventListener('click', toggleCodeWizardMode);
+
+    // Добавляем обработчики событий для перетаскивания блоков
     jsEditorContent.addEventListener('dragstart', handleDragStart);
     jsEditorContent.addEventListener('dragover', handleDragOver);
     jsEditorContent.addEventListener('drop', handleDrop);
     jsEditorContent.addEventListener('dragend', handleDragEnd);
 
+    // Устанавливаем начальный режим редактора в текстовый
     setEditMode(false);
 }
