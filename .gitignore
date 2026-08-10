@@ -1,4 +1,4 @@
-data/db/data.db
+data/db/
 bin/
 data/functions/
 data/files/
@@ -7,4 +7,5 @@ testdata/
 !internal/vfs/v2/testdata/scope_resolver.sql
 data/config.yaml
 data/CAS/
+data/testing/
 bak/
