@@ -183,7 +183,13 @@ func (c *VFSCore) Stat(ctx context.Context, actor Actor, uri common.CanonURI) (*
 		return nil, err
 	}
 
-	return provider.Stat(ctx, resolved.Ref.Path)
+	bound := boundVFS{
+		frontend: c,
+		actor:    actor,
+		selfAddress: common.ParseResourceAddress(uri).Payload(),
+	}
+	ctxWithBound := ContextWithBoundVFS(ctx, &bound)
+	return provider.Stat(ctxWithBound, resolved.Ref.Path)
 }
 
 func (c *VFSCore) ReadDir(ctx context.Context, actor Actor, uri common.CanonURI) ([]*Node, error) {
@@ -208,7 +214,13 @@ func (c *VFSCore) ReadDir(ctx context.Context, actor Actor, uri common.CanonURI)
 		return nil, err
 	}
 
-	return provider.ReadDir(ctx, resolved.Ref.Path)
+	bound := boundVFS{
+		frontend: c,
+		actor:    actor,
+		selfAddress: common.ParseResourceAddress(uri).Payload(),
+	}
+	ctxWithBound := ContextWithBoundVFS(ctx, &bound)
+	return provider.ReadDir(ctxWithBound, resolved.Ref.Path)
 }
 
 func (c *VFSCore) OpenFile(ctx context.Context, actor Actor, uri common.CanonURI, flag int) (File, error) {
@@ -249,7 +261,13 @@ func (c *VFSCore) OpenFile(ctx context.Context, actor Actor, uri common.CanonURI
 		return nil, err
 	}
 
-	return provider.OpenFile(ctx, resolved.Ref.Path, flag)
+	bound := boundVFS{
+		frontend: c,
+		actor:    actor,
+		selfAddress: common.ParseResourceAddress(uri).Payload(),
+	}
+	ctxWithBound := ContextWithBoundVFS(ctx, &bound)
+	return provider.OpenFile(ctxWithBound, resolved.Ref.Path, flag)
 }
 
 func (c *VFSCore) Mkdir(ctx context.Context, actor Actor, uri common.CanonURI) (*Node, error) {
@@ -273,8 +291,14 @@ func (c *VFSCore) Mkdir(ctx context.Context, actor Actor, uri common.CanonURI) (
 		return nil, err
 	}
 
+	bound := boundVFS{
+		frontend: c,
+		actor:    actor,
+		selfAddress: common.ParseResourceAddress(uri).Payload(),
+	}
+	ctxWithBound := ContextWithBoundVFS(ctx, &bound)
 	parentPath, name := splitResourcePath(resolved.Ref.Path)
-	node, err := provider.Mkdir(ctx, parentPath, name)
+	node, err := provider.Mkdir(ctxWithBound, parentPath, name)
 	if err != nil {
 		return nil, err
 	}
@@ -329,8 +353,14 @@ func (c *VFSCore) Move(ctx context.Context, actor Actor, source common.CanonURI,
 		return err
 	}
 
+	bound := boundVFS{
+		frontend: c,
+		actor:    actor,
+		selfAddress: common.ParseResourceAddress(source).Payload(),
+	}
+	ctxWithBound := ContextWithBoundVFS(ctx, &bound)
 	targetParentPath, newName := splitResourcePath(resolvedTarget.Ref.Path)
-	if err := provider.Move(ctx, resolvedSource.Ref.Path, targetParentPath, newName); err != nil {
+	if err := provider.Move(ctxWithBound, resolvedSource.Ref.Path, targetParentPath, newName); err != nil {
 		return err
 	}
 
@@ -361,7 +391,13 @@ func (c *VFSCore) Delete(ctx context.Context, actor Actor, uri common.CanonURI) 
 		return err
 	}
 
-	if err := provider.Delete(ctx, resolved.Ref.Path); err != nil {
+	bound := boundVFS{
+		frontend: c,
+		actor:    actor,
+		selfAddress: common.ParseResourceAddress(uri).Payload(),
+	}
+	ctxWithBound := ContextWithBoundVFS(ctx, &bound)
+	if err := provider.Delete(ctxWithBound, resolved.Ref.Path); err != nil {
 		return err
 	}
 
@@ -390,5 +426,11 @@ func (c *VFSCore) Control(ctx context.Context, actor Actor, uri common.CanonURI,
 		return nil, err
 	}
 
-	return provider.Control(ctx, resolved.Ref.Path, command, input)
+	bound := boundVFS{
+		frontend: c,
+		actor:    actor,
+		selfAddress: common.ParseResourceAddress(uri).Payload(),
+	}
+	ctxWithBound := ContextWithBoundVFS(ctx, &bound)
+	return provider.Control(ctxWithBound, resolved.Ref.Path, command, input)
 }
