@@ -62,7 +62,7 @@ func newDebugFrontendTestDB(t *testing.T) *sql.DB {
 		VALUES ('debug', 'user', 'user:42');
 
 		INSERT INTO vfs_provider_connections (scope_key, provider, connection_key, config_json, status)
-		VALUES ('debug', 'debug', 'default', '{}', 'active');
+		VALUES ('debug', 'debug', 'default', '{add_message: "ssss"}', 'active');
 
 		INSERT INTO vfs_principal_default_scopes (principal_type, principal_id, scope_key)
 		VALUES ('user', '42', 'debug');

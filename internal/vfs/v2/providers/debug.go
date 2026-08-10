@@ -16,7 +16,8 @@ func NewDebugProvider() vfs.FSProvider {
 func FactoryDebug(ctx context.Context, connection vfs.ProviderConnection) (vfs.FSProvider, error) {
 	slog.Info("debug provider", 
 		slog.String("func", "FactoryDebug()"),
-		slog.Any("connection", connection))
+		slog.Any("connection", connection),
+		slog.String("config", string(connection.Config)))
 	return &debugProvider{}, nil
 }
 
@@ -75,7 +76,7 @@ func (debugProvider) Control(ctx context.Context, path string, command string, i
 		slog.String("func", "Control()"),
 		slog.String("path", path),
 		slog.String("command", command),
-		slog.String("input", string(input)))
+		slog.String("input", string(input)))	
 	return nil, nil
 }
 
