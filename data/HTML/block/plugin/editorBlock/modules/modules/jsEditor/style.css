@@ -1,5 +1,4 @@
-/* Scoped Scratch-style CSS for the JS visual editor */
-
+/* Главный контейнер */
 #jsEditorContent {
     display: inline-block;
     width: 100%;
@@ -9,7 +8,17 @@
     padding: 5px;
 }
 
-/* Temporary style for the toggle button */
+#jsEditorContent.wizard {
+    background: transparent;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+
+
+/* Кнопка переключения */
 #codeWizardToggle {
     position: absolute;
     top: 12px;
@@ -27,41 +36,105 @@
     background: #f0f0f0;
 }
 
-#jsEditorContent.wizard {
-    background: transparent;
-    color: inherit;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
 
 
-/* Базовый стиль блока */
+/* Базовые элементы */
 .block {
     position: relative;
     width: fit-content;
     padding: 6px 10px;
     border-radius: 6px;
-    color: white;
+    color: #ffffff;
     font-weight: 600;
 }
-.block.transparent { background: transparent; color: white; padding: 4px 2px; font-weight: 600; }
 
-/* Цветовые категории (пастельные) */
-.block.control       { background: #FFAB19; }
-.block.operators     { background: #59C059; }
-.block.variables     { background: #FF8C1A; }
-.block.function-call { background: #FF9B26; }
-.block.assign        { background: #e65100; }
-.block.looks         { background: #9966FF; }
-.block.functions     { background: #FF6680; }
-.block.events        { background: #FFBF00; }
-.block.dom           { background: #4CBFE6; }
-.block.data          { background: #FF6680; }
+.transparent {
+    background: transparent;
+    color: #ffffff;
+    padding: 4px 6px;
+    font-weight: 600;
+}
+
+.modifier {
+    background: transparent;
+    color: #ffffff;
+    padding: 4px 2px;
+}
+
+.value {
+    background: #ffffff;
+    color: #333333;
+    font-weight: normal;
+    border-radius: 12px;
+    padding: 4px 10px;
+}
+
+.comments {
+    background: #999999;
+    color: #ffffff;
+    font-style: italic;
+    white-space: pre-wrap;
+    padding: 8px 10px;
+    border-radius: 8px;
+}
+
+.scratchCondition {
+    background: #59C059;
+    padding: 6px 12px;
+    clip-path: polygon(10px 0%, calc(100% - 10px) 0%, 100% 50%, calc(100% - 10px) 100%, 10px 100%, 0% 50%);
+    border-radius: 0;
+}
+
+
+
+/* Категории блоков */
+.control {
+    background: #FFAB19;
+}
+
+.operators {
+    background: #59C059;
+}
+
+.variables {
+    background: #FF8C1A;
+    padding: 4px 8px;
+    border-radius: 8px;
+}
+
+.functionCall {
+    background: #FF9B26;
+}
+
+.assign {
+    background: #e65100;
+}
+
+.looks {
+    background: #9966FF;
+}
+
+.functions {
+    background: #FF6680;
+}
+
+.events {
+    background: #FFBF00;
+}
+
+.dom {
+    background: #4CBFE6;
+}
+
+.data {
+    background: #FF6680;
+}
+
+
 
 /* Названия функций */
-.block .function-name,
-.chain .function-name {
+.functionName,
+.chain .functionName {
     background: #8A2BE2;
     color: #ffffff;
     border-radius: 4px;
@@ -71,47 +144,85 @@
     gap: 6px;
 }
 
-/* Карточки значений */
-.block.value {
-    background: #ffffff;
-    color: #333333;
-    font-weight: normal;
-    border-radius: 12px;
-    padding: 4px 10px;
+.functionName.subPart {
+    background: rgba(0, 0, 0, 0.08);
+    padding: 4px 8px;
+    border-radius: 6px;
 }
 
-.block.modifier { background: transparent; color: #fff; padding: 4px 2px; }
+.functionName.subPart .block {
+    margin-left: 6px;
+}
 
-.block.scratch-condition { background: #59C059; padding: 6px 12px; clip-path: polygon(10px 0%, calc(100% - 10px) 0%, 100% 50%, calc(100% - 10px) 100%, 10px 100%, 0% 50%); border-radius: 0; }
 
-.chain { display: inline-flex; align-items: center; gap: 0px !important; }
 
-.block.has-children { background: transparent; border-left: 8px solid currentColor; border-bottom: 8px solid currentColor; padding: 0; }
+/* Структурные контейнеры */
+.chain {
+    display: inline-flex;
+    align-items: center;
+    gap: 0px;
+}
 
-.block.has-children.control   { color: #FFAB19; }
-.block.has-children.functions { color: #FF6680; }
-.block.has-children.events    { color: #FFBF00; }
-.block.has-children.data      { color: #FF6680; }
-.block.has-children.operators { color: #59C059; }
-.block.has-children.assign    { color: #e65100; }
+.chain .value {
+    font-size: 13px;
+}
 
-.block.has-children > .line:first-child { background: currentColor; border-radius: 0px 6px 6px 0px; padding: 6px 10px 6px 0px; }
+.line {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+    width: fit-content;
+}
 
-.inner { display: flex; flex-direction: column; gap: 6px; background: transparent; margin: 6px 0 6px 8px; }
+.inner {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: transparent;
+    margin: 6px 0 6px 8px;
+}
 
-.line { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; width: fit-content; }
 
-.block.comments { background: #999999; color: #ffffff; font-style: italic; white-space: pre-wrap; padding: 8px 10px; border-radius: 8px; }
 
-/* Дополнительные стили для составляющих */
-.block.variables { background: #FF8C1A; padding: 4px 8px; border-radius: 8px; }
-.block.transparent { background: transparent; padding: 4px 6px; }
-.block.function-name.sub-part { background: rgba(0,0,0,0.08); padding: 4px 8px; border-radius: 6px; }
-.block.function-name.sub-part > .block { margin-left: 6px; }
+/* Вложенные блоки */
+.hasChildren {
+    background: transparent;
+    border-left: 8px solid currentColor;
+    border-bottom: 8px solid currentColor;
+    padding: 0;
+}
 
-/* Тонкая настройка для дочерних блоков внутри header */
-.block.has-children > .inner .block { margin: 4px 0; }
+.hasChildren.control {
+    color: #FFAB19;
+}
 
-/* Уменьшаем шрифт значений в цепочках */
-.chain .block.value { font-size: 13px; }
+.hasChildren.functions {
+    color: #FF6680;
+}
 
+.hasChildren.events {
+    color: #FFBF00;
+}
+
+.hasChildren.data {
+    color: #FF6680;
+}
+
+.hasChildren.operators {
+    color: #59C059;
+}
+
+.hasChildren.assign {
+    color: #e65100;
+}
+
+.hasChildren > .line:first-child {
+    background: currentColor;
+    border-radius: 0px 6px 6px 0px;
+    padding: 6px 10px 6px 0px;
+}
+
+.hasChildren > .inner .block {
+    margin: 4px 0;
+}
