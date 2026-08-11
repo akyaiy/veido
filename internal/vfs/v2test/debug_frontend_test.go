@@ -39,7 +39,8 @@ func newDebugFrontendTestDB(t *testing.T) *sql.DB {
 		CREATE TABLE vfs_scopes (
 			scope_key TEXT PRIMARY KEY,
 			kind TEXT NOT NULL,
-			owner_subject_key TEXT NOT NULL
+			owner_subject_key TEXT NOT NULL,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		);
 
 		CREATE TABLE vfs_provider_connections (

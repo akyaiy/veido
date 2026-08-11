@@ -115,7 +115,10 @@ func TestScopeStorage_CreateGetListDelete(t *testing.T) {
 		Kind:            "user",
 		OwnerSubjectKey: owner,
 	}
-	if !reflect.DeepEqual(got, want) {
+	if got.Key != want.Key ||
+		got.Kind != want.Kind ||
+		got.OwnerSubjectKey != want.OwnerSubjectKey ||
+		got.UpdatedAt == nil {
 		t.Fatalf("Get() = %+v, want %+v", got, want)
 	}
 
@@ -123,7 +126,11 @@ func TestScopeStorage_CreateGetListDelete(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List() error = %v", err)
 	}
-	if len(list) != 1 || !reflect.DeepEqual(list[0], want) {
+	if len(list) != 1 ||
+		list[0].Key != want.Key ||
+		list[0].Kind != want.Kind ||
+		list[0].OwnerSubjectKey != want.OwnerSubjectKey ||
+		list[0].UpdatedAt == nil {
 		t.Fatalf("List() = %+v, want [%+v]", list, want)
 	}
 
@@ -393,7 +400,9 @@ func TestConnectionStorage_Errors(t *testing.T) {
 		},
 		{
 			name: "update missing connection",
-			run:  func() error { return connectionStorage.UpdateConfig(ctx, "alice-home", "filesystem", "missing", []byte("{}")) },
+			run: func() error {
+				return connectionStorage.UpdateConfig(ctx, "alice-home", "filesystem", "missing", []byte("{}"))
+			},
 			want: ErrConnectionNotUpdated,
 		},
 		{

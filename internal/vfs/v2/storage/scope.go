@@ -92,7 +92,8 @@ func (s *ScopeStorage) Get(ctx context.Context, scopeKey string) (*vfs.Scope, er
 		SELECT
 			scope_key,
 			kind,
-			owner_subject_key
+			owner_subject_key,
+			updated_at
 		FROM vfs_scopes
 		WHERE scope_key = ?
 	`
@@ -102,6 +103,7 @@ func (s *ScopeStorage) Get(ctx context.Context, scopeKey string) (*vfs.Scope, er
 		&scope.Key,
 		&scope.Kind,
 		&scope.OwnerSubjectKey,
+		&scope.UpdatedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, WrapError(ErrScopeNotFound, err)
@@ -128,7 +130,8 @@ func (s *ScopeStorage) List(ctx context.Context, subject common.SubjectKey) ([]*
 		SELECT
 			scope_key,
 			kind,
-			owner_subject_key
+			owner_subject_key,
+			updated_at
 		FROM vfs_scopes
 		WHERE owner_subject_key = ?
 	`
@@ -142,7 +145,7 @@ func (s *ScopeStorage) List(ctx context.Context, subject common.SubjectKey) ([]*
 	scopes := make([]*vfs.Scope, 0)
 	for rows.Next() {
 		var scope vfs.Scope
-		if err := rows.Scan(&scope.Key, &scope.Kind, &scope.OwnerSubjectKey); err != nil {
+		if err := rows.Scan(&scope.Key, &scope.Kind, &scope.OwnerSubjectKey, &scope.UpdatedAt); err != nil {
 			return nil, WrapError(ErrScopesNotListed, err)
 		}
 		scopes = append(scopes, &scope)

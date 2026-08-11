@@ -9,9 +9,14 @@ import (
 	"strings"
 )
 
+type ProviderInfo struct {
+	ProviderKey string
+}
+
 type ConnectionStorageContract interface {
 	Create(ctx context.Context, connection vfs.ProviderConnection) error
 	Get(ctx context.Context, scopeKey string, providerKey string, connectionKey string) (*vfs.ProviderConnection, error)
+	ListProviders(ctx context.Context, scopeKey string) ([]*ProviderInfo, error)
 	List(ctx context.Context, scopeKey string, providerKey string) ([]*vfs.ProviderConnection, error)
 	Delete(ctx context.Context, scopeKey string, providerKey string, connectionKey string) error
 	UpdateConfig(ctx context.Context, scopeKey string, providerKey string, connectionKey string, config []byte) error
@@ -127,6 +132,48 @@ func (s *ConnectionStorage) Get(ctx context.Context, scopeKey string, providerKe
 
 	connection.Config = []byte(config)
 	return &connection, nil
+}
+
+func (s *ConnectionStorage) ListProviders(ctx context.Context, scopeKey string) ([]*ProviderInfo, error) {
+	if s == nil || s.db == nil {
+		return nil, vfs.ErrInvalidNewInstanceParams
+	}
+
+	scopeKey = strings.TrimSpace(scopeKey)
+	if scopeKey == "" {
+		return nil, WrapError(ErrConnectionsNotListed, fmt.Errorf("%w: empty scope key", vfs.ErrInvalidScope))
+	}
+
+	var (
+		rows *sql.Rows
+		err  error
+	)
+	const query = `
+		SELECT
+			provider
+		FROM vfs_provider_connections
+		WHERE scope_key = ?
+		ORDER BY provider
+	`
+	rows, err = s.db.QueryContext(ctx, query, scopeKey)
+	if err != nil {
+		return nil, WrapError(ErrConnectionsNotListed, err)
+	}
+	defer rows.Close()
+
+	providers := make([]*ProviderInfo, 0)
+	for rows.Next() {
+		var providerKey string
+		if err := rows.Scan(&providerKey); err != nil {
+			return nil, WrapError(ErrConnectionsNotListed, err)
+		}
+		providers = append(providers, &ProviderInfo{ProviderKey: providerKey})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, WrapError(ErrConnectionsNotListed, err)
+	}
+
+	return providers, nil
 }
 
 func (s *ConnectionStorage) List(ctx context.Context, scopeKey string, providerKey string) ([]*vfs.ProviderConnection, error) {
