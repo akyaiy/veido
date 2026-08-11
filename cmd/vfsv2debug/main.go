@@ -92,11 +92,12 @@ func seedDebugVFS(db *sql.DB, actorID string) error {
 	}
 
 	_, err = db.Exec(`
-		INSERT INTO vfs_provider_connections (scope_key, provider, connection_key, config_json, status)
-		VALUES (?, 'debug', 'default', '{}', 'active')
+		INSERT INTO vfs_provider_connections (scope_key, provider, connection_key, config_json, status, ready)
+		VALUES (?, 'debug', 'default', '{}', 'active', 1)
 		ON CONFLICT(scope_key, provider, connection_key) DO UPDATE SET
 			config_json = excluded.config_json,
 			status = excluded.status,
+			ready = excluded.ready,
 			updated_at = CURRENT_TIMESTAMP
 	`, scopeKey)
 	if err != nil {

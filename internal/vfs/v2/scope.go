@@ -127,7 +127,10 @@ func (sr *ScopeResolver) ResolveExplicitScope(ctx context.Context, actor Actor, 
 			s.updated_at
 		FROM vfs_scopes AS s
 		WHERE s.scope_key = ?
-		AND s.owner_subject_key = ?
+		  AND (
+		    s.kind = 'system'
+		    OR s.owner_subject_key = ?
+		  )
 	`
 
 	var scope Scope

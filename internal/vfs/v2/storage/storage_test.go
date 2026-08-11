@@ -43,6 +43,7 @@ func newStorageTestDB(t *testing.T) *sql.DB {
 			connection_key TEXT NOT NULL,
 			config_json TEXT NOT NULL DEFAULT '{}',
 			status TEXT NOT NULL DEFAULT 'active',
+			ready INTEGER NOT NULL DEFAULT 1,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			FOREIGN KEY (scope_key) REFERENCES vfs_scopes(scope_key) ON DELETE CASCADE,
@@ -287,6 +288,7 @@ func TestConnectionStorage_CreateGetListUpdateDelete(t *testing.T) {
 		ConnectionKey: "local",
 		Config:        []byte(`{"root":"/tmp/a"}`),
 		Status:        "active",
+		Ready:         false,
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("Get() = %+v, want %+v", got, want)
@@ -328,6 +330,16 @@ func TestConnectionStorage_CreateGetListUpdateDelete(t *testing.T) {
 	}
 	if got.Status != "disabled" {
 		t.Fatalf("updated status = %q, want %q", got.Status, "disabled")
+	}
+	if err := connectionStorage.SetReady(ctx, "alice-home", "filesystem", "local", true); err != nil {
+		t.Fatalf("SetReady() error = %v", err)
+	}
+	got, err = connectionStorage.Get(ctx, "alice-home", "filesystem", "local")
+	if err != nil {
+		t.Fatalf("Get(after SetReady) error = %v", err)
+	}
+	if !got.Ready {
+		t.Fatalf("updated ready = false, want true")
 	}
 
 	if err := connectionStorage.Delete(ctx, "alice-home", "filesystem", "local"); err != nil {

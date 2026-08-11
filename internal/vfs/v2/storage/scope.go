@@ -16,6 +16,7 @@ type ScopeStorageContract interface {
 	List(ctx context.Context, subject common.SubjectKey) ([]*vfs.Scope, error)
 	Delete(ctx context.Context, scopeKey string) error
 	SetDefault(ctx context.Context, principal common.SubjectKey, scopeKey string) error
+	GetDefault(ctx context.Context, principal common.SubjectKey) (*vfs.Scope, error)
 }
 
 type ScopeStorage struct {
@@ -274,4 +275,28 @@ func (s *ScopeStorage) SetDefault(ctx context.Context, principal common.SubjectK
 
 	committed = true
 	return nil
+}
+
+func (s *ScopeStorage) GetDefault(ctx context.Context, principal common.SubjectKey) (*vfs.Scope, error) {
+	const query = `
+		SELECT scope_key
+		FROM vfs_principal_default_scopes
+		WHERE principal_type = ?
+		  AND principal_id = ?
+	`
+	var scopeKey string
+	err := s.db.QueryRowContext(ctx, query, principal.Type(), principal.ID()).Scan(&scopeKey)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	scope, err := s.Get(ctx, scopeKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return scope, nil
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"MyServer/internal/auth"
 	"MyServer/internal/common"
 	"MyServer/internal/config"
 	"MyServer/internal/sqliteDB"
@@ -9,9 +10,12 @@ import (
 	"MyServer/internal/vfs/v2/providers"
 	systemscopes "MyServer/internal/vfs/v2/providers/system/scopes"
 	"MyServer/internal/vfs/v2/storage"
+	"bytes"
 	"context"
 	"database/sql"
+	"errors"
 	"flag"
+	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
@@ -50,13 +54,23 @@ func main() {
 	db := sqliteDB.InitDB(*dbPath)
 	defer db.Close()
 
+	authService := auth.NewAuth(db, []byte(config.Data.MySecret))
+	adminUser, err := ensureAdminUser(authService)
+	if err != nil {
+		log.Fatalf("seed admin user: %v", err)
+	}
+	authActorID := fmt.Sprintf("%d", adminUser.ID)
+	if *actorID == "" {
+		*actorID = authActorID
+	}
+
 	if *seedDebug {
-		if err := seedDebugVFS(db, *actorID); err != nil {
+		if err := seedDebugVFS(db, authActorID); err != nil {
 			log.Fatalf("seed debug vfs: %v", err)
 		}
 	}
 	if *seedScopes {
-		if err := seedScopesVFS(db, *actorID); err != nil {
+		if err := seedScopesVFS(db, authActorID); err != nil {
 			log.Fatalf("seed scopes vfs: %v", err)
 		}
 	}
@@ -108,10 +122,10 @@ func main() {
 		http.Error(w, "WebDAV endpoint is mounted at "+*prefix, http.StatusNotFound)
 	})
 
-	slog.Info("vfsv2 webdav listening", "addr", *addr, "prefix", *prefix, "base_uri", *baseURI, "scopes_uri", *scopesURI, "actor", "user:"+*actorID)
+	slog.Info("vfsv2 webdav listening", "addr", *addr, "prefix", *prefix, "base_uri", *baseURI, "scopes_uri", *scopesURI, "fallback_actor", "user:"+*actorID, "admin_actor", "user:"+authActorID)
 	server := &http.Server{
 		Addr:     *addr,
-		Handler:  webdavProtocolLogger(mux),
+		Handler:  webdavProtocolLogger(webdavBasicAuth(authService, webdavStatusHint(mux))),
 		ErrorLog: slog.NewLogLogger(webdavLog.Handler(), slog.LevelError),
 	}
 	if err := server.ListenAndServe(); err != nil {
@@ -129,8 +143,8 @@ type responseLogWriter struct {
 func (w *responseLogWriter) WriteHeader(status int) {
 	if w.status == 0 {
 		w.status = status
+		w.ResponseWriter.WriteHeader(status)
 	}
-	w.ResponseWriter.WriteHeader(status)
 }
 
 func (w *responseLogWriter) Write(p []byte) (int, error) {
@@ -204,6 +218,116 @@ func webdavProtocolLogger(next http.Handler) http.Handler {
 	})
 }
 
+type bufferedResponseWriter struct {
+	header http.Header
+	body   bytes.Buffer
+	status int
+}
+
+func newBufferedResponseWriter() *bufferedResponseWriter {
+	return &bufferedResponseWriter{header: make(http.Header)}
+}
+
+func (w *bufferedResponseWriter) Header() http.Header {
+	return w.header
+}
+
+func (w *bufferedResponseWriter) WriteHeader(status int) {
+	if w.status == 0 {
+		w.status = status
+	}
+}
+
+func (w *bufferedResponseWriter) Write(p []byte) (int, error) {
+	if w.status == 0 {
+		w.status = http.StatusOK
+	}
+	return w.body.Write(p)
+}
+
+func (w *bufferedResponseWriter) flushTo(dst http.ResponseWriter) {
+	for key, values := range w.header {
+		for _, value := range values {
+			dst.Header().Add(key, value)
+		}
+	}
+	status := w.status
+	if status == 0 {
+		status = http.StatusOK
+	}
+	dst.WriteHeader(status)
+	_, _ = dst.Write(w.body.Bytes())
+}
+
+func webdavStatusHint(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "MKCOL" && r.Method != "PUT" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		buffered := newBufferedResponseWriter()
+		statusHint := &webdavadapter.ProtocolStatusHint{}
+		ctx := webdavadapter.ContextWithProtocolStatusHint(r.Context(), statusHint)
+		next.ServeHTTP(buffered, r.WithContext(ctx))
+		if buffered.status == http.StatusMethodNotAllowed && statusHint.Status() != 0 {
+			buffered.status = statusHint.Status()
+			buffered.body.Reset()
+			buffered.body.WriteString(http.StatusText(statusHint.Status()))
+			buffered.header.Del("Content-Length")
+			buffered.header.Set("Content-Type", "text/plain; charset=utf-8")
+		}
+		buffered.flushTo(w)
+	})
+}
+
+func webdavBasicAuth(authService *auth.Auth, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, err := authService.AuthenticateBasicRequest(r)
+		if err != nil || user == nil || user.ID == 0 {
+			w.Header().Set("WWW-Authenticate", `Basic realm="WebDAV"`)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		actor := vfs.Actor{
+			Kind: vfs.ActorUser,
+			ID:   fmt.Sprintf("%d", user.ID),
+		}
+		ctx := webdavadapter.ContextWithActor(r.Context(), actor)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func ensureAdminUser(authService *auth.Auth) (*auth.User, error) {
+	user, err := authService.GetUserByUsername("admin")
+	if err == nil {
+		if _, authErr := authService.AuthenticateUser("admin", "admin"); authErr != nil {
+			if updateErr := authService.UpdatePassword(user.ID, "admin"); updateErr != nil {
+				return nil, updateErr
+			}
+			user, err = authService.GetUserByUsername("admin")
+			if err != nil {
+				return nil, err
+			}
+		}
+		return user, nil
+	}
+	if !errors.Is(err, auth.ErrUserNotFound) {
+		return nil, err
+	}
+
+	_, err = authService.CreateUser(&auth.User{
+		Name:     "admin",
+		Password: "admin",
+		Status:   "active",
+	})
+	if err != nil && !errors.Is(err, auth.ErrUserExists) {
+		return nil, err
+	}
+	return authService.GetUserByUsername("admin")
+}
+
 func newVFS(db *sql.DB) (vfs.VFSFrontend, error) {
 	scopeResolver, err := vfs.NewScopeResolver(db)
 	if err != nil {
@@ -255,11 +379,12 @@ func seedDebugVFS(db *sql.DB, actorID string) error {
 	}
 
 	_, err = db.Exec(`
-		INSERT INTO vfs_provider_connections (scope_key, provider, connection_key, config_json, status)
-		VALUES (?, 'debug', 'default', '{}', 'active')
+		INSERT INTO vfs_provider_connections (scope_key, provider, connection_key, config_json, status, ready)
+		VALUES (?, 'debug', 'default', '{}', 'active', 1)
 		ON CONFLICT(scope_key, provider, connection_key) DO UPDATE SET
 			config_json = excluded.config_json,
 			status = excluded.status,
+			ready = excluded.ready,
 			updated_at = CURRENT_TIMESTAMP
 	`, scopeKey)
 	if err != nil {
@@ -291,11 +416,12 @@ func seedScopesVFS(db *sql.DB, actorID string) error {
 	}
 
 	_, err = db.Exec(`
-		INSERT INTO vfs_provider_connections (scope_key, provider, connection_key, config_json, status)
-		VALUES (?, 'scopes', 'scopes', '{}', 'active')
+		INSERT INTO vfs_provider_connections (scope_key, provider, connection_key, config_json, status, ready)
+		VALUES (?, 'scopes', 'scopes', '{}', 'active', 1)
 		ON CONFLICT(scope_key, provider, connection_key) DO UPDATE SET
 			config_json = excluded.config_json,
 			status = excluded.status,
+			ready = excluded.ready,
 			updated_at = CURRENT_TIMESTAMP
 	`, scopeKey)
 	if err != nil {

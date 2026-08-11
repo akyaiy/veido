@@ -4,8 +4,10 @@ import (
 	"MyServer/internal/common"
 	vfs "MyServer/internal/vfs/v2"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
+	"net/http"
 	"os"
 	"path"
 	"sort"
@@ -20,6 +22,47 @@ type WebDAVAdapter struct {
 	actor    vfs.Actor
 	base     *common.ResourceAddress
 	scopes   common.ResourceAddress
+}
+
+type connectionStatus struct {
+	Status string `json:"status"`
+	Ready  bool   `json:"ready"`
+}
+
+type actorContextKey struct{}
+
+type protocolStatusHintContextKey struct{}
+
+type ProtocolStatusHint struct {
+	status int
+}
+
+func ContextWithProtocolStatusHint(ctx context.Context, hint *ProtocolStatusHint) context.Context {
+	return context.WithValue(ctx, protocolStatusHintContextKey{}, hint)
+}
+
+func (h *ProtocolStatusHint) Status() int {
+	if h == nil {
+		return 0
+	}
+	return h.status
+}
+
+func MarkProtocolStatus(ctx context.Context, status int) {
+	if hint, ok := ctx.Value(protocolStatusHintContextKey{}).(*ProtocolStatusHint); ok && hint != nil {
+		hint.status = status
+	}
+}
+
+func ContextWithActor(ctx context.Context, actor vfs.Actor) context.Context {
+	return context.WithValue(ctx, actorContextKey{}, actor)
+}
+
+func (a *WebDAVAdapter) actorFromContext(ctx context.Context) vfs.Actor {
+	if actor, ok := ctx.Value(actorContextKey{}).(vfs.Actor); ok {
+		return actor
+	}
+	return a.actor
 }
 
 func NewWebDAVAdapter(frontend vfs.VFSFrontend, actor vfs.Actor, baseURI common.CanonURI) (gowebdav.FileSystem, error) {
@@ -119,7 +162,7 @@ func (a *WebDAVAdapter) rootURI(davPath string) (common.CanonURI, string, error)
 	uri, err := common.ResourceAddress{
 		ProviderKey:   providerKey,
 		ConnectionKey: connectionKey,
-		ScopeKey:      parts[0],
+		ScopeKey:      vfsScopeKey(parts[0]),
 		Path:          path.Clean(resourcePath),
 	}.URI()
 	return uri, davPath, err
@@ -139,6 +182,7 @@ func (a *WebDAVAdapter) scopesURI(resourcePath string) (common.CanonURI, error) 
 }
 
 func (a *WebDAVAdapter) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (gowebdav.File, error) {
+	actor := a.actorFromContext(ctx)
 	if a.base == nil {
 		if isVirtualDAVPath(name) && flag&(os.O_WRONLY|os.O_RDWR|os.O_APPEND|os.O_CREATE|os.O_TRUNC) != 0 {
 			return nil, gowebdav.ErrForbidden
@@ -155,7 +199,7 @@ func (a *WebDAVAdapter) OpenFile(ctx context.Context, name string, flag int, per
 	}
 
 	if flag&(os.O_WRONLY|os.O_RDWR|os.O_APPEND|os.O_CREATE|os.O_TRUNC) == 0 {
-		node, err := a.frontend.Stat(ctx, a.actor, uri)
+		node, err := a.frontend.Stat(ctx, actor, uri)
 		if err == nil && node != nil && node.IsDir {
 			return &davDir{
 				adapter: a,
@@ -169,14 +213,15 @@ func (a *WebDAVAdapter) OpenFile(ctx context.Context, name string, flag int, per
 		}
 	}
 
-	file, err := a.frontend.OpenFile(ctx, a.actor, uri, flag)
+	file, err := a.frontend.OpenFile(ctx, actor, uri, flag)
 	if err != nil {
 		return nil, translateError(err)
 	}
-	return &davFile{file: file}, nil
+	return &davFile{ctx: ctx, file: file}, nil
 }
 
 func (a *WebDAVAdapter) Stat(ctx context.Context, name string) (os.FileInfo, error) {
+	actor := a.actorFromContext(ctx)
 	if a.base == nil {
 		info, ok, err := a.virtualStat(ctx, name)
 		if ok || err != nil {
@@ -189,7 +234,7 @@ func (a *WebDAVAdapter) Stat(ctx context.Context, name string) (os.FileInfo, err
 		return nil, err
 	}
 
-	node, err := a.frontend.Stat(ctx, a.actor, uri)
+	node, err := a.frontend.Stat(ctx, actor, uri)
 	if err != nil {
 		return nil, translateError(err)
 	}
@@ -208,6 +253,7 @@ func (a *WebDAVAdapter) Stat(ctx context.Context, name string) (os.FileInfo, err
 }
 
 func (a *WebDAVAdapter) Mkdir(ctx context.Context, name string, perm os.FileMode) error {
+	actor := a.actorFromContext(ctx)
 	if a.base == nil && isVirtualDAVPath(name) {
 		return gowebdav.ErrForbidden
 	}
@@ -217,11 +263,16 @@ func (a *WebDAVAdapter) Mkdir(ctx context.Context, name string, perm os.FileMode
 		return err
 	}
 
-	_, err = a.frontend.Mkdir(ctx, a.actor, uri)
-	return translateError(err)
+	_, err = a.frontend.Mkdir(ctx, actor, uri)
+	err = translateError(err)
+	if errors.Is(err, gowebdav.ErrForbidden) {
+		MarkProtocolStatus(ctx, http.StatusForbidden)
+	}
+	return err
 }
 
 func (a *WebDAVAdapter) RemoveAll(ctx context.Context, name string) error {
+	actor := a.actorFromContext(ctx)
 	if a.base == nil && isVirtualDAVPath(name) {
 		return gowebdav.ErrForbidden
 	}
@@ -231,10 +282,11 @@ func (a *WebDAVAdapter) RemoveAll(ctx context.Context, name string) error {
 		return err
 	}
 
-	return translateError(a.frontend.Delete(ctx, a.actor, uri))
+	return translateError(a.frontend.Delete(ctx, actor, uri))
 }
 
 func (a *WebDAVAdapter) Rename(ctx context.Context, oldName, newName string) error {
+	actor := a.actorFromContext(ctx)
 	if a.base == nil && (isVirtualDAVPath(oldName) || isVirtualDAVPath(newName)) {
 		return gowebdav.ErrForbidden
 	}
@@ -248,7 +300,7 @@ func (a *WebDAVAdapter) Rename(ctx context.Context, oldName, newName string) err
 		return err
 	}
 
-	return translateError(a.frontend.Move(ctx, a.actor, oldURI, newURI))
+	return translateError(a.frontend.Move(ctx, actor, oldURI, newURI))
 }
 
 func isVirtualDAVPath(name string) bool {
@@ -256,21 +308,41 @@ func isVirtualDAVPath(name string) bool {
 }
 
 func (a *WebDAVAdapter) virtualStat(ctx context.Context, name string) (os.FileInfo, bool, error) {
+	actor := a.actorFromContext(ctx)
 	davPath := cleanDAVPath(name)
 	parts := splitDAVPath(davPath)
 	switch len(parts) {
 	case 0:
 		return newFileInfo("/", dirNode("/")), true, nil
 	case 1:
-		uri, err := a.scopesURI("/scopes/" + parts[0])
+		scopeKey := vfsScopeKey(parts[0])
+		uri, err := a.scopesURI("/scopes/" + scopeKey)
 		if err != nil {
 			return nil, true, err
 		}
-		node, err := a.frontend.Stat(ctx, a.actor, uri)
+		node, err := a.frontend.Stat(ctx, actor, uri)
 		if err != nil {
 			return nil, true, translateError(err)
 		}
-		return newFileInfo(parts[0], node), true, nil
+		return newFileInfo(davScopeName(scopeKey), node), true, nil
+	case 2:
+		scopeKey := vfsScopeKey(parts[0])
+		uri, err := a.scopesURI("/scopes/" + scopeKey + "/connections/" + parts[1])
+		if err != nil {
+			return nil, true, err
+		}
+		node, err := a.frontend.Stat(ctx, actor, uri)
+		if err != nil {
+			return nil, true, translateError(err)
+		}
+		active, err := a.isActiveConnection(ctx, actor, scopeKey, parts[1])
+		if err != nil {
+			return nil, true, translateError(err)
+		}
+		if !active {
+			return nil, true, os.ErrNotExist
+		}
+		return newFileInfo(parts[1], node), true, nil
 	default:
 		return nil, false, nil
 	}
@@ -292,7 +364,7 @@ func (a *WebDAVAdapter) virtualDir(ctx context.Context, name string) (gowebdav.F
 			entries: entries,
 		}, true, nil
 	case 1:
-		entries, err := a.connectionEntries(ctx, parts[0])
+		entries, err := a.connectionEntries(ctx, vfsScopeKey(parts[0]))
 		if err != nil {
 			return nil, true, translateError(err)
 		}
@@ -308,11 +380,12 @@ func (a *WebDAVAdapter) virtualDir(ctx context.Context, name string) (gowebdav.F
 }
 
 func (a *WebDAVAdapter) scopeEntries(ctx context.Context) ([]os.FileInfo, error) {
+	actor := a.actorFromContext(ctx)
 	uri, err := a.scopesURI("/scopes")
 	if err != nil {
 		return nil, err
 	}
-	nodes, err := a.frontend.ReadDir(ctx, a.actor, uri)
+	nodes, err := a.frontend.ReadDir(ctx, actor, uri)
 	if err != nil {
 		return nil, err
 	}
@@ -322,7 +395,7 @@ func (a *WebDAVAdapter) scopeEntries(ctx context.Context) ([]os.FileInfo, error)
 		if node == nil {
 			continue
 		}
-		entries = append(entries, newFileInfo(node.Name, node))
+		entries = append(entries, newFileInfo(davScopeName(node.Name), node))
 	}
 	sort.Slice(entries, func(i, j int) bool {
 		return entries[i].Name() < entries[j].Name()
@@ -330,41 +403,75 @@ func (a *WebDAVAdapter) scopeEntries(ctx context.Context) ([]os.FileInfo, error)
 	return entries, nil
 }
 
+func davScopeName(scopeKey string) string {
+	if scopeKey == "system" {
+		return ".system"
+	}
+	return scopeKey
+}
+
+func vfsScopeKey(davName string) string {
+	if davName == ".system" {
+		return "system"
+	}
+	return davName
+}
+
 func (a *WebDAVAdapter) connectionEntries(ctx context.Context, scopeKey string) ([]os.FileInfo, error) {
-	providersURI, err := a.scopesURI("/scopes/" + scopeKey + "/providers")
+	actor := a.actorFromContext(ctx)
+	connectionsURI, err := a.scopesURI("/scopes/" + scopeKey + "/connections")
 	if err != nil {
 		return nil, err
 	}
-	providers, err := a.frontend.ReadDir(ctx, a.actor, providersURI)
+	connections, err := a.frontend.ReadDir(ctx, actor, connectionsURI)
 	if err != nil {
 		return nil, err
 	}
 
-	entries := make([]os.FileInfo, 0)
-	for _, provider := range providers {
-		if provider == nil || provider.Name == "" {
+	entries := make([]os.FileInfo, 0, len(connections))
+	for _, connection := range connections {
+		if connection == nil || connection.Name == "" || !connection.IsDir {
 			continue
 		}
-		connectionsURI, err := a.scopesURI("/scopes/" + scopeKey + "/providers/" + provider.Name)
-		if err != nil {
-			return nil, err
+		active, err := a.isActiveConnection(ctx, actor, scopeKey, connection.Name)
+		if err != nil || !active {
+			continue
 		}
-		connections, err := a.frontend.ReadDir(ctx, a.actor, connectionsURI)
-		if err != nil {
-			return nil, err
-		}
-		for _, connection := range connections {
-			if connection == nil || connection.Name == "" || !connection.IsDir {
-				continue
-			}
-			name := provider.Name + "@" + connection.Name
-			entries = append(entries, newFileInfo(name, dirNode(name)))
-		}
+		entries = append(entries, newFileInfo(connection.Name, dirNode(connection.Name)))
 	}
 	sort.Slice(entries, func(i, j int) bool {
 		return entries[i].Name() < entries[j].Name()
 	})
 	return entries, nil
+}
+
+func (a *WebDAVAdapter) isActiveConnection(ctx context.Context, actor vfs.Actor, scopeKey string, connectionName string) (bool, error) {
+	providerKey, connectionKey, ok := strings.Cut(connectionName, "@")
+	if !ok || providerKey == "" || connectionKey == "" {
+		return false, nil
+	}
+	uri, err := a.scopesURI("/scopes/" + scopeKey + "/connections/" + connectionName + "/status.json")
+	if err != nil {
+		return false, err
+	}
+	file, err := a.frontend.OpenFile(ctx, actor, uri, os.O_RDONLY)
+	if err != nil {
+		return false, err
+	}
+	data, readErr := io.ReadAll(file)
+	closeErr := file.Close()
+	if readErr != nil {
+		return false, readErr
+	}
+	if closeErr != nil {
+		return false, closeErr
+	}
+
+	var status connectionStatus
+	if err := json.Unmarshal(data, &status); err != nil {
+		return false, err
+	}
+	return status.Status == "active" && status.Ready, nil
 }
 
 func dirNode(name string) *vfs.Node {
@@ -380,18 +487,28 @@ func translateError(err error) error {
 	if err == nil {
 		return nil
 	}
-	if errors.Is(err, vfs.ErrPermissionDenied) || errors.Is(err, os.ErrPermission) {
+	if errors.Is(err, vfs.ErrPermissionDenied) ||
+		errors.Is(err, vfs.ErrInvalidScope) ||
+		errors.Is(err, os.ErrPermission) {
 		return gowebdav.ErrForbidden
 	}
 	return err
 }
 
 type davFile struct {
+	ctx  context.Context
 	file vfs.File
 }
 
 func (f *davFile) Close() error {
-	return f.file.Close()
+	err := translateError(f.file.Close())
+	switch {
+	case errors.Is(err, gowebdav.ErrForbidden):
+		MarkProtocolStatus(f.ctx, http.StatusForbidden)
+	case errors.Is(err, os.ErrInvalid):
+		MarkProtocolStatus(f.ctx, http.StatusBadRequest)
+	}
+	return err
 }
 
 func (f *davFile) Read(p []byte) (int, error) {
@@ -448,7 +565,8 @@ func (d *davDir) Stat() (os.FileInfo, error) {
 
 func (d *davDir) Readdir(count int) ([]os.FileInfo, error) {
 	if d.entries == nil {
-		nodes, err := d.adapter.frontend.ReadDir(d.ctx, d.adapter.actor, d.uri)
+		actor := d.adapter.actorFromContext(d.ctx)
+		nodes, err := d.adapter.frontend.ReadDir(d.ctx, actor, d.uri)
 		if err != nil {
 			return nil, translateError(err)
 		}

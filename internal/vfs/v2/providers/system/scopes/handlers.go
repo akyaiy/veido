@@ -3,8 +3,8 @@ package scopes
 import (
 	"MyServer/internal/common"
 	vfs "MyServer/internal/vfs/v2"
-	"MyServer/internal/vfs/v2/storage"
 	"context"
+	"os"
 	"time"
 )
 
@@ -23,26 +23,15 @@ func wrapScopeToNode(scope *vfs.Scope) *vfs.Node {
 	}
 }
 
-func wrapProviderToNode(provider *storage.ProviderInfo) *vfs.Node {
-	return &vfs.Node{
-		Name:      provider.ProviderKey,
-		Kind:      "provider",
-		IsDir:     true,
-		Size:      0,
-		UpdatedAt: time.Now(),
-	}
-}
-
 func wrapConnectionToNode(connection *vfs.ProviderConnection) *vfs.Node {
 	return &vfs.Node{
-		Name:      connection.ConnectionKey,
+		Name:      connectionName(connection.ProviderKey, connection.ConnectionKey),
 		Kind:      "connection",
 		IsDir:     true,
 		Size:      0,
 		UpdatedAt: time.Now(),
 	}
 }
-
 
 // handleListScopes handles the scopes fetching.
 // It returns [[]*vfs.Node] and an error.
@@ -78,22 +67,8 @@ func (p *Provider) handleScopeDir(ctx context.Context, scopeKey string) ([]*vfs.
 	}, nil
 }
 
-func (p *Provider) handleProvidersDir(ctx context.Context, scopeKey string) ([]*vfs.Node, error) {
-	providers, err := p.connections.ListProviders(ctx, scopeKey)
-	if err != nil {
-		return nil, err
-	}
-
-	nodes := make([]*vfs.Node, 0, len(providers))
-	for _, provider := range providers {
-		nodes = append(nodes, wrapProviderToNode(provider))
-	}
-
-	return nodes, nil
-}
-
-func (p *Provider) handleProviderDir(ctx context.Context, scopeKey, providerKey string) ([]*vfs.Node, error) {
-	connections, err := p.connections.List(ctx, scopeKey, providerKey)
+func (p *Provider) handleConnectionsDir(ctx context.Context, scopeKey string) ([]*vfs.Node, error) {
+	connections, err := p.connections.List(ctx, scopeKey, "")
 	if err != nil {
 		return nil, err
 	}
@@ -104,4 +79,29 @@ func (p *Provider) handleProviderDir(ctx context.Context, scopeKey, providerKey 
 	}
 
 	return nodes, nil
+}
+
+func (p *Provider) handleGetDefaultScope(ctx context.Context) (*scopeInfoPayload, error) {
+	rctx, ok := vfs.RequestContextFromContext(ctx)
+	if !ok {
+		return nil, vfs.ErrRequestContextNotFound
+	}
+
+	principal := rctx.ActorKey
+
+	defaultScope, err := p.scopes.GetDefault(ctx, common.SubjectKey(principal.String()))
+	if err != nil {
+		return nil, err
+	}
+	if defaultScope == nil {
+		return nil, os.ErrNotExist
+	}
+
+	return &scopeInfoPayload{
+		ScopeKey:        defaultScope.Key,
+		Kind:            defaultScope.Kind,
+		OwnerSubjectKey: defaultScope.OwnerSubjectKey.String(),
+		UpdatedAt:       defaultScope.UpdatedAt,
+		Providers:       nil,
+	}, nil
 }

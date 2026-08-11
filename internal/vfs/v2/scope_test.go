@@ -150,6 +150,26 @@ func TestScopeResolver_ResolveExplicitScope(t *testing.T) {
 	assertScopeEqual(t, got, want)
 }
 
+func TestScopeResolver_ResolveExplicitSystemScopeIgnoresOwner(t *testing.T) {
+	resolver := newTestScopeResolver(t)
+
+	got, err := resolver.ResolveExplicitScope(context.Background(), Actor{
+		Kind: ActorUser,
+		ID:   "42",
+	}, "system")
+	if err != nil {
+		t.Fatalf("ResolveExplicitScope(system) error = %v", err)
+	}
+
+	want := Scope{
+		Key:             "system",
+		Kind:            "system",
+		OwnerSubjectKey: common.SubjectKey("user:1"),
+		UpdatedAt:       mustParseScopeTime(t, "2026-01-04 05:06:07"),
+	}
+	assertScopeEqual(t, got, want)
+}
+
 func TestScopeResolver_ResolveScope(t *testing.T) {
 	resolver := newTestScopeResolver(t)
 

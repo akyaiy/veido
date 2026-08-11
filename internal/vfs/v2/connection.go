@@ -12,6 +12,7 @@ type ProviderConnection struct {
 	ConnectionKey string
 	Config        []byte
 	Status        string
+	Ready         bool
 }
 
 type ConnectionResolverContract interface {
@@ -44,12 +45,16 @@ func (cr *ConnectionResolver) ResolveConnection(ctx context.Context,
 	var c ProviderConnection
 	var config string
 	const query = `
-        SELECT scope_key, provider, connection_key, config_json, status
+        SELECT scope_key, provider, connection_key, config_json, status, ready
         FROM vfs_provider_connections
         WHERE scope_key = ?
           AND provider = ?
           AND connection_key = ?
           AND status = 'active'
+          AND (
+            ready = 1
+            OR (scope_key = 'system' AND provider = 'scopes' AND connection_key = 'scopes')
+          )
     `
 
 	err := cr.db.QueryRowContext(ctx, query, scope.Key, providerKey, connectionKey).Scan(
@@ -58,6 +63,7 @@ func (cr *ConnectionResolver) ResolveConnection(ctx context.Context,
 		&c.ConnectionKey,
 		&config,
 		&c.Status,
+		&c.Ready,
 	)
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("%w: %v", ErrConnectionNotFound, err)

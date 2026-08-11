@@ -44,6 +44,9 @@ func newScopesFrontendTestDB(t *testing.T) *sql.DB {
 			connection_key TEXT NOT NULL,
 			config_json TEXT NOT NULL DEFAULT '{}',
 			status TEXT NOT NULL DEFAULT 'active',
+			ready INTEGER NOT NULL DEFAULT 1,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (scope_key, provider, connection_key)
 		);
 
@@ -57,11 +60,11 @@ func newScopesFrontendTestDB(t *testing.T) *sql.DB {
 		INSERT INTO vfs_scopes (scope_key, kind, owner_subject_key)
 		VALUES ('system', 'system', 'user:42');
 
-		INSERT INTO vfs_provider_connections (scope_key, provider, connection_key, config_json, status)
-		VALUES ('system', 'scopes', 'scopes', '{}', 'active');
+		INSERT INTO vfs_provider_connections (scope_key, provider, connection_key, config_json, status, ready)
+		VALUES ('system', 'scopes', 'scopes', '{}', 'active', 1);
 
-		INSERT INTO vfs_provider_connections (scope_key, provider, connection_key, config_json, status)
-		VALUES ('system', 'debug', 'default', '{}', 'active');
+		INSERT INTO vfs_provider_connections (scope_key, provider, connection_key, config_json, status, ready)
+		VALUES ('system', 'debug', 'default', '{}', 'active', 1);
 	`
 
 	if _, err := db.Exec(schema); err != nil {
@@ -123,7 +126,7 @@ func TestScopesProviderThroughVFSFrontend_ReadDirRoot(t *testing.T) {
 	}
 
 	logNodes(t, "VFSFrontend ReadDir(scopes@scopes[system]:///)", nodes)
-	assertNodeNames(t, nodes, []string{"scopes", "principals"})
+	assertNodeNames(t, nodes, []string{"scopes", "me"})
 	assertDirNodes(t, nodes)
 }
 
@@ -156,7 +159,7 @@ func TestScopesProviderThroughVFSFrontend_ReadDirScope(t *testing.T) {
 	}
 
 	logNodes(t, "VFSFrontend ReadDir(scopes@scopes[system]:///scopes/system)", nodes)
-	assertNodeNames(t, nodes, []string{"providers", "info.json"})
+	assertNodeNames(t, nodes, []string{"connections", "info.json"})
 	if nodes[0].Kind != "dir" {
 		t.Fatalf("nodes[0].Kind = %q, want %q", nodes[0].Kind, "dir")
 	}
@@ -168,91 +171,149 @@ func TestScopesProviderThroughVFSFrontend_ReadDirScope(t *testing.T) {
 	}
 }
 
-func TestScopesProviderThroughVFSFrontend_ReadDirScopeProviders(t *testing.T) {
+func TestScopesProviderThroughVFSFrontend_ReadDirScopeConnections(t *testing.T) {
 	frontend := newScopesFrontend(t, newScopesFrontendTestDB(t))
 	ctx := context.Background()
 	actor := v2.Actor{Kind: v2.ActorUser, ID: "42"}
 
-	nodes, err := frontend.ReadDir(ctx, actor, mustURI(t, "scopes@scopes[system]:///scopes/system/providers"))
+	nodes, err := frontend.ReadDir(ctx, actor, mustURI(t, "scopes@scopes[system]:///scopes/system/connections"))
 	if err != nil {
-		t.Fatalf("ReadDir(scope providers) error = %v", err)
+		t.Fatalf("ReadDir(scope connections) error = %v", err)
 	}
 
-	logNodes(t, "VFSFrontend ReadDir(scopes@scopes[system]:///scopes/system/providers)", nodes)
-	assertNodeNames(t, nodes, []string{"debug", "scopes"})
+	logNodes(t, "VFSFrontend ReadDir(scopes@scopes[system]:///scopes/system/connections)", nodes)
+	assertNodeNames(t, nodes, []string{"debug@default", "scopes@scopes"})
 	assertDirNodes(t, nodes)
-	assertNodeKinds(t, nodes, "provider")
+	assertNodeKinds(t, nodes, "connection")
 }
 
-func TestScopesProviderThroughVFSFrontend_ReadDirScopeProvider(t *testing.T) {
+func TestScopesProviderThroughVFSFrontend_ReadDirScopeConnectionsIncludesInactiveAndNotReady(t *testing.T) {
+	db := newScopesFrontendTestDB(t)
+	_, err := db.Exec(`
+		UPDATE vfs_provider_connections
+		SET status = 'inactive', ready = 0
+		WHERE scope_key = 'system'
+		  AND provider = 'debug'
+		  AND connection_key = 'default'
+	`)
+	if err != nil {
+		t.Fatalf("db.Exec(disable debug connection) error = %v", err)
+	}
+
+	frontend := newScopesFrontend(t, db)
+	ctx := context.Background()
+	actor := v2.Actor{Kind: v2.ActorUser, ID: "42"}
+
+	nodes, err := frontend.ReadDir(ctx, actor, mustURI(t, "scopes@scopes[system]:///scopes/system/connections"))
+	if err != nil {
+		t.Fatalf("ReadDir(scope connections) error = %v", err)
+	}
+
+	assertNodeNames(t, nodes, []string{"debug@default", "scopes@scopes"})
+	assertNodeKinds(t, nodes, "connection")
+}
+
+func TestScopesProviderThroughVFSFrontend_ReadDirScopeConnection(t *testing.T) {
 	frontend := newScopesFrontend(t, newScopesFrontendTestDB(t))
 	ctx := context.Background()
 	actor := v2.Actor{Kind: v2.ActorUser, ID: "42"}
 
-	tests := []struct {
-		name         string
-		uri          string
-		wantNodeName string
-	}{
-		{
-			name:         "debug provider",
-			uri:          "scopes@scopes[system]:///scopes/system/providers/debug",
-			wantNodeName: "default",
-		},
-		{
-			name:         "scopes provider",
-			uri:          "scopes@scopes[system]:///scopes/system/providers/scopes",
-			wantNodeName: "scopes",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			nodes, err := frontend.ReadDir(ctx, actor, mustURI(t, tt.uri))
-			if err != nil {
-				t.Fatalf("ReadDir(scope provider) error = %v", err)
-			}
-
-			logNodes(t, "VFSFrontend ReadDir("+tt.uri+")", nodes)
-			assertNodeNames(t, nodes, []string{tt.wantNodeName, "info.json"})
-			if !nodes[0].IsDir || nodes[0].Kind != "connection" {
-				t.Fatalf("nodes[0] = %+v, want connection dir", nodes[0])
-			}
-			if nodes[1].IsDir || nodes[1].Kind != "file" {
-				t.Fatalf("nodes[1] = %+v, want info.json file", nodes[1])
-			}
-		})
-	}
-}
-
-func TestScopesProviderThroughVFSFrontend_ReadDirScopeProviderConnection(t *testing.T) {
-	frontend := newScopesFrontend(t, newScopesFrontendTestDB(t))
-	ctx := context.Background()
-	actor := v2.Actor{Kind: v2.ActorUser, ID: "42"}
-
-	nodes, err := frontend.ReadDir(ctx, actor, mustURI(t, "scopes@scopes[system]:///scopes/system/providers/scopes/scopes"))
+	nodes, err := frontend.ReadDir(ctx, actor, mustURI(t, "scopes@scopes[system]:///scopes/system/connections/scopes@scopes"))
 	if err != nil {
 		t.Fatalf("ReadDir(connection dir) error = %v", err)
 	}
 
-	logNodes(t, "VFSFrontend ReadDir(scopes@scopes[system]:///scopes/system/providers/scopes/scopes)", nodes)
-	assertNodeNames(t, nodes, []string{"info.json"})
+	logNodes(t, "VFSFrontend ReadDir(scopes@scopes[system]:///scopes/system/connections/scopes@scopes)", nodes)
+	assertNodeNames(t, nodes, []string{"info.json", "config.json", "status.json"})
 	if nodes[0].IsDir || nodes[0].Kind != "file" {
 		t.Fatalf("nodes[0] = %+v, want info.json file", nodes[0])
 	}
 }
 
-func TestScopesProviderThroughVFSFrontend_ReadDirMissingScopeProviders(t *testing.T) {
+func TestScopesProviderThroughVFSFrontend_CreateConfigureAndReadyConnection(t *testing.T) {
+	db := newScopesFrontendTestDB(t)
+	frontend := newScopesFrontend(t, db)
+	ctx := context.Background()
+	actor := v2.Actor{Kind: v2.ActorUser, ID: "42"}
+
+	node, err := frontend.Mkdir(ctx, actor, mustURI(t, "scopes@scopes[system]:///scopes/system/connections/webdav@nextcloud"))
+	if err != nil {
+		t.Fatalf("Mkdir(connection) error = %v", err)
+	}
+	if node.Name != "webdav@nextcloud" || node.Kind != "connection" || !node.IsDir {
+		t.Fatalf("created connection node = %+v, want webdav@nextcloud connection dir", node)
+	}
+
+	configFile, err := frontend.OpenFile(ctx, actor, mustURI(t, "scopes@scopes[system]:///scopes/system/connections/webdav@nextcloud/config.json"), os.O_WRONLY|os.O_TRUNC)
+	if err != nil {
+		t.Fatalf("OpenFile(config.json write) error = %v", err)
+	}
+	if _, err := configFile.Write([]byte(`{"base_url":"https://cloud.example.test","username":"alice"}`)); err != nil {
+		t.Fatalf("Write(config.json) error = %v", err)
+	}
+	if err := configFile.Close(); err != nil {
+		t.Fatalf("Close(config.json) error = %v", err)
+	}
+
+	statusFile, err := frontend.OpenFile(ctx, actor, mustURI(t, "scopes@scopes[system]:///scopes/system/connections/webdav@nextcloud/status.json"), os.O_WRONLY|os.O_TRUNC)
+	if err != nil {
+		t.Fatalf("OpenFile(status.json write) error = %v", err)
+	}
+	if _, err := statusFile.Write([]byte(`{"ready":true}`)); err != nil {
+		t.Fatalf("Write(status.json) error = %v", err)
+	}
+	if err := statusFile.Close(); err != nil {
+		t.Fatalf("Close(status.json) error = %v", err)
+	}
+
+	connection := readConnection(t, db, "system", "webdav", "nextcloud")
+	if connection.Status != "active" || !connection.Ready {
+		t.Fatalf("connection status/ready = %q/%v, want active/true", connection.Status, connection.Ready)
+	}
+	if string(connection.Config) != `{"base_url":"https://cloud.example.test","username":"alice"}` {
+		t.Fatalf("connection config = %s", connection.Config)
+	}
+}
+
+func TestScopesProviderThroughVFSFrontend_RejectsInvalidConnectionConfig(t *testing.T) {
+	db := newScopesFrontendTestDB(t)
+	frontend := newScopesFrontend(t, db)
+	ctx := context.Background()
+	actor := v2.Actor{Kind: v2.ActorUser, ID: "42"}
+
+	if _, err := frontend.Mkdir(ctx, actor, mustURI(t, "scopes@scopes[system]:///scopes/system/connections/webdav@nextcloud")); err != nil {
+		t.Fatalf("Mkdir(connection) error = %v", err)
+	}
+
+	configFile, err := frontend.OpenFile(ctx, actor, mustURI(t, "scopes@scopes[system]:///scopes/system/connections/webdav@nextcloud/config.json"), os.O_WRONLY|os.O_TRUNC)
+	if err != nil {
+		t.Fatalf("OpenFile(config.json write) error = %v", err)
+	}
+	if _, err := configFile.Write([]byte(`{"base_url":`)); err != nil {
+		t.Fatalf("Write(config.json) error = %v", err)
+	}
+	err = configFile.Close()
+	if !errors.Is(err, os.ErrInvalid) {
+		t.Fatalf("Close(config.json) error = %v, want %v", err, os.ErrInvalid)
+	}
+
+	connection := readConnection(t, db, "system", "webdav", "nextcloud")
+	if string(connection.Config) != "{}" || connection.Ready {
+		t.Fatalf("connection after rejected config = config:%s ready:%v, want {}/false", connection.Config, connection.Ready)
+	}
+}
+
+func TestScopesProviderThroughVFSFrontend_ReadDirMissingScopeConnections(t *testing.T) {
 	frontend := newScopesFrontend(t, newScopesFrontendTestDB(t))
 	ctx := context.Background()
 	actor := v2.Actor{Kind: v2.ActorUser, ID: "42"}
 
-	nodes, err := frontend.ReadDir(ctx, actor, mustURI(t, "scopes@scopes[system]:///scopes/missing/providers"))
+	nodes, err := frontend.ReadDir(ctx, actor, mustURI(t, "scopes@scopes[system]:///scopes/missing/connections"))
 	if err != nil {
-		t.Fatalf("ReadDir(missing scope providers) error = %v", err)
+		t.Fatalf("ReadDir(missing scope connections) error = %v", err)
 	}
 
-	logNodes(t, "VFSFrontend ReadDir(scopes@scopes[system]:///scopes/missing/providers)", nodes)
+	logNodes(t, "VFSFrontend ReadDir(scopes@scopes[system]:///scopes/missing/connections)", nodes)
 	if len(nodes) != 0 {
 		t.Fatalf("nodes length = %d, want 0", len(nodes))
 	}
@@ -266,6 +327,177 @@ func TestScopesProviderThroughVFSFrontend_ReadDirMissing(t *testing.T) {
 	_, err := frontend.ReadDir(ctx, actor, mustURI(t, "scopes@scopes[system]:///missing"))
 	if !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("ReadDir(missing) error = %v, want %v", err, os.ErrNotExist)
+	}
+}
+
+func TestScopesProviderThroughVFSFrontend_CreateAndDeleteUserScope(t *testing.T) {
+	frontend := newScopesFrontend(t, newScopesFrontendTestDB(t))
+	ctx := context.Background()
+	actor := v2.Actor{Kind: v2.ActorUser, ID: "42"}
+
+	node, err := frontend.Mkdir(ctx, actor, mustURI(t, "scopes@scopes[system]:///scopes/work"))
+	if err != nil {
+		t.Fatalf("Mkdir(scope) error = %v", err)
+	}
+	if node.Name != "ea3fd4-work" || node.Kind != "scope" || !node.IsDir {
+		t.Fatalf("created scope node = %+v, want scope dir named ea3fd4-work", node)
+	}
+
+	stat, err := frontend.Stat(ctx, actor, mustURI(t, "scopes@scopes[system]:///scopes/ea3fd4-work"))
+	if err != nil {
+		t.Fatalf("Stat(created scope) error = %v", err)
+	}
+	if stat.Name != "ea3fd4-work" || stat.Kind != "scope" {
+		t.Fatalf("created scope stat = %+v, want ea3fd4-work scope", stat)
+	}
+
+	file, err := frontend.OpenFile(ctx, actor, mustURI(t, "scopes@scopes[system]:///scopes/ea3fd4-work/info.json"), os.O_RDONLY)
+	if err != nil {
+		t.Fatalf("OpenFile(created scope info) error = %v", err)
+	}
+	data, err := io.ReadAll(file)
+	if closeErr := file.Close(); closeErr != nil {
+		t.Fatalf("Close(created scope info) error = %v", closeErr)
+	}
+	if err != nil {
+		t.Fatalf("ReadAll(created scope info) error = %v", err)
+	}
+	var info map[string]any
+	if err := json.Unmarshal(data, &info); err != nil {
+		t.Fatalf("Unmarshal(created scope info) error = %v; body=%s", err, data)
+	}
+	if info["kind"] != "user" || info["owner_subject_key"] != "user:42" {
+		t.Fatalf("created scope info = %#v, want kind=user owner_subject_key=user:42", info)
+	}
+
+	if err := frontend.Delete(ctx, actor, mustURI(t, "scopes@scopes[system]:///scopes/ea3fd4-work")); err != nil {
+		t.Fatalf("Delete(created scope) error = %v", err)
+	}
+
+	_, err = frontend.Stat(ctx, actor, mustURI(t, "scopes@scopes[system]:///scopes/ea3fd4-work"))
+	if err == nil {
+		t.Fatalf("Stat(deleted scope) error = nil, want missing scope error")
+	}
+}
+
+func TestScopesProviderThroughVFSFrontend_CreateScopeRejectsSpecialChars(t *testing.T) {
+	frontend := newScopesFrontend(t, newScopesFrontendTestDB(t))
+	ctx := context.Background()
+	actor := v2.Actor{Kind: v2.ActorUser, ID: "42"}
+
+	_, err := frontend.Mkdir(ctx, actor, mustURI(t, "scopes@scopes[system]:///scopes/bad.name"))
+	if !errors.Is(err, v2.ErrInvalidScope) {
+		t.Fatalf("Mkdir(scope with special chars) error = %v, want %v", err, v2.ErrInvalidScope)
+	}
+}
+
+func TestScopesProviderThroughVFSFrontend_WriteDefaultScopeJSON(t *testing.T) {
+	db := newScopesFrontendTestDB(t)
+	_, err := db.Exec(`
+		INSERT INTO vfs_scopes (scope_key, kind, owner_subject_key)
+		VALUES ('ea3fd4-work', 'user', 'user:42');
+
+		INSERT INTO vfs_principal_default_scopes (principal_type, principal_id, scope_key)
+		VALUES ('user', '42', 'system');
+	`)
+	if err != nil {
+		t.Fatalf("seed default scope test data error = %v", err)
+	}
+
+	frontend := newScopesFrontend(t, db)
+	ctx := context.Background()
+	actor := v2.Actor{Kind: v2.ActorUser, ID: "42"}
+
+	file, err := frontend.OpenFile(ctx, actor, mustURI(t, "scopes@scopes[system]:///me/default_scope.json"), os.O_WRONLY|os.O_TRUNC)
+	if err != nil {
+		t.Fatalf("OpenFile(default_scope.json write) error = %v", err)
+	}
+	if _, err := file.Write([]byte(`{"scope_key":"ea3fd4-work"}`)); err != nil {
+		t.Fatalf("Write(default_scope.json) error = %v", err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatalf("Close(default_scope.json) error = %v", err)
+	}
+
+	got := readDefaultScopeKey(t, db, "user", "42")
+	if got != "ea3fd4-work" {
+		t.Fatalf("default scope = %q, want %q", got, "ea3fd4-work")
+	}
+}
+
+func TestScopesProviderThroughVFSFrontend_WriteDefaultScopeJSONRejectsInvalidPayload(t *testing.T) {
+	db := newScopesFrontendTestDB(t)
+	_, err := db.Exec(`
+		INSERT INTO vfs_scopes (scope_key, kind, owner_subject_key)
+		VALUES ('ea3fd4-work', 'user', 'user:42');
+
+		INSERT INTO vfs_principal_default_scopes (principal_type, principal_id, scope_key)
+		VALUES ('user', '42', 'system');
+	`)
+	if err != nil {
+		t.Fatalf("seed default scope test data error = %v", err)
+	}
+
+	frontend := newScopesFrontend(t, db)
+	ctx := context.Background()
+	actor := v2.Actor{Kind: v2.ActorUser, ID: "42"}
+
+	tests := []struct {
+		name    string
+		body    string
+		wantErr error
+	}{
+		{
+			name:    "broken json",
+			body:    `{"scope_key":`,
+			wantErr: os.ErrInvalid,
+		},
+		{
+			name:    "invalid scope key chars",
+			body:    `{"scope_key":"bad.scope"}`,
+			wantErr: v2.ErrInvalidScope,
+		},
+		{
+			name:    "missing scope",
+			body:    `{"scope_key":"missing"}`,
+			wantErr: v2.ErrInvalidScope,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			file, err := frontend.OpenFile(ctx, actor, mustURI(t, "scopes@scopes[system]:///me/default_scope.json"), os.O_WRONLY|os.O_TRUNC)
+			if err != nil {
+				t.Fatalf("OpenFile(default_scope.json write) error = %v", err)
+			}
+			if _, err := file.Write([]byte(tt.body)); err != nil {
+				t.Fatalf("Write(default_scope.json) error = %v", err)
+			}
+			err = file.Close()
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("Close(default_scope.json) error = %v, want %v", err, tt.wantErr)
+			}
+
+			got := readDefaultScopeKey(t, db, "user", "42")
+			if got != "system" {
+				t.Fatalf("default scope after rejected write = %q, want system", got)
+			}
+		})
+	}
+}
+
+func TestScopesProviderThroughVFSFrontend_DeleteSystemScopeDenied(t *testing.T) {
+	frontend := newScopesFrontend(t, newScopesFrontendTestDB(t))
+	ctx := context.Background()
+	actor := v2.Actor{Kind: v2.ActorUser, ID: "42"}
+
+	err := frontend.Delete(ctx, actor, mustURI(t, "scopes@scopes[system]:///scopes/system"))
+	if !errors.Is(err, os.ErrPermission) {
+		t.Fatalf("Delete(system scope) error = %v, want %v", err, os.ErrPermission)
+	}
+
+	if _, err := frontend.Stat(ctx, actor, mustURI(t, "scopes@scopes[system]:///scopes/system")); err != nil {
+		t.Fatalf("Stat(system scope after denied delete) error = %v", err)
 	}
 }
 
@@ -289,16 +521,8 @@ func TestScopesProviderThroughVFSFrontend_OpenInfoJSON(t *testing.T) {
 			},
 		},
 		{
-			name: "provider info",
-			uri:  "scopes@scopes[system]:///scopes/system/providers/scopes/info.json",
-			want: map[string]string{
-				"scope_key":    "system",
-				"provider_key": "scopes",
-			},
-		},
-		{
 			name: "connection info",
-			uri:  "scopes@scopes[system]:///scopes/system/providers/scopes/scopes/info.json",
+			uri:  "scopes@scopes[system]:///scopes/system/connections/scopes@scopes/info.json",
 			want: map[string]string{
 				"scope_key":      "system",
 				"provider_key":   "scopes",
@@ -377,4 +601,46 @@ func assertNodeKinds(t *testing.T, nodes []*v2.Node, want string) {
 			t.Fatalf("node %q Kind = %q, want %q", node.Name, node.Kind, want)
 		}
 	}
+}
+
+func readDefaultScopeKey(t *testing.T, db *sql.DB, principalType string, principalID string) string {
+	t.Helper()
+
+	var got string
+	err := db.QueryRow(
+		`SELECT scope_key FROM vfs_principal_default_scopes WHERE principal_type = ? AND principal_id = ?`,
+		principalType,
+		principalID,
+	).Scan(&got)
+	if err != nil {
+		t.Fatalf("QueryRow(default scope) error = %v", err)
+	}
+	return got
+}
+
+func readConnection(t *testing.T, db *sql.DB, scopeKey string, providerKey string, connectionKey string) v2.ProviderConnection {
+	t.Helper()
+
+	var connection v2.ProviderConnection
+	var config string
+	err := db.QueryRow(
+		`SELECT scope_key, provider, connection_key, config_json, status, ready
+		 FROM vfs_provider_connections
+		 WHERE scope_key = ? AND provider = ? AND connection_key = ?`,
+		scopeKey,
+		providerKey,
+		connectionKey,
+	).Scan(
+		&connection.ScopeKey,
+		&connection.ProviderKey,
+		&connection.ConnectionKey,
+		&config,
+		&connection.Status,
+		&connection.Ready,
+	)
+	if err != nil {
+		t.Fatalf("QueryRow(connection) error = %v", err)
+	}
+	connection.Config = []byte(config)
+	return connection
 }

@@ -9,6 +9,7 @@ import (
 	"MyServer/internal/pathmap"
 	vfs "MyServer/internal/vfs/v2"
 	"context"
+	"errors"
 	"os"
 	"path"
 	"strings"
@@ -27,13 +28,21 @@ type StatFunc func(ctx context.Context, req Request) (*vfs.Node, error)
 type ReadDirFunc func(ctx context.Context, req Request) ([]*vfs.Node, error)
 type OpenFileFunc func(ctx context.Context, req Request, flags int) (vfs.File, error)
 type ControlFunc func(ctx context.Context, req Request, command string, input []byte) ([]byte, error)
+type MkdirFunc func(ctx context.Context, req Request, name string) (*vfs.Node, error)
+type CreateFileFunc func(ctx context.Context, req Request, name string, flags int) (vfs.File, error)
+type DeleteFunc func(ctx context.Context, req Request) error
+type MoveFunc func(ctx context.Context, req Request, targetParentPath string, newName string) error
 
 // Handler describes one virtual node route.
 type Handler struct {
-	Stat     StatFunc
-	ReadDir  ReadDirFunc
-	OpenFile OpenFileFunc
-	Control  ControlFunc
+	Stat       StatFunc
+	ReadDir    ReadDirFunc
+	OpenFile   OpenFileFunc
+	Control    ControlFunc
+	Mkdir      MkdirFunc
+	CreateFile CreateFileFunc
+	Delete     DeleteFunc
+	Move       MoveFunc
 }
 
 // FS is a route-based in-memory/synthetic filesystem.
@@ -105,6 +114,32 @@ func (fs *FS) GeneratedFile(pattern string, read func(ctx context.Context, req R
 	})
 }
 
+// WritableGeneratedFile exposes a file that can be read as generated content
+// and overwritten with buffered bytes committed on Close.
+func (fs *FS) WritableGeneratedFile(pattern string, read func(ctx context.Context, req Request) ([]byte, error), write func(ctx context.Context, req Request, data []byte) error) *FS {
+	return fs.Route(pattern, Handler{
+		Stat: func(ctx context.Context, req Request) (*vfs.Node, error) {
+			data, err := read(ctx, req)
+			if err != nil {
+				return nil, err
+			}
+			return FileNode(path.Base(req.Path), int64(len(data))), nil
+		},
+		OpenFile: func(ctx context.Context, req Request, flags int) (vfs.File, error) {
+			if wantsWrite(flags) {
+				return NewBufferedWriteFile(path.Base(req.Path), func(data []byte) error {
+					return write(ctx, req, data)
+				}), nil
+			}
+			data, err := read(ctx, req)
+			if err != nil {
+				return nil, err
+			}
+			return NewReadOnlyFile(path.Base(req.Path), data), nil
+		},
+	})
+}
+
 // BufferedWriteFile exposes a file that accepts writes and calls write on Close.
 // It is useful for command-like files where the written bytes are the command
 // payload.
@@ -149,6 +184,9 @@ func (fs *FS) ReadDir(ctx context.Context, rawPath string) ([]*vfs.Node, error) 
 func (fs *FS) OpenFile(ctx context.Context, rawPath string, flags int) (vfs.File, error) {
 	req, handler, err := fs.match(rawPath)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) && flags&os.O_CREATE != 0 {
+			return fs.createFile(ctx, rawPath, flags)
+		}
 		return nil, err
 	}
 	if handler.OpenFile == nil {
@@ -158,15 +196,36 @@ func (fs *FS) OpenFile(ctx context.Context, rawPath string, flags int) (vfs.File
 }
 
 func (fs *FS) Mkdir(ctx context.Context, parentPath string, name string) (*vfs.Node, error) {
-	return nil, os.ErrPermission
+	req, handler, err := fs.match(parentPath)
+	if err != nil {
+		return nil, err
+	}
+	if handler.Mkdir == nil {
+		return nil, os.ErrPermission
+	}
+	return handler.Mkdir(ctx, req, name)
 }
 
 func (fs *FS) Move(ctx context.Context, sourcePath string, targetParentPath string, newName string) error {
-	return os.ErrPermission
+	req, handler, err := fs.match(sourcePath)
+	if err != nil {
+		return err
+	}
+	if handler.Move == nil {
+		return os.ErrPermission
+	}
+	return handler.Move(ctx, req, targetParentPath, newName)
 }
 
 func (fs *FS) Delete(ctx context.Context, rawPath string) error {
-	return os.ErrPermission
+	req, handler, err := fs.match(rawPath)
+	if err != nil {
+		return err
+	}
+	if handler.Delete == nil {
+		return os.ErrPermission
+	}
+	return handler.Delete(ctx, req)
 }
 
 func (fs *FS) Control(ctx context.Context, rawPath string, command string, input []byte) ([]byte, error) {
@@ -193,6 +252,18 @@ func (fs *FS) match(rawPath string) (Request, Handler, error) {
 		}, route.handler, nil
 	}
 	return Request{}, Handler{}, os.ErrNotExist
+}
+
+func (fs *FS) createFile(ctx context.Context, rawPath string, flags int) (vfs.File, error) {
+	parentPath, name := splitParent(rawPath)
+	req, handler, err := fs.match(parentPath)
+	if err != nil {
+		return nil, err
+	}
+	if handler.CreateFile == nil {
+		return nil, os.ErrPermission
+	}
+	return handler.CreateFile(ctx, req, name, flags)
 }
 
 func DirNode(name string) *vfs.Node {
@@ -229,4 +300,11 @@ func clean(rawPath string) string {
 
 func wantsWrite(flags int) bool {
 	return flags&(os.O_WRONLY|os.O_RDWR|os.O_APPEND|os.O_TRUNC|os.O_CREATE) != 0
+}
+
+func splitParent(rawPath string) (string, string) {
+	cleaned := clean(rawPath)
+	parent, name := path.Split(cleaned)
+	parent = clean(parent)
+	return parent, name
 }

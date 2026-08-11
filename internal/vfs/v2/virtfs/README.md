@@ -45,12 +45,54 @@ func (p *Provider) OpenFile(ctx context.Context, path string, flags int) (vfs.Fi
 Or you can return the `*virtfs.FS` directly when that is enough.
 
 ## Operations
-virtfs is read-only fs, that may contain rw files. But mostly virtfs is used for generating representations systems.
 
-Non-supported operations:
-- Delete
-- Move
-Only operations that affect the structure of the fs tree are prohibited.
+`virtfs` is read-only by default, but selected routes can opt in to writes.
+
+That default is intentional. Synthetic providers are often used for
+introspection, and WebDAV/file-manager clients may create temporary files,
+hidden files, or folders without the user thinking much about it. Nothing should
+become mutable unless the provider explicitly says so.
+
+Supported opt-in hooks:
+
+- `Mkdir` on the parent directory route.
+- `CreateFile` on the parent directory route for `OpenFile(..., O_CREATE)`.
+- `Delete` on the existing node route.
+- `Move` on the existing source node route.
+- `OpenFile` on a file route for custom read/write behavior.
+
+If a hook is missing, `virtfs` returns `os.ErrPermission` for mutating
+operations.
+
+Creating a directory is handled by the parent directory:
+
+```go
+fs.Route("/projects", virtfs.Handler{
+	Stat: func(ctx context.Context, req virtfs.Request) (*vfs.Node, error) {
+		return virtfs.DirNode("projects"), nil
+	},
+	ReadDir: listProjects,
+	Mkdir: func(ctx context.Context, req virtfs.Request, name string) (*vfs.Node, error) {
+		return createProject(ctx, name)
+	},
+})
+```
+
+Creating a file through `O_CREATE` is also handled by the parent directory:
+
+```go
+fs.Route("/configs", virtfs.Handler{
+	Stat: func(ctx context.Context, req virtfs.Request) (*vfs.Node, error) {
+		return virtfs.DirNode("configs"), nil
+	},
+	ReadDir: listConfigs,
+	CreateFile: func(ctx context.Context, req virtfs.Request, name string, flags int) (vfs.File, error) {
+		return virtfs.NewBufferedWriteFile(name, func(data []byte) error {
+			return saveConfig(ctx, name, data)
+		}), nil
+	},
+})
+```
 
 ## Directories
 

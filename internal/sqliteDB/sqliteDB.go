@@ -132,6 +132,7 @@ func InitDB(path string) *sql.DB {
 	    connection_key TEXT NOT NULL,
 	    config_json TEXT NOT NULL DEFAULT '{}',
 	    status TEXT NOT NULL DEFAULT 'active',
+	    ready INTEGER NOT NULL DEFAULT 1,
 	    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	    FOREIGN KEY (scope_key) REFERENCES vfs_scopes(scope_key) ON DELETE CASCADE,
@@ -151,6 +152,8 @@ func InitDB(path string) *sql.DB {
 	if err != nil {
 		log.Fatal(err)
 	}
+	_, _ = db.Exec("ALTER TABLE vfs_provider_connections ADD COLUMN ready INTEGER NOT NULL DEFAULT 1")
+	_, _ = db.Exec("UPDATE vfs_provider_connections SET ready = 1 WHERE scope_key = 'system' AND provider = 'scopes' AND connection_key = 'scopes'")
 
 	CleanRefresh(db)
 

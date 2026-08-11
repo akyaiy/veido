@@ -49,6 +49,8 @@ func newDebugFrontendTestDB(t *testing.T) *sql.DB {
 			connection_key TEXT NOT NULL,
 			config_json TEXT NOT NULL DEFAULT '{}',
 			status TEXT NOT NULL DEFAULT 'active',
+			ready INTEGER NOT NULL DEFAULT 1,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (scope_key, provider, connection_key)
 		);
 
@@ -62,8 +64,8 @@ func newDebugFrontendTestDB(t *testing.T) *sql.DB {
 		INSERT INTO vfs_scopes (scope_key, kind, owner_subject_key)
 		VALUES ('debug', 'user', 'user:42');
 
-		INSERT INTO vfs_provider_connections (scope_key, provider, connection_key, config_json, status)
-		VALUES ('debug', 'debug', 'default', '{add_message: "ssss"}', 'active');
+		INSERT INTO vfs_provider_connections (scope_key, provider, connection_key, config_json, status, ready)
+		VALUES ('debug', 'debug', 'default', '{add_message: "ssss"}', 'active', 1);
 
 		INSERT INTO vfs_principal_default_scopes (principal_type, principal_id, scope_key)
 		VALUES ('user', '42', 'debug');
