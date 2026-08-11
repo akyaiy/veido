@@ -161,6 +161,23 @@ func (c *VFSCore) resolveProvider(ctx context.Context, actor Actor, uri common.C
 	return provider, resolved, err
 }
 
+func contextWithCoreRequest(ctx context.Context, bfs BoundVFS, rctx RequestContext) context.Context {
+	ctx = ContextWithBoundVFS(ctx, bfs)
+	return ContextWithRequestContext(ctx, rctx)
+}
+
+func newRequestContext(actor Actor, uri common.CanonURI, resolved *resolvedResource) RequestContext {
+	rctx := RequestContext{
+		ActorKey:   actor,
+		RequestURI: uri,
+	}
+	rctx.Resolved.Address = resolved.Address
+	rctx.Resolved.Scope = resolved.Scope
+	rctx.Resolved.Connection = resolved.Connection
+	rctx.Resolved.Ref = resolved.Ref
+	return rctx
+}
+
 func (c *VFSCore) Stat(ctx context.Context, actor Actor, uri common.CanonURI) (*Node, error) {
 	resolved, err := c.resolveResource(ctx, actor, uri)
 	if err != nil {
@@ -184,12 +201,13 @@ func (c *VFSCore) Stat(ctx context.Context, actor Actor, uri common.CanonURI) (*
 	}
 
 	bound := boundVFS{
-		frontend: c,
-		actor:    actor,
-		selfAddress: common.ParseResourceAddress(uri).Payload(),
+		frontend:    c,
+		actor:       actor,
+		selfAddress: resolved.Address,
 	}
-	ctxWithBound := ContextWithBoundVFS(ctx, &bound)
-	return provider.Stat(ctxWithBound, resolved.Ref.Path)
+	rctx := newRequestContext(actor, uri, resolved)
+	providerCtx := contextWithCoreRequest(ctx, &bound, rctx)
+	return provider.Stat(providerCtx, resolved.Ref.Path)
 }
 
 func (c *VFSCore) ReadDir(ctx context.Context, actor Actor, uri common.CanonURI) ([]*Node, error) {
@@ -215,12 +233,13 @@ func (c *VFSCore) ReadDir(ctx context.Context, actor Actor, uri common.CanonURI)
 	}
 
 	bound := boundVFS{
-		frontend: c,
-		actor:    actor,
-		selfAddress: common.ParseResourceAddress(uri).Payload(),
+		frontend:    c,
+		actor:       actor,
+		selfAddress: resolved.Address,
 	}
-	ctxWithBound := ContextWithBoundVFS(ctx, &bound)
-	return provider.ReadDir(ctxWithBound, resolved.Ref.Path)
+	rctx := newRequestContext(actor, uri, resolved)
+	providerCtx := contextWithCoreRequest(ctx, &bound, rctx)
+	return provider.ReadDir(providerCtx, resolved.Ref.Path)
 }
 
 func (c *VFSCore) OpenFile(ctx context.Context, actor Actor, uri common.CanonURI, flag int) (File, error) {
@@ -262,12 +281,13 @@ func (c *VFSCore) OpenFile(ctx context.Context, actor Actor, uri common.CanonURI
 	}
 
 	bound := boundVFS{
-		frontend: c,
-		actor:    actor,
-		selfAddress: common.ParseResourceAddress(uri).Payload(),
+		frontend:    c,
+		actor:       actor,
+		selfAddress: resolved.Address,
 	}
-	ctxWithBound := ContextWithBoundVFS(ctx, &bound)
-	return provider.OpenFile(ctxWithBound, resolved.Ref.Path, flag)
+	rctx := newRequestContext(actor, uri, resolved)
+	providerCtx := contextWithCoreRequest(ctx, &bound, rctx)
+	return provider.OpenFile(providerCtx, resolved.Ref.Path, flag)
 }
 
 func (c *VFSCore) Mkdir(ctx context.Context, actor Actor, uri common.CanonURI) (*Node, error) {
@@ -292,13 +312,14 @@ func (c *VFSCore) Mkdir(ctx context.Context, actor Actor, uri common.CanonURI) (
 	}
 
 	bound := boundVFS{
-		frontend: c,
-		actor:    actor,
-		selfAddress: common.ParseResourceAddress(uri).Payload(),
+		frontend:    c,
+		actor:       actor,
+		selfAddress: resolved.Address,
 	}
-	ctxWithBound := ContextWithBoundVFS(ctx, &bound)
+	rctx := newRequestContext(actor, uri, resolved)
+	providerCtx := contextWithCoreRequest(ctx, &bound, rctx)
 	parentPath, name := splitResourcePath(resolved.Ref.Path)
-	node, err := provider.Mkdir(ctxWithBound, parentPath, name)
+	node, err := provider.Mkdir(providerCtx, parentPath, name)
 	if err != nil {
 		return nil, err
 	}
@@ -354,13 +375,14 @@ func (c *VFSCore) Move(ctx context.Context, actor Actor, source common.CanonURI,
 	}
 
 	bound := boundVFS{
-		frontend: c,
-		actor:    actor,
-		selfAddress: common.ParseResourceAddress(source).Payload(),
+		frontend:    c,
+		actor:       actor,
+		selfAddress: resolvedSource.Address,
 	}
-	ctxWithBound := ContextWithBoundVFS(ctx, &bound)
+	rctx := newRequestContext(actor, source, resolvedSource)
+	providerCtx := contextWithCoreRequest(ctx, &bound, rctx)
 	targetParentPath, newName := splitResourcePath(resolvedTarget.Ref.Path)
-	if err := provider.Move(ctxWithBound, resolvedSource.Ref.Path, targetParentPath, newName); err != nil {
+	if err := provider.Move(providerCtx, resolvedSource.Ref.Path, targetParentPath, newName); err != nil {
 		return err
 	}
 
@@ -392,12 +414,13 @@ func (c *VFSCore) Delete(ctx context.Context, actor Actor, uri common.CanonURI) 
 	}
 
 	bound := boundVFS{
-		frontend: c,
-		actor:    actor,
-		selfAddress: common.ParseResourceAddress(uri).Payload(),
+		frontend:    c,
+		actor:       actor,
+		selfAddress: resolved.Address,
 	}
-	ctxWithBound := ContextWithBoundVFS(ctx, &bound)
-	if err := provider.Delete(ctxWithBound, resolved.Ref.Path); err != nil {
+	rctx := newRequestContext(actor, uri, resolved)
+	providerCtx := contextWithCoreRequest(ctx, &bound, rctx)
+	if err := provider.Delete(providerCtx, resolved.Ref.Path); err != nil {
 		return err
 	}
 
@@ -427,10 +450,11 @@ func (c *VFSCore) Control(ctx context.Context, actor Actor, uri common.CanonURI,
 	}
 
 	bound := boundVFS{
-		frontend: c,
-		actor:    actor,
-		selfAddress: common.ParseResourceAddress(uri).Payload(),
+		frontend:    c,
+		actor:       actor,
+		selfAddress: resolved.Address,
 	}
-	ctxWithBound := ContextWithBoundVFS(ctx, &bound)
-	return provider.Control(ctxWithBound, resolved.Ref.Path, command, input)
+	rctx := newRequestContext(actor, uri, resolved)
+	providerCtx := contextWithCoreRequest(ctx, &bound, rctx)
+	return provider.Control(providerCtx, resolved.Ref.Path, command, input)
 }
