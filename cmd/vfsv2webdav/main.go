@@ -38,7 +38,8 @@ func main() {
 	configPath := flag.String("config", "./data/config.yaml", "path to server config")
 	dbPath := flag.String("db", "./data/db/vfs_test.sqlite3", "SQLite database path")
 	actorID := flag.String("actor-id", "1", "actor user id")
-	baseURI := flag.String("base-uri", "debug@default[debug]:///", "base vfsv2 canonical URI exposed over WebDAV")
+	baseURI := flag.String("base-uri", "", "optional base vfsv2 canonical URI exposed over WebDAV; empty enables scope browser mode")
+	scopesURI := flag.String("scopes-uri", "scopes@scopes[system]:///", "vfsv2 canonical URI for the scopes provider used by scope browser mode")
 	seedDebug := flag.Bool("seed-debug", true, "seed and register debug provider connection")
 	seedScopes := flag.Bool("seed-scopes", true, "seed and register system scopes provider connection")
 	flag.Parse()
@@ -65,14 +66,26 @@ func main() {
 		log.Fatalf("init vfs v2: %v", err)
 	}
 
-	uri, err := common.CastURI(*baseURI)
-	if err != nil {
-		log.Fatalf("invalid base-uri: %v", err)
-	}
-
-	fs, err := webdavadapter.NewWebDAVAdapter(frontend, vfs.Actor{Kind: vfs.ActorUser, ID: *actorID}, uri)
-	if err != nil {
-		log.Fatalf("init webdav adapter: %v", err)
+	actor := vfs.Actor{Kind: vfs.ActorUser, ID: *actorID}
+	var fs gowebdav.FileSystem
+	if *baseURI == "" {
+		uri, err := common.CastURI(*scopesURI)
+		if err != nil {
+			log.Fatalf("invalid scopes-uri: %v", err)
+		}
+		fs, err = webdavadapter.NewWebDAVRootAdapter(frontend, actor, uri)
+		if err != nil {
+			log.Fatalf("init webdav root adapter: %v", err)
+		}
+	} else {
+		uri, err := common.CastURI(*baseURI)
+		if err != nil {
+			log.Fatalf("invalid base-uri: %v", err)
+		}
+		fs, err = webdavadapter.NewWebDAVAdapter(frontend, actor, uri)
+		if err != nil {
+			log.Fatalf("init webdav adapter: %v", err)
+		}
 	}
 
 	handler := &gowebdav.Handler{
@@ -95,7 +108,7 @@ func main() {
 		http.Error(w, "WebDAV endpoint is mounted at "+*prefix, http.StatusNotFound)
 	})
 
-	slog.Info("vfsv2 webdav listening", "addr", *addr, "prefix", *prefix, "base_uri", *baseURI, "actor", "user:"+*actorID)
+	slog.Info("vfsv2 webdav listening", "addr", *addr, "prefix", *prefix, "base_uri", *baseURI, "scopes_uri", *scopesURI, "actor", "user:"+*actorID)
 	server := &http.Server{
 		Addr:     *addr,
 		Handler:  webdavProtocolLogger(mux),
