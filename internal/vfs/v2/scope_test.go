@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"testing"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -42,6 +43,39 @@ func newTestScopeResolver(t *testing.T) *ScopeResolver {
 	return &ScopeResolver{db: newScopeResolverTestDB(t)}
 }
 
+func mustParseScopeTime(t *testing.T, value string) *time.Time {
+	t.Helper()
+
+	parsed, err := time.Parse("2006-01-02 15:04:05", value)
+	if err != nil {
+		t.Fatalf("time.Parse(%q) error = %v", value, err)
+	}
+
+	return &parsed
+}
+
+func assertScopeEqual(t *testing.T, got *Scope, want Scope) {
+	t.Helper()
+
+	if got == nil {
+		t.Fatalf("scope = nil, want %+v", want)
+	}
+	if got.Key != want.Key ||
+		got.Kind != want.Kind ||
+		got.OwnerSubjectKey != want.OwnerSubjectKey {
+		t.Fatalf("scope = %+v, want %+v", got, want)
+	}
+	if got.UpdatedAt == nil || want.UpdatedAt == nil {
+		if got.UpdatedAt != want.UpdatedAt {
+			t.Fatalf("scope UpdatedAt = %v, want %v", got.UpdatedAt, want.UpdatedAt)
+		}
+		return
+	}
+	if !got.UpdatedAt.Equal(*want.UpdatedAt) {
+		t.Fatalf("scope UpdatedAt = %v, want %v", got.UpdatedAt, want.UpdatedAt)
+	}
+}
+
 func TestNewScopeResolver_NilDB(t *testing.T) {
 	got, err := NewScopeResolver(nil)
 	if !errors.Is(err, ErrInvalidNewInstanceParams) {
@@ -67,10 +101,9 @@ func TestScopeResolver_DefaultScopeForActor(t *testing.T) {
 		Key:             "alice-home",
 		Kind:            "user",
 		OwnerSubjectKey: common.SubjectKey("user:42"),
+		UpdatedAt:       mustParseScopeTime(t, "2026-01-02 03:04:05"),
 	}
-	if *got != want {
-		t.Fatalf("DefaultScopeForActor() = %+v, want %+v", got, want)
-	}
+	assertScopeEqual(t, got, want)
 }
 
 func TestScopeResolver_DefaultScopeForActor_NotFound(t *testing.T) {
@@ -112,10 +145,9 @@ func TestScopeResolver_ResolveExplicitScope(t *testing.T) {
 		Key:             "shared-docs",
 		Kind:            "shared",
 		OwnerSubjectKey: common.SubjectKey("user:42"),
+		UpdatedAt:       mustParseScopeTime(t, "2026-01-03 04:05:06"),
 	}
-	if *got != want {
-		t.Fatalf("ResolveExplicitScope() = %+v, want %+v", got, want)
-	}
+	assertScopeEqual(t, got, want)
 }
 
 func TestScopeResolver_ResolveScope(t *testing.T) {
@@ -133,6 +165,7 @@ func TestScopeResolver_ResolveScope(t *testing.T) {
 				Key:             "alice-home",
 				Kind:            "user",
 				OwnerSubjectKey: common.SubjectKey("user:42"),
+				UpdatedAt:       mustParseScopeTime(t, "2026-01-02 03:04:05"),
 			},
 		},
 		{
@@ -142,6 +175,7 @@ func TestScopeResolver_ResolveScope(t *testing.T) {
 				Key:             "shared-docs",
 				Kind:            "shared",
 				OwnerSubjectKey: common.SubjectKey("user:42"),
+				UpdatedAt:       mustParseScopeTime(t, "2026-01-03 04:05:06"),
 			},
 		},
 	}
@@ -155,9 +189,7 @@ func TestScopeResolver_ResolveScope(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ResolveScope() error = %v", err)
 			}
-			if *got != tt.want {
-				t.Fatalf("ResolveScope() = %+v, want %+v", got, tt.want)
-			}
+			assertScopeEqual(t, got, tt.want)
 		})
 	}
 }

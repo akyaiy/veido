@@ -7,12 +7,16 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 )
 
 type Scope struct {
 	Key             string
 	Kind            string
 	OwnerSubjectKey common.SubjectKey
+
+	// metadata
+	UpdatedAt *time.Time
 }
 
 type ScopeResolverContract interface {
@@ -60,7 +64,8 @@ func (sr *ScopeResolver) DefaultScopeForActor(ctx context.Context, actor Actor) 
 		SELECT
 			s.scope_key,
 			s.kind,
-			s.owner_subject_key
+			s.owner_subject_key,
+			s.updated_at
 		FROM vfs_principal_default_scopes AS ds
 		JOIN vfs_scopes AS s
 			ON s.scope_key = ds.scope_key
@@ -79,6 +84,7 @@ func (sr *ScopeResolver) DefaultScopeForActor(ctx context.Context, actor Actor) 
 		&scope.Key,
 		&scope.Kind,
 		&scope.OwnerSubjectKey,
+		&scope.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -117,7 +123,8 @@ func (sr *ScopeResolver) ResolveExplicitScope(ctx context.Context, actor Actor, 
 		SELECT
 			s.scope_key,
 			s.kind,
-			s.owner_subject_key
+			s.owner_subject_key,
+			s.updated_at
 		FROM vfs_scopes AS s
 		WHERE s.scope_key = ?
 		AND s.owner_subject_key = ?
@@ -134,6 +141,7 @@ func (sr *ScopeResolver) ResolveExplicitScope(ctx context.Context, actor Actor, 
 		&scope.Key,
 		&scope.Kind,
 		&scope.OwnerSubjectKey,
+		&scope.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
