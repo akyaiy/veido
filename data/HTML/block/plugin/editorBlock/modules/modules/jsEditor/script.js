@@ -19,6 +19,12 @@ const TRANSLATIONS = {
         'else': 'иначе',
         'for': 'цикл',
         'while': 'цикл',
+        'do': 'делать',
+        'switch': 'выбор',
+        'case': 'случай',
+        'default': 'по умолчанию',
+        'break': 'прервать',
+        'continue': 'продолжить',
         'await': 'ждать',
         'addEventListener': 'При',
         'typeof': 'тип',
@@ -69,6 +75,8 @@ const TRANSLATIONS = {
         'length': 'длина',
         'replace': 'заменить',
         'createElement': 'создатьЭлемент',
+        'add': 'добавить',
+        'append': 'добавить дочерний',
         'remove': 'удалить',
         'forEach': 'для каждого',
         'filter': 'отфильтровать',
@@ -92,6 +100,17 @@ const TRANSLATIONS = {
         'trim': 'обрезать',
         'parseInt': 'разобрать число',
         'parseFloat': 'разобрать дробь',
+        'preventDefault': 'предотвратитьПоведение',
+        'value': 'значение',
+        'reset': 'сбросить',
+        'target': 'цель',
+        'closest': 'ближайший',
+        'classList': 'списокКлассов',
+        'textContent': 'текстСодержимое',
+        'fetch': 'получить',
+        'then': 'затем',
+        'resolve': 'решить',
+        'event': 'событие',
         'setTimeout': 'таймер',
         'setInterval': 'интервал',
         'clearTimeout': 'остановить таймер',
@@ -459,6 +478,14 @@ function parseStatement(ctx) {
             return parseWhileStatement(ctx);
         }
 
+        if (t.value === 'do') {
+            return parseDoWhileStatement(ctx);
+        }
+
+        if (t.value === 'switch') {
+            return parseSwitchStatement(ctx);
+        }
+
         if (t.value === 'function') {
             return parseFunctionDeclaration(ctx, false);
         }
@@ -628,10 +655,100 @@ function parseWhileStatement(ctx) {
 }
 
 /* ***
- * parseFunctionDeclaration - разбор объявления функции
- * принимает контекст (ctx) и флаг асинхронности (isAsync)
- * разбирает имя, параметры и тело функции
- * возвращает узел FunctionDeclaration
+* parseDoWhileStatement - разбор цикла do/while
+* принимает контекст (ctx)
+* разбирает клавиатурное слово do, тело и условие
+* возвращает узел DoWhileStatement
+*** */
+function parseDoWhileStatement(ctx) {
+   next(ctx);
+
+   const body = (peek(ctx).type === 'Punct' && peek(ctx).value === '{') ? parseBlockStatement(ctx) : parseStatement(ctx);
+
+   expect(ctx, 'Keyword', 'while');
+   expect(ctx, 'Punct', '(');
+   const test = parseExpression(ctx);
+   expect(ctx, 'Punct', ')');
+
+   if (peek(ctx).type === 'Punct' && peek(ctx).value === ';') {
+       next(ctx);
+   }
+
+   return {
+       type: 'DoWhileStatement',
+       body,
+       test
+   };
+}
+
+/* ***
+* parseSwitchStatement - разбор switch/case
+* принимает контекст (ctx)
+* разбирает выражение после switch и тело case/default
+* возвращает узел SwitchStatement
+*** */
+function parseSwitchStatement(ctx) {
+   next(ctx);
+   expect(ctx, 'Punct', '(');
+   const discriminant = parseExpression(ctx);
+   expect(ctx, 'Punct', ')');
+   expect(ctx, 'Punct', '{');
+
+   const cases = [];
+
+   while (!(peek(ctx).type === 'Punct' && peek(ctx).value === '}')) {
+       if (peek(ctx).type === 'Keyword' && peek(ctx).value === 'case') {
+           next(ctx);
+           const test = parseExpression(ctx);
+           expect(ctx, 'Punct', ':');
+
+           const consequent = [];
+
+           while (!(peek(ctx).type === 'Punct' && peek(ctx).value === '}' ||
+               (peek(ctx).type === 'Keyword' && (peek(ctx).value === 'case' || peek(ctx).value === 'default')))) {
+               consequent.push(parseStatement(ctx));
+           }
+
+           cases.push({
+               type: 'SwitchCase',
+               test,
+               consequent
+           });
+       } else if (peek(ctx).type === 'Keyword' && peek(ctx).value === 'default') {
+           next(ctx);
+           expect(ctx, 'Punct', ':');
+
+           const consequent = [];
+
+           while (!(peek(ctx).type === 'Punct' && peek(ctx).value === '}') &&
+               !(peek(ctx).type === 'Keyword' && (peek(ctx).value === 'case' || peek(ctx).value === 'default'))) {
+               consequent.push(parseStatement(ctx));
+           }
+
+           cases.push({
+               type: 'SwitchCase',
+               test: null,
+               consequent
+           });
+       } else {
+           throw new Error('Parse error');
+       }
+   }
+
+   expect(ctx, 'Punct', '}');
+
+   return {
+       type: 'SwitchStatement',
+       discriminant,
+       cases
+   };
+}
+
+/* ***
+* parseFunctionDeclaration - разбор объявления функции
+* принимает контекст (ctx) и флаг асинхронности (isAsync)
+* разбирает имя, параметры и тело функции
+* возвращает узел FunctionDeclaration
 *** */
 function parseFunctionDeclaration(ctx, isAsync = false) {
     if (peek(ctx).type === 'Keyword' && peek(ctx).value === 'function') {
@@ -699,47 +816,117 @@ function parseReturnStatement(ctx) {
 }
 
 /* ***
- * parseVariableDeclaration - разбор объявления переменной
- * принимает контекст (ctx) и флаг инициализации в цикле (inForInit)
- * разбирает тип (let, const, var) и список объявлений
- * возвращает узел VariableDeclaration
+* parseVariableBinding - разбор имени/шаблона в объявлении переменной
+* принимает контекст (ctx)
+* допускает обычный идентификатор и простой объектный шаблон
+* возвращает строку или узел ObjectPattern
+*** */
+function parseVariableBinding(ctx) {
+   if (peek(ctx).type === 'Punct' && peek(ctx).value === '{') {
+       return parseObjectPattern(ctx);
+   }
+
+   return expect(ctx, 'Identifier').value;
+}
+
+/* ***
+* parseObjectPattern - разбор объектного шаблона для деструктуризации
+* принимает контекст (ctx)
+* ожидает открывающую и закрывающую фигурные скобки
+* возвращает узел ObjectPattern
+*** */
+function parseObjectPattern(ctx) {
+   expect(ctx, 'Punct', '{');
+
+   const properties = [];
+
+   while (!(peek(ctx).type === 'Punct' && peek(ctx).value === '}')) {
+       const keyToken = peek(ctx);
+       let key = null;
+
+       if (keyToken.type === 'Identifier') {
+           key = next(ctx).value;
+       } else if (keyToken.type === 'String') {
+           key = next(ctx).value;
+       } else {
+           throw new Error('Parse error');
+       }
+
+       if (peek(ctx).type === 'Punct' && peek(ctx).value === ':') {
+           next(ctx);
+           const value = parseVariableBinding(ctx);
+
+           properties.push({
+               key,
+               value
+           });
+       } else {
+           properties.push({
+               key,
+               value: {
+                   type: 'Identifier',
+                   name: key
+               }
+           });
+       }
+
+       if (peek(ctx).type === 'Punct' && peek(ctx).value === ',') {
+           next(ctx);
+       } else {
+           break;
+       }
+   }
+
+   expect(ctx, 'Punct', '}');
+
+   return {
+       type: 'ObjectPattern',
+       properties
+   };
+}
+
+/* ***
+* parseVariableDeclaration - разбор объявления переменной
+* принимает контекст (ctx) и флаг инициализации в цикле (inForInit)
+* разбирает тип (let, const, var) и список объявлений
+* возвращает узел VariableDeclaration
 *** */
 function parseVariableDeclaration(ctx, inForInit = false) {
-    const kind = next(ctx).value;
-    const declarations = [];
+   const kind = next(ctx).value;
+   const declarations = [];
 
-    while (true) {
-        const id = expect(ctx, 'Identifier').value;
-        let init = null;
+   while (true) {
+       const id = parseVariableBinding(ctx);
+       let init = null;
 
-        if (peek(ctx).type === 'Punct' && peek(ctx).value === '=') {
-            next(ctx);
-            init = parseExpression(ctx);
-        }
+       if (peek(ctx).type === 'Punct' && peek(ctx).value === '=') {
+           next(ctx);
+           init = parseExpression(ctx);
+       }
 
-        declarations.push({
-            id,
-            init
-        });
+       declarations.push({
+           id,
+           init
+       });
 
-        if (peek(ctx).type === 'Punct' && peek(ctx).value === ',') {
-            next(ctx);
+       if (peek(ctx).type === 'Punct' && peek(ctx).value === ',') {
+           next(ctx);
 
-            continue;
-        }
+           continue;
+       }
 
-        break;
-    }
+       break;
+   }
 
-    if (!inForInit && peek(ctx).type === 'Punct' && peek(ctx).value === ';') {
-        next(ctx);
-    }
+   if (!inForInit && peek(ctx).type === 'Punct' && peek(ctx).value === ';') {
+       next(ctx);
+   }
 
-    return {
-        type: 'VariableDeclaration',
-        kind,
-        declarations
-    };
+   return {
+       type: 'VariableDeclaration',
+       kind,
+       declarations
+   };
 }
 
 /* ***
@@ -824,45 +1011,60 @@ function parseArrowFunction(ctx, isAsync = false) {
     const params = [];
 
     if (peek(ctx).type === 'Identifier') {
-        params.push(next(ctx).value);
-    } else if (peek(ctx).type === 'Punct' && peek(ctx).value === '(') {
-        next(ctx);
+       const param = {
+           type: 'Identifier',
+           name: next(ctx).value
+       };
 
-        while (!(peek(ctx).type === 'Punct' && peek(ctx).value === ')')) {
-            if (peek(ctx).type === 'Identifier') {
-                params.push(next(ctx).value);
-            }
+       params.push(param);
+   } else if (peek(ctx).type === 'Punct' && peek(ctx).value === '(') {
+       next(ctx);
 
-            if (peek(ctx).type === 'Punct' && peek(ctx).value === ',') {
-                next(ctx);
-            } else {
-                break;
-            }
-        }
+       while (!(peek(ctx).type === 'Punct' && peek(ctx).value === ')')) {
+           if (peek(ctx).type === 'Identifier') {
+               const param = {
+                   type: 'Identifier',
+                   name: next(ctx).value
+               };
 
-        if (peek(ctx).type === 'Punct' && peek(ctx).value === ')') {
-            next(ctx);
-        }
-    }
+               if (peek(ctx).type === 'Punct' && peek(ctx).value === '=') {
+                   next(ctx);
+                   param.defaultValue = parseAssignment(ctx);
+               }
 
-    if (peek(ctx).type === 'Punct' && peek(ctx).value === '=>') {
-        next(ctx);
-    }
+               params.push(param);
+           }
 
-    let body = null;
+           if (peek(ctx).type === 'Punct' && peek(ctx).value === ',') {
+               next(ctx);
+           } else {
+               break;
+           }
+       }
 
-    if (peek(ctx).type === 'Punct' && peek(ctx).value === '{') {
-        body = parseBlockStatement(ctx);
-    } else {
-        body = parseExpression(ctx);
-    }
+       if (peek(ctx).type === 'Punct' && peek(ctx).value === ')') {
+           next(ctx);
+       }
+   }
 
-    return {
-        type: 'ArrowFunctionExpression',
-        params,
-        body,
-        async: !!isAsync
-    };
+   if (peek(ctx).type === 'Punct' && peek(ctx).value === '=>') {
+       next(ctx);
+   }
+
+   let body = null;
+
+   if (peek(ctx).type === 'Punct' && peek(ctx).value === '{') {
+       body = parseBlockStatement(ctx);
+   } else {
+       body = parseExpression(ctx);
+   }
+
+   return {
+       type: 'ArrowFunctionExpression',
+       params,
+       body,
+       async: !!isAsync
+   };
 }
 
 /* ***
@@ -883,6 +1085,23 @@ function parseAssignment(ctx) {
     }
 
     const left = parseLogicalOr(ctx);
+
+    if (peek(ctx).type === 'Punct' && peek(ctx).value === '?') {
+        next(ctx);
+
+        const consequent = parseAssignment(ctx);
+
+        expect(ctx, 'Punct', ':');
+
+        const alternate = parseAssignment(ctx);
+
+        return {
+            type: 'ConditionalExpression',
+            test: left,
+            consequent,
+            alternate
+        };
+    }
 
     if (peek(ctx).type === 'Punct' && ['=', '+=', '-=', '*=', '/='].includes(peek(ctx).value)) {
         const op = next(ctx).value;
@@ -1166,6 +1385,36 @@ function parsePrimary(ctx) {
         };
     }
 
+    if (t.type === 'Keyword' && t.value === 'new') {
+        next(ctx);
+
+        const callee = parsePrimary(ctx);
+
+        const args = [];
+
+        if (peek(ctx).type === 'Punct' && peek(ctx).value === '(') {
+            next(ctx);
+
+            while (!(peek(ctx).type === 'Punct' && peek(ctx).value === ')')) {
+                args.push(parseExpression(ctx));
+
+                if (peek(ctx).type === 'Punct' && peek(ctx).value === ',') {
+                    next(ctx);
+                } else {
+                    break;
+                }
+            }
+
+            expect(ctx, 'Punct', ')');
+        }
+
+        return {
+            type: 'NewExpression',
+            callee,
+            arguments: args
+        };
+    }
+
     if (t.type === 'Identifier') {
         next(ctx);
 
@@ -1253,23 +1502,82 @@ function parsePrimary(ctx) {
 
             if (keyTok.type === 'Identifier') {
                 key = next(ctx).value;
+
+                if (peek(ctx).type === 'Punct' && peek(ctx).value === '(') {
+                    next(ctx);
+
+                    const params = [];
+
+                    while (!(peek(ctx).type === 'Punct' && peek(ctx).value === ')')) {
+                        if (peek(ctx).type === 'Identifier') {
+                            params.push(next(ctx).value);
+                        }
+
+                        if (peek(ctx).type === 'Punct' && peek(ctx).value === ',') {
+                            next(ctx);
+                        } else {
+                            break;
+                        }
+                    }
+
+                    expect(ctx, 'Punct', ')');
+
+                    const body = parseBlockStatement(ctx);
+
+                    properties.push({
+                        key,
+                        value: {
+                            type: 'FunctionExpression',
+                            id: null,
+                            params,
+                            body
+                        }
+                    });
+                } else if (peek(ctx).type === 'Punct' && peek(ctx).value === ':') {
+                    next(ctx);
+                    const val = parseExpression(ctx);
+
+                    properties.push({
+                        key,
+                        value: val
+                    });
+                } else {
+                    // Короткий синтаксис объекта: { name, age, active: true }
+                    // в этом случае значение свойства берётся из того же имени
+                    properties.push({
+                        key,
+                        value: {
+                            type: 'Identifier',
+                            name: key
+                        }
+                    });
+                }
             } else if (keyTok.type === 'String') {
                 key = next(ctx).value;
+
+                if (peek(ctx).type === 'Punct' && peek(ctx).value === ':') {
+                    next(ctx);
+                    const val = parseExpression(ctx);
+
+                    properties.push({
+                        key,
+                        value: val
+                    });
+                } else {
+                    properties.push({
+                        key,
+                        value: {
+                            type: 'Identifier',
+                            name: key
+                        }
+                    });
+                }
             }
-
-            if (peek(ctx).type === 'Punct' && peek(ctx).value === ':') {
-                next(ctx);
-            }
-
-            const val = parseExpression(ctx);
-
-            properties.push({
-                key,
-                value: val
-            });
 
             if (peek(ctx).type === 'Punct' && peek(ctx).value === ',') {
                 next(ctx);
+            } else {
+                break;
             }
         }
 
@@ -1283,6 +1591,7 @@ function parsePrimary(ctx) {
 
     if (t.type === 'Keyword' && t.value === 'await') {
         next(ctx);
+
         const arg = parsePrimary(ctx);
 
         return {
@@ -1473,6 +1782,18 @@ function getSpecialLiteralText(value) {
        return 'отсутствие';
    }
 
+   if (value === 'document' || value === 'window') {
+       return trObject(value);
+   }
+
+   if (typeof value === 'string') {
+       const raw = value.trim();
+
+       if (raw === 'id' || raw === 'class' || raw.startsWith('#') || raw.startsWith('.') || /^[a-zA-Z][\w-]*(\.[a-zA-Z][\w-]*)+$/.test(raw)) {
+           return raw;
+       }
+   }
+
    return null;
 }
 
@@ -1518,6 +1839,14 @@ function makeValueNodeLiteral(value) {
 
     if (specialText !== null) {
         return createElementNode('div', 'block valueSpecial', specialText);
+    }
+
+    if (typeof value === 'string') {
+        const raw = value.trim();
+
+        if (raw === 'id' || raw === 'class' || raw.startsWith('#') || raw.startsWith('.') || /^[a-zA-Z][\w-]*(\.[a-zA-Z][\w-]*)+$/.test(raw)) {
+            return createElementNode('div', 'block valueSpecial', raw);
+        }
     }
 
     let str = String(value);
@@ -1628,9 +1957,62 @@ function getConditionNode(expr) {
 }
 
 /* ***
- * makeAwaitBlock - создание блока ожидания асинхронной операции
- * - принимает узел await выражения
- * - возвращает DOM-блок ожидания
+* makeConditionalExpressionBlock - создание блока ternary expression
+* - принимает узел ConditionalExpression
+* - возвращает DOM-блок
+*** */
+function makeConditionalExpressionBlock(expr) {
+   if (!expr || expr.type !== 'ConditionalExpression') {
+       return null;
+   }
+
+   const outer = createElementNode('div', 'block control hasChildren');
+   const topLine = createElementNode('div', 'line');
+
+   topLine.appendChild(createElementNode('div', 'block control', trKeyword('if')));
+   topLine.appendChild(getConditionNode(expr.test));
+   outer.appendChild(topLine);
+
+   const inner = createElementNode('div', 'inner');
+   const trueBlock = expr.consequent ? (expr.consequent.type === 'BlockStatement' ? statementToBlock(expr.consequent) : expressionToBlock(expr.consequent)) : null;
+
+   if (trueBlock) {
+       if (trueBlock.classList && trueBlock.classList.contains('inner')) {
+           for (const child of Array.from(trueBlock.children)) {
+               inner.appendChild(child);
+           }
+       } else {
+           inner.appendChild(trueBlock);
+       }
+   }
+
+   if (expr.alternate) {
+       const elseLine = createElementNode('div', 'line');
+       elseLine.appendChild(createElementNode('div', 'block control', trKeyword('else')));
+       const altBlock = expr.alternate.type === 'BlockStatement' ? statementToBlock(expr.alternate) : expressionToBlock(expr.alternate);
+
+       if (altBlock) {
+           if (altBlock.classList && altBlock.classList.contains('inner')) {
+               for (const child of Array.from(altBlock.children)) {
+                   inner.appendChild(child);
+               }
+           } else {
+               inner.appendChild(altBlock);
+           }
+       }
+   }
+
+   if (inner.children.length) {
+       outer.appendChild(inner);
+   }
+
+   return outer;
+}
+
+/* ***
+* makeAwaitBlock - создание блока ожидания асинхронной операции
+* - принимает узел await выражения
+* - возвращает DOM-блок ожидания
 *** */
 function makeAwaitBlock(expr) {
     if (!expr || expr.type !== 'AwaitExpression') {
@@ -1656,9 +2038,88 @@ function makeAwaitBlock(expr) {
 }
 
 /* ***
- * makeUpdateBlock - создание блока обновления значения
- * - принимает узел обновления
+* makeNewExpressionBlock - создание блока new expression
+* - принимает узел NewExpression
  * - возвращает DOM-блок
+*** */
+function makeNewExpressionBlock(expr) {
+   if (!expr || expr.type !== 'NewExpression') {
+       return null;
+   }
+
+   const outer = createElementNode('div', 'block dom');
+   const line = createElementNode('div', 'line');
+
+   line.appendChild(createElementNode('div', 'block transparent', trKeyword('new')));
+
+   if (expr.callee) {
+       line.appendChild(makeValueNode(expr.callee) || makeValueNodeLiteral(''));
+   }
+
+   if (expr.arguments && expr.arguments.length) {
+       const argsInner = createElementNode('div', 'inner');
+
+       for (const arg of expr.arguments) {
+           const argBlock = makeArgBlock(arg);
+
+           if (argBlock) {
+               const argLine = createElementNode('div', 'line');
+               argLine.appendChild(argBlock);
+               argsInner.appendChild(argLine);
+           }
+       }
+
+       if (argsInner.children.length) {
+           outer.appendChild(argsInner);
+       }
+   }
+
+   outer.appendChild(line);
+
+   return outer;
+}
+
+/* ***
+* makeTemplateLiteralBlock - создание блока шаблонной строки
+* - принимает узел TemplateLiteral
+* - возвращает DOM-блок
+*** */
+function makeTemplateLiteralBlock(expr) {
+   if (!expr || expr.type !== 'TemplateLiteral') {
+       return null;
+   }
+
+   const outer = createElementNode('div', 'block assign');
+   const line = createElementNode('div', 'line');
+
+   line.appendChild(createElementNode('div', 'block value', 'template'));
+
+   if (expr.expressions && expr.expressions.length) {
+       const inner = createElementNode('div', 'inner');
+
+       for (const e of expr.expressions) {
+           const eBlock = expressionToBlock(e);
+
+           if (eBlock) {
+               const eLine = createElementNode('div', 'line');
+               eLine.appendChild(eBlock);
+               inner.appendChild(eLine);
+           }
+       }
+
+       if (inner.children.length) {
+           outer.appendChild(line);
+           outer.appendChild(inner);
+       }
+   }
+
+   return outer;
+}
+
+/* ***
+* makeUpdateBlock - создание блока обновления значения
+* - принимает узел обновления
+* - возвращает DOM-блок
 *** */
 function makeUpdateBlock(expr) {
     if (!expr || expr.type !== 'UpdateExpression') {
@@ -1763,6 +2224,82 @@ function makeCallExpressionBlock(expr) {
         const obj = flattenMember(expr.callee.object);
         const prop = expr.callee.property.name;
 
+        if (prop === 'then') {
+            const outer = createElementNode('div', 'block functions hasChildren');
+            const topLine = createElementNode('div', 'line');
+            const chain = makeCallChainNodeWithArgs(expr);
+
+            topLine.appendChild(chain);
+            outer.appendChild(topLine);
+
+            if (expr.arguments[0]) {
+                const inner = createElementNode('div', 'inner');
+                const callback = expr.arguments[0];
+                const callbackBlock = callback.type === 'ArrowFunctionExpression' || callback.type === 'FunctionExpression'
+                    ? (callback.body.type === 'BlockStatement' ? statementToBlock(callback.body) : expressionToBlock(callback.body))
+                    : makeArgBlock(callback);
+
+                if (callbackBlock) {
+                    if (callbackBlock.classList && callbackBlock.classList.contains('inner')) {
+                        for (const c of Array.from(callbackBlock.children)) {
+                            inner.appendChild(c);
+                        }
+                    } else {
+                        inner.appendChild(callbackBlock);
+                    }
+                }
+
+                if (inner.children.length) {
+                    outer.appendChild(inner);
+                }
+            }
+
+            return outer;
+        }
+
+        if (prop === 'setTimeout' || prop === 'setInterval') {
+            const outer = createElementNode('div', 'block functions hasChildren');
+            const topLine = createElementNode('div', 'line');
+
+            topLine.appendChild(makeCallChainNodeWithArgs(expr));
+            outer.appendChild(topLine);
+
+            if (expr.arguments[0]) {
+                const inner = createElementNode('div', 'inner');
+                const callback = expr.arguments[0];
+                const callbackBody = callback.type === 'ArrowFunctionExpression' || callback.type === 'FunctionExpression' ? callback.body : null;
+
+                if (callbackBody) {
+                    const block = callbackBody.type === 'BlockStatement' ? statementToBlock(callbackBody) : expressionToBlock(callbackBody);
+
+                    if (block) {
+                        if (block.classList && block.classList.contains('inner')) {
+                            for (const c of Array.from(block.children)) {
+                                inner.appendChild(c);
+                            }
+                        } else {
+                            inner.appendChild(block);
+                        }
+                    }
+                }
+
+                if (inner.children.length) {
+                    outer.appendChild(inner);
+                }
+            }
+
+            return outer;
+        }
+
+        if (prop === 'fetch') {
+            const outer = createElementNode('div', 'block functions hasChildren');
+            const topLine = createElementNode('div', 'line');
+
+            topLine.appendChild(makeCallChainNodeWithArgs(expr));
+            outer.appendChild(topLine);
+            return outer;
+        }
+
         if (prop === 'addEventListener') {
             const outer = createElementNode('div', 'block events hasChildren');
             const topLine = createElementNode('div', 'line');
@@ -1786,29 +2323,34 @@ function makeCallExpressionBlock(expr) {
             outer.appendChild(topLine);
 
             if (expr.arguments[1]) {
-                let callbackBody = null;
+                const inner = createElementNode('div', 'inner');
 
-                if (expr.arguments[1].type === 'ArrowFunctionExpression' || expr.arguments[1].type === 'FunctionExpression') {
-                    callbackBody = expr.arguments[1].body;
-                }
+                if (expr.arguments[1].type === 'Identifier') {
+                    inner.appendChild(makeVariablesNode(expr.arguments[1].name));
+                } else {
+                    let callbackBody = null;
 
-                if (callbackBody) {
-                    const inner = createElementNode('div', 'inner');
-                    const block = callbackBody.type === 'BlockStatement' ? statementToBlock(callbackBody) : expressionToBlock(callbackBody);
+                    if (expr.arguments[1].type === 'ArrowFunctionExpression' || expr.arguments[1].type === 'FunctionExpression') {
+                        callbackBody = expr.arguments[1].body;
+                    }
 
-                    if (block) {
-                        if (block.classList && block.classList.contains('inner')) {
-                            for (const c of Array.from(block.children)) {
-                                inner.appendChild(c);
+                    if (callbackBody) {
+                        const block = callbackBody.type === 'BlockStatement' ? statementToBlock(callbackBody) : expressionToBlock(callbackBody);
+
+                        if (block) {
+                            if (block.classList && block.classList.contains('inner')) {
+                                for (const c of Array.from(block.children)) {
+                                    inner.appendChild(c);
+                                }
+                            } else {
+                                inner.appendChild(block);
                             }
-                        } else {
-                            inner.appendChild(block);
                         }
                     }
+                }
 
-                    if (inner.children.length) {
-                        outer.appendChild(inner);
-                    }
+                if (inner.children.length) {
+                    outer.appendChild(inner);
                 }
             }
 
@@ -2002,6 +2544,49 @@ function makeAssignmentBlock(expr) {
  * - возвращает DOM-блок
 *** */
 function makeObjProp(prop) {
+    if (prop && prop.value && (prop.value.type === 'FunctionExpression' || prop.value.type === 'ArrowFunctionExpression')) {
+        const outer = createElementNode('div', 'block functions hasChildren');
+        const line = createElementNode('div', 'line');
+
+        const funcNameBlock = createElementNode('div', 'block functionName');
+        funcNameBlock.appendChild(document.createTextNode(prop.key + '('));
+
+        const params = prop.value.params || [];
+
+        for (const p of params) {
+            const pNode = typeof p === 'string' ? makeVariablesNode(p) : makeValueNode(p);
+
+            if (pNode) {
+                funcNameBlock.appendChild(pNode);
+            }
+        }
+
+        funcNameBlock.appendChild(document.createTextNode(')'));
+        line.appendChild(funcNameBlock);
+        outer.appendChild(line);
+
+        if (prop.value.body) {
+            const inner = createElementNode('div', 'inner');
+            const bodyBlock = prop.value.body.type === 'BlockStatement' ? statementToBlock(prop.value.body) : expressionToBlock(prop.value.body);
+
+            if (bodyBlock) {
+                if (bodyBlock.classList && bodyBlock.classList.contains('inner')) {
+                    for (const child of Array.from(bodyBlock.children)) {
+                        inner.appendChild(child);
+                    }
+                } else {
+                    inner.appendChild(bodyBlock);
+                }
+
+                if (inner.children.length) {
+                    outer.appendChild(inner);
+                }
+            }
+        }
+
+        return outer;
+    }
+
     const assignB = createElementNode('div', 'block assign');
     const ln = createElementNode('div', 'line');
 
@@ -2163,6 +2748,10 @@ function makeValueNode(node) {
     }
 
     if (node.type === 'Identifier') {
+        if (node.name === 'document') {
+            return createElementNode('div', 'block valueSpecial', trObject('document'));
+        }
+
         return makeVariablesNode(node.name);
     }
 
@@ -2170,7 +2759,7 @@ function makeValueNode(node) {
         const flat = flattenMember(node);
         const parts = flat.split('.');
 
-        if (parts.length > 2) {
+        if (parts.length > 1) {
             const chain = createElementNode('div', 'chain');
 
             chain.appendChild(createElementNode('div', 'block variables', parts.slice(0, -1).join('.')));
@@ -2186,12 +2775,24 @@ function makeValueNode(node) {
         return makeCallExpressionBlock(node);
     }
 
+    if (node.type === 'NewExpression') {
+        return makeNewExpressionBlock(node);
+    }
+
     if (node.type === 'ArrowFunctionExpression' || node.type === 'FunctionExpression') {
         return makeArrowFunctionBlock(node);
     }
 
     if (node.type === 'AwaitExpression') {
         return makeAwaitBlock(node);
+    }
+
+    if (node.type === 'TemplateLiteral') {
+        return makeTemplateLiteralBlock(node);
+    }
+
+    if (node.type === 'ConditionalExpression') {
+        return makeConditionalExpressionBlock(node);
     }
 
     if (node.type === 'ArrayExpression') {
@@ -2244,6 +2845,10 @@ function makeArgBlock(a) {
     }
 
     if (a.type === 'Identifier') {
+        if (a.name === 'document') {
+            return createElementNode('div', 'block valueSpecial', trObject('document'));
+        }
+
         return makeVariablesNode(a.name);
     }
 
@@ -2251,7 +2856,7 @@ function makeArgBlock(a) {
         const flat = flattenMember(a);
         const parts = flat.split('.');
 
-        if (parts.length > 2) {
+        if (parts.length > 1) {
             const chain = createElementNode('div', 'chain');
 
             chain.appendChild(createElementNode('div', 'block variables', parts.slice(0, -1).join('.')));
@@ -2267,12 +2872,24 @@ function makeArgBlock(a) {
         return makeCallExpressionBlock(a);
     }
 
+    if (a.type === 'NewExpression') {
+        return makeNewExpressionBlock(a);
+    }
+
     if (a.type === 'ArrowFunctionExpression' || a.type === 'FunctionExpression') {
         return makeArrowFunctionBlock(a);
     }
 
     if (a.type === 'AwaitExpression') {
         return makeAwaitBlock(a);
+    }
+
+    if (a.type === 'TemplateLiteral') {
+        return makeTemplateLiteralBlock(a);
+    }
+
+    if (a.type === 'ConditionalExpression') {
+        return makeConditionalExpressionBlock(a);
     }
 
     if (a.type === 'BinaryExpression') {
@@ -2307,9 +2924,107 @@ function makeArgBlock(a) {
 }
 
 /* ***
- * statementToBlock - преобразование инструкции AST в DOM-блок
- * - принимает узел инструкции
+* doWhileStatementToBlock - преобразование do...while в блок
+* - принимает узел DoWhileStatement
  * - возвращает DOM-блок
+*** */
+function doWhileStatementToBlock(node) {
+   if (!node || node.type !== 'DoWhileStatement') {
+       return null;
+   }
+
+   const outer = createElementNode('div', 'block control hasChildren');
+   const topLine = createElementNode('div', 'line');
+
+   topLine.appendChild(createElementNode('div', 'block control', trKeyword('do')));
+   outer.appendChild(topLine);
+
+   const inner = createElementNode('div', 'inner');
+   const body = statementToBlock(node.body);
+
+   if (body) {
+       if (body.classList && body.classList.contains('inner')) {
+           for (const child of Array.from(body.children)) {
+               inner.appendChild(child);
+           }
+       } else {
+           inner.appendChild(body);
+       }
+   }
+
+   if (inner.children.length) {
+       outer.appendChild(inner);
+   }
+
+   const bottomLine = createElementNode('div', 'line');
+   bottomLine.appendChild(createElementNode('div', 'block control', trKeyword('while')));
+   bottomLine.appendChild(getConditionNode(node.test));
+   outer.appendChild(bottomLine);
+
+   return outer;
+}
+
+/* ***
+* switchStatementToBlock - преобразование switch/case в блок
+* - принимает узел SwitchStatement
+* - возвращает DOM-блок
+*** */
+function switchStatementToBlock(node) {
+   if (!node || node.type !== 'SwitchStatement') {
+       return null;
+   }
+
+   const outer = createElementNode('div', 'block control hasChildren');
+   const line = createElementNode('div', 'line');
+
+   line.appendChild(createElementNode('div', 'block control', trKeyword('switch')));
+   line.appendChild(getConditionNode(node.discriminant));
+   outer.appendChild(line);
+
+   const inner = createElementNode('div', 'inner');
+
+   for (const c of node.cases || []) {
+       const cc = createElementNode('div', 'block control hasChildren');
+       const caseLine = createElementNode('div', 'line');
+
+       caseLine.appendChild(createElementNode('div', 'block control', trKeyword('case')));
+       caseLine.appendChild(makeValueNode(c.test) || makeValueNodeLiteral(''));
+       cc.appendChild(caseLine);
+
+       const caseBody = createElementNode('div', 'inner');
+
+       for (const st of c.consequent || []) {
+           const block = statementToBlock(st);
+
+           if (block) {
+               if (block.classList && block.classList.contains('inner')) {
+                   for (const child of Array.from(block.children)) {
+                       caseBody.appendChild(child);
+                   }
+               } else {
+                   caseBody.appendChild(block);
+               }
+           }
+       }
+
+       if (caseBody.children.length) {
+           cc.appendChild(caseBody);
+       }
+
+       inner.appendChild(cc);
+   }
+
+   if (inner.children.length) {
+       outer.appendChild(inner);
+   }
+
+   return outer;
+}
+
+/* ***
+* statementToBlock - преобразование инструкции AST в DOM-блок
+* - принимает узел инструкции
+* - возвращает DOM-блок
 *** */
 function statementToBlock(node) {
     if (!node) {
@@ -2343,6 +3058,14 @@ function statementToBlock(node) {
 
         case 'WhileStatement': {
             return whileStatementToBlock(node);
+        }
+
+        case 'DoWhileStatement': {
+            return doWhileStatementToBlock(node);
+        }
+
+        case 'SwitchStatement': {
+            return switchStatementToBlock(node);
         }
 
         case 'ReturnStatement': {
@@ -2387,12 +3110,18 @@ function expressionToBlock(expr) {
         block = makeAwaitBlock(expr);
     } else if (expr.type === 'CallExpression') {
         block = makeCallExpressionBlock(expr);
+    } else if (expr.type === 'NewExpression') {
+        block = makeNewExpressionBlock(expr);
     } else if (expr.type === 'AssignmentExpression') {
         block = makeAssignmentBlock(expr);
     } else if (expr.type === 'LogicalExpression') {
         block = makeLogicalExpressionBlock(expr);
     } else if (expr.type === 'BinaryExpression') {
         block = makeValueNode(expr);
+    } else if (expr.type === 'ConditionalExpression') {
+        block = makeConditionalExpressionBlock(expr);
+    } else if (expr.type === 'TemplateLiteral') {
+        block = makeTemplateLiteralBlock(expr);
     } else if (expr.type === 'UpdateExpression') {
         block = makeUpdateBlock(expr);
     } else if (expr.type === 'UnaryExpression') {
@@ -2427,6 +3156,16 @@ function variableDeclarationToBlock(node) {
     const parts = [];
 
     for (const d of node.declarations) {
+        if (d.id && d.id.type === 'ObjectPattern') {
+            const outer = createElementNode('div', 'block assign');
+            const line = createElementNode('div', 'line');
+
+            line.appendChild(createElementNode('div', 'block variables', '{...}'));
+            outer.appendChild(line);
+            parts.push(outer);
+            continue;
+        }
+
         if (d.init) {
             const pseudoExpr = {
                 type: 'AssignmentExpression',
