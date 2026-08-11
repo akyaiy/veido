@@ -15,6 +15,8 @@ var (
 	ErrConnectionNotFound = fmt.Errorf("provider connection not found")
 	ErrConnectionInactive = fmt.Errorf("provider connection is inactive")
 	ErrPermissionDenied = fmt.Errorf("permission denied")
+
+	ErrRequestContextNotFound = fmt.Errorf("request context not found")
 )
 
 // WrapError wraps error2 into error1, if error1 is nil, returns error2.
