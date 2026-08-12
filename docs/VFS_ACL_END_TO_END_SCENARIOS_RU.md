@@ -214,7 +214,7 @@ provider_connections
 Уникальность:
 
 ```text
-UNIQUE(scope_id, provider_type, connection_key)
+UNIQUE(scope_id, connection_key)
 ```
 
 Примеры:

@@ -127,16 +127,19 @@ func InitDB(path string) *sql.DB {
 	);
 	
 	CREATE TABLE IF NOT EXISTS vfs_provider_connections (
+	    id INTEGER PRIMARY KEY AUTOINCREMENT,
 	    scope_key TEXT NOT NULL,
 	    provider TEXT NOT NULL,
 	    connection_key TEXT NOT NULL,
+	    display_name TEXT NOT NULL DEFAULT '',
 	    config_json TEXT NOT NULL DEFAULT '{}',
+	    config_version INTEGER NOT NULL DEFAULT 1,
 	    status TEXT NOT NULL DEFAULT 'active',
 	    ready INTEGER NOT NULL DEFAULT 1,
 	    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	    FOREIGN KEY (scope_key) REFERENCES vfs_scopes(scope_key) ON DELETE CASCADE,
-	    PRIMARY KEY (scope_key, provider, connection_key)
+	    UNIQUE(scope_key, connection_key)
 	);
 	
 	CREATE TABLE IF NOT EXISTS vfs_principal_default_scopes (
@@ -153,6 +156,20 @@ func InitDB(path string) *sql.DB {
 		log.Fatal(err)
 	}
 	_, _ = db.Exec("ALTER TABLE vfs_provider_connections ADD COLUMN ready INTEGER NOT NULL DEFAULT 1")
+	_, _ = db.Exec("ALTER TABLE vfs_provider_connections ADD COLUMN display_name TEXT NOT NULL DEFAULT ''")
+	_, _ = db.Exec("ALTER TABLE vfs_provider_connections ADD COLUMN config_version INTEGER NOT NULL DEFAULT 1")
+	_, _ = db.Exec("ALTER TABLE vfs_provider_connections ADD COLUMN id INTEGER")
+	_, _ = db.Exec("UPDATE vfs_provider_connections SET id = rowid WHERE id IS NULL OR id = 0")
+	_, _ = db.Exec("UPDATE vfs_provider_connections SET display_name = connection_key WHERE display_name = ''")
+	if _, err := db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_vfs_provider_connections_id ON vfs_provider_connections(id)"); err != nil {
+		log.Fatal(err)
+	}
+	if _, err := db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_vfs_provider_connections_scope_connection_key ON vfs_provider_connections(scope_key, connection_key)"); err != nil {
+		log.Fatal(err)
+	}
+	if _, err := db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_vfs_provider_connections_scope_display_name ON vfs_provider_connections(scope_key, display_name) WHERE display_name != ''"); err != nil {
+		log.Fatal(err)
+	}
 	_, _ = db.Exec("UPDATE vfs_provider_connections SET ready = 1 WHERE scope_key = 'system' AND provider = 'scopes' AND connection_key = 'scopes'")
 
 	CleanRefresh(db)

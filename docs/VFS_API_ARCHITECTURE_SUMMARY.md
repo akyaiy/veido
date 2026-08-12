@@ -561,7 +561,7 @@ provider_connections
 Recommended uniqueness:
 
 ```text
-UNIQUE(scope_id, provider_type, connection_key)
+UNIQUE(scope_id, connection_key)
 ```
 
 This allows:
@@ -983,7 +983,7 @@ provider_connections
 Recommended uniqueness:
 
 ```text
-UNIQUE(scope_id, provider_type, connection_key)
+UNIQUE(scope_id, connection_key)
 ```
 
 Example records:

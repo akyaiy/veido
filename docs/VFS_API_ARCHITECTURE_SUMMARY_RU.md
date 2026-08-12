@@ -659,7 +659,7 @@ provider_connections
 Рекомендуемая уникальность:
 
 ```text
-UNIQUE(scope_id, provider_type, connection_key)
+UNIQUE(scope_id, connection_key)
 ```
 
 Это позволяет:
@@ -1083,7 +1083,7 @@ provider_connections
 Рекомендуемая уникальность:
 
 ```text
-UNIQUE(scope_id, provider_type, connection_key)
+UNIQUE(scope_id, connection_key)
 ```
 
 Примеры записей:
