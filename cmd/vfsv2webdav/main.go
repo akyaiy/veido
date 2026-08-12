@@ -8,6 +8,7 @@ import (
 	vfs "MyServer/internal/vfs/v2"
 	webdavadapter "MyServer/internal/vfs/v2/adapters/webdav"
 	"MyServer/internal/vfs/v2/providers"
+	"MyServer/internal/vfs/v2/providers/local"
 	systemscopes "MyServer/internal/vfs/v2/providers/system/scopes"
 	"MyServer/internal/vfs/v2/storage"
 	"bytes"
@@ -334,8 +335,17 @@ func newVFS(db *sql.DB) (vfs.VFSFrontend, error) {
 		return nil, err
 	}
 
+	if err := local.InitDB(db); err != nil {
+		return nil, err
+	}
+
 	registry := vfs.NewProviderRegistry()
 	registry.Register("debug", providers.FactoryDebug)
+	accountStore, err := local.NewSQLiteAccountStore(db, nil)
+	if err != nil {
+		return nil, err
+	}
+	registry.Register("local", local.Factory(accountStore))
 	scopeStorage, err := storage.NewScopeManager(db)
 	if err != nil {
 		return nil, err
@@ -369,23 +379,16 @@ func seedDebugVFS(db *sql.DB, actorID string) error {
 	_, err := db.Exec(`
 		INSERT INTO vfs_scopes (scope_key, kind, owner_subject_key)
 		VALUES (?, 'user', ?)
-		ON CONFLICT(scope_key) DO UPDATE SET
-			kind = excluded.kind,
-			owner_subject_key = excluded.owner_subject_key,
-			updated_at = CURRENT_TIMESTAMP
+		ON CONFLICT(scope_key) DO NOTHING
 	`, scopeKey, "user:"+actorID)
 	if err != nil {
 		return err
 	}
 
 	_, err = db.Exec(`
-		INSERT INTO vfs_provider_connections (scope_key, provider, connection_key, config_json, status, ready)
-		VALUES (?, 'debug', 'default', '{}', 'active', 1)
-		ON CONFLICT(scope_key, provider, connection_key) DO UPDATE SET
-			config_json = excluded.config_json,
-			status = excluded.status,
-			ready = excluded.ready,
-			updated_at = CURRENT_TIMESTAMP
+		INSERT INTO vfs_provider_connections (scope_key, provider, connection_key, display_name, config_json, status, ready)
+		VALUES (?, 'debug', 'default', 'default', '{}', 'active', 1)
+		ON CONFLICT(scope_key, connection_key) DO NOTHING
 	`, scopeKey)
 	if err != nil {
 		return err
@@ -394,8 +397,7 @@ func seedDebugVFS(db *sql.DB, actorID string) error {
 	_, err = db.Exec(`
 		INSERT INTO vfs_principal_default_scopes (principal_type, principal_id, scope_key)
 		VALUES ('user', ?, ?)
-		ON CONFLICT(principal_type, principal_id) DO UPDATE SET
-			scope_key = excluded.scope_key
+		ON CONFLICT(principal_type, principal_id) DO NOTHING
 	`, actorID, scopeKey)
 	return err
 }
@@ -406,23 +408,16 @@ func seedScopesVFS(db *sql.DB, actorID string) error {
 	_, err := db.Exec(`
 		INSERT INTO vfs_scopes (scope_key, kind, owner_subject_key)
 		VALUES (?, 'system', ?)
-		ON CONFLICT(scope_key) DO UPDATE SET
-			kind = excluded.kind,
-			owner_subject_key = excluded.owner_subject_key,
-			updated_at = CURRENT_TIMESTAMP
+		ON CONFLICT(scope_key) DO NOTHING
 	`, scopeKey, "user:"+actorID)
 	if err != nil {
 		return err
 	}
 
 	_, err = db.Exec(`
-		INSERT INTO vfs_provider_connections (scope_key, provider, connection_key, config_json, status, ready)
-		VALUES (?, 'scopes', 'scopes', '{}', 'active', 1)
-		ON CONFLICT(scope_key, provider, connection_key) DO UPDATE SET
-			config_json = excluded.config_json,
-			status = excluded.status,
-			ready = excluded.ready,
-			updated_at = CURRENT_TIMESTAMP
+		INSERT INTO vfs_provider_connections (scope_key, provider, connection_key, display_name, config_json, status, ready)
+		VALUES (?, 'scopes', 'scopes', 'scopes', '{}', 'active', 1)
+		ON CONFLICT(scope_key, connection_key) DO NOTHING
 	`, scopeKey)
 	if err != nil {
 		return err
@@ -431,8 +426,7 @@ func seedScopesVFS(db *sql.DB, actorID string) error {
 	_, err = db.Exec(`
 		INSERT INTO vfs_principal_default_scopes (principal_type, principal_id, scope_key)
 		VALUES ('user', ?, ?)
-		ON CONFLICT(principal_type, principal_id) DO UPDATE SET
-			scope_key = excluded.scope_key
+		ON CONFLICT(principal_type, principal_id) DO NOTHING
 	`, actorID, scopeKey)
 	return err
 }
