@@ -24,13 +24,16 @@ func newConnectionResolverTestDB(t *testing.T) *sql.DB {
 
 	const schema = `
 		CREATE TABLE vfs_provider_connections (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			scope_key TEXT NOT NULL,
 			provider TEXT NOT NULL,
 			connection_key TEXT NOT NULL,
+			display_name TEXT NOT NULL DEFAULT '',
 			config_json TEXT NOT NULL DEFAULT '{}',
+			config_version INTEGER NOT NULL DEFAULT 1,
 			status TEXT NOT NULL DEFAULT 'active',
 			ready INTEGER NOT NULL DEFAULT 0,
-			PRIMARY KEY (scope_key, provider, connection_key)
+			UNIQUE(scope_key, connection_key)
 		);
 	`
 	if _, err := db.Exec(schema); err != nil {
@@ -42,8 +45,8 @@ func newConnectionResolverTestDB(t *testing.T) *sql.DB {
 func TestConnectionResolverRequiresReadyForOrdinaryConnections(t *testing.T) {
 	db := newConnectionResolverTestDB(t)
 	_, err := db.Exec(`
-		INSERT INTO vfs_provider_connections (scope_key, provider, connection_key, config_json, status, ready)
-		VALUES ('debug', 'debug', 'default', '{}', 'active', 0)
+		INSERT INTO vfs_provider_connections (scope_key, provider, connection_key, display_name, config_json, status, ready)
+		VALUES ('debug', 'debug', 'default', 'default', '{}', 'active', 0)
 	`)
 	if err != nil {
 		t.Fatalf("db.Exec(seed) error = %v", err)
@@ -59,8 +62,8 @@ func TestConnectionResolverRequiresReadyForOrdinaryConnections(t *testing.T) {
 func TestConnectionResolverAllowsScopesBootstrapConnectionWithoutReady(t *testing.T) {
 	db := newConnectionResolverTestDB(t)
 	_, err := db.Exec(`
-		INSERT INTO vfs_provider_connections (scope_key, provider, connection_key, config_json, status, ready)
-		VALUES ('system', 'scopes', 'scopes', '{}', 'active', 0)
+		INSERT INTO vfs_provider_connections (scope_key, provider, connection_key, display_name, config_json, status, ready)
+		VALUES ('system', 'scopes', 'scopes', 'scopes', '{}', 'active', 0)
 	`)
 	if err != nil {
 		t.Fatalf("db.Exec(seed) error = %v", err)

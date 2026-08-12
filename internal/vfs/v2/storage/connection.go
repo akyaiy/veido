@@ -22,6 +22,7 @@ type ConnectionStorageContract interface {
 	UpdateConfig(ctx context.Context, scopeKey string, providerKey string, connectionKey string, config []byte) error
 	SetStatus(ctx context.Context, scopeKey string, providerKey string, connectionKey string, status string) error
 	SetReady(ctx context.Context, scopeKey string, providerKey string, connectionKey string, ready bool) error
+	SetDisplayName(ctx context.Context, scopeKey string, providerKey string, connectionKey string, displayName string) error
 }
 
 type ConnectionStorage struct {
@@ -66,11 +67,12 @@ func (s *ConnectionStorage) Create(ctx context.Context, connection vfs.ProviderC
 			scope_key,
 			provider,
 			connection_key,
+			display_name,
 			config_json,
 			status,
 			ready
 		)
-		VALUES (?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
 	`
 
 	if _, err := tx.ExecContext(
@@ -79,6 +81,7 @@ func (s *ConnectionStorage) Create(ctx context.Context, connection vfs.ProviderC
 		connection.ScopeKey,
 		connection.ProviderKey,
 		connection.ConnectionKey,
+		connection.DisplayName,
 		string(connection.Config),
 		connection.Status,
 		connection.Ready,
@@ -106,10 +109,13 @@ func (s *ConnectionStorage) Get(ctx context.Context, scopeKey string, providerKe
 
 	const query = `
 		SELECT
+			id,
 			scope_key,
 			provider,
 			connection_key,
+			display_name,
 			config_json,
+			config_version,
 			status,
 			ready
 		FROM vfs_provider_connections
@@ -121,10 +127,13 @@ func (s *ConnectionStorage) Get(ctx context.Context, scopeKey string, providerKe
 	var connection vfs.ProviderConnection
 	var config string
 	err = s.db.QueryRowContext(ctx, query, scopeKey, providerKey, connectionKey).Scan(
+		&connection.ID,
 		&connection.ScopeKey,
 		&connection.ProviderKey,
 		&connection.ConnectionKey,
+		&connection.DisplayName,
 		&config,
+		&connection.ConfigVersion,
 		&connection.Status,
 		&connection.Ready,
 	)
@@ -200,10 +209,13 @@ func (s *ConnectionStorage) List(ctx context.Context, scopeKey string, providerK
 	if providerKey == "" {
 		const query = `
 			SELECT
+				id,
 				scope_key,
 				provider,
 				connection_key,
+				display_name,
 				config_json,
+				config_version,
 				status,
 				ready
 			FROM vfs_provider_connections
@@ -214,10 +226,13 @@ func (s *ConnectionStorage) List(ctx context.Context, scopeKey string, providerK
 	} else {
 		const query = `
 			SELECT
+				id,
 				scope_key,
 				provider,
 				connection_key,
+				display_name,
 				config_json,
+				config_version,
 				status,
 				ready
 			FROM vfs_provider_connections
@@ -237,10 +252,13 @@ func (s *ConnectionStorage) List(ctx context.Context, scopeKey string, providerK
 		var connection vfs.ProviderConnection
 		var config string
 		if err := rows.Scan(
+			&connection.ID,
 			&connection.ScopeKey,
 			&connection.ProviderKey,
 			&connection.ConnectionKey,
+			&connection.DisplayName,
 			&config,
+			&connection.ConfigVersion,
 			&connection.Status,
 			&connection.Ready,
 		); err != nil {
@@ -334,6 +352,7 @@ func (s *ConnectionStorage) UpdateConfig(ctx context.Context, scopeKey string, p
 	const query = `
 		UPDATE vfs_provider_connections
 		SET config_json = ?,
+		    config_version = config_version + 1,
 		    updated_at = CURRENT_TIMESTAMP
 		WHERE scope_key = ?
 		  AND provider = ?
@@ -470,6 +489,63 @@ func (s *ConnectionStorage) SetReady(ctx context.Context, scopeKey string, provi
 	return nil
 }
 
+func (s *ConnectionStorage) SetDisplayName(ctx context.Context, scopeKey string, providerKey string, connectionKey string, displayName string) error {
+	if s == nil || s.db == nil {
+		return vfs.ErrInvalidNewInstanceParams
+	}
+
+	scopeKey, providerKey, connectionKey, err := normalizeConnectionKeyParts(scopeKey, providerKey, connectionKey)
+	if err != nil {
+		return WrapError(ErrConnectionNotUpdated, err)
+	}
+
+	displayName = strings.TrimSpace(displayName)
+	if displayName == "" {
+		return WrapError(ErrConnectionNotUpdated, fmt.Errorf("%w: empty display name", vfs.ErrConnectionNotFound))
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return WrapError(ErrConnectionNotUpdated, err)
+	}
+
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	const query = `
+		UPDATE vfs_provider_connections
+		SET display_name = ?,
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE scope_key = ?
+		  AND provider = ?
+		  AND connection_key = ?
+	`
+
+	result, err := tx.ExecContext(ctx, query, displayName, scopeKey, providerKey, connectionKey)
+	if err != nil {
+		return WrapError(ErrConnectionNotUpdated, err)
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return WrapError(ErrConnectionNotUpdated, err)
+	}
+	if affected == 0 {
+		return WrapError(ErrConnectionNotUpdated, ErrConnectionNotFound)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return WrapError(ErrConnectionNotUpdated, err)
+	}
+
+	committed = true
+	return nil
+}
+
 func normalizeConnection(connection vfs.ProviderConnection) (vfs.ProviderConnection, error) {
 	connection.ScopeKey = strings.TrimSpace(connection.ScopeKey)
 	if connection.ScopeKey == "" {
@@ -484,6 +560,11 @@ func normalizeConnection(connection vfs.ProviderConnection) (vfs.ProviderConnect
 	connection.ConnectionKey = strings.TrimSpace(connection.ConnectionKey)
 	if connection.ConnectionKey == "" {
 		return connection, fmt.Errorf("%w: empty connection key", vfs.ErrConnectionNotFound)
+	}
+
+	connection.DisplayName = strings.TrimSpace(connection.DisplayName)
+	if connection.DisplayName == "" {
+		connection.DisplayName = connection.ConnectionKey
 	}
 
 	connection.Status = strings.TrimSpace(connection.Status)

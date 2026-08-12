@@ -151,8 +151,13 @@ func (p *Provider) buildFS() *virtfs.FS {
 				if err != nil {
 					return nil, err
 				}
+				profile, err := p.connectionProfileJSON(ctx, req.Match.Param("scopeKey"), providerKey, connectionKey)
+				if err != nil {
+					return nil, err
+				}
 				return []*vfs.Node{
 					virtfs.FileNode("info.json", int64(len(data))),
+					virtfs.FileNode("profile.json", int64(len(profile))),
 					virtfs.FileNode("config.json", int64(len(config))),
 					virtfs.FileNode("status.json", int64(len(status))),
 				}, nil
@@ -164,6 +169,21 @@ func (p *Provider) buildFS() *virtfs.FS {
 				}
 				return p.connections.Delete(ctx, req.Match.Param("scopeKey"), providerKey, connectionKey)
 			},
+			Move: func(ctx context.Context, req virtfs.Request, targetParentPath string, newName string) error {
+				scopeKey := req.Match.Param("scopeKey")
+				if targetParentPath != "/scopes/"+scopeKey+"/connections" {
+					return os.ErrPermission
+				}
+				providerKey, connectionKey, err := splitConnectionName(req.Match.Param("connectionName"))
+				if err != nil {
+					return err
+				}
+				displayName, err := validateConnectionDisplayName(newName)
+				if err != nil {
+					return err
+				}
+				return p.connections.SetDisplayName(ctx, scopeKey, providerKey, connectionKey, displayName)
+			},
 		}).
 		GeneratedFile("/scopes/{scopeKey}/connections/{connectionName}/info.json", func(ctx context.Context, req virtfs.Request) ([]byte, error) {
 			providerKey, connectionKey, err := splitConnectionName(req.Match.Param("connectionName"))
@@ -171,6 +191,19 @@ func (p *Provider) buildFS() *virtfs.FS {
 				return nil, err
 			}
 			return p.connectionInfoJSON(ctx, req.Match.Param("scopeKey"), providerKey, connectionKey)
+		}).
+		WritableGeneratedFile("/scopes/{scopeKey}/connections/{connectionName}/profile.json", func(ctx context.Context, req virtfs.Request) ([]byte, error) {
+			providerKey, connectionKey, err := splitConnectionName(req.Match.Param("connectionName"))
+			if err != nil {
+				return nil, err
+			}
+			return p.connectionProfileJSON(ctx, req.Match.Param("scopeKey"), providerKey, connectionKey)
+		}, func(ctx context.Context, req virtfs.Request, data []byte) error {
+			providerKey, connectionKey, err := splitConnectionName(req.Match.Param("connectionName"))
+			if err != nil {
+				return err
+			}
+			return p.setConnectionProfileJSON(ctx, req.Match.Param("scopeKey"), providerKey, connectionKey, data)
 		}).
 		WritableGeneratedFile("/scopes/{scopeKey}/connections/{connectionName}/config.json", func(ctx context.Context, req virtfs.Request) ([]byte, error) {
 			providerKey, connectionKey, err := splitConnectionName(req.Match.Param("connectionName"))
@@ -244,11 +277,15 @@ func splitConnectionName(name string) (string, string, error) {
 }
 
 func (p *Provider) createConnection(ctx context.Context, scopeKey string, name string) (*vfs.Node, error) {
-	providerKey, connectionKey, err := splitConnectionName(name)
+	providerKey, displayName, err := splitConnectionCreateName(name)
 	if err != nil {
 		return nil, err
 	}
 	if _, err := p.scopes.Get(ctx, scopeKey); err != nil {
+		return nil, err
+	}
+	connectionKey, err := p.connectionKeyForDisplayName(ctx, scopeKey, providerKey, displayName)
+	if err != nil {
 		return nil, err
 	}
 
@@ -256,6 +293,7 @@ func (p *Provider) createConnection(ctx context.Context, scopeKey string, name s
 		ScopeKey:      scopeKey,
 		ProviderKey:   providerKey,
 		ConnectionKey: connectionKey,
+		DisplayName:   displayName,
 		Config:        []byte("{}"),
 		Status:        "active",
 		Ready:         false,
@@ -268,6 +306,65 @@ func (p *Provider) createConnection(ctx context.Context, scopeKey string, name s
 		return nil, err
 	}
 	return wrapConnectionToNode(created), nil
+}
+
+func splitConnectionCreateName(name string) (string, string, error) {
+	providerKey, displayName, ok := strings.Cut(name, "@")
+	if !ok || providerKey == "" || displayName == "" {
+		return "", "", fmt.Errorf("%w: invalid connection name %q", vfs.ErrInvalidProvider, name)
+	}
+	if !connectionNamePartRe.MatchString(providerKey) {
+		return "", "", fmt.Errorf("%w: provider key may contain only letters, digits, '-' and '_'", vfs.ErrInvalidProvider)
+	}
+	displayName, err := validateConnectionDisplayName(displayName)
+	if err != nil {
+		return "", "", err
+	}
+	return providerKey, displayName, nil
+}
+
+func validateConnectionDisplayName(displayName string) (string, error) {
+	displayName = strings.TrimSpace(displayName)
+	if displayName == "" || displayName == "." || displayName == ".." {
+		return "", fmt.Errorf("%w: invalid connection display name", vfs.ErrConnectionNotFound)
+	}
+	if strings.ContainsAny(displayName, "/\x00@") {
+		return "", fmt.Errorf("%w: connection display name cannot contain '/', NUL or '@'", vfs.ErrConnectionNotFound)
+	}
+	return displayName, nil
+}
+
+func (p *Provider) connectionKeyForDisplayName(ctx context.Context, scopeKey string, providerKey string, displayName string) (string, error) {
+	existing, err := p.connections.List(ctx, scopeKey, "")
+	if err != nil {
+		return "", err
+	}
+	used := make(map[string]struct{}, len(existing))
+	for _, connection := range existing {
+		if connection != nil {
+			used[connection.ConnectionKey] = struct{}{}
+		}
+	}
+
+	base := connectionKeyFromDisplayName(providerKey, displayName)
+	key := base
+	for i := 0; i < 16; i++ {
+		if i > 0 {
+			key = fmt.Sprintf("%s-%d", base, i+1)
+		}
+		if _, ok := used[key]; !ok {
+			return key, nil
+		}
+	}
+	return "", fmt.Errorf("%w: cannot allocate connection key", vfs.ErrConnectionNotFound)
+}
+
+func connectionKeyFromDisplayName(providerKey string, displayName string) string {
+	if connectionNamePartRe.MatchString(displayName) {
+		return displayName
+	}
+	sum := sha256.Sum256([]byte(providerKey + "\x00" + displayName))
+	return "conn-" + hex.EncodeToString(sum[:])[:12]
 }
 
 func (p *Provider) createUserScope(ctx context.Context, name string) (*vfs.Node, error) {
@@ -360,6 +457,28 @@ func (p *Provider) connectionConfigJSON(ctx context.Context, scopeKey string, pr
 		config = mustJSONString(connection.Config)
 	}
 	return json.MarshalIndent(config, "", "  ")
+}
+
+func (p *Provider) connectionProfileJSON(ctx context.Context, scopeKey string, providerKey string, connectionKey string) ([]byte, error) {
+	connection, err := p.connections.Get(ctx, scopeKey, providerKey, connectionKey)
+	if err != nil {
+		return nil, err
+	}
+	return json.MarshalIndent(connectionProfilePayload{
+		DisplayName: connection.DisplayName,
+	}, "", "  ")
+}
+
+func (p *Provider) setConnectionProfileJSON(ctx context.Context, scopeKey string, providerKey string, connectionKey string, data []byte) error {
+	var payload connectionProfilePayload
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return fmt.Errorf("%w: invalid connection profile json: %v", os.ErrInvalid, err)
+	}
+	displayName, err := validateConnectionDisplayName(payload.DisplayName)
+	if err != nil {
+		return err
+	}
+	return p.connections.SetDisplayName(ctx, scopeKey, providerKey, connectionKey, displayName)
 }
 
 func (p *Provider) setConnectionConfigJSON(ctx context.Context, scopeKey string, providerKey string, connectionKey string, data []byte) error {
@@ -492,15 +611,21 @@ type connectionStatusPayload struct {
 	Ready  bool   `json:"ready"`
 }
 
+type connectionProfilePayload struct {
+	DisplayName string `json:"display_name"`
+}
+
 type connectionStatusUpdatePayload struct {
 	Status *string `json:"status"`
 	Ready  *bool   `json:"ready"`
 }
 
 type connectionInfoPayload struct {
+	ID            int64           `json:"id"`
 	ScopeKey      string          `json:"scope_key"`
 	ProviderKey   string          `json:"provider_key"`
 	ConnectionKey string          `json:"connection_key"`
+	DisplayName   string          `json:"display_name"`
 	Config        json.RawMessage `json:"config"`
 	Status        string          `json:"status"`
 	Ready         bool            `json:"ready"`
@@ -513,9 +638,11 @@ func newConnectionInfoPayload(connection *vfs.ProviderConnection) connectionInfo
 	}
 
 	return connectionInfoPayload{
+		ID:            connection.ID,
 		ScopeKey:      connection.ScopeKey,
 		ProviderKey:   connection.ProviderKey,
 		ConnectionKey: connection.ConnectionKey,
+		DisplayName:   connection.DisplayName,
 		Config:        config,
 		Status:        connection.Status,
 		Ready:         connection.Ready,

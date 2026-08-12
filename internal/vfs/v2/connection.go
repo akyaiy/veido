@@ -7,10 +7,13 @@ import (
 )
 
 type ProviderConnection struct {
+	ID            int64
 	ScopeKey      string
 	ProviderKey   string
 	ConnectionKey string
+	DisplayName   string
 	Config        []byte
+	ConfigVersion int64
 	Status        string
 	Ready         bool
 }
@@ -45,7 +48,7 @@ func (cr *ConnectionResolver) ResolveConnection(ctx context.Context,
 	var c ProviderConnection
 	var config string
 	const query = `
-        SELECT scope_key, provider, connection_key, config_json, status, ready
+        SELECT id, scope_key, provider, connection_key, display_name, config_json, config_version, status, ready
         FROM vfs_provider_connections
         WHERE scope_key = ?
           AND provider = ?
@@ -58,10 +61,13 @@ func (cr *ConnectionResolver) ResolveConnection(ctx context.Context,
     `
 
 	err := cr.db.QueryRowContext(ctx, query, scope.Key, providerKey, connectionKey).Scan(
+		&c.ID,
 		&c.ScopeKey,
 		&c.ProviderKey,
 		&c.ConnectionKey,
+		&c.DisplayName,
 		&config,
+		&c.ConfigVersion,
 		&c.Status,
 		&c.Ready,
 	)

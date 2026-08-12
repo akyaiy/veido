@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -39,16 +40,22 @@ func newScopesFrontendTestDB(t *testing.T) *sql.DB {
 		);
 
 		CREATE TABLE vfs_provider_connections (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			scope_key TEXT NOT NULL,
 			provider TEXT NOT NULL,
 			connection_key TEXT NOT NULL,
+			display_name TEXT NOT NULL DEFAULT '',
 			config_json TEXT NOT NULL DEFAULT '{}',
+			config_version INTEGER NOT NULL DEFAULT 1,
 			status TEXT NOT NULL DEFAULT 'active',
 			ready INTEGER NOT NULL DEFAULT 1,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			PRIMARY KEY (scope_key, provider, connection_key)
+			UNIQUE(scope_key, connection_key)
 		);
+		CREATE UNIQUE INDEX idx_vfs_provider_connections_scope_display_name
+		ON vfs_provider_connections(scope_key, display_name)
+		WHERE display_name != '';
 
 		CREATE TABLE vfs_principal_default_scopes (
 			principal_type TEXT NOT NULL,
@@ -60,11 +67,11 @@ func newScopesFrontendTestDB(t *testing.T) *sql.DB {
 		INSERT INTO vfs_scopes (scope_key, kind, owner_subject_key)
 		VALUES ('system', 'system', 'user:42');
 
-		INSERT INTO vfs_provider_connections (scope_key, provider, connection_key, config_json, status, ready)
-		VALUES ('system', 'scopes', 'scopes', '{}', 'active', 1);
+		INSERT INTO vfs_provider_connections (scope_key, provider, connection_key, display_name, config_json, status, ready)
+		VALUES ('system', 'scopes', 'scopes', 'scopes', '{}', 'active', 1);
 
-		INSERT INTO vfs_provider_connections (scope_key, provider, connection_key, config_json, status, ready)
-		VALUES ('system', 'debug', 'default', '{}', 'active', 1);
+		INSERT INTO vfs_provider_connections (scope_key, provider, connection_key, display_name, config_json, status, ready)
+		VALUES ('system', 'debug', 'default', 'default', '{}', 'active', 1);
 	`
 
 	if _, err := db.Exec(schema); err != nil {
@@ -224,7 +231,7 @@ func TestScopesProviderThroughVFSFrontend_ReadDirScopeConnection(t *testing.T) {
 	}
 
 	logNodes(t, "VFSFrontend ReadDir(scopes@scopes[system]:///scopes/system/connections/scopes@scopes)", nodes)
-	assertNodeNames(t, nodes, []string{"info.json", "config.json", "status.json"})
+	assertNodeNames(t, nodes, []string{"info.json", "profile.json", "config.json", "status.json"})
 	if nodes[0].IsDir || nodes[0].Kind != "file" {
 		t.Fatalf("nodes[0] = %+v, want info.json file", nodes[0])
 	}
@@ -270,8 +277,110 @@ func TestScopesProviderThroughVFSFrontend_CreateConfigureAndReadyConnection(t *t
 	if connection.Status != "active" || !connection.Ready {
 		t.Fatalf("connection status/ready = %q/%v, want active/true", connection.Status, connection.Ready)
 	}
+	if connection.DisplayName != "nextcloud" {
+		t.Fatalf("connection display_name = %q, want nextcloud", connection.DisplayName)
+	}
 	if string(connection.Config) != `{"base_url":"https://cloud.example.test","username":"alice"}` {
 		t.Fatalf("connection config = %s", connection.Config)
+	}
+}
+
+func TestScopesProviderThroughVFSFrontend_CreatesConnectionWithDisplayName(t *testing.T) {
+	db := newScopesFrontendTestDB(t)
+	frontend := newScopesFrontend(t, db)
+	ctx := context.Background()
+	actor := v2.Actor{Kind: v2.ActorUser, ID: "42"}
+
+	node, err := frontend.Mkdir(ctx, actor, mustURI(t, "scopes@scopes[system]:///scopes/system/connections/debug@Мои файлы"))
+	if err != nil {
+		t.Fatalf("Mkdir(connection with display name) error = %v", err)
+	}
+	if node.Name == "debug@Мои файлы" {
+		t.Fatalf("created node name = %q, want generated internal connection name", node.Name)
+	}
+
+	connection := readConnectionByDisplayName(t, db, "system", "Мои файлы")
+	if connection.ProviderKey != "debug" {
+		t.Fatalf("connection provider = %q, want debug", connection.ProviderKey)
+	}
+	if connection.ConnectionKey == "" || connection.ConnectionKey == "Мои файлы" {
+		t.Fatalf("connection key = %q, want generated technical key", connection.ConnectionKey)
+	}
+	if connection.DisplayName != "Мои файлы" {
+		t.Fatalf("connection display_name = %q, want Мои файлы", connection.DisplayName)
+	}
+
+	infoFile, err := frontend.OpenFile(ctx, actor, mustURI(t, "scopes@scopes[system]:///scopes/system/connections/"+node.Name+"/info.json"), os.O_RDONLY)
+	if err != nil {
+		t.Fatalf("OpenFile(info.json) error = %v", err)
+	}
+	data, readErr := io.ReadAll(infoFile)
+	closeErr := infoFile.Close()
+	if readErr != nil {
+		t.Fatalf("ReadAll(info.json) error = %v", readErr)
+	}
+	if closeErr != nil {
+		t.Fatalf("Close(info.json) error = %v", closeErr)
+	}
+	if !strings.Contains(string(data), `"display_name": "Мои файлы"`) {
+		t.Fatalf("info.json = %s, want display_name", data)
+	}
+}
+
+func TestScopesProviderThroughVFSFrontend_RenamesConnectionDisplayName(t *testing.T) {
+	db := newScopesFrontendTestDB(t)
+	frontend := newScopesFrontend(t, db)
+	ctx := context.Background()
+	actor := v2.Actor{Kind: v2.ActorUser, ID: "42"}
+
+	source := mustURI(t, "scopes@scopes[system]:///scopes/system/connections/debug@default")
+	target := mustURI(t, "scopes@scopes[system]:///scopes/system/connections/Работа")
+	if err := frontend.Move(ctx, actor, source, target); err != nil {
+		t.Fatalf("Move(connection display name) error = %v", err)
+	}
+
+	connection := readConnection(t, db, "system", "debug", "default")
+	if connection.DisplayName != "Работа" {
+		t.Fatalf("connection display_name = %q, want Работа", connection.DisplayName)
+	}
+}
+
+func TestScopesProviderThroughVFSFrontend_WritesConnectionProfile(t *testing.T) {
+	db := newScopesFrontendTestDB(t)
+	frontend := newScopesFrontend(t, db)
+	ctx := context.Background()
+	actor := v2.Actor{Kind: v2.ActorUser, ID: "42"}
+
+	profileFile, err := frontend.OpenFile(ctx, actor, mustURI(t, "scopes@scopes[system]:///scopes/system/connections/debug@default/profile.json"), os.O_WRONLY|os.O_TRUNC)
+	if err != nil {
+		t.Fatalf("OpenFile(profile.json write) error = %v", err)
+	}
+	if _, err := profileFile.Write([]byte(`{"display_name":"Рабочие файлы"}`)); err != nil {
+		t.Fatalf("Write(profile.json) error = %v", err)
+	}
+	if err := profileFile.Close(); err != nil {
+		t.Fatalf("Close(profile.json) error = %v", err)
+	}
+
+	connection := readConnection(t, db, "system", "debug", "default")
+	if connection.DisplayName != "Рабочие файлы" {
+		t.Fatalf("connection display_name = %q, want Рабочие файлы", connection.DisplayName)
+	}
+
+	file, err := frontend.OpenFile(ctx, actor, mustURI(t, "scopes@scopes[system]:///scopes/system/connections/debug@default/profile.json"), os.O_RDONLY)
+	if err != nil {
+		t.Fatalf("OpenFile(profile.json read) error = %v", err)
+	}
+	data, readErr := io.ReadAll(file)
+	closeErr := file.Close()
+	if readErr != nil {
+		t.Fatalf("ReadAll(profile.json) error = %v", readErr)
+	}
+	if closeErr != nil {
+		t.Fatalf("Close(profile.json) error = %v", closeErr)
+	}
+	if !strings.Contains(string(data), `"display_name": "Рабочие файлы"`) {
+		t.Fatalf("profile.json = %s, want updated display_name", data)
 	}
 }
 
@@ -554,6 +663,9 @@ func TestScopesProviderThroughVFSFrontend_OpenInfoJSON(t *testing.T) {
 					t.Fatalf("json[%q] = %#v, want %q; body=%s", key, got[key], wantValue, data)
 				}
 			}
+			if tt.name == "connection info" && got["id"] != float64(1) {
+				t.Fatalf("json[id] = %#v, want 1; body=%s", got["id"], data)
+			}
 		})
 	}
 }
@@ -624,22 +736,54 @@ func readConnection(t *testing.T, db *sql.DB, scopeKey string, providerKey strin
 	var connection v2.ProviderConnection
 	var config string
 	err := db.QueryRow(
-		`SELECT scope_key, provider, connection_key, config_json, status, ready
+		`SELECT id, scope_key, provider, connection_key, display_name, config_json, config_version, status, ready
 		 FROM vfs_provider_connections
 		 WHERE scope_key = ? AND provider = ? AND connection_key = ?`,
 		scopeKey,
 		providerKey,
 		connectionKey,
 	).Scan(
+		&connection.ID,
 		&connection.ScopeKey,
 		&connection.ProviderKey,
 		&connection.ConnectionKey,
+		&connection.DisplayName,
 		&config,
+		&connection.ConfigVersion,
 		&connection.Status,
 		&connection.Ready,
 	)
 	if err != nil {
 		t.Fatalf("QueryRow(connection) error = %v", err)
+	}
+	connection.Config = []byte(config)
+	return connection
+}
+
+func readConnectionByDisplayName(t *testing.T, db *sql.DB, scopeKey string, displayName string) v2.ProviderConnection {
+	t.Helper()
+
+	var connection v2.ProviderConnection
+	var config string
+	err := db.QueryRow(
+		`SELECT id, scope_key, provider, connection_key, display_name, config_json, config_version, status, ready
+		 FROM vfs_provider_connections
+		 WHERE scope_key = ? AND display_name = ?`,
+		scopeKey,
+		displayName,
+	).Scan(
+		&connection.ID,
+		&connection.ScopeKey,
+		&connection.ProviderKey,
+		&connection.ConnectionKey,
+		&connection.DisplayName,
+		&config,
+		&connection.ConfigVersion,
+		&connection.Status,
+		&connection.Ready,
+	)
+	if err != nil {
+		t.Fatalf("QueryRow(connection by display name) error = %v", err)
 	}
 	connection.Config = []byte(config)
 	return connection

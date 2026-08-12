@@ -38,17 +38,23 @@ func newStorageTestDB(t *testing.T) *sql.DB {
 		);
 
 		CREATE TABLE vfs_provider_connections (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			scope_key TEXT NOT NULL,
 			provider TEXT NOT NULL,
 			connection_key TEXT NOT NULL,
+			display_name TEXT NOT NULL DEFAULT '',
 			config_json TEXT NOT NULL DEFAULT '{}',
+			config_version INTEGER NOT NULL DEFAULT 1,
 			status TEXT NOT NULL DEFAULT 'active',
 			ready INTEGER NOT NULL DEFAULT 1,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			FOREIGN KEY (scope_key) REFERENCES vfs_scopes(scope_key) ON DELETE CASCADE,
-			PRIMARY KEY (scope_key, provider, connection_key)
+			UNIQUE(scope_key, connection_key)
 		);
+		CREATE UNIQUE INDEX idx_vfs_provider_connections_scope_display_name
+		ON vfs_provider_connections(scope_key, display_name)
+		WHERE display_name != '';
 
 		CREATE TABLE vfs_principal_default_scopes (
 			principal_type TEXT NOT NULL,
@@ -283,10 +289,13 @@ func TestConnectionStorage_CreateGetListUpdateDelete(t *testing.T) {
 		t.Fatalf("Get() error = %v", err)
 	}
 	want := &vfs.ProviderConnection{
+		ID:            1,
 		ScopeKey:      "alice-home",
 		ProviderKey:   "filesystem",
 		ConnectionKey: "local",
+		DisplayName:   "local",
 		Config:        []byte(`{"root":"/tmp/a"}`),
+		ConfigVersion: 1,
 		Status:        "active",
 		Ready:         false,
 	}
@@ -320,6 +329,9 @@ func TestConnectionStorage_CreateGetListUpdateDelete(t *testing.T) {
 	if string(got.Config) != "{}" {
 		t.Fatalf("updated config = %q, want %q", got.Config, "{}")
 	}
+	if got.ConfigVersion != 2 {
+		t.Fatalf("config version after UpdateConfig = %d, want 2", got.ConfigVersion)
+	}
 
 	if err := connectionStorage.SetStatus(ctx, "alice-home", "filesystem", "local", "disabled"); err != nil {
 		t.Fatalf("SetStatus() error = %v", err)
@@ -348,6 +360,48 @@ func TestConnectionStorage_CreateGetListUpdateDelete(t *testing.T) {
 	_, err = connectionStorage.Get(ctx, "alice-home", "filesystem", "local")
 	if !errors.Is(err, ErrConnectionNotFound) {
 		t.Fatalf("Get(deleted) error = %v, want %v", err, ErrConnectionNotFound)
+	}
+}
+
+func TestConnectionStorage_CreateRejectsDuplicateConnectionKeyInScope(t *testing.T) {
+	ctx := context.Background()
+	db := newStorageTestDB(t)
+	scopeStorage, err := NewScopeManager(db)
+	if err != nil {
+		t.Fatalf("NewScopeManager() error = %v", err)
+	}
+	connectionStorage := newConnectionStorageForTest(t, db)
+
+	if err := scopeStorage.Create(ctx, common.SubjectKey("user:42"), "alice-home"); err != nil {
+		t.Fatalf("Create(scope) error = %v", err)
+	}
+	if err := scopeStorage.Create(ctx, common.SubjectKey("user:42"), "alice-work"); err != nil {
+		t.Fatalf("Create(second scope) error = %v", err)
+	}
+
+	if err := connectionStorage.Create(ctx, vfs.ProviderConnection{
+		ScopeKey:      "alice-home",
+		ProviderKey:   "filesystem",
+		ConnectionKey: "default",
+	}); err != nil {
+		t.Fatalf("Create(first connection) error = %v", err)
+	}
+
+	err = connectionStorage.Create(ctx, vfs.ProviderConnection{
+		ScopeKey:      "alice-home",
+		ProviderKey:   "memory",
+		ConnectionKey: "default",
+	})
+	if !errors.Is(err, ErrConnectionNotCreated) {
+		t.Fatalf("Create(duplicate connection key in scope) error = %v, want %v", err, ErrConnectionNotCreated)
+	}
+
+	if err := connectionStorage.Create(ctx, vfs.ProviderConnection{
+		ScopeKey:      "alice-work",
+		ProviderKey:   "memory",
+		ConnectionKey: "default",
+	}); err != nil {
+		t.Fatalf("Create(same connection key in different scope) error = %v", err)
 	}
 }
 

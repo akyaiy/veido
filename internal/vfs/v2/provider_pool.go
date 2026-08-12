@@ -38,7 +38,12 @@ func (r *SimpleProviderRegistry) Factory(providerKey string) (ProviderFactory, b
 type CachedProviderPool struct {
 	registry ProviderRegistry
 	mu       sync.Mutex
-	cache    map[string]FSProvider
+	cache    map[string]cachedProvider
+}
+
+type cachedProvider struct {
+	configVersion int64
+	provider      FSProvider
 }
 
 func NewProviderPool(registry ProviderRegistry) (ProviderPool, error) {
@@ -48,7 +53,7 @@ func NewProviderPool(registry ProviderRegistry) (ProviderPool, error) {
 
 	return &CachedProviderPool{
 		registry: registry,
-		cache:    make(map[string]FSProvider),
+		cache:    make(map[string]cachedProvider),
 	}, nil
 }
 
@@ -67,8 +72,13 @@ func (p *CachedProviderPool) Get(ctx context.Context, connection ProviderConnect
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	if provider, ok := p.cache[cacheKey]; ok {
-		return provider, nil
+	if item, ok := p.cache[cacheKey]; ok {
+		if item.configVersion == connection.ConfigVersion {
+			return item.provider, nil
+		}
+
+		delete(p.cache, cacheKey)
+		closeProvider(item.provider)
 	}
 
 	factory, ok := p.registry.Factory(connection.ProviderKey)
@@ -81,7 +91,10 @@ func (p *CachedProviderPool) Get(ctx context.Context, connection ProviderConnect
 		return nil, err
 	}
 
-	p.cache[cacheKey] = provider
+	p.cache[cacheKey] = cachedProvider{
+		configVersion: connection.ConfigVersion,
+		provider:      provider,
+	}
 	return provider, nil
 }
 
@@ -94,12 +107,16 @@ func (p *CachedProviderPool) Invalidate(connection ProviderConnection) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	provider, ok := p.cache[cacheKey]
+	item, ok := p.cache[cacheKey]
 	if !ok {
 		return
 	}
 
 	delete(p.cache, cacheKey)
+	closeProvider(item.provider)
+}
+
+func closeProvider(provider FSProvider) {
 	if closer, ok := provider.(io.Closer); ok {
 		_ = closer.Close()
 	}

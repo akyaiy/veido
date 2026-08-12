@@ -153,6 +153,53 @@ func TestCachedProviderPoolInvalidate(t *testing.T) {
 	}
 }
 
+func TestCachedProviderPoolRebuildsWhenConfigVersionChanges(t *testing.T) {
+	registry := NewProviderRegistry()
+	created := 0
+	var invalidated *testProvider
+	registry.Register("debug", func(ctx context.Context, connection ProviderConnection) (FSProvider, error) {
+		created++
+		provider := &testProvider{}
+		if created == 1 {
+			invalidated = provider
+		}
+		return provider, nil
+	})
+
+	pool, err := NewProviderPool(registry)
+	if err != nil {
+		t.Fatalf("NewProviderPool() error = %v", err)
+	}
+
+	connection := ProviderConnection{
+		ScopeKey:      "debug",
+		ProviderKey:   "debug",
+		ConnectionKey: "default",
+		ConfigVersion: 1,
+	}
+
+	first, err := pool.Get(context.Background(), connection)
+	if err != nil {
+		t.Fatalf("first Get() error = %v", err)
+	}
+
+	connection.ConfigVersion = 2
+	second, err := pool.Get(context.Background(), connection)
+	if err != nil {
+		t.Fatalf("second Get() error = %v", err)
+	}
+
+	if first == second {
+		t.Fatal("pool returned stale provider after config version change")
+	}
+	if !invalidated.closed {
+		t.Fatal("stale provider was not closed after config version change")
+	}
+	if created != 2 {
+		t.Fatalf("factory calls = %d, want 2", created)
+	}
+}
+
 func TestCachedProviderPoolUnknownProvider(t *testing.T) {
 	pool, err := NewProviderPool(NewProviderRegistry())
 	if err != nil {

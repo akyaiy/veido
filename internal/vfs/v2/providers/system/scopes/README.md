@@ -53,15 +53,25 @@ Provider connections live under a scope's `connections` directory:
 /scopes/<scope-key>/connections/<provider-key>@<connection-key>/
 ```
 
-Creating that directory creates a connection with empty `{}` config,
-`status: "active"`, and `ready: false`. The connection is visible, but the VFS
-resolver will not use it until `ready` is set to `true`.
+Creating a directory named `<provider-key>@<display-name>` creates a connection
+with a stable generated connection key, the given display name, empty `{}`
+config, `status: "active"`, and `ready: false`. The connection is visible, but
+the VFS resolver will not use it until `ready` is set to `true`.
 
 Each connection directory exposes:
 
 - `info.json` as a read-only snapshot;
+- `profile.json` as the writable human-facing profile;
 - `config.json` as the writable provider config;
 - `status.json` as the writable status/ready file.
+
+Saving `profile.json` accepts:
+
+```json
+{
+  "display_name": "Work files"
+}
+```
 
 Saving `config.json` requires valid JSON. Saving `status.json` accepts fields
 such as:
