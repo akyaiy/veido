@@ -155,12 +155,6 @@ func InitDB(path string) *sql.DB {
 	if err != nil {
 		log.Fatal(err)
 	}
-	_, _ = db.Exec("ALTER TABLE vfs_provider_connections ADD COLUMN ready INTEGER NOT NULL DEFAULT 1")
-	_, _ = db.Exec("ALTER TABLE vfs_provider_connections ADD COLUMN display_name TEXT NOT NULL DEFAULT ''")
-	_, _ = db.Exec("ALTER TABLE vfs_provider_connections ADD COLUMN config_version INTEGER NOT NULL DEFAULT 1")
-	_, _ = db.Exec("ALTER TABLE vfs_provider_connections ADD COLUMN id INTEGER")
-	_, _ = db.Exec("UPDATE vfs_provider_connections SET id = rowid WHERE id IS NULL OR id = 0")
-	_, _ = db.Exec("UPDATE vfs_provider_connections SET display_name = connection_key WHERE display_name = ''")
 	if _, err := db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_vfs_provider_connections_id ON vfs_provider_connections(id)"); err != nil {
 		log.Fatal(err)
 	}
