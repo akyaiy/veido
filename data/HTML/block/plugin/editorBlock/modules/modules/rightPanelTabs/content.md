@@ -10,14 +10,12 @@
 
 <!-- Вкладки свойств -->
 <div class="subTabsHeader" data-tab-head="propertiesElement" style="display: none;">
-    <div class="subTabBtn active" data-tab-btn="propertiesMain">Основные</div>
-    <div class="subTabBtn" data-tab-btn="propertiesStyles">Стили</div>
-    <div class="subTabBtn" data-tab-btn="propertiesSpecial">Специальные</div>
+    <div class="subTabBtn active" data-tab-btn="propertiesElement">Свойства</div>
+    <div class="subTabBtn" data-tab-btn="eventsEditor">События</div>
 </div>
 
 <!-- Вкладки кода -->
 <div class="subTabsHeader" data-tab-head="code" style="display: none;">
     <div class="subTabBtn active" data-tab-btn="attributesElement">Атрибуты</div>
     <div class="subTabBtn" data-tab-btn="cssEditor">Css</div>
-    <div class="subTabBtn" data-tab-btn="eventsEditor">Js</div>
 </div>

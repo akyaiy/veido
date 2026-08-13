@@ -33,7 +33,7 @@ function showActiveSubTabContent(targetTab) {
     }
 
     const targetId = activeButton.getAttribute('data-tab-btn') || activeButton.getAttribute('data-tab-tab') || '';
-    const propertyContent = document.querySelector(`.propertiesTabContent[data-tab="${targetId}"]`);
+    const propertyContent = document.getElementById(targetId);
 
     document.querySelectorAll('.propertiesTabContent').forEach(c => {
         c.style.display = 'none';
@@ -73,13 +73,15 @@ function handleRightPanelTabClick(event) {
     });
     
     // Открытие выбранных панелей
-    tabPanels.forEach(panelId => {
-        const panel = document.getElementById(panelId);
-        
-        if (panel) {
-            panel.style.display = '';
-        }
-    });
+    if (targetTab !== 'propertiesElement' && targetTab !== 'code') {
+        tabPanels.forEach(panelId => {
+            const panel = document.getElementById(panelId);
+
+            if (panel) {
+                panel.style.display = '';
+            }
+        });
+    }
 
     // Управление видимостью заголовков подвкладок (data-tab-head)
     document.querySelectorAll('[data-tab-head]').forEach(tabHead => {

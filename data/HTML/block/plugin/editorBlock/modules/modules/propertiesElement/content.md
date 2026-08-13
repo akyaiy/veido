@@ -1,6 +1,6 @@
 <!-- Свойства -->
 
-<div class="propertiesTabContent" data-tab="propertiesMain">
+<div class="propertiesTab">
 
 <div data-target="all">ID: <input type="text" data-prop="id"></div>
 
@@ -27,12 +27,6 @@
 <div data-target="grid-item">Размер по строкам: <input data-prop="gridRow"></div>
 
 <div data-target="div main section article">Подключение блока: <input type="text" data-prop="data-block-src"></div>
-
-</div>
-
-
-
-<div class="propertiesTabContent" data-tab="propertiesStyles" style="display: none;">
 
 <div data-target="all">Внешние отступы: <div class="marginGrid">
     <div class="col left"><input data-prop="marginLeft" placeholder="Слева"></div>
@@ -61,7 +55,6 @@
 </div>
 <div data-target="all">Радиус скругления: <input data-prop="borderRadius"></div>
 
-
 <!-- <div data-target="text link input textarea select button code">Размер шрифта: <input data-prop="fontSize"></div>
 <div data-target="text link input textarea select button code">Цвет текста: <input type="color" data-prop="color"></div>
 <div data-target="text link input textarea select button code">Выравнивание текста: <select data-prop="textAlign">
@@ -83,11 +76,6 @@
 </select>
 
 </div>
-</div>
-
-
-
-<div class="propertiesTabContent" data-tab="propertiesSpecial" style="display: none;">
 
 <div data-target="input">Подсказка: <input type="text" data-prop="inputPlaceholder"></div>
 <div data-target="input">Тип: <select data-prop="inputType">
