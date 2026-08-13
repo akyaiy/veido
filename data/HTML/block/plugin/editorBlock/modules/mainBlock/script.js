@@ -141,11 +141,15 @@ function initBlockSettings(blockId) {
     }
 
     if (!settingsDiv.dataset.viewEditorWidth) {
-        settingsDiv.dataset.viewEditorWidth = '100%';
+        settingsDiv.dataset.viewEditorWidth = '97%';
+        viewEditorContent.style.width = settingsDiv.dataset.viewEditorWidth;
+        settingsDiv.dataset.viewEditorWidth = viewEditorContent.offsetWidth + 'px';
     }
 
     if (!settingsDiv.dataset.viewEditorHeight) {
-        settingsDiv.dataset.viewEditorHeight = '100%';
+        settingsDiv.dataset.viewEditorHeight = '97%';
+        viewEditorContent.style.height = settingsDiv.dataset.viewEditorHeight;
+        settingsDiv.dataset.viewEditorHeight = viewEditorContent.offsetHeight + 'px';
     }
 
     // Поддержка новых свойств для тела iframe: padding, max-width и margin
@@ -169,7 +173,7 @@ function initBlockSettings(blockId) {
     }
 
     // Включаем прокрутку для контейнера viewEditorContent
-    viewEditorContent.style.overflow = 'auto';
+    // viewEditorContent.style.overflow = 'auto';
 
     viewEditorContent.style.width = settingsDiv.dataset.viewEditorWidth;
     viewEditorContent.style.height = settingsDiv.dataset.viewEditorHeight;
@@ -260,7 +264,17 @@ function closeBlockTab(blockId) {
         const mdEditorContent = document.getElementById('mdEditorContent');
         const jsEditorContent = document.getElementById('jsEditorContent');
         if (viewEditorContent) {
-            viewEditorContent.innerHTML = '';
+            // Сохраняем ручку изменения размера перед очисткой содержимого
+            (function preserveResizeHandleClear(container) {
+                const handle = container.querySelector('#viewEditorResizeHandle');
+                if (handle) {
+                    handle.remove();
+                }
+                container.innerHTML = '';
+                if (handle) {
+                    container.appendChild(handle);
+                }
+            })(viewEditorContent);
             showViewEditorEmptyState();
         }
         if (mdEditorContent) mdEditorContent.textContent = '';
@@ -321,15 +335,25 @@ function openLoadedBlock(blockId) {
         try {
             const settingsEl = document.getElementById(blockId + 'Settings');
             if (settingsEl) {
-                const w = settingsEl.dataset.viewEditorWidth || '100%';
-                const h = settingsEl.dataset.viewEditorHeight || '100%';
+                const w = settingsEl.dataset.viewEditorWidth || '';
+                const h = settingsEl.dataset.viewEditorHeight || '';
                 if (w) viewEditorContent.style.width = String(w);
                 if (h) viewEditorContent.style.height = String(h);
             }
         } catch (e) {
             // silent
         }
-        viewEditorContent.innerHTML = '';
+        // Сохраняем ручку изменения размера, очищаем содержимое и возвращаем её (чтобы не терять элемент)
+        (function preserveResizeHandleClear(container) {
+            const handle = container.querySelector('#viewEditorResizeHandle');
+            if (handle) {
+                handle.remove();
+            }
+            container.innerHTML = '';
+            if (handle) {
+                container.appendChild(handle);
+            }
+        })(viewEditorContent);
         showViewEditorEmptyState();
 
         const iframe = document.createElement('iframe');
@@ -339,14 +363,36 @@ function openLoadedBlock(blockId) {
         const md = window.markdownit({ html: true, linkify: true, typographer: true });
         const normalizedHtml = normalizeViewEditorHtml(htmlContent);
         const renderedHtml = md.render(normalizedHtml);
-        iframe.srcdoc = `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<style>${safeCss}</style>
-</head>
-<body contenteditable="true" spellcheck="false">${renderedHtml}</body>
+
+        iframe.srcdoc = `<!DOCTYPE html> 
+<html style="background-color: #ffffff; display: flex; justify-content: center; align-items: center; min-height: 100vh; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);">
+<head><meta charset="utf-8"><style> ${safeCss} </style></head>
+<body contenteditable="true" spellcheck="false"> ${renderedHtml} </body>
 </html>`;
+
+        iframe.addEventListener('load', () => {
+            const viewEditorContentEl = document.getElementById('viewEditorContent');
+            const viewEditorResizeHandle = document.getElementById('viewEditorResizeHandle');
+            const iframeDoc = iframe.contentDocument;
+            const zoomSizes = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4, 5];
+
+            iframeDoc.addEventListener('wheel', (event) => {
+                if (event.ctrlKey) {
+                    event.preventDefault();
+
+                    const currentScale = parseFloat(viewEditorContentEl.style.zoom) || 1;
+                    const currentIndex = zoomSizes.findIndex(size => size >= currentScale);
+                    const nextIndex = event.deltaY < 0
+                        ? Math.min((currentIndex === -1 ? zoomSizes.length - 1 : currentIndex + 1), zoomSizes.length - 1)
+                        : Math.max((currentIndex === -1 ? 0 : currentIndex - 1), 0);
+
+                    const nextScale = zoomSizes[nextIndex];
+
+                    viewEditorContentEl.style.zoom = nextScale;
+                    viewEditorResizeHandle.style.zoom = 1 / nextScale;
+                }
+            }, { passive: false });
+        });
 
         iframe.addEventListener('load', () => {
             const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
@@ -513,6 +559,10 @@ function openLoadedBlock(blockId) {
             }
         });
         viewEditorContent.appendChild(iframe);
+        // После добавления iframe — инициализируем механизм резайза (если он присутствует)
+        if (window.editorBlock && typeof window.editorBlock.initPreviewResize === 'function') {
+            try { window.editorBlock.initPreviewResize(); } catch (e) { /* silent */ }
+        }
     }
 
     if (mdEditorContent) {
@@ -772,7 +822,13 @@ function syncEditors() {
         if (iframeBody) {
             iframeBody.innerHTML = mdEditorContent.textContent;
         } else if (viewEditorContent) {
-            viewEditorContent.innerHTML = mdEditorContent.textContent;
+            // Сохраняем ручку изменения размера перед перезаписью содержимого
+            (function preserveResizeHandleSet(container, html) {
+                const handle = container.querySelector('#viewEditorResizeHandle');
+                if (handle) handle.remove();
+                container.innerHTML = html || '';
+                if (handle) container.appendChild(handle);
+            })(viewEditorContent, mdEditorContent.textContent);
         }
     }
 }

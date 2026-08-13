@@ -2,8 +2,8 @@
 #viewEditorContent {
     display: block;
     box-sizing: border-box;
-    width: 100%;
     overflow: visible;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
 #viewEditorIframe {
