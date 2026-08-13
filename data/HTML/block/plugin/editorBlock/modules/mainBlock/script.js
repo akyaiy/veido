@@ -157,7 +157,7 @@ function initBlockSettings(blockId) {
         settingsDiv.dataset.viewEditorPadding = '20px';
     }
     if (!settingsDiv.dataset.viewEditorMaxWidth) {
-        settingsDiv.dataset.viewEditorMaxWidth = '90vw';
+        settingsDiv.dataset.viewEditorMaxWidth = 'none';
     }
     if (!settingsDiv.dataset.viewEditorMargin) {
         settingsDiv.dataset.viewEditorMargin = '0 auto';
@@ -343,13 +343,23 @@ function openLoadedBlock(blockId) {
         } catch (e) {
             // silent
         }
-        // Сохраняем ручку изменения размера, очищаем содержимое и возвращаем её (чтобы не терять элемент)
-        (function preserveResizeHandleClear(container) {
+        // Сохраняем статические элементы управления визуального редактора, очищаем содержимое и возвращаем их обратно
+        (function preserveEditorControls(container) {
+            const menu = container.querySelector('#viewEditorMenu');
             const handle = container.querySelector('#viewEditorResizeHandle');
+
+            if (menu) {
+                menu.remove();
+            }
             if (handle) {
                 handle.remove();
             }
+
             container.innerHTML = '';
+
+            if (menu) {
+                container.appendChild(menu);
+            }
             if (handle) {
                 container.appendChild(handle);
             }
@@ -374,9 +384,9 @@ function openLoadedBlock(blockId) {
             const viewEditorContentEl = document.getElementById('viewEditorContent');
             const viewEditorResizeHandle = document.getElementById('viewEditorResizeHandle');
             const iframeDoc = iframe.contentDocument;
-            const zoomSizes = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4, 5];
+            const zoomSizes = [0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4, 5, 10];
 
-            iframeDoc.addEventListener('wheel', (event) => {
+            const handleZoom = (event) => {
                 if (event.ctrlKey) {
                     event.preventDefault();
 
@@ -391,7 +401,10 @@ function openLoadedBlock(blockId) {
                     viewEditorContentEl.style.zoom = nextScale;
                     viewEditorResizeHandle.style.zoom = 1 / nextScale;
                 }
-            }, { passive: false });
+            };
+
+            iframeDoc.addEventListener('wheel', handleZoom, { passive: false });
+            document.getElementById('viewEditor').addEventListener('wheel', handleZoom, { passive: false });
         });
 
         iframe.addEventListener('load', () => {

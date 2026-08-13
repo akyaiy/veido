@@ -173,8 +173,91 @@ if (previewButton) {
 }
 
 /* ***
- * initPreviewResize - изменение размера с учетом CSS scale и центрирования
- *** */
+ * initViewEditorMenu - инициализация меню выбора размера viewEditor
+ * получает меню выбора размера и контейнер viewEditorContent
+ * проверяет наличие элементов и повторную инициализацию
+ * применяет выбранные ширину и высоту
+ * сохраняет размеры в настройках текущего блока
+ * обрабатывает изменение выбранного размера
+*** */
+function initViewEditorMenu() {
+    const menuSelect = document.getElementById('viewEditorMenuSelect');
+    const viewEditorContent = document.getElementById('viewEditorContent');
+
+    if (!menuSelect || !viewEditorContent || menuSelect.dataset.bound === 'true') {
+        return;
+    }
+
+    const applySize = (width, height) => {
+        if (typeof width !== 'undefined') {
+            viewEditorContent.style.width = width;
+        }
+
+        if (typeof height !== 'undefined') {
+            viewEditorContent.style.height = height;
+        }
+
+        const blockId = window.editorBlock?.currentBlockId || null;
+        const settingsEl = blockId ? document.getElementById(blockId + 'Settings') : null;
+
+        if (settingsEl) {
+            if (typeof width !== 'undefined') {
+                settingsEl.dataset.viewEditorWidth = width;
+            }
+
+            if (typeof height !== 'undefined') {
+                settingsEl.dataset.viewEditorHeight = height;
+            }
+        }
+    };
+
+    const parseDimension = (value) => {
+        if (!value || value === 'auto') {
+            return 'auto';
+        }
+
+        const normalized = String(value).trim();
+
+        if (!normalized) {
+            return 'auto';
+        }
+
+        if (normalized.includes('%')) {
+            return normalized;
+        }
+
+        const numeric = Number.parseFloat(normalized);
+        return Number.isFinite(numeric) ? `${numeric}px` : normalized;
+    };
+
+    menuSelect.addEventListener('change', () => {
+        const value = menuSelect.value;
+
+        if (!value || value === 'custom') {
+            return;
+        }
+
+        const [rawWidth, rawHeight] = value.split('x');
+        const width = parseDimension(rawWidth);
+        const height = parseDimension(rawHeight);
+
+        applySize(width, height);
+    });
+
+    menuSelect.dataset.bound = 'true';
+}
+
+
+/* ***
+ * initPreviewResize - инициализация изменения размера viewEditor
+ * получает контейнер viewEditorContent и элемент изменения размера
+ * проверяет наличие элементов и повторную инициализацию
+ * изменяет размер контейнера мышью
+ * учитывает текущий масштаб элемента
+ * ограничивает минимальный и максимальный размер
+ * синхронизирует размер iframe
+ * сохраняет размер текущего блока
+*** */
 function initPreviewResize() {
     const viewEditorContent = document.getElementById('viewEditorContent');
     const resizeHandle = document.getElementById('viewEditorResizeHandle');
@@ -193,48 +276,69 @@ function initPreviewResize() {
     let lastWidth = 0;
     let lastHeight = 0;
 
-    // Вспомогательная функция для получения текущего scale элемента
+    /* ***
+     * getCurrentScale - получение текущего масштаба элемента
+     * принимает DOM-элемент
+     * получает масштаб из CSS transform или zoom
+     * возвращает текущий масштаб
+    *** */
     const getCurrentScale = (el) => {
         const transform = window.getComputedStyle(el).transform;
+
         if (transform && transform !== 'none') {
             const matrix = transform.match(/matrix\((.+)\)/);
+
             if (matrix) {
                 const values = matrix[1].split(', ');
-                return parseFloat(values[0]); // значение scaleX
+                return parseFloat(values[0]);
             }
         }
-        // Если используется старый zoom
+
         const zoom = parseFloat(window.getComputedStyle(el).zoom);
+
         if (!isNaN(zoom) && zoom !== 1) {
             return zoom;
         }
+
         return 1;
     };
 
+    /* ***
+     * onMouseMove - изменение размера viewEditorContent
+     * принимает событие движения мыши
+     * проверяет активность изменения размера
+     * рассчитывает новую ширину и высоту с учетом масштаба
+     * ограничивает размеры границами родительского элемента
+     * изменяет размеры viewEditorContent
+     * синхронизирует размеры iframe
+    *** */
     const onMouseMove = (event) => {
-        if (!isResizing) return;
+        if (!isResizing) {
+            return;
+        }
 
-        // Получаем актуальный масштаб контейнера, чтобы скорректировать дельту мыши
         const scale = getCurrentScale(viewEditorContent);
-
-        // Делим смещение мыши на scale, чтобы движение было точным при любом зуме
         const deltaX = (event.clientX - startX) / scale * 2;
         const deltaY = (event.clientY - startY) / scale * 2;
 
         let nextWidth = Math.max(minSize, Math.round(startWidth + deltaX));
         let nextHeight = Math.max(minSize, Math.round(startHeight + deltaY));
 
-        // Не позволяем выходить за пределы родителя (учитываем текущий scale)
         try {
             const scale = getCurrentScale(viewEditorContent) || 1;
             const parentEl = viewEditorContent.parentElement || document.documentElement;
             const parentRect = parentEl.getBoundingClientRect();
             const maxAllowedW = Math.max(minSize, Math.floor(parentRect.width / scale));
             const maxAllowedH = Math.max(minSize, Math.floor(parentRect.height / scale));
-            if (nextWidth > maxAllowedW) nextWidth = maxAllowedW;
-            if (nextHeight > maxAllowedH) nextHeight = maxAllowedH;
+
+            if (nextWidth > maxAllowedW) {
+                nextWidth = maxAllowedW;
+            }
+
+            if (nextHeight > maxAllowedH) {
+                nextHeight = maxAllowedH;
+            }
         } catch (e) {
-            // silent
         }
 
         lastWidth = nextWidth;
@@ -243,14 +347,16 @@ function initPreviewResize() {
         viewEditorContent.style.width = nextWidth + 'px';
         viewEditorContent.style.height = nextHeight + 'px';
 
-        // Синхронизация с iframe: iframe растягиваем на 100% контейнера, размеры контента задаются в body
         const iframeEl = getPreviewEditorIframe();
+
         if (iframeEl) {
             try {
                 iframeEl.style.pointerEvents = 'none';
                 iframeEl.style.width = '100%';
                 iframeEl.style.height = '100%';
+
                 const iframeDoc = iframeEl.contentDocument || iframeEl.contentWindow?.document;
+
                 if (iframeDoc && iframeDoc.body) {
                     iframeDoc.body.style.boxSizing = 'border-box';
                     iframeDoc.body.style.margin = '0';
@@ -260,11 +366,17 @@ function initPreviewResize() {
                     iframeDoc.body.style.minHeight = '0';
                 }
             } catch (e) {
-                // silent
             }
         }
     };
 
+    /* ***
+     * onMouseUp - завершение изменения размера
+     * завершает изменение размера
+     * удаляет обработчики мыши
+     * восстанавливает взаимодействие с iframe
+     * сохраняет последний размер в настройках блока
+    *** */
     const onMouseUp = () => {
         isResizing = false;
         document.body.style.userSelect = '';
@@ -272,21 +384,34 @@ function initPreviewResize() {
         document.removeEventListener('mouseup', onMouseUp);
 
         const iframeEl = getPreviewEditorIframe();
+
         if (iframeEl) {
-            try { iframeEl.style.pointerEvents = 'auto'; } catch (e) { /* silent */ }
+            try {
+                iframeEl.style.pointerEvents = 'auto';
+            } catch (e) {
+            }
         }
+
         try {
             const currentBlockId = window.editorBlock?.currentBlockId || null;
             const settingsEl = currentBlockId ? document.getElementById(currentBlockId + 'Settings') : null;
+
             if (settingsEl && lastWidth && lastHeight) {
                 settingsEl.dataset.viewEditorWidth = lastWidth + 'px';
                 settingsEl.dataset.viewEditorHeight = lastHeight + 'px';
             }
         } catch (e) {
-            // silent
         }
     };
 
+    /* ***
+     * resizeHandle mousedown - запуск изменения размера
+     * принимает событие нажатия мыши
+     * получает текущий размер и масштаб контейнера
+     * сохраняет начальную позицию мыши
+     * сохраняет начальные размеры контейнера
+     * запускает обработчики изменения размера
+    *** */
     resizeHandle.addEventListener('mousedown', (event) => {
         const rect = viewEditorContent.getBoundingClientRect();
         const scale = getCurrentScale(viewEditorContent);
@@ -294,11 +419,8 @@ function initPreviewResize() {
         isResizing = true;
         startX = event.clientX;
         startY = event.clientY;
-        
-        // Корректируем начальный размер с учетом getBoundingClientRect (он возвращает уже масштабированные пиксели)
         startWidth = rect.width / scale;
         startHeight = rect.height / scale;
-
         lastWidth = startWidth;
         lastHeight = startHeight;
 
@@ -310,6 +432,7 @@ function initPreviewResize() {
     });
 
     viewEditorContent.dataset.resizeInitialized = 'true';
+
     if (window.editorBlock) {
         window.editorBlock.initPreviewResize = initPreviewResize;
     }
@@ -317,4 +440,5 @@ function initPreviewResize() {
 
 document.addEventListener('editorBlock:loaded', async () => {
     initPreviewResize();
+    initViewEditorMenu();
 });
