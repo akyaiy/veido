@@ -17,6 +17,71 @@ type testRootCreator struct {
 	next int64
 }
 
+func newTestAccountProvider(t *testing.T) (*AccountProvider, context.Context) {
+	t.Helper()
+
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatalf("sql.Open() error = %v", err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Fatalf("db.Close() error = %v", err)
+		}
+	})
+
+	const schema = `
+		CREATE TABLE artifacts (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			hash TEXT NOT NULL UNIQUE,
+			size INTEGER NOT NULL DEFAULT 0,
+			relations_count INTEGER DEFAULT 0
+		);
+		CREATE TABLE metadata (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			parent_id INTEGER REFERENCES metadata(id) ON DELETE CASCADE,
+			name TEXT NOT NULL,
+			is_dir BOOLEAN NOT NULL DEFAULT 0,
+			owner TEXT NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			artefact_id INTEGER,
+			FOREIGN KEY (artefact_id) REFERENCES artifacts(id) ON DELETE SET NULL
+		);
+		CREATE UNIQUE INDEX idx_metadata_parent_name ON metadata(parent_id, name) WHERE parent_id IS NOT NULL;
+	`
+	if _, err := db.Exec(schema); err != nil {
+		t.Fatalf("db.Exec(schema) error = %v", err)
+	}
+
+	result, err := db.Exec(`INSERT INTO metadata (parent_id, name, is_dir, owner) VALUES (NULL, 'local:test', 1, 'user:42')`)
+	if err != nil {
+		t.Fatalf("insert root metadata error = %v", err)
+	}
+	rootID, err := result.LastInsertId()
+	if err != nil {
+		t.Fatalf("LastInsertId(root) error = %v", err)
+	}
+
+	account := &Account{
+		SubjectKey: "local:test",
+		RootNodeID: rootID,
+		OwnerActor: "user:42",
+		Status:     "active",
+	}
+	provider := NewAccountProvider(
+		vfs.ProviderConnection{ID: 7, ScopeKey: "home", ProviderKey: ProviderKey, ConnectionKey: "local"},
+		nil,
+		account,
+		db,
+		NewLocalStorageDriver(t.TempDir()),
+	)
+	ctx := vfs.ContextWithRequestContext(context.Background(), vfs.RequestContext{
+		ActorKey: vfs.Actor{Kind: vfs.ActorUser, ID: "42"},
+	})
+	return provider, ctx
+}
+
 func (c *testRootCreator) CreateRootNode(ctx context.Context, tx *sql.Tx, ownerActor string, subjectKey string) (int64, error) {
 	c.next++
 	return c.next, nil
@@ -159,5 +224,132 @@ func TestBootstrapProviderCreateRequestCreatesAccountOnSave(t *testing.T) {
 	_, err = provider.Stat(ctx, "/%account%/create_request.json")
 	if !os.IsNotExist(err) {
 		t.Fatalf("Stat(consumed create_request.json) error = %v, want os.ErrNotExist", err)
+	}
+}
+
+func TestAccountProviderFileSystemCreateReadMoveDelete(t *testing.T) {
+	provider, ctx := newTestAccountProvider(t)
+
+	if _, err := provider.Mkdir(ctx, "/", "docs"); err != nil {
+		t.Fatalf("Mkdir(/, docs) error = %v", err)
+	}
+
+	writer, err := provider.OpenFile(ctx, "/docs/hello.txt", os.O_CREATE|os.O_WRONLY|os.O_TRUNC)
+	if err != nil {
+		t.Fatalf("OpenFile(write hello.txt) error = %v", err)
+	}
+	if _, err := writer.Write([]byte("hello local")); err != nil {
+		t.Fatalf("Write(hello.txt) error = %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("Close(write hello.txt) error = %v", err)
+	}
+
+	nodes, err := provider.ReadDir(ctx, "/docs")
+	if err != nil {
+		t.Fatalf("ReadDir(/docs) error = %v", err)
+	}
+	if len(nodes) != 1 || nodes[0].Name != "hello.txt" || nodes[0].Size != int64(len("hello local")) {
+		t.Fatalf("ReadDir(/docs) = %+v, want hello.txt", nodes)
+	}
+
+	reader, err := provider.OpenFile(ctx, "/docs/hello.txt", os.O_RDONLY)
+	if err != nil {
+		t.Fatalf("OpenFile(read hello.txt) error = %v", err)
+	}
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatalf("ReadAll(hello.txt) error = %v", err)
+	}
+	if err := reader.Close(); err != nil {
+		t.Fatalf("Close(read hello.txt) error = %v", err)
+	}
+	if string(data) != "hello local" {
+		t.Fatalf("file content = %q, want hello local", data)
+	}
+
+	if err := provider.Move(ctx, "/docs/hello.txt", "/", "moved.txt"); err != nil {
+		t.Fatalf("Move(hello.txt) error = %v", err)
+	}
+	if _, err := provider.Stat(ctx, "/moved.txt"); err != nil {
+		t.Fatalf("Stat(/moved.txt) error = %v", err)
+	}
+	if err := provider.Delete(ctx, "/moved.txt"); err != nil {
+		t.Fatalf("Delete(/moved.txt) error = %v", err)
+	}
+	if _, err := provider.Stat(ctx, "/moved.txt"); !os.IsNotExist(err) {
+		t.Fatalf("Stat(deleted moved.txt) error = %v, want os.ErrNotExist", err)
+	}
+}
+
+func TestAccountProviderAccountDirHiddenButAddressable(t *testing.T) {
+	provider, ctx := newTestAccountProvider(t)
+
+	nodes, err := provider.ReadDir(ctx, "/")
+	if err != nil {
+		t.Fatalf("ReadDir(/) error = %v", err)
+	}
+	for _, node := range nodes {
+		if node.Name == accountDir {
+			t.Fatalf("ReadDir(/) includes hidden %s: %+v", accountDir, nodes)
+		}
+	}
+
+	if _, err := provider.Stat(ctx, "/"+accountDir); err != nil {
+		t.Fatalf("Stat(%s) error = %v", accountDir, err)
+	}
+	file, err := provider.OpenFile(ctx, "/"+accountDir+"/info.json", os.O_RDONLY)
+	if err != nil {
+		t.Fatalf("OpenFile(%s/info.json) error = %v", accountDir, err)
+	}
+	data, err := io.ReadAll(file)
+	if err != nil {
+		t.Fatalf("ReadAll(info.json) error = %v", err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatalf("Close(info.json) error = %v", err)
+	}
+	if !strings.Contains(string(data), `"connection_id": 7`) {
+		t.Fatalf("info.json = %s, want connection_id 7", data)
+	}
+}
+
+func TestAccountProviderStatsJSON(t *testing.T) {
+	provider, ctx := newTestAccountProvider(t)
+
+	if _, err := provider.Mkdir(ctx, "/", "docs"); err != nil {
+		t.Fatalf("Mkdir(/, docs) error = %v", err)
+	}
+	for _, name := range []string{"/docs/a.txt", "/docs/b.txt"} {
+		writer, err := provider.OpenFile(ctx, name, os.O_CREATE|os.O_WRONLY|os.O_TRUNC)
+		if err != nil {
+			t.Fatalf("OpenFile(%s) error = %v", name, err)
+		}
+		if _, err := writer.Write([]byte("same")); err != nil {
+			t.Fatalf("Write(%s) error = %v", name, err)
+		}
+		if err := writer.Close(); err != nil {
+			t.Fatalf("Close(%s) error = %v", name, err)
+		}
+	}
+
+	file, err := provider.OpenFile(ctx, "/"+accountDir+"/stats.json", os.O_RDONLY)
+	if err != nil {
+		t.Fatalf("OpenFile(stats.json) error = %v", err)
+	}
+	data, err := io.ReadAll(file)
+	if err != nil {
+		t.Fatalf("ReadAll(stats.json) error = %v", err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatalf("Close(stats.json) error = %v", err)
+	}
+
+	var stats AccountStats
+	if err := json.Unmarshal(data, &stats); err != nil {
+		t.Fatalf("Unmarshal(stats.json) error = %v; body=%s", err, data)
+	}
+	if stats.Files != 2 || stats.Directories != 2 || stats.LogicalBytes != 8 || stats.PhysicalBytes != 4 {
+		t.Fatalf("stats = %+v, want files=2 directories=2 logical=8 physical=4; body=%s", stats, data)
 	}
 }

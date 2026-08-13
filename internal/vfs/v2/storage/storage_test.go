@@ -405,6 +405,65 @@ func TestConnectionStorage_CreateRejectsDuplicateConnectionKeyInScope(t *testing
 	}
 }
 
+func TestConnectionStorage_CreateBackfillsLegacyIDColumn(t *testing.T) {
+	ctx := context.Background()
+	db := newStorageTestDB(t)
+	scopeStorage, err := NewScopeManager(db)
+	if err != nil {
+		t.Fatalf("NewScopeManager() error = %v", err)
+	}
+	connectionStorage := newConnectionStorageForTest(t, db)
+
+	if _, err := db.Exec(`DROP TABLE vfs_provider_connections`); err != nil {
+		t.Fatalf("DROP TABLE vfs_provider_connections error = %v", err)
+	}
+	if _, err := db.Exec(`
+		CREATE TABLE vfs_provider_connections (
+			scope_key TEXT NOT NULL,
+			provider TEXT NOT NULL,
+			connection_key TEXT NOT NULL,
+			display_name TEXT NOT NULL DEFAULT '',
+			config_json TEXT NOT NULL DEFAULT '{}',
+			config_version INTEGER NOT NULL DEFAULT 1,
+			status TEXT NOT NULL DEFAULT 'active',
+			ready INTEGER NOT NULL DEFAULT 1,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			id INTEGER,
+			UNIQUE(scope_key, connection_key)
+		);
+	`); err != nil {
+		t.Fatalf("create legacy vfs_provider_connections error = %v", err)
+	}
+
+	if err := scopeStorage.Create(ctx, common.SubjectKey("user:42"), "alice-home"); err != nil {
+		t.Fatalf("Create(scope) error = %v", err)
+	}
+	if err := connectionStorage.Create(ctx, vfs.ProviderConnection{
+		ScopeKey:      "alice-home",
+		ProviderKey:   "local",
+		ConnectionKey: "con3",
+	}); err != nil {
+		t.Fatalf("Create(connection) error = %v", err)
+	}
+
+	got, err := connectionStorage.Get(ctx, "alice-home", "local", "con3")
+	if err != nil {
+		t.Fatalf("Get(connection) error = %v", err)
+	}
+	if got.ID == 0 {
+		t.Fatalf("connection ID = 0, want backfilled row id")
+	}
+
+	list, err := connectionStorage.List(ctx, "alice-home", "")
+	if err != nil {
+		t.Fatalf("List(connections) error = %v", err)
+	}
+	if len(list) != 1 || list[0].ID == 0 {
+		t.Fatalf("List(connections) = %+v, want one connection with ID", list)
+	}
+}
+
 func TestConnectionStorage_Errors(t *testing.T) {
 	ctx := context.Background()
 	db := newStorageTestDB(t)

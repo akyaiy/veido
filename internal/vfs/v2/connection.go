@@ -48,7 +48,7 @@ func (cr *ConnectionResolver) ResolveConnection(ctx context.Context,
 	var c ProviderConnection
 	var config string
 	const query = `
-        SELECT id, scope_key, provider, connection_key, display_name, config_json, config_version, status, ready
+        SELECT COALESCE(id, rowid), scope_key, provider, connection_key, display_name, config_json, config_version, status, ready
         FROM vfs_provider_connections
         WHERE scope_key = ?
           AND provider = ?

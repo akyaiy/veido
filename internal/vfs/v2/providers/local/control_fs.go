@@ -12,6 +12,7 @@ import (
 )
 
 type accountInfoReader func(ctx context.Context) (*AccountInfo, error)
+type accountStatsReader func(ctx context.Context) (*AccountStats, error)
 
 func bootstrapControlFS(
 	connection vfs.ProviderConnection,
@@ -114,18 +115,24 @@ func parseCreateRequest(data []byte) (CreateRequest, error) {
 	return payload, nil
 }
 
-func accountControlFS(readInfo accountInfoReader) *virtfs.FS {
+func accountControlFS(readInfo accountInfoReader, readStats accountStatsReader) *virtfs.FS {
 	return virtfs.New().
 		Route("/"+accountDir, virtfs.Handler{
 			Stat: func(ctx context.Context, req virtfs.Request) (*vfs.Node, error) {
 				return virtfs.DirNode(accountDir), nil
 			},
 			ReadDir: func(ctx context.Context, req virtfs.Request) ([]*vfs.Node, error) {
-				return []*vfs.Node{virtfs.FileNode("info.json", 0)}, nil
+				return []*vfs.Node{
+					virtfs.FileNode("info.json", 0),
+					virtfs.FileNode("stats.json", 0),
+				}, nil
 			},
 		}).
 		GeneratedFile("/"+accountDir+"/info.json", func(ctx context.Context, req virtfs.Request) ([]byte, error) {
 			return accountInfoJSON(ctx, readInfo)
+		}).
+		GeneratedFile("/"+accountDir+"/stats.json", func(ctx context.Context, req virtfs.Request) ([]byte, error) {
+			return accountStatsJSON(ctx, readStats)
 		})
 }
 
@@ -135,6 +142,18 @@ func accountInfoJSON(ctx context.Context, readInfo accountInfoReader) ([]byte, e
 		return nil, err
 	}
 	data, err := json.MarshalIndent(info, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	return append(data, '\n'), nil
+}
+
+func accountStatsJSON(ctx context.Context, readStats accountStatsReader) ([]byte, error) {
+	stats, err := readStats(ctx)
+	if err != nil {
+		return nil, err
+	}
+	data, err := json.MarshalIndent(stats, "", "  ")
 	if err != nil {
 		return nil, err
 	}

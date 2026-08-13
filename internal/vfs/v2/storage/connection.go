@@ -88,6 +88,20 @@ func (s *ConnectionStorage) Create(ctx context.Context, connection vfs.ProviderC
 	); err != nil {
 		return WrapError(ErrConnectionNotCreated, err)
 	}
+	if _, err := tx.ExecContext(
+		ctx,
+		`UPDATE vfs_provider_connections
+		 SET id = rowid
+		 WHERE scope_key = ?
+		   AND provider = ?
+		   AND connection_key = ?
+		   AND id IS NULL`,
+		connection.ScopeKey,
+		connection.ProviderKey,
+		connection.ConnectionKey,
+	); err != nil {
+		return WrapError(ErrConnectionNotCreated, err)
+	}
 
 	if err := tx.Commit(); err != nil {
 		return WrapError(ErrConnectionNotCreated, err)
@@ -109,7 +123,7 @@ func (s *ConnectionStorage) Get(ctx context.Context, scopeKey string, providerKe
 
 	const query = `
 		SELECT
-			id,
+			COALESCE(id, rowid),
 			scope_key,
 			provider,
 			connection_key,
@@ -209,7 +223,7 @@ func (s *ConnectionStorage) List(ctx context.Context, scopeKey string, providerK
 	if providerKey == "" {
 		const query = `
 			SELECT
-				id,
+				COALESCE(id, rowid),
 				scope_key,
 				provider,
 				connection_key,
@@ -226,7 +240,7 @@ func (s *ConnectionStorage) List(ctx context.Context, scopeKey string, providerK
 	} else {
 		const query = `
 			SELECT
-				id,
+				COALESCE(id, rowid),
 				scope_key,
 				provider,
 				connection_key,

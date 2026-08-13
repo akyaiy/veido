@@ -16,9 +16,10 @@ const (
 )
 
 type Config struct {
-	Mode       string `json:"mode"`
-	SubjectKey string `json:"subject_key,omitempty"`
-	Secret     string `json:"secret,omitempty"`
+	Mode        string `json:"mode"`
+	SubjectKey  string `json:"subject_key,omitempty"`
+	Secret      string `json:"secret,omitempty"`
+	StoragePath string `json:"storage_path,omitempty"`
 }
 
 func parseConfig(data []byte) (Config, error) {
@@ -34,6 +35,7 @@ func parseConfig(data []byte) (Config, error) {
 	cfg.Mode = strings.TrimSpace(cfg.Mode)
 	cfg.SubjectKey = strings.TrimSpace(cfg.SubjectKey)
 	cfg.Secret = strings.TrimSpace(cfg.Secret)
+	cfg.StoragePath = strings.TrimSpace(cfg.StoragePath)
 	if cfg.Mode == "" {
 		cfg.Mode = ModeBootstrap
 	}

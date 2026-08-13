@@ -122,6 +122,17 @@ type SQLiteAccountStore struct {
 	rootCreator RootNodeCreator
 }
 
+type sqlAccountStore interface {
+	DB() *sql.DB
+}
+
+func (s *SQLiteAccountStore) DB() *sql.DB {
+	if s == nil {
+		return nil
+	}
+	return s.db
+}
+
 func NewSQLiteAccountStore(db *sql.DB, rootCreator RootNodeCreator) (AccountStore, error) {
 	if db == nil {
 		return nil, vfs.ErrInvalidNewInstanceParams

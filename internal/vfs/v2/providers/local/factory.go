@@ -6,6 +6,8 @@ import (
 	"fmt"
 )
 
+const defaultStoragePath = "./data/cas"
+
 func Factory(store AccountStore) vfs.ProviderFactory {
 	return func(ctx context.Context, connection vfs.ProviderConnection) (vfs.FSProvider, error) {
 		if store == nil {
@@ -26,7 +28,15 @@ func Factory(store AccountStore) vfs.ProviderFactory {
 			if err != nil {
 				return nil, err
 			}
-			return NewAccountProvider(connection, store, account), nil
+			sqlStore, ok := store.(sqlAccountStore)
+			if !ok || sqlStore.DB() == nil {
+				return nil, vfs.ErrInvalidNewInstanceParams
+			}
+			storagePath := cfg.StoragePath
+			if storagePath == "" {
+				storagePath = defaultStoragePath
+			}
+			return NewAccountProvider(connection, store, account, sqlStore.DB(), NewLocalStorageDriver(storagePath)), nil
 
 		default:
 			return nil, fmt.Errorf("invalid local mode: %q", cfg.Mode)
