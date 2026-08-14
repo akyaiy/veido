@@ -279,7 +279,7 @@ func (s *nodeStore) move(ctx context.Context, rootID int64, id int64, targetPare
 	return err
 }
 
-func (s *nodeStore) saveFile(ctx context.Context, rootID int64, parentID int64, name string, owner string, data []byte, artifacts *artifactStore) (*metadataNode, error) {
+func (s *nodeStore) saveFileArtifact(ctx context.Context, rootID int64, parentID int64, name string, owner string, artifactID int64) (*metadataNode, error) {
 	if err := validateEntryName(name); err != nil {
 		return nil, err
 	}
@@ -295,11 +295,6 @@ func (s *nodeStore) saveFile(ctx context.Context, rootID int64, parentID int64, 
 			return nil, err
 		}
 		return nil, os.ErrPermission
-	}
-
-	artifactID, hash, size, err := artifacts.put(ctx, data)
-	if err != nil {
-		return nil, err
 	}
 
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -356,8 +351,6 @@ func (s *nodeStore) saveFile(ctx context.Context, rootID int64, parentID int64, 
 	if err != nil {
 		return nil, err
 	}
-	node.Hash = sql.NullString{String: hash, Valid: true}
-	node.Size = size
 	return node, nil
 }
 

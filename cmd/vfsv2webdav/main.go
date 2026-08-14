@@ -284,6 +284,16 @@ func webdavStatusHint(next http.Handler) http.Handler {
 
 func webdavBasicAuth(authService *auth.Auth, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		username, _, basicPresent := r.BasicAuth()
+		webdavLog.Info("webdav auth",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"auth_present", r.Header.Get("Authorization") != "",
+			"basic_present", basicPresent,
+			"basic_username", username,
+			"expect", r.Header.Get("Expect"),
+			"content_length", r.ContentLength,
+		)
 		user, err := authService.AuthenticateBasicRequest(r)
 		if err != nil || user == nil || user.ID == 0 {
 			w.Header().Set("WWW-Authenticate", `Basic realm="WebDAV"`)

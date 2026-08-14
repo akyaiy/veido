@@ -282,6 +282,47 @@ func TestAccountProviderFileSystemCreateReadMoveDelete(t *testing.T) {
 	}
 }
 
+func TestAccountProviderAppendCreatesReadableFile(t *testing.T) {
+	provider, ctx := newTestAccountProvider(t)
+
+	writer, err := provider.OpenFile(ctx, "/append.txt", os.O_CREATE|os.O_WRONLY|os.O_TRUNC)
+	if err != nil {
+		t.Fatalf("OpenFile(create append.txt) error = %v", err)
+	}
+	if _, err := writer.Write([]byte("hello")); err != nil {
+		t.Fatalf("Write(initial append.txt) error = %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("Close(initial append.txt) error = %v", err)
+	}
+
+	appender, err := provider.OpenFile(ctx, "/append.txt", os.O_WRONLY|os.O_APPEND)
+	if err != nil {
+		t.Fatalf("OpenFile(append append.txt) error = %v", err)
+	}
+	if _, err := appender.Write([]byte(" world")); err != nil {
+		t.Fatalf("Write(append append.txt) error = %v", err)
+	}
+	if err := appender.Close(); err != nil {
+		t.Fatalf("Close(append append.txt) error = %v", err)
+	}
+
+	reader, err := provider.OpenFile(ctx, "/append.txt", os.O_RDONLY)
+	if err != nil {
+		t.Fatalf("OpenFile(read append.txt) error = %v", err)
+	}
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatalf("ReadAll(append.txt) error = %v", err)
+	}
+	if err := reader.Close(); err != nil {
+		t.Fatalf("Close(read append.txt) error = %v", err)
+	}
+	if string(data) != "hello world" {
+		t.Fatalf("append.txt = %q, want hello world", data)
+	}
+}
+
 func TestAccountProviderAccountDirHiddenButAddressable(t *testing.T) {
 	provider, ctx := newTestAccountProvider(t)
 

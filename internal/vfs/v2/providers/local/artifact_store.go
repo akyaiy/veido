@@ -1,12 +1,8 @@
 package local
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
-	"io"
 )
 
 type artifactStore struct {
@@ -18,27 +14,70 @@ func newArtifactStore(db *sql.DB, storage StorageDriver) *artifactStore {
 	return &artifactStore{db: db, storage: storage}
 }
 
-func (s *artifactStore) put(ctx context.Context, data []byte) (id int64, hash string, size int64, err error) {
-	sum := sha256.Sum256(data)
-	hash = hex.EncodeToString(sum[:])
-	size = int64(len(data))
+type artifactWriter interface {
+	Write(p []byte) (int, error)
+	Close() error
+	Commit(ctx context.Context) (artifactID int64, hash string, size int64, err error)
+	Abort() error
+}
 
-	err = s.db.QueryRowContext(ctx, `SELECT id FROM artifacts WHERE hash = ?`, hash).Scan(&id)
+type storageArtifactWriter struct {
+	store  *artifactStore
+	writer StorageWriter
+}
+
+func (s *artifactStore) createWriter(ctx context.Context) (artifactWriter, error) {
+	writer, err := s.storage.Create(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &storageArtifactWriter{store: s, writer: writer}, nil
+}
+
+func (s *artifactStore) open(ctx context.Context, hash string) (StorageFile, error) {
+	return s.storage.Open(ctx, hash)
+}
+
+func (w *storageArtifactWriter) Write(p []byte) (int, error) {
+	return w.writer.Write(p)
+}
+
+func (w *storageArtifactWriter) Close() error {
+	return w.writer.Close()
+}
+
+func (w *storageArtifactWriter) Abort() error {
+	return w.writer.Abort()
+}
+
+func (w *storageArtifactWriter) Commit(ctx context.Context) (int64, string, int64, error) {
+	hash, size, err := w.writer.Commit(ctx)
+	if err != nil {
+		return 0, "", 0, err
+	}
+	id, err := w.store.registerCommitted(ctx, hash, size)
+	if err != nil {
+		return 0, "", 0, err
+	}
+	return id, hash, size, nil
+}
+
+func (s *artifactStore) registerCommitted(ctx context.Context, hash string, size int64) (int64, error) {
+	var id int64
+	err := s.db.QueryRowContext(ctx, `SELECT id FROM artifacts WHERE hash = ?`, hash).Scan(&id)
 	if err == nil {
-		return id, hash, size, nil
+		return id, nil
 	}
 	if err != sql.ErrNoRows {
-		return 0, "", 0, err
+		return 0, err
 	}
 
 	exists, err := s.storage.Exists(ctx, hash)
 	if err != nil {
-		return 0, "", 0, err
+		return 0, err
 	}
 	if !exists {
-		if err := s.storage.Save(ctx, hash, bytes.NewReader(data)); err != nil {
-			return 0, "", 0, err
-		}
+		return 0, sql.ErrNoRows
 	}
 
 	result, err := s.db.ExecContext(ctx,
@@ -47,20 +86,11 @@ func (s *artifactStore) put(ctx context.Context, data []byte) (id int64, hash st
 		size,
 	)
 	if err != nil {
-		return 0, "", 0, err
+		return 0, err
 	}
 	id, err = result.LastInsertId()
 	if err != nil {
-		return 0, "", 0, err
+		return 0, err
 	}
-	return id, hash, size, nil
-}
-
-func (s *artifactStore) readAll(ctx context.Context, hash string) ([]byte, error) {
-	reader, err := s.storage.Read(ctx, hash)
-	if err != nil {
-		return nil, err
-	}
-	defer reader.Close()
-	return io.ReadAll(reader)
+	return id, nil
 }

@@ -6,8 +6,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"io"
 	"os"
-	"time"
 )
 
 type AccountProvider struct {
@@ -114,26 +114,36 @@ func (p *AccountProvider) OpenFile(ctx context.Context, resourcePath string, fla
 		return nil, err
 	}
 
-	var data []byte
-	modTime := time.Now()
-	if node != nil {
-		data, err = p.readNodeData(ctx, node)
+	if node != nil && flags&os.O_TRUNC == 0 && flags&os.O_APPEND == 0 {
+		return nil, os.ErrInvalid
+	}
+
+	writer, err := p.artifacts.createWriter(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var initialSize int64
+	if node != nil && flags&os.O_APPEND != 0 && flags&os.O_TRUNC == 0 {
+		reader, err := p.openReadFile(ctx, node)
 		if err != nil {
+			_ = writer.Abort()
 			return nil, err
 		}
-		modTime = node.UpdatedAt
-	}
-	if flags&os.O_TRUNC != 0 || node == nil {
-		data = nil
-	}
-	offset := int64(0)
-	if flags&os.O_APPEND != 0 {
-		offset = int64(len(data))
+		initialSize, err = io.Copy(writer, reader)
+		if err != nil {
+			_ = reader.Close()
+			_ = writer.Abort()
+			return nil, err
+		}
+		if err := reader.Close(); err != nil {
+			_ = writer.Abort()
+			return nil, err
+		}
 	}
 
 	owner := p.owner(ctx)
-	return newWriteFile(name, data, modTime, offset, func(data []byte) error {
-		_, err := p.nodes.saveFile(ctx, p.account.RootNodeID, parent.ID, name, owner, data, p.artifacts)
+	return newArtifactWriteFile(ctx, name, writer, initialSize, func(artifactID int64, hash string, size int64) error {
+		_, err := p.nodes.saveFileArtifact(ctx, p.account.RootNodeID, parent.ID, name, owner, artifactID)
 		return err
 	}), nil
 }
@@ -190,18 +200,14 @@ func (p *AccountProvider) Control(ctx context.Context, resourcePath string, comm
 }
 
 func (p *AccountProvider) openReadFile(ctx context.Context, node *metadataNode) (vfs.File, error) {
-	data, err := p.readNodeData(ctx, node)
-	if err != nil {
-		return nil, err
-	}
-	return newReadFile(node.Name, data, node.UpdatedAt), nil
-}
-
-func (p *AccountProvider) readNodeData(ctx context.Context, node *metadataNode) ([]byte, error) {
 	if node == nil || !node.Hash.Valid {
 		return nil, os.ErrNotExist
 	}
-	return p.artifacts.readAll(ctx, node.Hash.String)
+	file, err := p.artifacts.open(ctx, node.Hash.String)
+	if err != nil {
+		return nil, err
+	}
+	return newArtifactReadFile(node.Name, node.Size, node.UpdatedAt, file), nil
 }
 
 func (p *AccountProvider) owner(ctx context.Context) string {
