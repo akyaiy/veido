@@ -429,7 +429,7 @@ function openLoadedBlock(blockId) {
 
                         if (viewEditorResizeHandle) {
                             viewEditorResizeHandle.style.transform = `scale(${1 / nextScale})`;
-                            viewEditorResizeHandle.style.transformOrigin = 'bottom right';
+                            viewEditorResizeHandle.style.transformOrigin = 'top left';
                         }
                     }
 

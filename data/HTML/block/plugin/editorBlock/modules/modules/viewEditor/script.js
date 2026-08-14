@@ -87,9 +87,19 @@ function initPreviewResize() {
             menuSelect.value = 'manual';
         }
 
+        const widthInput = document.getElementById('viewEditorWidthInput');
+        const heightInput = document.getElementById('viewEditorHeightInput');
+        const currentMinWidth = getMinSize(widthInput, viewEditorContent.dataset.viewEditorWidth || viewEditorContent.style.width);
+        const currentMinHeight = getMinSize(heightInput, viewEditorContent.dataset.viewEditorHeight || viewEditorContent.style.height);
+        const iframeElement = document.getElementById('viewEditorIframe');
+        const iframeWidth = iframeElement ? iframeElement.offsetWidth : viewEditorContent.offsetWidth;
+        const iframeHeight = iframeElement ? iframeElement.offsetHeight : viewEditorContent.offsetHeight;
+        const hasRightDarkening = iframeWidth - currentMinWidth > 0 && currentMinWidth > 0;
+        const hasBottomDarkening = iframeHeight - currentMinHeight > 0 && currentMinHeight > 0;
+
         const scale = getCurrentScale(viewEditorContent);
-        const deltaX = (event.clientX - startX) / scale * 2;
-        const deltaY = (event.clientY - startY) / scale * 2;
+        const deltaX = (event.clientX - startX) / scale * (hasRightDarkening ? 1 : 2);
+        const deltaY = (event.clientY - startY) / scale * (hasBottomDarkening ? 1 : 2);
 
         let nextWidth = Math.max(minSize, Math.round(startWidth + deltaX));
         let nextHeight = Math.max(minSize, Math.round(startHeight + deltaY));
@@ -159,14 +169,15 @@ function initPreviewResize() {
      * запускает обработчики изменения размера
     *** */
     resizeHandle.addEventListener('mousedown', (event) => {
-        const rect = viewEditorContent.getBoundingClientRect();
+        const contentRect = viewEditorContent.getBoundingClientRect();
+        const handleRect = resizeHandle.getBoundingClientRect();
         const scale = getCurrentScale(viewEditorContent);
 
         isResizing = true;
-        startX = event.clientX;
-        startY = event.clientY;
-        startWidth = rect.width / scale;
-        startHeight = rect.height / scale;
+        startX = handleRect.right;
+        startY = handleRect.bottom;
+        startWidth = (handleRect.right - contentRect.left) / scale;
+        startHeight = (handleRect.bottom - contentRect.top) / scale;
         lastWidth = startWidth;
         lastHeight = startHeight;
 
@@ -246,54 +257,26 @@ function ensureOverlays(containerElement) {
         return null;
     }
 
-    // Поиск существующего контейнера оверлеев
-    let overlayContainer = containerElement.querySelector('.__view-editor-overlays');
+    let overlayContainer = containerElement.querySelector('.viewEditorOverlays');
 
     if (!overlayContainer) {
-        // Создание родительского контейнера оверлеев
         overlayContainer = document.createElement('div');
-        overlayContainer.className = '__view-editor-overlays';
+        overlayContainer.className = 'viewEditorOverlays';
 
-        // Применение базовых стилей к контейнеру
-        Object.assign(overlayContainer.style, {
-            position: 'absolute',
-            inset: '0px',
-            pointerEvents: 'none',
-            zIndex: '9999'
-        });
-
-        // Создание элементов правого, нижнего и углового затемнения
         const rightOverlay = document.createElement('div');
-        rightOverlay.className = '__overlay-right';
+        rightOverlay.className = 'overlayRight';
 
         const bottomOverlay = document.createElement('div');
-        bottomOverlay.className = '__overlay-bottom';
+        bottomOverlay.className = 'overlayBottom';
 
         const cornerOverlay = document.createElement('div');
-        cornerOverlay.className = '__overlay-corner';
+        cornerOverlay.className = 'overlayCorner';
 
-        // Список всех слоев затемнения
-        const overlayElements = [
-            rightOverlay,
-            bottomOverlay,
-            cornerOverlay
-        ];
+        overlayContainer.appendChild(rightOverlay);
+        overlayContainer.appendChild(bottomOverlay);
+        overlayContainer.appendChild(cornerOverlay);
 
-        // Применение общих стилей для всех слоев
-        for (const overlayElement of overlayElements) {
-            Object.assign(overlayElement.style, {
-                position: 'absolute',
-                background: 'rgba(0, 0, 0, 0.45)',
-                transition: 'opacity 160ms ease',
-                opacity: '0',
-                pointerEvents: 'none'
-            });
-
-            overlayContainer.appendChild(overlayElement);
-        }
-
-        // Проверка и установка относительно позиционирования контейнера
-        const computedPosition = window.getComputedStyle(containerElement).position;
+        const computedPosition = getComputedStyle(containerElement).position;
 
         if (computedPosition === 'static') {
             containerElement.style.position = 'relative';
@@ -302,16 +285,10 @@ function ensureOverlays(containerElement) {
         containerElement.appendChild(overlayContainer);
     }
 
-    // Элемент правого оверлея
-    const rightElement = overlayContainer.querySelector('.__overlay-right');
+    const rightElement = overlayContainer.querySelector('.overlayRight');
+    const bottomElement = overlayContainer.querySelector('.overlayBottom');
+    const cornerElement = overlayContainer.querySelector('.overlayCorner');
 
-    // Элемент нижнего оверлея
-    const bottomElement = overlayContainer.querySelector('.__overlay-bottom');
-
-    // Элемент углового оверлея
-    const cornerElement = overlayContainer.querySelector('.__overlay-corner');
-
-    // Объект структуры оверлеев
     const overlaysData = {
         container: overlayContainer,
         right: rightElement,
@@ -330,40 +307,42 @@ function ensureOverlays(containerElement) {
  * - возвращает null
 *** */
 function updateOverlays() {
-    // Контейнер отображения редактора
     const viewEditorContent = document.getElementById('viewEditorContent');
-
-    // Элемент фрейма
     const iframeElement = document.getElementById('viewEditorIframe');
+    const resizeHandle = document.getElementById('viewEditorResizeHandle');
 
     if (!viewEditorContent || !iframeElement) {
         return null;
     }
 
-    // Поля ввода минимальных параметров
     const widthInput = document.getElementById('viewEditorWidthInput');
     const heightInput = document.getElementById('viewEditorHeightInput');
 
-    // Границы минимальной ширины и высоты
     const minWidth = getMinSize(widthInput, viewEditorContent.dataset.viewEditorWidth || viewEditorContent.style.width);
     const minHeight = getMinSize(heightInput, viewEditorContent.dataset.viewEditorHeight || viewEditorContent.style.height);
 
-    // Получение слоев затемнения
+    if (resizeHandle) {
+        const handleWidth = resizeHandle.offsetWidth || 14;
+        const handleHeight = resizeHandle.offsetHeight || 14;
+
+        resizeHandle.style.left = `${Math.max(0, minWidth - handleWidth)}px`;
+        resizeHandle.style.top = `${Math.max(0, minHeight - handleHeight)}px`;
+        resizeHandle.style.right = 'auto';
+        resizeHandle.style.bottom = 'auto';
+    }
+
     const overlays = ensureOverlays(viewEditorContent);
 
     if (!overlays) {
         return null;
     }
 
-    // Текущие габариты фрейма
     const iframeWidth = iframeElement.offsetWidth;
     const iframeHeight = iframeElement.offsetHeight;
 
-    // Расчет выходящих за границы областей
     const exceedWidth = iframeWidth - minWidth;
     const exceedHeight = iframeHeight - minHeight;
 
-    // Обновление затемнения по ширине справа
     if (exceedWidth > 0 && minWidth > 0) {
         const rightHeight = exceedHeight > 0 ? minHeight : iframeHeight;
 
@@ -378,7 +357,6 @@ function updateOverlays() {
         overlays.right.style.opacity = '0';
     }
 
-    // Обновление затемнения по высоте снизу
     if (exceedHeight > 0 && minHeight > 0) {
         const bottomWidth = exceedWidth > 0 ? minWidth : iframeWidth;
 
@@ -393,7 +371,6 @@ function updateOverlays() {
         overlays.bottom.style.opacity = '0';
     }
 
-    // Обновление углового затемнения при двух превышениях
     if (exceedWidth > 0 && exceedHeight > 0 && minWidth > 0 && minHeight > 0) {
         Object.assign(overlays.corner.style, {
             left: `${minWidth}px`,
@@ -418,44 +395,33 @@ function updateOverlays() {
  * - возвращает null
 *** */
 function updateContentSize() {
-    // Контейнер редактора
     const viewEditorContent = document.getElementById('viewEditorContent');
-
-    // Элемент фрейма
     const iframeElement = document.getElementById('viewEditorIframe');
 
     if (!viewEditorContent || !iframeElement) {
         return null;
     }
 
-    // Корневой элемент документа во фрейме
     const htmlElement = iframeElement.contentDocument?.documentElement;
 
     if (!htmlElement) {
         return null;
     }
 
-    // Полные размеры внутреннего документа
     const contentWidth = htmlElement.scrollWidth;
     const contentHeight = htmlElement.scrollHeight;
 
-    // Поле ввода ширины
     const widthInput = document.getElementById('viewEditorWidthInput');
-
-    // Минимально заданная ширина
     const minWidth = getMinSize(widthInput, viewEditorContent.dataset.viewEditorWidth || viewEditorContent.style.width);
 
-    // Применение полной высоты содержимого
     viewEditorContent.style.height = `${contentHeight}px`;
 
-    // Применение ширины с учетом превышения минимальной границы
     if (contentWidth > minWidth && minWidth > 0) {
         viewEditorContent.style.width = `${contentWidth}px`;
     } else if (minWidth > 0) {
         viewEditorContent.style.width = `${minWidth}px`;
     }
 
-    // Обновление позиционирования затемнений
     updateOverlays();
 
     return null;
@@ -489,7 +455,6 @@ function handleIframeResize() {
  * - возвращает null
 *** */
 function observeContentSize() {
-    // Элемент фрейма
     const iframeElement = document.getElementById('viewEditorIframe');
 
     if (!iframeElement) {
@@ -497,11 +462,9 @@ function observeContentSize() {
         return null;
     }
 
-    // Корневой элемент документа во фрейме
     const htmlElement = iframeElement.contentDocument?.documentElement;
 
     if (!htmlElement) {
-        // Подписка на загрузку фрейма
         iframeElement.addEventListener('load', observeContentSize, {
             once: true
         });
@@ -509,27 +472,22 @@ function observeContentSize() {
         return null;
     }
 
-    // Наблюдатель за изменением размеров документа
     const resizeObserver = new ResizeObserver(updateContentSize);
     resizeObserver.observe(htmlElement);
 
-    // Первичный расчет размеров
     updateContentSize();
 
-    // Подписка на изменение размеров окна фрейма
     if (iframeElement.contentWindow) {
         iframeElement.contentWindow.addEventListener('resize', handleIframeResize, {
             passive: true
         });
     }
 
-    // Подписка на изменение размеров основного окна
-    window.addEventListener('resize', handleWindowResize, {
+    addEventListener('resize', handleWindowResize, {
         passive: true
     });
 
     return null;
 }
 
-// Запуск наблюдателя за размерами редактора
 observeContentSize();

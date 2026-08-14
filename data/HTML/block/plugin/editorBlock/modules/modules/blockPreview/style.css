@@ -29,12 +29,15 @@
 /* Ручка изменения размера */
 .viewEditorResizeHandle {
     position: absolute;
-    right: 0;
-    bottom: 0;
+    left: 0;
+    top: 0;
+    right: auto;
+    bottom: auto;
     width: 14px;
     height: 14px;
     cursor: nwse-resize;
     background: linear-gradient(-45deg, rgba(0, 0, 0, 0.12) 0 50%, transparent 50% 100%);
     pointer-events: auto;
-    z-index: 2;
+    z-index: 101;
+    transform-origin: top left;
 }
