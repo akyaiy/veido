@@ -375,9 +375,9 @@ function openLoadedBlock(blockId) {
         const renderedHtml = md.render(normalizedHtml);
 
         iframe.srcdoc = `<!DOCTYPE html> 
-<html style="background-color: #ffffff;">
+<html style="background-color: #ffffff; width: stretch; height: stretch;">
 <head><meta charset="utf-8"><style> ${safeCss} </style></head>
-<body contenteditable="true" spellcheck="false"> ${renderedHtml} </body>
+<body contenteditable="true" spellcheck="false" style="width: stretch; height: stretch; overflow: hidden;"> ${renderedHtml} </body>
 </html>`;
 
         iframe.addEventListener('load', () => {
@@ -488,7 +488,6 @@ function openLoadedBlock(blockId) {
 
                     // Переносим управление resize на body внутри iframe и включаем прокрутку
                     iframeDoc.body.style.resize = 'both';
-                    iframeDoc.body.style.overflow = 'auto';
                 } catch (e) {
                     // silent
                 }
@@ -1212,6 +1211,30 @@ let lastHighlightedElement = null;
 let highlightObserver = null;
 
 /* ***
+ * resolveHighlightTarget - определение элемента для выделения
+ * принимает целевой DOM-элемент
+ * определяет родительский контейнер для flex/grid
+ * исключает body и html
+ * возвращает элемент для выделения или null
+*** */
+function resolveHighlightTarget(target) {
+    const element = target && target.nodeType === Node.TEXT_NODE ? target.parentElement : target;
+    if (!element || element === element.ownerDocument?.body || element === element.ownerDocument?.documentElement) {
+        return null;
+    }
+
+    const parentElement = element.parentElement;
+    if (parentElement && parentElement !== parentElement.ownerDocument?.body && parentElement !== parentElement.ownerDocument?.documentElement) {
+        const parentDisplay = parentElement.ownerDocument?.defaultView?.getComputedStyle(parentElement)?.display;
+        if (parentDisplay === 'flex' || parentDisplay === 'grid') {
+            return parentElement;
+        }
+    }
+
+    return element.closest ? element.closest('[data-block-src]') || element : element;
+}
+
+/* ***
  * handleVisualEditorClick - обработка клика в визуальном редакторе
  * - принимает объект события клика event
  * - сбрасывает подсветку при клике на контейнер редактора, вне body iframe или на предварительно выделенный текст
@@ -1255,12 +1278,7 @@ function handleVisualEditorClick(event) {
         return null;
     }
 
-    let elementToHighlight = target;
-
-    const blockSourceContainer = target && target.closest ? target.closest('[data-block-src]') : null;
-    if (blockSourceContainer) {
-        elementToHighlight = blockSourceContainer;
-    }
+    const elementToHighlight = resolveHighlightTarget(target);
 
     // Сохраняем текущий выбранный элемент и выделяем его
     lastHighlightedElement = elementToHighlight;
@@ -1288,9 +1306,7 @@ function handleVisualEditorHover(event) {
         return null;
     }
 
-    const hoverTarget = target.nodeType === Node.TEXT_NODE ? target.parentElement : target;
-    const blockSourceContainer = hoverTarget && hoverTarget.closest ? hoverTarget.closest('[data-block-src]') : null;
-    const elementToHover = blockSourceContainer || hoverTarget;
+    const elementToHover = resolveHighlightTarget(target);
 
     if (!elementToHover || elementToHover === activeSelectedElement) {
         clearHoverHighlight();

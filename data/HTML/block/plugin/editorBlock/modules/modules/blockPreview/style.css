@@ -19,6 +19,7 @@
     position: relative;
     overflow: hidden;
     display: inline-block;
+    flex: 0 0 auto;
 }
 
 #centerPanel.preview {

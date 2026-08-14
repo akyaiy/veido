@@ -20,6 +20,7 @@
 <div id="leftPanelResizer"></div>
 
 <div id="centerPanel">
+    <div id="viewEditorMenu"></div>
     <div id="viewBlock"></div>
 </div>
 
