@@ -51,6 +51,10 @@
     outline: none;
 }
 
+.viewEditorZoomField input {
+    width: 56px;
+}
+
 .viewEditorSizeField input[type="number"] {
     appearance: textfield;
 }

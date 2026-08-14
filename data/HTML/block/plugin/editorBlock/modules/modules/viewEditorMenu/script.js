@@ -25,6 +25,89 @@ const parseViewEditorInputValue = (value) => {
 };
 
 /* ***
+ * parseViewEditorZoomValue - преобразование значения масштаба
+ * принимает значение масштаба
+ * проверяет и ограничивает допустимый диапазон
+ * возвращает значение от 0.1 до 10 или 1
+*** */
+const parseViewEditorZoomValue = (value) => {
+    if (value === null || typeof value === 'undefined') {
+        return 1;
+    }
+
+    const normalized = String(value).trim();
+
+    if (!normalized) {
+        return 1;
+    }
+
+    const numeric = Number.parseFloat(normalized);
+    return Number.isFinite(numeric) && numeric > 0 ? Math.min(10, Math.max(0.1, numeric)) : 1;
+};
+
+/* ***
+ * getViewEditorContentScale - получение текущего масштаба редактора
+ * получает элемент области просмотра
+ * определяет масштаб из transform или zoom
+ * возвращает значение масштаба
+*** */
+const getViewEditorContentScale = () => {
+    const viewEditorContent = document.getElementById('viewEditorContent');
+
+    if (!viewEditorContent) {
+        return 1;
+    }
+
+    const style = window.getComputedStyle(viewEditorContent);
+    const transform = style.transform;
+
+    if (transform && transform !== 'none') {
+        const matrix = transform.match(/matrix\((.+)\)/);
+        if (matrix) {
+            const values = matrix[1].split(',').map(value => parseFloat(value.trim()));
+            if (Number.isFinite(values[0]) && Number.isFinite(values[3])) {
+                return Math.abs(values[0]) || Math.abs(values[3]) || 1;
+            }
+        }
+
+        const scale = transform.match(/scale\(([^)]+)\)/);
+        if (scale) {
+            const value = parseFloat(scale[1]);
+            if (Number.isFinite(value) && value > 0) {
+                return value;
+            }
+        }
+    }
+
+    const zoom = parseFloat(style.zoom);
+    return Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
+};
+
+/* ***
+ * applyViewEditorZoom - применение масштаба области просмотра
+ * принимает значение масштаба
+ * изменяет масштаб и точку его начала
+ * обновляет значение поля масштаба
+*** */
+window.window.editorBlock.applyViewEditorZoom  = (value) => {
+    const viewEditorContent = document.getElementById('viewEditorContent');
+    const zoomInput = document.getElementById('viewEditorZoomInput');
+
+    if (!viewEditorContent) {
+        return;
+    }
+
+    const scale = parseViewEditorZoomValue(value);
+    viewEditorContent.style.transform = `scale(${scale})`;
+    viewEditorContent.style.transformOrigin = 'center center';
+    viewEditorContent.style.zoom = '1';
+
+    if (zoomInput) {
+        zoomInput.value = Number(scale.toFixed(2)).toString();
+    }
+};
+
+/* ***
  * syncViewEditorSizeInputs - синхронизация полей размеров редактора
  * получает поля ширины и высоты
  * получает текущую область редактора
@@ -33,14 +116,24 @@ const parseViewEditorInputValue = (value) => {
 const syncViewEditorSizeInputs = () => {
     const widthInput = document.getElementById('viewEditorWidthInput');
     const heightInput = document.getElementById('viewEditorHeightInput');
+    const zoomInput = document.getElementById('viewEditorZoomInput');
     const viewEditorContent = document.getElementById('viewEditorContent');
 
-    if (!widthInput || !heightInput || !viewEditorContent) {
+    if (!viewEditorContent) {
         return;
     }
 
-    widthInput.value = parseViewEditorInputValue(viewEditorContent.style.width);
-    heightInput.value = parseViewEditorInputValue(viewEditorContent.style.height);
+    if (widthInput) {
+        widthInput.value = parseViewEditorInputValue(viewEditorContent.style.width);
+    }
+
+    if (heightInput) {
+        heightInput.value = parseViewEditorInputValue(viewEditorContent.style.height);
+    }
+
+    if (zoomInput) {
+        zoomInput.value = Number(getViewEditorContentScale().toFixed(2)).toString();
+    }
 };
 
 /* ***
@@ -89,6 +182,7 @@ function initViewEditorMenu() {
     const viewEditorContent = document.getElementById('viewEditorContent');
     const widthInput = document.getElementById('viewEditorWidthInput');
     const heightInput = document.getElementById('viewEditorHeightInput');
+    const zoomInput = document.getElementById('viewEditorZoomInput');
 
     if (!menuSelect || !viewEditorContent || menuSelect.dataset.bound === 'true') {
         return;
@@ -140,6 +234,10 @@ function initViewEditorMenu() {
         if (heightInput) {
             heightInput.value = parseViewEditorInputValue(viewEditorContent.style.height);
         }
+
+        if (zoomInput) {
+            zoomInput.value = Number(getViewEditorContentScale().toFixed(2)).toString();
+        }
     };
 
     menuSelect.addEventListener('change', () => {
@@ -175,6 +273,18 @@ function initViewEditorMenu() {
             const nextWidth = widthInput && widthInput.value !== '' ? parseManualDimension(widthInput.value) : undefined;
             const nextHeight = parseManualDimension(heightInput.value);
             window.applyViewEditorSize(typeof nextWidth !== 'undefined' ? nextWidth : undefined, typeof nextHeight !== 'undefined' ? nextHeight : undefined);
+        });
+    }
+
+    if (zoomInput) {
+        zoomInput.addEventListener('input', () => {
+            if (zoomInput.value === '') {
+                return;
+            }
+
+            menuSelect.value = 'manual';
+            window.window.editorBlock.applyViewEditorZoom (zoomInput.value);
+            syncManualInputValues();
         });
     }
 

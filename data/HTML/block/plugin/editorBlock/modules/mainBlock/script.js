@@ -377,7 +377,7 @@ function openLoadedBlock(blockId) {
         iframe.srcdoc = `<!DOCTYPE html> 
 <html style="background-color: #ffffff; width: stretch; height: stretch;">
 <head><meta charset="utf-8"><style> ${safeCss} </style></head>
-<body contenteditable="true" spellcheck="false" style="width: stretch; height: stretch; overflow: hidden;"> ${renderedHtml} </body>
+<body contenteditable="true" spellcheck="false" style="width: stretch; height: stretch;"> ${renderedHtml} </body>
 </html>`;
 
         iframe.addEventListener('load', () => {
@@ -390,7 +390,29 @@ function openLoadedBlock(blockId) {
                 if (event.ctrlKey) {
                     event.preventDefault();
 
-                    const currentScale = parseFloat(viewEditorContentEl.style.zoom) || 1;
+                    const currentScale = (() => {
+                        const transform = window.getComputedStyle(viewEditorContentEl).transform;
+                        if (transform && transform !== 'none') {
+                            const matrix = transform.match(/matrix\((.+)\)/);
+                            if (matrix) {
+                                const values = matrix[1].split(',').map(value => parseFloat(value.trim()));
+                                if (Number.isFinite(values[0]) && Number.isFinite(values[3])) {
+                                    return Math.abs(values[0]) || Math.abs(values[3]) || 1;
+                                }
+                            }
+                            const scale = transform.match(/scale\(([^)]+)\)/);
+                            if (scale) {
+                                const value = parseFloat(scale[1]);
+                                if (Number.isFinite(value) && value > 0) {
+                                    return value;
+                                }
+                            }
+                        }
+
+                        const zoom = parseFloat(window.getComputedStyle(viewEditorContentEl).zoom);
+                        return Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
+                    })();
+
                     const currentIndex = zoomSizes.findIndex(size => size >= currentScale);
                     const nextIndex = event.deltaY < 0
                         ? Math.min((currentIndex === -1 ? zoomSizes.length - 1 : currentIndex + 1), zoomSizes.length - 1)
@@ -398,8 +420,22 @@ function openLoadedBlock(blockId) {
 
                     const nextScale = zoomSizes[nextIndex];
 
-                    viewEditorContentEl.style.zoom = nextScale;
-                    viewEditorResizeHandle.style.zoom = 1 / nextScale;
+                    if (typeof window.window.editorBlock.applyViewEditorZoom  === 'function') {
+                        window.window.editorBlock.applyViewEditorZoom (nextScale);
+                    } else {
+                        viewEditorContentEl.style.transform = `scale(${nextScale})`;
+                        viewEditorContentEl.style.transformOrigin = 'center center';
+                        viewEditorContentEl.style.zoom = '1';
+
+                        if (viewEditorResizeHandle) {
+                            viewEditorResizeHandle.style.transform = `scale(${1 / nextScale})`;
+                            viewEditorResizeHandle.style.transformOrigin = 'bottom right';
+                        }
+                    }
+
+                    if (window.syncViewEditorSizeInputs) {
+                        window.syncViewEditorSizeInputs();
+                    }
                 }
             };
 

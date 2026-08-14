@@ -16,5 +16,9 @@
             <span>Y</span>
             <input id="viewEditorHeightInput" type="number" min="1" step="1" inputmode="numeric" placeholder="Высота" />
         </label>
+        <label class="viewEditorSizeField viewEditorZoomField">
+            <span>Масштаб</span>
+            <input id="viewEditorZoomInput" type="number" min="0.1" max="10" step="0.1" inputmode="decimal" placeholder="Zoom" />
+        </label>
     </div>
 </div>
