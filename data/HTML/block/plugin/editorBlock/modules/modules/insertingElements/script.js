@@ -752,9 +752,9 @@ async function tableSizeGridClickHandler(event) {
     // Генерируем HTML-код таблицы или CSS Grid
     let tableHtml = '';
     if (tableSizeGrid.closest('#tableSizeMenu')?.dataset.element === 'divGrid') {
-        tableHtml = `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);">`;
+        tableHtml = `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:5px;">`;
         for (let r = 0; r < rows * cols; r++) {
-            tableHtml += `<div style="border:1px solid #ccc;">${r === 0 ? '[ST]' : '<br>'}</div>`;
+            tableHtml += `<div>${r === 0 ? '[ST]' : '<br>'}</div>`;
         }
         tableHtml += '</div>';
     } else {

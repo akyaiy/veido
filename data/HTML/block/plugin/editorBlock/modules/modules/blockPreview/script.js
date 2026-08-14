@@ -173,10 +173,57 @@ if (previewButton) {
 }
 
 /* ***
+ * applyViewEditorSize - применение размеров к viewEditorContent и iframe body
+ * принимает ширину и высоту
+ * изменяет размер контейнера viewEditorContent
+ * изменяет размер body внутри iframe, если он доступен
+ * сохраняет размеры в настройках текущего блока
+*** */
+const applyViewEditorSize = (width, height) => {
+    const viewEditorContent = document.getElementById('viewEditorContent');
+
+    if (viewEditorContent) {
+        if (typeof width !== 'undefined') {
+            viewEditorContent.style.width = width;
+        }
+        if (typeof height !== 'undefined') {
+            viewEditorContent.style.height = height;
+        }
+    }
+
+    const iframeEl = typeof getPreviewEditorIframe === 'function' ? getPreviewEditorIframe() : null;
+    if (iframeEl) {
+        try {
+            const iframeDoc = iframeEl.contentDocument || iframeEl.contentWindow?.document;
+            if (iframeDoc && iframeDoc.body) {
+                if (typeof width !== 'undefined') {
+                    iframeDoc.body.style.width = width;
+                }
+                if (typeof height !== 'undefined') {
+                    iframeDoc.body.style.height = height;
+                }
+            }
+        } catch (e) {}
+    }
+
+    const blockId = window.editorBlock?.currentBlockId || null;
+    const settingsEl = blockId ? document.getElementById(blockId + 'Settings') : null;
+
+    if (settingsEl) {
+        if (typeof width !== 'undefined') {
+            settingsEl.dataset.viewEditorWidth = width;
+        }
+        if (typeof height !== 'undefined') {
+            settingsEl.dataset.viewEditorHeight = height;
+        }
+    }
+};
+
+/* ***
  * initViewEditorMenu - инициализация меню выбора размера viewEditor
  * получает меню выбора размера и контейнер viewEditorContent
  * проверяет наличие элементов и повторную инициализацию
- * применяет выбранные ширину и высоту
+ * применяет выбранные ширину и высоту через общую функцию applyViewEditorSize
  * сохраняет размеры в настройках текущего блока
  * обрабатывает изменение выбранного размера
 *** */
@@ -187,29 +234,6 @@ function initViewEditorMenu() {
     if (!menuSelect || !viewEditorContent || menuSelect.dataset.bound === 'true') {
         return;
     }
-
-    const applySize = (width, height) => {
-        if (typeof width !== 'undefined') {
-            viewEditorContent.style.width = width;
-        }
-
-        if (typeof height !== 'undefined') {
-            viewEditorContent.style.height = height;
-        }
-
-        const blockId = window.editorBlock?.currentBlockId || null;
-        const settingsEl = blockId ? document.getElementById(blockId + 'Settings') : null;
-
-        if (settingsEl) {
-            if (typeof width !== 'undefined') {
-                settingsEl.dataset.viewEditorWidth = width;
-            }
-
-            if (typeof height !== 'undefined') {
-                settingsEl.dataset.viewEditorHeight = height;
-            }
-        }
-    };
 
     const parseDimension = (value) => {
         if (!value || value === 'auto') {
@@ -241,7 +265,7 @@ function initViewEditorMenu() {
         const width = parseDimension(rawWidth);
         const height = parseDimension(rawHeight);
 
-        applySize(width, height);
+        applyViewEditorSize(width, height);
     });
 
     menuSelect.dataset.bound = 'true';
@@ -344,10 +368,9 @@ function initPreviewResize() {
         lastWidth = nextWidth;
         lastHeight = nextHeight;
 
-        viewEditorContent.style.width = nextWidth + 'px';
-        viewEditorContent.style.height = nextHeight + 'px';
+        applyViewEditorSize(nextWidth + 'px', nextHeight + 'px');
 
-        const iframeEl = getPreviewEditorIframe();
+        const iframeEl = typeof getPreviewEditorIframe === 'function' ? getPreviewEditorIframe() : null;
 
         if (iframeEl) {
             try {
@@ -360,8 +383,6 @@ function initPreviewResize() {
                 if (iframeDoc && iframeDoc.body) {
                     iframeDoc.body.style.boxSizing = 'border-box';
                     iframeDoc.body.style.margin = '0';
-                    iframeDoc.body.style.width = nextWidth + 'px';
-                    iframeDoc.body.style.height = nextHeight + 'px';
                     iframeDoc.body.style.minWidth = '0';
                     iframeDoc.body.style.minHeight = '0';
                 }
@@ -383,7 +404,7 @@ function initPreviewResize() {
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
 
-        const iframeEl = getPreviewEditorIframe();
+        const iframeEl = typeof getPreviewEditorIframe === 'function' ? getPreviewEditorIframe() : null;
 
         if (iframeEl) {
             try {

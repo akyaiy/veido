@@ -375,7 +375,7 @@ function openLoadedBlock(blockId) {
         const renderedHtml = md.render(normalizedHtml);
 
         iframe.srcdoc = `<!DOCTYPE html> 
-<html style="background-color: #ffffff; display: flex; justify-content: center; align-items: center; min-height: 100vh; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);">
+<html style="background-color: #ffffff;">
 <head><meta charset="utf-8"><style> ${safeCss} </style></head>
 <body contenteditable="true" spellcheck="false"> ${renderedHtml} </body>
 </html>`;
