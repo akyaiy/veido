@@ -89,7 +89,7 @@ const getViewEditorContentScale = () => {
  * изменяет масштаб и точку его начала
  * обновляет значение поля масштаба
 *** */
-window.window.editorBlock.applyViewEditorZoom  = (value) => {
+window.editorBlock.applyViewEditorZoom  = (value) => {
     const viewEditorContent = document.getElementById('viewEditorContent');
     const zoomInput = document.getElementById('viewEditorZoomInput');
 
@@ -113,10 +113,11 @@ window.window.editorBlock.applyViewEditorZoom  = (value) => {
  * получает текущую область редактора
  * устанавливает текущие значения ширины и высоты в поля
 *** */
-const syncViewEditorSizeInputs = () => {
+window.editorBlock.syncViewEditorSizeInputs = (mode) => {
     const widthInput = document.getElementById('viewEditorWidthInput');
     const heightInput = document.getElementById('viewEditorHeightInput');
     const zoomInput = document.getElementById('viewEditorZoomInput');
+    const viewEditorMenuSelect = document.getElementById('viewEditorMenuSelect');
     const viewEditorContent = document.getElementById('viewEditorContent');
 
     if (!viewEditorContent) {
@@ -142,7 +143,7 @@ const syncViewEditorSizeInputs = () => {
  * изменяет размер контейнера viewEditorContent
  * сохраняет размеры в настройках текущего блока
 *** */
-window.applyViewEditorSize = (width, height) => {
+window.editorBlock.applyViewEditorSize = (width, height) => {
     const viewEditorContent = document.getElementById('viewEditorContent');
 
     if (viewEditorContent) {
@@ -166,7 +167,7 @@ window.applyViewEditorSize = (width, height) => {
         }
     }
 
-    syncViewEditorSizeInputs();
+    window.editorBlock.syncViewEditorSizeInputs();
 };
 
 /* ***
@@ -254,7 +255,7 @@ function initViewEditorMenu() {
         const width = parseDimension(rawWidth);
         const height = parseDimension(rawHeight);
 
-        window.applyViewEditorSize(width, height);
+        window.editorBlock.applyViewEditorSize(width, height);
         syncManualInputValues();
     });
 
@@ -263,7 +264,7 @@ function initViewEditorMenu() {
             menuSelect.value = 'manual';
             const nextWidth = parseManualDimension(widthInput.value);
             const nextHeight = heightInput && heightInput.value !== '' ? parseManualDimension(heightInput.value) : undefined;
-            window.applyViewEditorSize(typeof nextWidth !== 'undefined' ? nextWidth : undefined, typeof nextHeight !== 'undefined' ? nextHeight : undefined);
+            window.editorBlock.applyViewEditorSize(typeof nextWidth !== 'undefined' ? nextWidth : undefined, typeof nextHeight !== 'undefined' ? nextHeight : undefined);
         });
     }
 
@@ -272,7 +273,7 @@ function initViewEditorMenu() {
             menuSelect.value = 'manual';
             const nextWidth = widthInput && widthInput.value !== '' ? parseManualDimension(widthInput.value) : undefined;
             const nextHeight = parseManualDimension(heightInput.value);
-            window.applyViewEditorSize(typeof nextWidth !== 'undefined' ? nextWidth : undefined, typeof nextHeight !== 'undefined' ? nextHeight : undefined);
+            window.editorBlock.applyViewEditorSize(typeof nextWidth !== 'undefined' ? nextWidth : undefined, typeof nextHeight !== 'undefined' ? nextHeight : undefined);
         });
     }
 
@@ -283,7 +284,7 @@ function initViewEditorMenu() {
             }
 
             menuSelect.value = 'manual';
-            window.window.editorBlock.applyViewEditorZoom (zoomInput.value);
+            window.editorBlock.applyViewEditorZoom (zoomInput.value);
             syncManualInputValues();
         });
     }

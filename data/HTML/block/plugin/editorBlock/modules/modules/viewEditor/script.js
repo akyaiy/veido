@@ -124,8 +124,8 @@ function initPreviewResize() {
         lastWidth = nextWidth;
         lastHeight = nextHeight;
 
-        if (typeof window.applyViewEditorSize === 'function') {
-            window.applyViewEditorSize(nextWidth + 'px', nextHeight + 'px');
+        if (typeof window.editorBlock.applyViewEditorSize === 'function') {
+            window.editorBlock.applyViewEditorSize(nextWidth + 'px', nextHeight + 'px');
         }
     };
 

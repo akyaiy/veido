@@ -140,6 +140,12 @@ function initBlockSettings(blockId) {
         return;
     }
 
+    // специфические настройки для viewEditorContent
+    if (!settingsDiv.dataset.viewEditorZoom) {
+        settingsDiv.dataset.viewEditorZoom = '1';
+    }
+
+    // Размеры 
     if (!settingsDiv.dataset.viewEditorWidth) {
         settingsDiv.dataset.viewEditorWidth = '97%';
         viewEditorContent.style.width = settingsDiv.dataset.viewEditorWidth;
@@ -181,6 +187,7 @@ function initBlockSettings(blockId) {
     viewEditorContent.style.minHeight = settingsDiv.dataset.viewEditorMinHeight;
     viewEditorContent.style.maxWidth = settingsDiv.dataset.viewEditorMaxWidth;
     viewEditorContent.style.maxHeight = settingsDiv.dataset.viewEditorMaxHeight;
+    viewEditorContent.style.transform = `scale(${settingsDiv.dataset.viewEditorZoom})`;
 }
 
 /* ***
@@ -298,12 +305,518 @@ function normalizeViewEditorHtml(html) {
         .join('\n');
 }
 
+
+
+/* ===
+ * Загрузка и отображение содержимого блока в редакторах
+=== */
+
+/* ***
+ * getLoadedBlockContent - получение содержимого сохраненного блока
+ * - принимает ID блока
+ * - получает HTML, CSS и JS-код
+ * - возвращает содержимое блока
+*** */
+function getLoadedBlockContent(blockId) {
+    const htmlDiv = document.getElementById(blockId + 'Html');
+    const cssDiv = document.getElementById(blockId + 'Css');
+    const jsDiv = document.getElementById(blockId + 'Js');
+
+    return {
+        htmlContent: htmlDiv ? htmlDiv.textContent : '',
+        cssContent: cssDiv ? cssDiv.textContent : '',
+        jsContent: jsDiv ? jsDiv.textContent : ''
+    };
+}
+
+/* ***
+ * applyLoadedBlockSettings - применение сохраненных размеров редактора
+ * - принимает ID блока и область просмотра
+ * - получает сохраненные размеры
+ * - применяет ширину и высоту
+*** */
+function applyLoadedBlockSettings(blockId, viewEditorContent) {
+    try {
+        const settingsEl = document.getElementById(blockId + 'Settings');
+
+        if (settingsEl) {
+            const width = settingsEl.dataset.viewEditorWidth || '';
+            const height = settingsEl.dataset.viewEditorHeight || '';
+
+            if (width) {
+                viewEditorContent.style.width = String(width);
+            }
+
+            if (height) {
+                viewEditorContent.style.height = String(height);
+            }
+        }
+    } catch (e) {
+        // silent
+    }
+}
+
+/* ***
+ * preserveViewEditorControls - сохранение элементов управления визуального редактора
+ * - принимает контейнер визуального редактора
+ * - сохраняет меню и resize handle
+ * - очищает содержимое контейнера
+ * - возвращает элементы управления
+*** */
+function preserveViewEditorControls(container) {
+    const menu = container.querySelector('#viewEditorMenu');
+    const handle = container.querySelector('#viewEditorResizeHandle');
+
+    if (menu) {
+        menu.remove();
+    }
+
+    if (handle) {
+        handle.remove();
+    }
+
+    container.innerHTML = '';
+
+    if (menu) {
+        container.appendChild(menu);
+    }
+
+    if (handle) {
+        container.appendChild(handle);
+    }
+}
+
+/* ***
+ * createViewEditorIframe - создание iframe визуального редактора
+ * - принимает HTML и CSS-код
+ * - преобразует HTML через Markdown
+ * - создает iframe с содержимым блока
+ * - возвращает iframe
+*** */
+function createViewEditorIframe(htmlContent, cssContent) {
+    const iframe = document.createElement('iframe');
+    iframe.id = 'viewEditorIframe';
+
+    const safeCss = cssContent || '';
+    const md = window.markdownit({
+        html: true,
+        linkify: true,
+        typographer: true
+    });
+    const normalizedHtml = normalizeViewEditorHtml(htmlContent);
+    const renderedHtml = md.render(normalizedHtml);
+
+    iframe.srcdoc = `<!DOCTYPE html> 
+<html style="background-color: #ffffff; width: stretch; height: stretch;">
+<head><meta charset="utf-8"><style> ${safeCss} </style></head>
+<body contenteditable="true" spellcheck="false" style="width: stretch; height: stretch;"> ${renderedHtml} </body>
+</html>`;
+
+    return iframe;
+}
+
+/* ***
+ * getViewEditorCurrentScale - получение текущего масштаба визуального редактора
+ * - принимает область просмотра
+ * - получает значение transform или zoom
+ * - возвращает текущий масштаб
+*** */
+function getViewEditorCurrentScale(viewEditorContent) {
+    const transform = window.getComputedStyle(viewEditorContent).transform;
+
+    if (transform && transform !== 'none') {
+        const matrix = transform.match(/matrix\((.+)\)/);
+
+        if (matrix) {
+            const values = matrix[1].split(',').map(value => parseFloat(value.trim()));
+
+            if (Number.isFinite(values[0]) && Number.isFinite(values[3])) {
+                return Math.abs(values[0]) || Math.abs(values[3]) || 1;
+            }
+        }
+
+        const scale = transform.match(/scale\(([^)]+)\)/);
+
+        if (scale) {
+            const value = parseFloat(scale[1]);
+
+            if (Number.isFinite(value) && value > 0) {
+                return value;
+            }
+        }
+    }
+
+    const zoom = parseFloat(window.getComputedStyle(viewEditorContent).zoom);
+
+    return Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
+}
+
+/* ***
+ * handleViewEditorZoom - изменение масштаба визуального редактора
+ * - принимает событие колеса мыши и область просмотра
+ * - проверяет Ctrl
+ * - определяет следующий масштаб
+ * - применяет новый масштаб
+*** */
+function handleViewEditorZoom(event, viewEditorContent) {
+    if (!event.ctrlKey) {
+        return;
+    }
+
+    event.preventDefault();
+
+    const zoomSizes = [0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4, 5, 10];
+
+    const currentScale = getViewEditorCurrentScale(viewEditorContent);
+    const currentIndex = zoomSizes.findIndex(size => size >= currentScale);
+
+    const nextIndex = event.deltaY < 0
+        ? Math.min(
+            currentIndex === -1 ? zoomSizes.length - 1 : currentIndex + 1,
+            zoomSizes.length - 1
+        )
+        : Math.max(
+            currentIndex === -1 ? 0 : currentIndex - 1,
+            0
+        );
+
+    const nextScale = zoomSizes[nextIndex];
+
+    if (typeof window.editorBlock.applyViewEditorZoom === 'function') {
+        window.editorBlock.applyViewEditorZoom(nextScale);
+    } else {
+        viewEditorContent.style.transform = `scale(${nextScale})`;
+        viewEditorContent.style.transformOrigin = 'center center';
+        viewEditorContent.style.zoom = '1';
+
+        const viewEditorResizeHandle = document.getElementById('viewEditorResizeHandle');
+
+        if (viewEditorResizeHandle) {
+            viewEditorResizeHandle.style.transform = `scale(${1 / nextScale})`;
+            viewEditorResizeHandle.style.transformOrigin = 'top left';
+        }
+    }
+
+    const blockId = window.editorBlock && window.editorBlock.currentBlockId ? window.editorBlock.currentBlockId : null;
+    const settingsEl = blockId ? document.getElementById(blockId + 'Settings') : null;
+    if (settingsEl) {
+        settingsEl.dataset.viewEditorZoom = String(nextScale);
+    }
+
+    if (window.editorBlock.syncViewEditorSizeInputs) {
+        window.editorBlock.syncViewEditorSizeInputs();
+    }
+}
+
+/* ***
+ * initViewEditorZoom - инициализация масштаба визуального редактора
+ * - принимает iframe
+ * - подключает обработчики колеса мыши
+ * - изменяет масштаб при Ctrl + колесо
+*** */
+function initViewEditorZoom(iframe) {
+    const viewEditorContent = document.getElementById('viewEditorContent');
+    const iframeDoc = iframe.contentDocument;
+
+    if (!viewEditorContent || !iframeDoc) {
+        return;
+    }
+
+    const handleZoom = event => {
+        handleViewEditorZoom(event, viewEditorContent);
+    };
+
+    iframeDoc.addEventListener('wheel', handleZoom, { passive: false });
+
+    const viewEditor = document.getElementById('viewEditor');
+
+    if (viewEditor) {
+        viewEditor.addEventListener('wheel', handleZoom, { passive: false });
+    }
+}
+
+/* ***
+ * loadViewEditorStyles - загрузка стандартных стилей в iframe
+ * - принимает документ iframe
+ * - копирует динамические стили
+ * - подключает основной файл стилей
+*** */
+function loadViewEditorStyles(iframeDoc) {
+    const parentWin = (window.parent && window.parent !== window) ? window.parent : window;
+
+    document.querySelectorAll('[data-dynamic="header"], [data-dynamic="content"]').forEach(element => {
+        if (element.tagName === 'STYLE') {
+            const styleEl = iframeDoc.createElement('style');
+            styleEl.textContent = element.textContent || '';
+            iframeDoc.head.appendChild(styleEl);
+        }
+    });
+
+    const linkEl = iframeDoc.createElement('link');
+    linkEl.rel = 'stylesheet';
+    linkEl.href = '/css/style.css';
+    iframeDoc.head.appendChild(linkEl);
+
+    return parentWin;
+}
+
+/* ***
+ * loadViewEditorFunctions - загрузка функций блока в iframe
+ * - принимает документ iframe, окно iframe и JS-код
+ * - передает стандартные функции
+ * - загружает пользовательский JS-код
+*** */
+function loadViewEditorFunctions(iframeDoc, iframeWin, jsContent) {
+    const parentWin = (window.parent && window.parent !== window) ? window.parent : window;
+
+    if (typeof parentWin.loadBlock === 'function') {
+        iframeWin.loadBlock = parentWin.loadBlock.bind(parentWin);
+    }
+
+    if (typeof parentWin.loadBlockAttribute === 'function') {
+        iframeWin.loadBlockAttribute = parentWin.loadBlockAttribute.bind(parentWin);
+    }
+
+    if (iframeDoc && jsContent) {
+        const scriptEl = iframeDoc.createElement('script');
+        scriptEl.type = 'text/javascript';
+        scriptEl.text = jsContent;
+        iframeDoc.head.appendChild(scriptEl);
+    }
+}
+
+/* ***
+ * initViewEditorBody - настройка body iframe
+ * - принимает ID блока и документ iframe
+ * - загружает атрибуты элементов
+ * - применяет настройки body
+ * - настраивает resize и редактирование
+*** */
+function initViewEditorBody(blockId, iframeDoc) {
+    if (!iframeDoc || !iframeDoc.body) {
+        return;
+    }
+
+    showViewEditorEmptyState();
+
+    const blockLoader = (typeof window.loadBlockAttribute === 'function' && window.loadBlockAttribute)
+        || (typeof loadBlockAttribute === 'function' && loadBlockAttribute);
+
+    if (blockLoader) {
+        blockLoader(iframeDoc.body);
+    }
+
+    iframeDoc.body.querySelectorAll('[data-block-src]').forEach(element => {
+        element.setAttribute('contenteditable', 'false');
+
+        element.style.userSelect = 'none';
+        element.style.pointerEvents = 'auto';
+
+        element.querySelectorAll('*').forEach(child => {
+            child.setAttribute('contenteditable', 'false');
+            child.style.userSelect = 'none';
+            child.style.pointerEvents = 'none';
+        });
+    });
+
+    try {
+        const settingsEl = document.getElementById(blockId + 'Settings');
+
+        if (settingsEl) {
+            const padding = settingsEl.dataset.viewEditorPadding || '20px';
+            const margin = settingsEl.dataset.viewEditorMargin || '0 auto';
+            const minWidth = settingsEl.dataset.viewEditorMinWidth || '0';
+            const minHeight = settingsEl.dataset.viewEditorMinHeight || '0';
+            const maxWidth = settingsEl.dataset.viewEditorMaxWidth || '90vw';
+            const maxHeight = settingsEl.dataset.viewEditorMaxHeight || 'none';
+
+            iframeDoc.body.style.padding = padding;
+            iframeDoc.body.style.margin = margin;
+            iframeDoc.body.style.minWidth = minWidth;
+            iframeDoc.body.style.minHeight = minHeight;
+            iframeDoc.body.style.maxWidth = maxWidth;
+            iframeDoc.body.style.maxHeight = maxHeight;
+        }
+
+        iframeDoc.body.style.resize = 'both';
+    } catch (e) {
+        // silent
+    }
+}
+
+/* ***
+ * initViewEditorShortcuts - инициализация клавиатурных сокращений iframe
+ * - принимает документ iframe
+ * - подключает обработчики меню, цвета, истории и форматирования
+*** */
+function initViewEditorShortcuts(iframeDoc) {
+    if (window.editorBlock && typeof window.editorBlock.attachFileMenuShortcutHandlers === 'function') {
+        window.editorBlock.attachFileMenuShortcutHandlers(iframeDoc);
+    }
+
+    if (window.editorBlock && typeof window.editorBlock.attachContextMenuShortcutHandlers === 'function') {
+        window.editorBlock.attachContextMenuShortcutHandlers(iframeDoc);
+    }
+
+    if (window.editorBlock && typeof window.editorBlock.attachColorPickerShortcutHandlers === 'function') {
+        window.editorBlock.attachColorPickerShortcutHandlers(iframeDoc);
+    }
+
+    if (window.editorBlock && typeof window.editorBlock.attachHistoryShortcutHandlers === 'function') {
+        window.editorBlock.attachHistoryShortcutHandlers(iframeDoc);
+    }
+
+    if (window.editorBlock && typeof window.editorBlock.attachTextFormatShortcutHandlers === 'function') {
+        window.editorBlock.attachTextFormatShortcutHandlers(iframeDoc);
+    }
+}
+
+/* ***
+ * initViewEditorHistory - инициализация истории визуального редактора
+ * - принимает iframe
+ * - инициализирует дерево элементов и историю
+ * - сохраняет начальное состояние
+*** */
+function initViewEditorHistory(iframe) {
+    if (window.editorBlock && typeof window.editorBlock.initTreeElements === 'function') {
+        window.editorBlock.initTreeElements(iframe);
+    }
+
+    if (window.editorBlock && typeof window.editorBlock.attachIframeHistoryEvents === 'function') {
+        window.editorBlock.attachIframeHistoryEvents(iframe);
+    }
+
+    if (window.editorBlock && typeof window.editorBlock.setHistoryInitializing === 'function') {
+        window.editorBlock.setHistoryInitializing(false);
+    }
+
+    if (window.editorBlock && typeof window.editorBlock.saveHistoryState === 'function') {
+        window.editorBlock.saveHistoryState();
+    }
+}
+
+/* ***
+ * initViewEditorInputEvents - подключение обработчиков изменения содержимого
+ * - принимает iframe и документ iframe
+ * - обрабатывает ввод, выделение и взаимодействие с элементами
+*** */
+function initViewEditorInputEvents(iframe, iframeDoc) {
+    const inputTarget = iframeDoc.body || iframeDoc.documentElement;
+
+    inputTarget.addEventListener('input', () => {
+        syncEditors();
+        showViewEditorEmptyState();
+    });
+
+    iframeDoc.addEventListener('mousedown', event => {
+        blockEditorSelection(event);
+
+        const iframeWin = iframe.contentWindow;
+        const iframeSelection = iframeWin && iframeWin.getSelection ? iframeWin.getSelection() : null;
+
+        textSelectionRangeBeforeClick = (iframeSelection && !iframeSelection.isCollapsed)
+            ? iframeSelection.getRangeAt(0).cloneRange()
+            : null;
+    });
+
+    iframeDoc.addEventListener('selectstart', blockEditorSelection);
+
+    iframeDoc.addEventListener('click', handleVisualEditorClick);
+    iframeDoc.addEventListener('contextmenu', handleVisualEditorClick);
+    iframeDoc.addEventListener('mouseover', handleVisualEditorHover);
+    iframeDoc.addEventListener('mouseout', handleVisualEditorMouseOut);
+
+    iframeDoc.addEventListener('contextmenu', window.editorBlock.handleContextMenu);
+    iframeDoc.addEventListener('click', window.editorBlock.handleMenuHide);
+    iframeDoc.addEventListener('input', window.editorBlock.handleMenuHide);
+    iframeDoc.addEventListener('paste', window.editorBlock.handleMenuHide);
+    iframeDoc.addEventListener('mousedown', window.editorBlock.handleMenuHide);
+    iframeDoc.addEventListener('click', window.editorBlock.hideElementMenu);
+    iframeDoc.addEventListener('keydown', handleBackspaceEvent);
+
+    const jsEditorContent = document.getElementById('jsEditorContent');
+
+    if (jsEditorContent && window.editorBlock.handleContextMenu) {
+        jsEditorContent.addEventListener('contextmenu', window.editorBlock.handleContextMenu);
+    }
+}
+
+/* ***
+ * initViewEditorIframe - инициализация iframe визуального редактора
+ * - принимает ID блока, iframe и JS-код
+ * - загружает стили и функции
+ * - настраивает body, события и историю
+*** */
+function initViewEditorIframe(blockId, iframe, jsContent) {
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    const iframeWin = iframe.contentWindow;
+
+    if (!iframeDoc || !iframeWin) {
+        return;
+    }
+
+    loadViewEditorStyles(iframeDoc);
+    loadViewEditorFunctions(iframeDoc, iframeWin, jsContent);
+    initViewEditorBody(blockId, iframeDoc);
+    attachIframeSelectionHandlers(iframe);
+
+    if (typeof setupEditorKeyBindings === 'function' && iframeDoc.body) {
+        setupEditorKeyBindings(iframeDoc.body);
+    }
+
+    initViewEditorShortcuts(iframeDoc);
+    initViewEditorHistory(iframe);
+    initViewEditorInputEvents(iframe, iframeDoc);
+
+    if (viewEditorContent.classList.contains('preview') &&
+        window.editorBlock &&
+        typeof window.editorBlock.loadNestedBlocksInPreview === 'function') {
+        window.editorBlock.loadNestedBlocksInPreview();
+    }
+}
+
+function initLoadedViewEditor(blockId, htmlContent, cssContent, jsContent) {
+    const viewEditorContent = document.getElementById('viewEditorContent');
+
+    if (!viewEditorContent) {
+        return;
+    }
+
+    applyLoadedBlockSettings(blockId, viewEditorContent);
+    preserveViewEditorControls(viewEditorContent);
+    showViewEditorEmptyState();
+
+    const iframe = createViewEditorIframe(htmlContent, cssContent);
+
+    iframe.addEventListener('load', () => {
+        initViewEditorZoom(iframe);
+    });
+
+    iframe.addEventListener('load', () => {
+        initViewEditorIframe(blockId, iframe, jsContent);
+    });
+
+    viewEditorContent.appendChild(iframe);
+
+    if (window.editorBlock && typeof window.editorBlock.initPreviewResize === 'function') {
+        try {
+            window.editorBlock.initPreviewResize();
+        } catch (e) {
+            /* silent */
+        }
+    }
+
+    if (window.editorBlock && typeof window.editorBlock.syncViewEditorSizeInputs === 'function') {
+        window.editorBlock.syncViewEditorSizeInputs();
+    }
+}
+
 /* ***
  * openLoadedBlock - загрузка сохраненного блока в редакторы
  * - принимает ID загружаемого блока
  * - вставляет HTML-код в редактор представления
- * - оборачивает и вставляет CSS-код в тег style
- * - оборачивает и вставляет JS-код в тег script
+ * - вставляет CSS-код в iframe
+ * - вставляет JS-код в iframe
 *** */
 function openLoadedBlock(blockId) {
     if (!blockId) {
@@ -316,12 +829,10 @@ function openLoadedBlock(blockId) {
     const jsEditorContent = document.getElementById('jsEditorContent');
 
     // Получение содержимого блока
-    const htmlDiv = document.getElementById(blockId + 'Html');
-    const cssDiv = document.getElementById(blockId + 'Css');
-    const jsDiv = document.getElementById(blockId + 'Js');
-    const htmlContent = htmlDiv ? htmlDiv.textContent : '';
-    const cssContent = cssDiv ? cssDiv.textContent : '';
-    const jsContent = jsDiv ? jsDiv.textContent : '';
+    const blockContent = getLoadedBlockContent(blockId);
+    const htmlContent = blockContent.htmlContent;
+    const cssContent = blockContent.cssContent;
+    const jsContent = blockContent.jsContent;
 
     initBlockSettings(blockId);
 
@@ -330,292 +841,12 @@ function openLoadedBlock(blockId) {
     }
 
     // Вставка содержимого в редакторы
-    if (viewEditorContent) {
-        // Применяем сохранённые размеры из settingsDiv для данного блока, если они есть
-        try {
-            const settingsEl = document.getElementById(blockId + 'Settings');
-            if (settingsEl) {
-                const w = settingsEl.dataset.viewEditorWidth || '';
-                const h = settingsEl.dataset.viewEditorHeight || '';
-                if (w) viewEditorContent.style.width = String(w);
-                if (h) viewEditorContent.style.height = String(h);
-            }
-        } catch (e) {
-            // silent
-        }
-        // Сохраняем статические элементы управления визуального редактора, очищаем содержимое и возвращаем их обратно
-        (function preserveEditorControls(container) {
-            const menu = container.querySelector('#viewEditorMenu');
-            const handle = container.querySelector('#viewEditorResizeHandle');
-
-            if (menu) {
-                menu.remove();
-            }
-            if (handle) {
-                handle.remove();
-            }
-
-            container.innerHTML = '';
-
-            if (menu) {
-                container.appendChild(menu);
-            }
-            if (handle) {
-                container.appendChild(handle);
-            }
-        })(viewEditorContent);
-        showViewEditorEmptyState();
-
-        const iframe = document.createElement('iframe');
-        iframe.id = 'viewEditorIframe';
-
-        const safeCss = cssContent || '';
-        const md = window.markdownit({ html: true, linkify: true, typographer: true });
-        const normalizedHtml = normalizeViewEditorHtml(htmlContent);
-        const renderedHtml = md.render(normalizedHtml);
-
-        iframe.srcdoc = `<!DOCTYPE html> 
-<html style="background-color: #ffffff; width: stretch; height: stretch;">
-<head><meta charset="utf-8"><style> ${safeCss} </style></head>
-<body contenteditable="true" spellcheck="false" style="width: stretch; height: stretch;"> ${renderedHtml} </body>
-</html>`;
-
-        iframe.addEventListener('load', () => {
-            const viewEditorContentEl = document.getElementById('viewEditorContent');
-            const viewEditorResizeHandle = document.getElementById('viewEditorResizeHandle');
-            const iframeDoc = iframe.contentDocument;
-            const zoomSizes = [0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4, 5, 10];
-
-            const handleZoom = (event) => {
-                if (event.ctrlKey) {
-                    event.preventDefault();
-
-                    const currentScale = (() => {
-                        const transform = window.getComputedStyle(viewEditorContentEl).transform;
-                        if (transform && transform !== 'none') {
-                            const matrix = transform.match(/matrix\((.+)\)/);
-                            if (matrix) {
-                                const values = matrix[1].split(',').map(value => parseFloat(value.trim()));
-                                if (Number.isFinite(values[0]) && Number.isFinite(values[3])) {
-                                    return Math.abs(values[0]) || Math.abs(values[3]) || 1;
-                                }
-                            }
-                            const scale = transform.match(/scale\(([^)]+)\)/);
-                            if (scale) {
-                                const value = parseFloat(scale[1]);
-                                if (Number.isFinite(value) && value > 0) {
-                                    return value;
-                                }
-                            }
-                        }
-
-                        const zoom = parseFloat(window.getComputedStyle(viewEditorContentEl).zoom);
-                        return Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
-                    })();
-
-                    const currentIndex = zoomSizes.findIndex(size => size >= currentScale);
-                    const nextIndex = event.deltaY < 0
-                        ? Math.min((currentIndex === -1 ? zoomSizes.length - 1 : currentIndex + 1), zoomSizes.length - 1)
-                        : Math.max((currentIndex === -1 ? 0 : currentIndex - 1), 0);
-
-                    const nextScale = zoomSizes[nextIndex];
-
-                    if (typeof window.window.editorBlock.applyViewEditorZoom  === 'function') {
-                        window.window.editorBlock.applyViewEditorZoom (nextScale);
-                    } else {
-                        viewEditorContentEl.style.transform = `scale(${nextScale})`;
-                        viewEditorContentEl.style.transformOrigin = 'center center';
-                        viewEditorContentEl.style.zoom = '1';
-
-                        if (viewEditorResizeHandle) {
-                            viewEditorResizeHandle.style.transform = `scale(${1 / nextScale})`;
-                            viewEditorResizeHandle.style.transformOrigin = 'top left';
-                        }
-                    }
-
-                    if (window.syncViewEditorSizeInputs) {
-                        window.syncViewEditorSizeInputs();
-                    }
-                }
-            };
-
-            iframeDoc.addEventListener('wheel', handleZoom, { passive: false });
-            document.getElementById('viewEditor').addEventListener('wheel', handleZoom, { passive: false });
-        });
-
-        iframe.addEventListener('load', () => {
-            const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-            const iframeWin = iframe.contentWindow;
-
-            if (!iframeDoc || !iframeWin) {
-                return;
-            }
-
-            // Загрузка стандартныч стилей в iframe
-            const parentWin = (window.parent && window.parent !== window) ? window.parent : window;
-            if (typeof parentWin.loadBlock === 'function') {
-                iframeWin.loadBlock = parentWin.loadBlock.bind(parentWin);
-            }
-            if (typeof parentWin.loadBlockAttribute === 'function') {
-                iframeWin.loadBlockAttribute = parentWin.loadBlockAttribute.bind(parentWin);
-            }
-            const dynamicElements = document.querySelectorAll('[data-dynamic="header"], [data-dynamic="content"]');
-            dynamicElements.forEach(element => {
-                if (element.tagName === 'STYLE') {
-                    const styleEl = iframeDoc.createElement('style');
-                    styleEl.textContent = element.textContent || '';
-                    iframeDoc.head.appendChild(styleEl);
-                    return;
-                }
-            });
-            const linkEl = iframeDoc.createElement('link');
-            linkEl.rel = 'stylesheet';
-            linkEl.href = '/css/style.css';
-            iframeDoc.head.appendChild(linkEl);
-
-            if (iframeDoc && jsContent) {
-                const scriptEl = iframeDoc.createElement('script');
-                scriptEl.type = 'text/javascript';
-                scriptEl.text = jsContent;
-                iframeDoc.head.appendChild(scriptEl);
-            }
-
-            if (iframeDoc && iframeDoc.body) {
-                showViewEditorEmptyState();
-
-                const blockLoader = (typeof window.loadBlockAttribute === 'function' && window.loadBlockAttribute)
-                    || (typeof loadBlockAttribute === 'function' && loadBlockAttribute);
-
-                if (blockLoader) {
-                    blockLoader(iframeDoc.body);
-                }
-
-                iframeDoc.body.querySelectorAll('[data-block-src]').forEach(element => {
-                    element.setAttribute('contenteditable', 'false');
-
-                    element.style.userSelect = 'none';
-                    element.style.pointerEvents = 'auto';
-
-                    element.querySelectorAll('*').forEach(child => {
-                        child.setAttribute('contenteditable', 'false');
-                        child.style.userSelect = 'none';
-                        child.style.pointerEvents = 'none';
-                    });
-                });
-
-                // Применяем стили к body внутри iframe: padding, margin, min/max размеры
-                try {
-                    const settingsEl = document.getElementById(blockId + 'Settings');
-                    if (settingsEl) {
-                        const padding = settingsEl.dataset.viewEditorPadding || '20px';
-                        const margin = settingsEl.dataset.viewEditorMargin || '0 auto';
-                        const minWidth = settingsEl.dataset.viewEditorMinWidth || '0';
-                        const minHeight = settingsEl.dataset.viewEditorMinHeight || '0';
-                        const maxWidth = settingsEl.dataset.viewEditorMaxWidth || '90vw';
-                        const maxHeight = settingsEl.dataset.viewEditorMaxHeight || 'none';
-
-                        iframeDoc.body.style.padding = padding;
-                        iframeDoc.body.style.margin = margin;
-                        iframeDoc.body.style.minWidth = minWidth;
-                        iframeDoc.body.style.minHeight = minHeight;
-                        iframeDoc.body.style.maxWidth = maxWidth;
-                        iframeDoc.body.style.maxHeight = maxHeight;
-                    }
-
-                    // Переносим управление resize на body внутри iframe и включаем прокрутку
-                    iframeDoc.body.style.resize = 'both';
-                } catch (e) {
-                    // silent
-                }
-            }
-
-            attachIframeSelectionHandlers(iframe);
-            if (typeof setupEditorKeyBindings === 'function' && iframeDoc && iframeDoc.body) {
-                setupEditorKeyBindings(iframeDoc.body);
-            }
-
-            // Присоединение обработчиков клавиатурных сокращений к документу iframe
-            if (window.editorBlock && typeof window.editorBlock.attachFileMenuShortcutHandlers === 'function') {
-                window.editorBlock.attachFileMenuShortcutHandlers(iframeDoc);
-            }
-            if (window.editorBlock && typeof window.editorBlock.attachContextMenuShortcutHandlers === 'function') {
-                window.editorBlock.attachContextMenuShortcutHandlers(iframeDoc);
-            }
-            if (window.editorBlock && typeof window.editorBlock.attachColorPickerShortcutHandlers === 'function') {
-                window.editorBlock.attachColorPickerShortcutHandlers(iframeDoc);
-            }
-            if (window.editorBlock && typeof window.editorBlock.attachHistoryShortcutHandlers === 'function') {
-                window.editorBlock.attachHistoryShortcutHandlers(iframeDoc);
-            }
-            if (window.editorBlock && typeof window.editorBlock.attachTextFormatShortcutHandlers === 'function') {
-                window.editorBlock.attachTextFormatShortcutHandlers(iframeDoc);
-            }
-
-            // Инициализация элементов дерева и событий истории в iframe
-            if (window.editorBlock && typeof window.editorBlock.initTreeElements === 'function') {
-                window.editorBlock.initTreeElements(iframe);
-            }
-            if (window.editorBlock && typeof window.editorBlock.attachIframeHistoryEvents === 'function') {
-                window.editorBlock.attachIframeHistoryEvents(iframe);
-            }
-            if (window.editorBlock && typeof window.editorBlock.setHistoryInitializing === 'function') {
-                window.editorBlock.setHistoryInitializing(false);
-            }
-            if (window.editorBlock && typeof window.editorBlock.saveHistoryState === 'function') {
-                window.editorBlock.saveHistoryState();
-            }
-            const inputTarget = iframeDoc.body || iframeDoc.documentElement;
-
-            inputTarget.addEventListener('input', () => {
-                syncEditors();
-                showViewEditorEmptyState();
-            });
-
-            iframeDoc.addEventListener('mousedown', (event) => {
-                blockEditorSelection(event);
-                const iframeWin = iframe.contentWindow;
-                const iframeSelection = iframeWin && iframeWin.getSelection ? iframeWin.getSelection() : null;
-                textSelectionRangeBeforeClick = (iframeSelection && !iframeSelection.isCollapsed)
-                    ? iframeSelection.getRangeAt(0).cloneRange()
-                    : null;
-            });
-            iframeDoc.addEventListener('selectstart', blockEditorSelection);
-
-            iframeDoc.addEventListener('click', handleVisualEditorClick);
-            iframeDoc.addEventListener('contextmenu', handleVisualEditorClick);
-            iframeDoc.addEventListener('mouseover', handleVisualEditorHover);
-            iframeDoc.addEventListener('mouseout', handleVisualEditorMouseOut);
-
-            iframeDoc.addEventListener('contextmenu', window.editorBlock.handleContextMenu);
-            iframeDoc.addEventListener('click', window.editorBlock.handleMenuHide);
-
-            const jsEditorContent = document.getElementById('jsEditorContent');
-            if (jsEditorContent && window.editorBlock.handleContextMenu) {
-                jsEditorContent.addEventListener('contextmenu', window.editorBlock.handleContextMenu);
-            }            
-            iframeDoc.addEventListener('input', window.editorBlock.handleMenuHide);
-            iframeDoc.addEventListener('paste', window.editorBlock.handleMenuHide);
-            
-            iframeDoc.addEventListener('mousedown', window.editorBlock.handleMenuHide);
-            iframeDoc.addEventListener('click', window.editorBlock.hideElementMenu);
-
-            iframeDoc.addEventListener('keydown', handleBackspaceEvent);
-
-            if (viewEditorContent.classList.contains('preview') &&
-                window.editorBlock && typeof window.editorBlock.loadNestedBlocksInPreview === 'function') {
-                window.editorBlock.loadNestedBlocksInPreview();
-            }
-        });
-        viewEditorContent.appendChild(iframe);
-        // После добавления iframe — инициализируем механизм резайза (если он присутствует)
-        if (window.editorBlock && typeof window.editorBlock.initPreviewResize === 'function') {
-            try { window.editorBlock.initPreviewResize(); } catch (e) { /* silent */ }
-        }
-    }
+    initLoadedViewEditor(blockId, htmlContent, cssContent, jsContent);
 
     if (mdEditorContent) {
         mdEditorContent.textContent = htmlContent;
     }
+
     if (jsEditorContent) {
         jsEditorContent.textContent = jsContent;
     }

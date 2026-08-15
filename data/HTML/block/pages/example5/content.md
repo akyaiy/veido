@@ -1,0 +1,1 @@
+<div style="display:grid;width:100%;height:100%;grid-template-columns:repeat(3,1fr);gap:5px;"><div>текст1</div><div>текст1<br></div><div>текст1<br></div><div>текст1<br></div><div>текст1<br></div><div>текст1<br></div></div>

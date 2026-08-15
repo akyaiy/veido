@@ -15,6 +15,7 @@ function switchEditor(editorId) {
         'jsEditor'
     ];
     const currentActiveEditor = document.querySelector('#viewBlock > .active');
+    const viewEditorMenu = document.getElementById('viewEditorMenu');
 
     // Переключение отображения редакторов
     for (const id of editors) {
@@ -30,6 +31,10 @@ function switchEditor(editorId) {
             editor.classList.remove('active');
             if (button) button.classList.remove('active');
         }
+    }
+
+    if (viewEditorMenu) {
+        viewEditorMenu.style.display = editorId === 'viewEditor' ? '' : 'none';
     }
 
     if (editorId === 'mdEditor') {
