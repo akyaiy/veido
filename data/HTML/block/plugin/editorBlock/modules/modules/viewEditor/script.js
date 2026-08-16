@@ -85,6 +85,7 @@ function initPreviewResize() {
         const menuSelect = document.getElementById('viewEditorMenuSelect');
         if (menuSelect && menuSelect.value !== 'manual') {
             menuSelect.value = 'manual';
+            window.editorBlock.saveViewEditorSettings();
         }
 
         const widthInput = document.getElementById('viewEditorWidthInput');

@@ -296,3 +296,34 @@ function initViewEditorMenu() {
 document.addEventListener('editorBlock:loaded', async () => {
     initViewEditorMenu();
 });
+
+
+
+/* ===
+ * Сохранение настроек области просмотра
+=== */
+
+/* ***
+ * saveViewEditorSettings - сохранение настроек области просмотра
+ * - получает текущий активный блок
+ * - сохраняет выбранный режим и масштаб
+*** */
+function saveViewEditorSettings() {
+    const blockId = window.editorBlock?.currentBlockId || null;
+    const settingsEl = blockId ? document.getElementById(blockId + 'Settings') : null;
+    const menuSelect = document.getElementById('viewEditorMenuSelect');
+    const zoomInput = document.getElementById('viewEditorZoomInput');
+
+    if (settingsEl && menuSelect) {
+        settingsEl.dataset.viewEditorScreen = menuSelect.value;
+    }
+
+    if (settingsEl && zoomInput) {
+        settingsEl.dataset.viewEditorZoom = zoomInput.value;
+    }
+}
+window.editorBlock.saveViewEditorSettings = saveViewEditorSettings;
+
+// Обработчики изменения настроек области просмотра
+document.getElementById('viewEditorMenuSelect')?.addEventListener('change', saveViewEditorSettings);
+document.getElementById('viewEditorZoomInput')?.addEventListener('change', saveViewEditorSettings);

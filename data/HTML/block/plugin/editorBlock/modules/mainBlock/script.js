@@ -135,6 +135,7 @@ async function loadBlockContainer(path, initialElement = null) {
 function initBlockSettings(blockId) {
     const settingsDiv = document.getElementById(blockId + 'Settings');
     const viewEditorContent = document.getElementById('viewEditorContent');
+    const viewEditorMenuSelect = document.getElementById('viewEditorMenuSelect');
 
     if (!settingsDiv || !viewEditorContent) {
         return;
@@ -143,6 +144,10 @@ function initBlockSettings(blockId) {
     // специфические настройки для viewEditorContent
     if (!settingsDiv.dataset.viewEditorZoom) {
         settingsDiv.dataset.viewEditorZoom = '1';
+    }
+
+    if (!settingsDiv.dataset.viewEditorScreen) {
+        settingsDiv.dataset.viewEditorScreen = 'manual';
     }
 
     // Размеры 
@@ -188,6 +193,7 @@ function initBlockSettings(blockId) {
     viewEditorContent.style.maxWidth = settingsDiv.dataset.viewEditorMaxWidth;
     viewEditorContent.style.maxHeight = settingsDiv.dataset.viewEditorMaxHeight;
     viewEditorContent.style.transform = `scale(${settingsDiv.dataset.viewEditorZoom})`;
+    viewEditorMenuSelect.value = settingsDiv.dataset.viewEditorScreen;
 }
 
 /* ***
@@ -497,15 +503,11 @@ function handleViewEditorZoom(event, viewEditorContent) {
         }
     }
 
-    const blockId = window.editorBlock && window.editorBlock.currentBlockId ? window.editorBlock.currentBlockId : null;
-    const settingsEl = blockId ? document.getElementById(blockId + 'Settings') : null;
-    if (settingsEl) {
-        settingsEl.dataset.viewEditorZoom = String(nextScale);
-    }
-
     if (window.editorBlock.syncViewEditorSizeInputs) {
         window.editorBlock.syncViewEditorSizeInputs();
     }
+
+    window.editorBlock.saveViewEditorSettings();
 }
 
 /* ***
@@ -531,6 +533,11 @@ function initViewEditorZoom(iframe) {
     const viewEditor = document.getElementById('viewEditor');
 
     if (viewEditor) {
+        if (viewEditor._viewEditorZoomHandler) {
+            viewEditor.removeEventListener('wheel', viewEditor._viewEditorZoomHandler);
+        }
+
+        viewEditor._viewEditorZoomHandler = handleZoom;
         viewEditor.addEventListener('wheel', handleZoom, { passive: false });
     }
 }
