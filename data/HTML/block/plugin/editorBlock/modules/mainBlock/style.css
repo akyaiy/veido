@@ -110,6 +110,10 @@
 #propertiesElement {
     padding: 0px;
 }
+#propertiesElement hr {
+    margin: 20px 0px;
+    width: 100%;
+}
 
 
 /* Разделители панелей */

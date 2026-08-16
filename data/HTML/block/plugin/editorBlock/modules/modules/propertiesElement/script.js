@@ -30,6 +30,13 @@ const propertyMap = {
     gridDirection: { type: 'special', action: 'gridDirection' },
     gridTemplateCount: { type: 'special', action: 'gridTemplate', part: 'count' },
     gridTemplateSize: { type: 'special', action: 'gridTemplate', part: 'size' },
+    gridRows: { type: 'special', action: 'gridDimension', axis: 'rows' },
+    gridColumns: { type: 'special', action: 'gridDimension', axis: 'columns' },
+    gridCellWidth: { type: 'special', action: 'gridCellSize', axis: 'columns' },
+    gridCellHeight: { type: 'special', action: 'gridCellSize', axis: 'rows' },
+    gridPad: { type: 'style', cssName: 'gap', isNumeric: true },
+    gridAlignHorizontal: { type: 'style', cssName: 'justifyContent' },
+    gridAlignVertical: { type: 'style', cssName: 'alignContent' },
     gridColumn: { type: 'style', cssName: 'gridColumn' },
     gridRow: { type: 'style', cssName: 'gridRow' },
     resize: { type: 'style', cssName: 'resize' },
@@ -58,9 +65,106 @@ const propertyMap = {
     tableCols: { type: 'special', action: 'tableDimensions' }
 };
 
+function getGridTemplateState(element, axis) {
+   const gridProperty = axis === 'rows' ? 'grid-template-rows' : 'grid-template-columns';
+   const inlineValue = element.style.getPropertyValue(gridProperty);
+   const computedValue = element.ownerDocument.defaultView.getComputedStyle(element).getPropertyValue(gridProperty);
+   const template = inlineValue || computedValue || '';
+   const cleanTemplate = String(template).trim();
+
+   if (!cleanTemplate || cleanTemplate === 'none') {
+       return { count: 1, size: '1fr', template: '' };
+   }
+
+   const match = cleanTemplate.match(/repeat\(\s*(\d+)\s*,\s*([^\)]+)\)/i);
+
+   if (match) {
+       return {
+           count: Number(match[1]) || 1,
+           size: match[2].trim() || '1fr',
+           template: cleanTemplate
+       };
+   }
+
+   const parts = cleanTemplate.split(/\s+/).filter(Boolean);
+   const count = parts.length || 1;
+   const value = parts[0] || '1fr';
+
+   return {
+       count,
+       size: (/px$/i.test(value) && !inlineValue) ? '1fr' : value,
+       template: cleanTemplate
+   };
+}
+
 /* ***
- * updatePropertiesPanel - синхронизирует значения полей ввода и видимость блоков с выбранным элементом
- * принимает выбранный HTML-элемент
+ * syncGridChildren - синхронизация количества ячеек Grid
+ * - принимает элемент Grid, ось и старое и новое количество
+ * - добавляет или удаляет ячейки по строкам или колонкам
+ * - сохраняет существующий порядок ячеек
+ *** */
+function syncGridChildren(element, axis, oldCount, newCount) {
+    if (!element || element.tagName.toLowerCase() !== 'div') {
+        return;
+    }
+
+    const cols = Math.max(1, Number(getGridTemplateState(element, 'columns').count) || 1);
+    const divChildren = Array.from(element.children).filter(child => {
+        return child.tagName === 'DIV';
+    });
+
+    if (axis === 'columns') {
+        const newChildren = [];
+        const oldCols = Math.max(1, Number(oldCount) || 1);
+        const calculatedRows = Math.ceil(divChildren.length / oldCols);
+        const rows = Math.max(1, calculatedRows);
+
+        for (let row = 0; row < rows; row++) {
+            for (let col = 0; col < newCount; col++) {
+                const oldIndex = row * oldCols + col;
+
+                if (col < oldCols && divChildren[oldIndex]) {
+                    newChildren.push(divChildren[oldIndex]);
+                } else if (col >= oldCols) {
+                    newChildren.push(document.createElement('div'));
+                }
+            }
+        }
+
+        newChildren.forEach(child => {
+            element.appendChild(child);
+        });
+
+        divChildren.forEach(child => {
+            if (!newChildren.includes(child)) {
+                child.remove();
+            }
+        });
+
+        return;
+    }
+
+    const totalCells = newCount * cols;
+
+    while (divChildren.length > totalCells) {
+        const lastChild = divChildren.pop();
+
+        if (lastChild) {
+            lastChild.remove();
+        }
+    }
+
+    while (divChildren.length < totalCells) {
+        const newCell = document.createElement('div');
+
+        element.appendChild(newCell);
+        divChildren.push(newCell);
+    }
+}
+
+/* ***
+* updatePropertiesPanel - синхронизирует значения полей ввода и видимость блоков с выбранным элементом
+* принимает выбранный HTML-элемент
 *** */
 function updatePropertiesPanel(element) {
     const controls = document.getElementById('editorBlock').querySelectorAll('[data-prop]');
@@ -162,6 +266,11 @@ function updatePropertiesPanel(element) {
             if (match) {
                 finalValue = config.part === 'count' ? match[1] : match[2].trim();
             }
+        } else if (config.type === 'special' && config.action === 'gridDimension') {
+            finalValue = getGridTemplateState(element, config.axis).count;
+        } else if (config.type === 'special' && config.action === 'gridCellSize') {
+            const size = getGridTemplateState(element, config.axis).size;
+            finalValue = size.replace(/px$/i, '');
         } else if (config.type === 'special' && config.action === 'tableDimensions' && tagName === 'table') {
             if (prop === 'tableRows') {
                 finalValue = element.querySelectorAll('tr').length;
@@ -381,6 +490,35 @@ function applyPropertyToElement(element, propertyName, rawValue, targetProperty 
             ? 'grid-template-columns'
             : 'grid-template-rows');
         element.style.setProperty('grid-auto-flow', value === 'grid-template-columns' ? 'row' : 'column');
+        markBlockDirty(element);
+        return;
+    }
+
+    if (config.type === 'special' && config.action === 'gridDimension') {
+        const gridProperty = config.axis === 'rows' ? 'grid-template-rows' : 'grid-template-columns';
+        const currentState = getGridTemplateState(element, config.axis);
+        const count = Math.max(1, Number(value) || 1);
+        const size = currentState.size || '1fr';
+
+        element.style.setProperty(gridProperty, `repeat(${count},${size})`);
+        syncGridChildren(element, config.axis, currentState.count, count);
+        markBlockDirty(element);
+        return;
+    }
+
+    if (config.type === 'special' && config.action === 'gridCellSize') {
+        const gridProperty = config.axis === 'rows' ? 'grid-template-rows' : 'grid-template-columns';
+        const currentState = getGridTemplateState(element, config.axis);
+        const count = currentState.count || 1;
+        let size = value.trim();
+
+        if (!size) {
+            size = currentState.size || '1fr';
+        } else if (checkIsNumericString(size)) {
+            size = `${Number(size)}px`;
+        }
+
+        element.style.setProperty(gridProperty, `repeat(${count},${size})`);
         markBlockDirty(element);
         return;
     }
