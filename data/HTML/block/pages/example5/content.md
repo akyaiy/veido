@@ -1,1 +1,2 @@
-<div style="display:grid;width:100%;height:100%;grid-template-columns:repeat(2,1fr);gap:5px;"><div>текст1</div><div>текст2<br></div><div>текст3<br></div><div>текст4<br></div></div>
+<div style="display:grid;width:50%;height:200px;grid-template-columns:repeat(3,1fr);gap:5px;"><div>текст</div><div><br></div><div><br></div><div><br></div><div><br></div><div><br></div></div>
+<br>

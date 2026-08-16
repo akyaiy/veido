@@ -780,6 +780,17 @@ function initViewEditorIframe(blockId, iframe, jsContent) {
         typeof window.editorBlock.loadNestedBlocksInPreview === 'function') {
         window.editorBlock.loadNestedBlocksInPreview();
     }
+
+    // Если режим предпросмотра не активен — применять серый фон для Grid-ячееек в iframe
+    if (!viewEditorContent.classList.contains('preview') &&
+        window.editorBlock &&
+        typeof window.editorBlock.setGridCellsGray === 'function') {
+        try {
+            window.editorBlock.setGridCellsGray();
+        } catch (e) {
+            /* silent */
+        }
+    }
 }
 
 function initLoadedViewEditor(blockId, htmlContent, cssContent, jsContent) {

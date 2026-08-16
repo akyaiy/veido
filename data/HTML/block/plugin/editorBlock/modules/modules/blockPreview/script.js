@@ -107,6 +107,7 @@ async function togglePreviewMode() {
         if (iframeSelection) {
             iframeSelection.removeAllRanges();
         }
+
         const selection = window.getSelection();
         if (selection) {
             selection.removeAllRanges();
@@ -156,7 +157,46 @@ async function togglePreviewMode() {
     }
 
     blockPreviewButton.classList.toggle('active', isPreviewActive);
+
+    if (!isPreviewActive) {
+        setGridCellsGray();
+    }
 }
+
+/* ***
+ * setGridCellsGray - делает ячейки Grid серыми в редакторе
+ * - получает iframe редактора
+ * - добавляет CSS для фона ячеек Grid
+* - ничего не делает, если активен режим предпросмотра
+*** */
+function setGridCellsGray() {
+   // Если включён визуальный режим (preview) — не применяем серый фон
+   const viewEditor = document.getElementById('viewEditor');
+   const viewEditorContent = document.getElementById('viewEditorContent');
+   const centerPanel = document.getElementById('centerPanel');
+
+   if ((viewEditor && viewEditor.classList.contains('preview')) ||
+       (viewEditorContent && viewEditorContent.classList.contains('preview')) ||
+       (centerPanel && centerPanel.classList.contains('preview'))) {
+       return;
+   }
+
+   const iframe = getPreviewEditorIframe();
+
+   if (!iframe?.contentDocument) {
+       return;
+   }
+
+   let style = iframe.contentDocument.getElementById('gridEditorStyle');
+
+   if (!style) {
+       style = iframe.contentDocument.createElement('style');
+       style.id = 'gridEditorStyle';
+       style.textContent = 'div[style*="display:grid"] > div { background-color: #f9f9f9; }';
+       iframe.contentDocument.head.appendChild(style);
+   }
+}
+window.editorBlock.setGridCellsGray = setGridCellsGray;
 
 /* ***
  * handlePreviewClick - обработка нажатия на кнопку предпросмотра
