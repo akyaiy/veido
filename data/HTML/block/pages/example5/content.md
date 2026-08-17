@@ -1,2 +1,2 @@
-<div style="display:grid;width:50%;height:200px;grid-template-columns:repeat(3,1fr);gap:5px;"><div>текст</div><div><br></div><div><br></div><div><br></div><div><br></div><div><br></div></div>
+<div style="width: 100%; height: 100%; display: grid; grid-template-columns: repeat(1, 80%); grid-template-rows: repeat(3, 100px); gap: 5px; place-content: center;"><div><br></div><div style="display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(1, 1fr); gap: 50px; padding-right: 50px; padding-left: 50px;"><div><br></div><div><br></div><div><br></div></div><div><br></div></div>
 <br>

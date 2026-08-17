@@ -192,7 +192,8 @@ function setGridCellsGray() {
    if (!style) {
        style = iframe.contentDocument.createElement('style');
        style.id = 'gridEditorStyle';
-       style.textContent = 'div[style*="display:grid"] > div { background-color: #f9f9f9; }';
+        style.textContent = 'div[style*="display:grid"] > div { background-color: rgba(0, 0, 0, 0.03); }';
+        style.textContent += 'div[style*="display: grid"] > div { background-color: rgba(0, 0, 0, 0.03); }';
        iframe.contentDocument.head.appendChild(style);
    }
 }

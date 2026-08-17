@@ -749,14 +749,81 @@ async function tableSizeGridClickHandler(event) {
     const rows = Number(cell.dataset.row);
     const cols = Number(cell.dataset.col);
 
-    // Генерируем HTML-код таблицы или CSS Grid
+    // Генерируем HTML-код таблицы или применяем CSS Grid к выделенному элементу
     let tableHtml = '';
-    if (tableSizeGrid.closest('#tableSizeMenu')?.dataset.element === 'divGrid') {
-        tableHtml = `<div style="display:grid;width:50%;height:200px;grid-template-columns:repeat(${cols},1fr);gap:5px;">`;
-        for (let r = 0; r < rows * cols; r++) {
-            tableHtml += `<div>${r === 0 ? '[ST]' : '<br>'}</div>`;
+    const isDivGrid = tableSizeGrid.closest('#tableSizeMenu')?.dataset.element === 'divGrid';
+    if (isDivGrid) {
+        // Для divGrid — не вставляем новый элемент, а применяем Grid к текущему выделенному элементу
+        // Получаем элемент, в который сейчас направлено выделение (используем editorBlock selection если доступен)
+        let target = null;
+        const sel = window.editorBlock && typeof window.editorBlock.getEditorSelection === 'function'
+            ? window.editorBlock.getEditorSelection()
+            : (document.getSelection ? document.getSelection() : null);
+        if (sel && sel.rangeCount > 0) {
+            let ancestor = sel.getRangeAt(0).commonAncestorContainer;
+            if (ancestor && ancestor.nodeType !== 1) {
+                ancestor = ancestor.parentNode;
+            }
+            if (ancestor && ancestor.tagName && ancestor.tagName.toLowerCase() !== 'body') {
+                target = ancestor;
+            }
         }
-        tableHtml += '</div>';
+
+        const editorDoc = window.editorBlock && typeof window.editorBlock.getEditorDocument === 'function'
+            ? window.editorBlock.getEditorDocument()
+            : document;
+
+        // Если нет подходящего выделенного элемента или выделен сам body — создаём новый div в body
+        let createdNew = false;
+        if (!target || !editorDoc.body.contains(target) || (target.tagName && target.tagName.toLowerCase() === 'body')) {
+            const newDiv = (editorDoc.createElement) ? editorDoc.createElement('div') : document.createElement('div');
+            // Если создаём новый div, задаём ему размеры по ширине/высоте
+            newDiv.style.width = '100%';
+            newDiv.style.height = '100%';
+            editorDoc.body.appendChild(newDiv);
+            target = newDiv;
+            createdNew = true;
+        }
+
+        if (target) {
+            // Устанавливаем grid-свойства
+            target.style.display = 'grid';
+            target.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+            target.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+            // Устанавливаем gap между ячейками
+            target.style.gap = '5px';
+
+            // Собираем существующие дочерние элементы (элементные узлы) в массив
+            const existingChildren = Array.from(target.children || []);
+
+            // Очищаем контейнер и формируем ячейки в количестве rows*cols
+            target.innerHTML = '';
+            const total = rows * cols;
+            for (let i = 0; i < total; i++) {
+                const cellDiv = (target.ownerDocument || document).createElement('div');
+                // Если есть существующий элемент — помещаем его внутрь ячейки
+                if (existingChildren[i]) {
+                    cellDiv.appendChild(existingChildren[i]);
+                } else {
+                    // Оставляем пустой DIV как ячейку (для визуального соответствия таблице)
+                    cellDiv.innerHTML = '<br>';
+                }
+                target.appendChild(cellDiv);
+            }
+
+            // Сохраняем состояние истории и синхронизируем редакторы
+            if (window.editorBlock && typeof window.editorBlock.saveHistoryState === 'function') {
+                window.editorBlock.saveHistoryState();
+            }
+            if (window.editorBlock && typeof window.editorBlock.syncEditors === 'function') {
+                window.editorBlock.syncEditors();
+            }
+        }
+
+        // Скрываем меню после применения Grid
+        document.querySelectorAll('.elementMenu').forEach(el => el.style.display = 'none');
+
+        return;
     } else {
         tableHtml = '<table style="width: 100%; border-collapse: collapse; border: 1px solid #ccc;"><tbody>';
         for (let r = 0; r < rows; r++) {
