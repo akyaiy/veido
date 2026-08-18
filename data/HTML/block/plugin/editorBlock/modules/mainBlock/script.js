@@ -1496,11 +1496,10 @@ let lastHighlightedElement = null;
 let highlightObserver = null;
 
 /* ***
- * resolveHighlightTarget - определение элемента для выделения
- * принимает целевой DOM-элемент
- * определяет родительский контейнер для flex/grid
- * исключает body и html
- * возвращает элемент для выделения или null
+ * resolveHighlightTarget - определение целевого элемента для подсветки
+ * - принимает DOM-элемент target
+ * - возвращает ближайший родительский элемент с атрибутом data-block-src или сам элемент
+ * - если элемент является body или documentElement, возвращает null
 *** */
 function resolveHighlightTarget(target) {
     const element = target && target.nodeType === Node.TEXT_NODE ? target.parentElement : target;
@@ -1508,12 +1507,8 @@ function resolveHighlightTarget(target) {
         return null;
     }
 
-    const parentElement = element.parentElement;
-    if (parentElement && parentElement !== parentElement.ownerDocument?.body && parentElement !== parentElement.ownerDocument?.documentElement) {
-        const parentDisplay = parentElement.ownerDocument?.defaultView?.getComputedStyle(parentElement)?.display;
-        if (parentDisplay === 'flex' || parentDisplay === 'grid') {
-            return parentElement;
-        }
+    if (element.getAttribute?.('data-contenteditable') === 'false') {
+        return element.parentElement;
     }
 
     return element.closest ? element.closest('[data-block-src]') || element : element;

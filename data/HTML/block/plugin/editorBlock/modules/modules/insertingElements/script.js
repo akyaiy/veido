@@ -4,7 +4,7 @@
 
 // Шаблоны элементов для вставки
 const elementsTemplates = [
-    { element: 'div', html: "<div style='border:1px solid #ccc; display: inline-block; width: 50%;'>[ST]</div>" },
+    { element: 'div', html: "<div style='border:1px solid #ccc; display: inline-block; width: 100%; height: 100%;'>[ST]</div>" },
     { element: 'img', html: "[MENU]" },
     { element: 'a', html: "<a href='[LINK]'>[ST]</a>" },
     { element: 'table', html: '[MENU]' },
@@ -218,6 +218,34 @@ async function insertClickHandler(event, customTemplate=null) {
         // Получаем HTML-шаблон элемента
         dataEl = elementTemplate.html;
         textContent = button.textContent || 'текст';
+
+        // Для обычного div, если курсор находится внутри Grid-ячейки, применяем шаблон к существующему элементу
+        if (button.dataset.element === 'div') {
+            const selection = window.editorBlock && typeof window.editorBlock.getEditorSelection === 'function'
+                ? window.editorBlock.getEditorSelection()
+                : (document.getSelection ? document.getSelection() : null);
+
+            if (selection && selection.rangeCount > 0) {
+                let currentNode = selection.getRangeAt(0).commonAncestorContainer;
+                if (currentNode && currentNode.nodeType !== 1) {
+                    currentNode = currentNode.parentNode;
+                }
+
+                const target = currentNode && currentNode.closest ? currentNode.closest('div[data-contenteditable="false"]') : null;
+                if (target && target.parentElement) {
+                    const parentDisplay = window.getComputedStyle ? window.getComputedStyle(target.parentElement).display : '';
+                    if (parentDisplay === 'grid') {
+                        const parsedTemplate = parseDataEl(dataEl);
+                        const templateNode = parsedTemplate.nodeTemplate ? parsedTemplate.nodeTemplate.cloneNode(true) : document.createElement('div');
+                        target.removeAttribute('data-contenteditable');
+                        target.style.cssText = templateNode.getAttribute('style') || '';
+                        target.innerHTML = templateNode.innerHTML.replace(/\[ST\]/g, textContent);
+                        document.querySelectorAll('.elementMenu').forEach(el => el.style.display = 'none');
+                        return;
+                    }
+                }
+            }
+        }
     }
 
     // Проверяем, что разрешено редактирование и текущая область редактирования — именно viewEditor
@@ -801,7 +829,8 @@ async function tableSizeGridClickHandler(event) {
             const total = rows * cols;
             for (let i = 0; i < total; i++) {
                 const cellDiv = (target.ownerDocument || document).createElement('div');
-                // Если есть существующий элемент — помещаем его внутрь ячейки
+                cellDiv.setAttribute('data-contenteditable', 'false');
+                // Если есть существующий элемент - помещаем его внутрь ячейки
                 if (existingChildren[i]) {
                     cellDiv.appendChild(existingChildren[i]);
                 } else {
