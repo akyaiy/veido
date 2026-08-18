@@ -48,7 +48,7 @@ const parseViewEditorZoomValue = (value) => {
 /* ***
  * getViewEditorContentScale - получение текущего масштаба редактора
  * получает элемент области просмотра
- * определяет масштаб из transform или zoom
+ * определяет масштаб из zoom
  * возвращает значение масштаба
 *** */
 const getViewEditorContentScale = () => {
@@ -58,38 +58,17 @@ const getViewEditorContentScale = () => {
         return 1;
     }
 
-    const style = window.getComputedStyle(viewEditorContent);
-    const transform = style.transform;
-
-    if (transform && transform !== 'none') {
-        const matrix = transform.match(/matrix\((.+)\)/);
-        if (matrix) {
-            const values = matrix[1].split(',').map(value => parseFloat(value.trim()));
-            if (Number.isFinite(values[0]) && Number.isFinite(values[3])) {
-                return Math.abs(values[0]) || Math.abs(values[3]) || 1;
-            }
-        }
-
-        const scale = transform.match(/scale\(([^)]+)\)/);
-        if (scale) {
-            const value = parseFloat(scale[1]);
-            if (Number.isFinite(value) && value > 0) {
-                return value;
-            }
-        }
-    }
-
-    const zoom = parseFloat(style.zoom);
+    const zoom = parseFloat(window.getComputedStyle(viewEditorContent).zoom);
     return Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
 };
 
 /* ***
  * applyViewEditorZoom - применение масштаба области просмотра
  * принимает значение масштаба
- * изменяет масштаб и точку его начала
+ * изменяет масштаб
  * обновляет значение поля масштаба
 *** */
-window.editorBlock.applyViewEditorZoom  = (value) => {
+window.editorBlock.applyViewEditorZoom = (value) => {
     const viewEditorContent = document.getElementById('viewEditorContent');
     const zoomInput = document.getElementById('viewEditorZoomInput');
 
@@ -97,13 +76,11 @@ window.editorBlock.applyViewEditorZoom  = (value) => {
         return;
     }
 
-    const scale = parseViewEditorZoomValue(value);
-    viewEditorContent.style.transform = `scale(${scale})`;
-    viewEditorContent.style.transformOrigin = 'center center';
-    viewEditorContent.style.zoom = '1';
+    const zoom = parseViewEditorZoomValue(value);
+    viewEditorContent.style.zoom = zoom;
 
     if (zoomInput) {
-        zoomInput.value = Number(scale.toFixed(2)).toString();
+        zoomInput.value = Number(zoom.toFixed(2)).toString();
     }
 };
 

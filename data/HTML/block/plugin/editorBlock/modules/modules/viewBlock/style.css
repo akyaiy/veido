@@ -35,6 +35,6 @@
     min-height: 0;
     position: relative;
     display: flex;
-    justify-content: center;
-    align-items: center;
+    justify-content: safe center;
+    align-items: safe center;
 }

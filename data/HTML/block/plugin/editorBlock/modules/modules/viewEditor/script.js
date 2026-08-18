@@ -42,26 +42,15 @@ function initPreviewResize() {
     let lastHeight = 0;
 
     /* ***
-     * getCurrentScale - получение текущего масштаба элемента
+     * getCurrentZoom - получение текущего масштаба элемента
      * принимает DOM-элемент
-     * получает масштаб из CSS transform или zoom
+     * получает масштаб из CSS zoom
      * возвращает текущий масштаб
     *** */
-    const getCurrentScale = (el) => {
-        const transform = window.getComputedStyle(el).transform;
-
-        if (transform && transform !== 'none') {
-            const matrix = transform.match(/matrix\((.+)\)/);
-
-            if (matrix) {
-                const values = matrix[1].split(', ');
-                return parseFloat(values[0]);
-            }
-        }
-
+    const getCurrentZoom = (el) => {
         const zoom = parseFloat(window.getComputedStyle(el).zoom);
 
-        if (!isNaN(zoom) && zoom !== 1) {
+        if (!isNaN(zoom) && zoom > 0) {
             return zoom;
         }
 
@@ -98,19 +87,19 @@ function initPreviewResize() {
         const hasRightDarkening = iframeWidth - currentMinWidth > 0 && currentMinWidth > 0;
         const hasBottomDarkening = iframeHeight - currentMinHeight > 0 && currentMinHeight > 0;
 
-        const scale = getCurrentScale(viewEditorContent);
-        const deltaX = (event.clientX - startX) / scale * (hasRightDarkening ? 1 : 2);
-        const deltaY = (event.clientY - startY) / scale * (hasBottomDarkening ? 1 : 2);
+        const zoom = getCurrentZoom(viewEditorContent);
+        const deltaX = (event.clientX - startX) / zoom * (hasRightDarkening ? 1 : 2);
+        const deltaY = (event.clientY - startY) / zoom * (hasBottomDarkening ? 1 : 2);
 
         let nextWidth = Math.max(minSize, Math.round(startWidth + deltaX));
         let nextHeight = Math.max(minSize, Math.round(startHeight + deltaY));
 
         try {
-            const scale = getCurrentScale(viewEditorContent) || 1;
+            const zoom = getCurrentZoom(viewEditorContent) || 1;
             const parentEl = viewEditorContent.parentElement || document.documentElement;
             const parentRect = parentEl.getBoundingClientRect();
-            const maxAllowedW = Math.max(minSize, Math.floor(parentRect.width / scale));
-            const maxAllowedH = Math.max(minSize, Math.floor(parentRect.height / scale));
+            const maxAllowedW = Math.max(minSize, Math.floor(parentRect.width / zoom));
+            const maxAllowedH = Math.max(minSize, Math.floor(parentRect.height / zoom));
 
             if (nextWidth > maxAllowedW) {
                 nextWidth = maxAllowedW;
@@ -172,13 +161,13 @@ function initPreviewResize() {
     resizeHandle.addEventListener('mousedown', (event) => {
         const contentRect = viewEditorContent.getBoundingClientRect();
         const handleRect = resizeHandle.getBoundingClientRect();
-        const scale = getCurrentScale(viewEditorContent);
+        const zoom = getCurrentZoom(viewEditorContent);
 
         isResizing = true;
         startX = handleRect.right;
         startY = handleRect.bottom;
-        startWidth = (handleRect.right - contentRect.left) / scale;
-        startHeight = (handleRect.bottom - contentRect.top) / scale;
+        startWidth = (handleRect.right - contentRect.left) / zoom;
+        startHeight = (handleRect.bottom - contentRect.top) / zoom;
         lastWidth = startWidth;
         lastHeight = startHeight;
 

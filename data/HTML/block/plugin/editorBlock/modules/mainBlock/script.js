@@ -192,7 +192,8 @@ function initBlockSettings(blockId) {
     viewEditorContent.style.minHeight = settingsDiv.dataset.viewEditorMinHeight;
     viewEditorContent.style.maxWidth = settingsDiv.dataset.viewEditorMaxWidth;
     viewEditorContent.style.maxHeight = settingsDiv.dataset.viewEditorMaxHeight;
-    viewEditorContent.style.transform = `scale(${settingsDiv.dataset.viewEditorZoom})`;
+    viewEditorContent.style.transform = 'none';
+    viewEditorContent.style.zoom = settingsDiv.dataset.viewEditorZoom;
     viewEditorMenuSelect.value = settingsDiv.dataset.viewEditorScreen;
 }
 
@@ -424,34 +425,10 @@ function createViewEditorIframe(htmlContent, cssContent) {
 /* ***
  * getViewEditorCurrentScale - получение текущего масштаба визуального редактора
  * - принимает область просмотра
- * - получает значение transform или zoom
+ * - получает значение zoom
  * - возвращает текущий масштаб
 *** */
 function getViewEditorCurrentScale(viewEditorContent) {
-    const transform = window.getComputedStyle(viewEditorContent).transform;
-
-    if (transform && transform !== 'none') {
-        const matrix = transform.match(/matrix\((.+)\)/);
-
-        if (matrix) {
-            const values = matrix[1].split(',').map(value => parseFloat(value.trim()));
-
-            if (Number.isFinite(values[0]) && Number.isFinite(values[3])) {
-                return Math.abs(values[0]) || Math.abs(values[3]) || 1;
-            }
-        }
-
-        const scale = transform.match(/scale\(([^)]+)\)/);
-
-        if (scale) {
-            const value = parseFloat(scale[1]);
-
-            if (Number.isFinite(value) && value > 0) {
-                return value;
-            }
-        }
-    }
-
     const zoom = parseFloat(window.getComputedStyle(viewEditorContent).zoom);
 
     return Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
@@ -491,16 +468,7 @@ function handleViewEditorZoom(event, viewEditorContent) {
     if (typeof window.editorBlock.applyViewEditorZoom === 'function') {
         window.editorBlock.applyViewEditorZoom(nextScale);
     } else {
-        viewEditorContent.style.transform = `scale(${nextScale})`;
-        viewEditorContent.style.transformOrigin = 'center center';
-        viewEditorContent.style.zoom = '1';
-
-        const viewEditorResizeHandle = document.getElementById('viewEditorResizeHandle');
-
-        if (viewEditorResizeHandle) {
-            viewEditorResizeHandle.style.transform = `scale(${1 / nextScale})`;
-            viewEditorResizeHandle.style.transformOrigin = 'top left';
-        }
+        viewEditorContent.style.zoom = nextScale;
     }
 
     if (window.editorBlock.syncViewEditorSizeInputs) {
