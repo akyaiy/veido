@@ -327,3 +327,33 @@ window.editorBlock.saveViewEditorSettings = saveViewEditorSettings;
 // Обработчики изменения настроек области просмотра
 document.getElementById('viewEditorMenuSelect')?.addEventListener('change', saveViewEditorSettings);
 document.getElementById('viewEditorZoomInput')?.addEventListener('change', saveViewEditorSettings);
+
+
+
+/* ===
+ * Поворот области просмотра
+=== */
+
+// Кнопка изменения ориентации области просмотра
+const viewEditorRotate = document.getElementById('viewEditorRotate');
+
+/* ***
+ * rotateViewEditorSize - изменение ориентации области просмотра
+ * меняет местами ширину и высоту
+*** */
+function rotateViewEditorSize() {
+    const widthInput = document.getElementById('viewEditorWidthInput');
+    const heightInput = document.getElementById('viewEditorHeightInput');
+
+    if (!widthInput || !heightInput) {
+        return;
+    }
+
+    const width = widthInput.value;
+    const height = heightInput.value;
+
+    window.editorBlock.applyViewEditorSize(`${height}px`, `${width}px`);
+}
+
+// Обработчик изменения ориентации области просмотра
+viewEditorRotate?.addEventListener('click', rotateViewEditorSize);

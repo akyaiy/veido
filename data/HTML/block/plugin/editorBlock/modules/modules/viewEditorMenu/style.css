@@ -16,6 +16,12 @@
     cursor: pointer;
 }
 
+#viewEditorRotate {
+    width: auto;
+    height: auto;
+    padding: 4px 5px;
+}
+
 
 
 /* Поля ввода */

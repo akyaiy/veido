@@ -7,6 +7,7 @@
         <option value="1440x900">Десктоп - 1440x900</option>
         <option value="2560x1440">4K - 2560x1440</option>
     </select>
+    <button id="viewEditorRotate" type="button">↻</button>
     <div class="viewEditorSizeInputs">
         <label class="viewEditorSizeField">
             <span>X</span>
