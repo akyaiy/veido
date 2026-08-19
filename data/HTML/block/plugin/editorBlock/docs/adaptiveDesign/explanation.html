@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Свойства редактора раскладки</title>
+<style>
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: Arial, sans-serif; color: #222; background: #f5f5f5; }
+        .page { width: min(1100px, calc(100% - 40px)); margin: 20px auto; padding: 24px; background: #fff; border: 1px solid #ddd; }
+        h1 { margin: 0 0 10px; font-size: 26px; }
+        h2 { margin: 28px 0 10px; font-size: 20px; }
+        h3 { margin: 20px 0 8px; font-size: 16px; }
+        p { line-height: 1.5; }
+        a { color: #222; }
+        .tree { margin: 18px 0 24px; padding: 14px 18px; border: 1px solid #ddd; background: #fafafa; }
+        .tree ul { margin: 6px 0; padding-left: 22px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
+        th, td { padding: 8px; border: 1px solid #ddd; text-align: left; vertical-align: top; font-size: 14px; }
+        th { background: #f0f0f0; }
+        code { font-family: Consolas, monospace; font-size: 13px; }
+        .note { padding: 10px 12px; border-left: 3px solid #999; background: #f7f7f7; }
+    </style>
+</head>
+<body>
+<div class="page">
+<h1>Свойства редактора раскладки</h1>
+<p>Документ показывает настройки редактора простыми словами: что пользователь меняет в интерфейсе, какой результат это даёт и какое CSS-свойство изменяется.</p>
+<div class="tree">
+<strong>Дерево документации</strong>
+<ul>
+<li><a href="#common">Общие настройки</a></li>
+<li><a href="#grid">Grid</a>
+<ul>
+<li><a href="#gridBasic">Основные</a></li>
+<li><a href="#gridItem">Выбранный элемент</a></li>
+<li><a href="#gridAdvanced">Дополнительные - раскрывающийся раздел</a></li>
+</ul>
+</li>
+<li><a href="#flex">Flex</a>
+<ul>
+<li><a href="#flexBasic">Основные</a></li>
+<li><a href="#flexItem">Выбранный элемент</a></li>
+<li><a href="#flexAdvanced">Дополнительные - раскрывающийся раздел</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<h2 id="common">Общие настройки</h2>
+<table>
+<thead><tr><th>В интерфейсе</th><th>Что делает</th><th>Значения</th><th>CSS</th></tr></thead>
+<tbody>
+<tr><td>Тип раскладки</td><td>Выбирает способ расположения элементов.</td><td>Grid / Flex</td><td><code>display: grid</code> / <code>display: flex</code></td></tr>
+<tr><td>Размер области мышкой</td><td>Позволяет вручную менять ширину и высоту области.</td><td>Изменение ширины и высоты</td><td><code>resize: both</code></td></tr>
+</tbody>
+</table>
+<h2 id="grid">Grid</h2>
+<p>Grid подходит, когда элементы нужно расположить по колонкам и строкам. Например: страница с шапкой, меню и основным содержимым или сетка карточек.</p>
+<h3 id="gridBasic">Основные</h3>
+<table>
+<thead><tr><th>В интерфейсе</th><th>Что делает</th><th>Значения</th><th>CSS</th></tr></thead>
+<tbody>
+<tr><td>Готовая раскладка</td><td>Применяет готовую структуру и сразу меняет несколько параметров.</td><td>Страница, меню слева, меню справа, две панели, панель управления, карточки</td><td><code>grid-template-columns</code>, <code>grid-template-rows</code>, <code>grid-column</code>, <code>grid-row</code></td></tr>
+<tr><td>Колонки</td><td>Задаёт количество колонок сетки.</td><td>1-12</td><td><code>grid-template-columns</code></td></tr>
+<tr><td>Строки</td><td>Определяет расположение нескольких строк элементов при переносе.</td><td>1-12</td><td><code>grid-template-rows</code></td></tr>
+<tr><td>Расстояние</td><td>Задаёт расстояние между элементами.</td><td>0 px и больше</td><td><code>column-gap</code> и <code>row-gap</code></td></tr>
+<tr><td>Подбирать колонки автоматически</td><td>Автоматически меняет количество колонок в зависимости от доступной ширины.</td><td>Включено / выключено</td><td><code>grid-template-columns: repeat(auto-fit / auto-fill, minmax(...))</code></td></tr>
+<tr><td>Мин. ширина</td><td>Задаёт минимальную ширину автоматически создаваемой колонки.</td><td>Число в px</td><td>Минимум внутри <code>minmax()</code></td></tr>
+<tr><td>Макс. ширина</td><td>Ограничивает максимальную ширину автоматически создаваемой колонки.</td><td>Число в px</td><td>Максимум внутри <code>minmax()</code></td></tr>
+</tbody>
+</table>
+<h3 id="gridAdvanced">Дополнительные</h3>
+<p>
+        Эти свойства находятся в нижнем раскрывающемся разделе «Дополнительные»
+        и по умолчанию не занимают место в панели.
+    </p>
+<table>
+<thead><tr><th>В интерфейсе</th><th>Что делает</th><th>Значения</th><th>CSS</th></tr></thead>
+<tbody>
+<tr><td>Список колонок</td><td>Позволяет отдельно задать размер каждой колонки.</td><td>Для каждой: число + fr / px / % / rem / vw / auto</td><td><code>grid-template-columns</code></td></tr>
+<tr><td>Список строк</td><td>Позволяет отдельно задать размер каждой строки.</td><td>Для каждой: число + fr / px / % / rem / vh / auto</td><td><code>grid-template-rows</code></td></tr>
+<tr><td>Добавить / удалить / переместить колонку</td><td>Изменяет количество и порядок колонок.</td><td>Изменение состава и порядка списка</td><td><code>grid-template-columns</code></td></tr>
+<tr><td>Добавить / удалить / переместить строку</td><td>Изменяет количество и порядок строк.</td><td>Изменение состава и порядка списка</td><td><code>grid-template-rows</code></td></tr>
+<tr><td>Заполнение автоматических колонок</td><td>Определяет, как сетка создаёт и заполняет автоматические колонки.</td><td>Заполнять место / сохранять колонки</td><td><code>auto-fit</code> / <code>auto-fill</code></td></tr>
+<tr><td>Горизонтальное расстояние</td><td>Задаёт расстояние между колонками.</td><td>0 px и больше</td><td><code>column-gap</code></td></tr>
+<tr><td>Вертикальное расстояние</td><td>Задаёт расстояние между строками.</td><td>0 px и больше</td><td><code>row-gap</code></td></tr>
+<tr><td>Внутри</td><td>Задаёт внутренний отступ от краёв контейнера.</td><td>0 px и больше</td><td><code>padding</code></td></tr>
+<tr><td>Порядок заполнения</td><td>Определяет, в каком порядке элементы автоматически занимают свободные ячейки.</td><td>По строкам / по колонкам / без пустых мест</td><td><code>grid-auto-flow</code></td></tr>
+</tbody>
+</table>
+<h3 id="gridItem">Выбранный элемент Grid</h3>
+<table>
+<thead><tr><th>В интерфейсе</th><th>Что делает</th><th>Значения</th><th>CSS</th></tr></thead>
+<tbody>
+<tr><td>Колонка</td><td>Указывает, с какой колонки начинается выбранный элемент.</td><td>Автоматически / номер колонки</td><td><code>grid-column-start</code></td></tr>
+<tr><td>Строка</td><td>Указывает, с какой строки начинается выбранный элемент.</td><td>Автоматически / номер строки</td><td><code>grid-row-start</code></td></tr>
+<tr><td>Занять колонок</td><td>Определяет, сколько колонок занимает выбранный элемент.</td><td>1 и больше</td><td><code>grid-column-end: span N</code></td></tr>
+<tr><td>Занять строк</td><td>Определяет, сколько строк занимает выбранный элемент.</td><td>1 и больше</td><td><code>grid-row-end: span N</code></td></tr>
+</tbody>
+</table>
+<h2 id="flex">Flex</h2>
+<p>Flex подходит, когда элементы нужно расположить в одном основном направлении - например, в ряд или в столбец.</p>
+<h3 id="flexBasic">Основные</h3>
+<table>
+<thead><tr><th>В интерфейсе</th><th>Что делает</th><th>Значения</th><th>CSS</th></tr></thead>
+<tbody>
+<tr><td>Готовая раскладка</td><td>Применяет готовую структуру и сразу меняет несколько параметров.</td><td>В ряд / в столбец / панель кнопок / с переносом</td><td><code>flex-direction</code>, <code>flex-wrap</code>, <code>justify-content</code>, <code>align-items</code>, <code>gap</code></td></tr>
+<tr><td>Направление</td><td>Определяет, располагаются элементы горизонтально или вертикально.</td><td>По горизонтали / по вертикали / горизонтально наоборот / вертикально наоборот</td><td><code>flex-direction</code></td></tr>
+<tr><td>Расстояние</td><td>Задаёт расстояние между элементами.</td><td>0 px и больше</td><td><code>gap</code></td></tr>
+<tr><td>Переносить элементы</td><td>Разрешает перенос элементов на новую строку при нехватке места.</td><td>Включено / выключено</td><td><code>flex-wrap</code></td></tr>
+<tr><td>По направлению</td><td>Распределяет элементы вдоль основного направления.</td><td>В начале / по центру / в конце / по краям / равномерно / одинаковые промежутки</td><td><code>justify-content</code></td></tr>
+<tr><td>Поперёк</td><td>Выравнивает элементы поперёк основного направления.</td><td>Растянуть / в начале / по центру / в конце</td><td><code>align-items</code></td></tr>
+</tbody>
+</table>
+<h3 id="flexAdvanced">Дополнительные</h3>
+<p>
+        Эти свойства находятся в нижнем раскрывающемся разделе «Дополнительные»
+        и по умолчанию не занимают место в панели.
+    </p>
+<table>
+<thead><tr><th>В интерфейсе</th><th>Что делает</th><th>Значения</th><th>CSS</th></tr></thead>
+<tbody>
+<tr><td>Направление</td><td>Определяет, располагаются элементы горизонтально или вертикально.</td><td>row / column / row-reverse / column-reverse</td><td><code>flex-direction</code></td></tr>
+<tr><td>Перенос</td><td>Определяет, могут ли элементы переноситься на следующую строку.</td><td>Без переноса / переносить / перенос наоборот</td><td><code>flex-wrap</code></td></tr>
+<tr><td>Расстояние</td><td>Задаёт расстояние между элементами.</td><td>0 px и больше</td><td><code>gap</code></td></tr>
+<tr><td>Распределение</td><td>Определяет распределение свободного места между элементами.</td><td>Начало / центр / конец / по краям / равномерно / одинаковые промежутки</td><td><code>justify-content</code></td></tr>
+<tr><td>Выравнивание</td><td>Определяет выравнивание элементов внутри контейнера.</td><td>Растянуть / начало / центр / конец / по тексту</td><td><code>align-items</code></td></tr>
+<tr><td>Строки</td><td>Определяет расположение нескольких строк элементов при переносе.</td><td>Растянуть / начало / центр / конец / по краям / равномерно</td><td><code>align-content</code></td></tr>
+</tbody>
+</table>
+<h3 id="flexItem">Выбранный элемент Flex</h3>
+<table>
+<thead><tr><th>В интерфейсе</th><th>Что делает</th><th>Значения</th><th>CSS</th></tr></thead>
+<tbody>
+<tr><td>Размер</td><td>Выбирает простой способ управления размером выбранного элемента.</td><td>По содержимому / занять свободное место / заданный / равная доля</td><td><code>flex</code></td></tr>
+<tr><td>Расширение</td><td>Определяет, насколько элемент может занимать свободное место.</td><td>0 и больше</td><td><code>flex-grow</code></td></tr>
+<tr><td>Сжатие</td><td>Определяет, насколько элемент может уменьшаться при нехватке места.</td><td>0 и больше</td><td><code>flex-shrink</code></td></tr>
+<tr><td>Базовый размер</td><td>Задаёт исходный размер элемента до распределения свободного места.</td><td>0 px и больше</td><td><code>flex-basis</code></td></tr>
+<tr><td>Выравнивание</td><td>Определяет выравнивание элементов внутри контейнера.</td><td>Автоматически / растянуть / начало / центр / конец</td><td><code>align-self</code></td></tr>
+<tr><td>Порядок</td><td>Изменяет визуальный порядок выбранного элемента.</td><td>Целое число</td><td><code>order</code></td></tr>
+</tbody>
+</table>
+<div class="note">В документации перечислены свойства, которые уже присутствуют в текущем интерфейсе редактора. Готовые шаблоны меняют сразу несколько CSS-свойств.</div>
+</div>
+</body>
+</html>

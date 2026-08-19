@@ -17,32 +17,54 @@
     <option value="none">Скрыть</option>
 </select></div>
 
-<!-- <div data-target="grid">Направление сетки: <select data-prop="gridDirection">
-    <option value="grid-template-columns">Колонки</option>
-    <option value="grid-template-rows">Строки</option>
-</select></div>
-<div data-target="grid">Количество колонок/строк: <input data-prop="gridTemplateCount" placeholder="Количество"></div>
-<div data-target="grid">Размер колонок/строк: <input data-prop="gridTemplateSize" placeholder="Размер"></div>
-<div data-target="grid-item">Позиция по колонкам: <input data-prop="gridColumn"></div>
-<div data-target="grid-item">Позиция по строкам: <input data-prop="gridRow"></div> -->
+<div data-target="div main section article">Подключение блока: <input type="text" data-prop="data-block-src"></div>
+
+<hr>
+
+<div data-target="grid">Изменение колонок:
+    <select data-prop="gridMode">
+        <option value="fixed">Не изменять</option>
+        <option value="adaptive">Подстраивать под ширину</option>
+    </select>
+</div>
 <div data-target="grid">Количество строк: <input data-prop="gridRows"></div>
 <div data-target="grid">Количество колонок: <input data-prop="gridColumns"></div>
 <div data-target="grid">Ширина ячейки: <input data-prop="gridCellWidth"></div>
 <div data-target="grid">Высота ячейки: <input data-prop="gridCellHeight"></div>
-<div data-target="grid">Расстояние между ячейками: <input data-prop="gridPad"></div>
-<div data-target="grid">Выравнивание по горизонтали: <select data-prop="gridAlignHorizontal">
-    <option value="start">Слева</option>
-    <option value="center">По центру</option>
-    <option value="end">Справа</option>
-</select></div>
-<div data-target="grid">Выравнивание по вертикали: <select data-prop="gridAlignVertical">
-    <option value="start">Сверху</option>
-    <option value="center">По центру</option>
-    <option value="end">Снизу</option>
-</select></div>
-
-
-<div data-target="div main section article">Подключение блока: <input type="text" data-prop="data-block-src"></div>
+<div data-target="grid">Минимальная ширина ячейки: <input data-prop="gridMinCellWidth"></div>
+<div data-target="grid">Отступ между колонками: <input data-prop="gridColumnGap"></div>
+<div data-target="grid">Отступ между строками: <input data-prop="gridRowGap"></div>
+<div data-target="grid">Заполнение строки:
+    <select data-prop="gridFillMode">
+        <option value="auto-fit">Растягивать ячейки</option>
+        <option value="auto-fill">Сохранять свободные места</option>
+    </select>
+</div>
+<div data-target="grid">Расположение элементов:
+    <select data-prop="gridFlow">
+        <option value="row">По строкам</option>
+        <option value="column">По колонкам</option>
+        <option value="dense">Заполнять свободные места</option>
+    </select>
+</div>
+<div data-target="grid">Выравнивание по горизонтали:
+    <select data-prop="gridAlignHorizontal">
+        <option value="start">Слева</option>
+        <option value="center">По центру</option>
+        <option value="end">Справа</option>
+        <option value="stretch">Растянуть</option>
+    </select>
+</div>
+<div data-target="grid">Выравнивание по вертикали:
+    <select data-prop="gridAlignVertical">
+        <option value="start">Сверху</option>
+        <option value="center">По центру</option>
+        <option value="end">Снизу</option>
+        <option value="stretch">Растянуть</option>
+    </select>
+</div>
+<div data-target="grid-item">Ширина в колонках: <input data-prop="gridColumnSpan"></div>
+<div data-target="grid-item">Высота в строках: <input data-prop="gridRowSpan"></div>
 
 <hr>
 

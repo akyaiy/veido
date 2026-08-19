@@ -1,0 +1,1633 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Редактор раскладки</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        button,
+        input,
+        select {
+            font: inherit;
+        }
+
+        .editor {
+            height: 100vh;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 340px;
+        }
+
+        .workspace {
+            min-width: 0;
+            min-height: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            overflow: auto;
+        }
+
+        .layout {
+            width: 600px;
+            height: 400px;
+            gap: 10px;
+            padding: 10px;
+            background-color: #ffffff;
+            border: 1px solid #cccccc;
+            resize: both;
+            overflow: auto;
+        }
+
+        .layout.grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            grid-template-rows: 70px 1fr 60px;
+        }
+
+        .layout.flex {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: nowrap;
+            align-items: stretch;
+            justify-content: flex-start;
+        }
+
+        .layoutItem {
+            min-width: 0;
+            min-height: 0;
+            padding: 8px;
+            background-color: #eeeeee;
+            border: 1px solid #cccccc;
+            cursor: pointer;
+        }
+
+        .layoutItem.selected {
+            outline: 2px solid #666666;
+        }
+
+        .properties {
+            border-left: 1px solid #cccccc;
+            background-color: #ffffff;
+            overflow: auto;
+        }
+
+        .propertiesTitle {
+            padding: 12px;
+            font-size: 17px;
+            font-weight: bold;
+        }
+
+        .tabs {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            border-bottom: 1px solid #cccccc;
+        }
+
+        .tab {
+            padding: 8px;
+            border: 0;
+            border-right: 1px solid #cccccc;
+            background-color: #ffffff;
+            cursor: pointer;
+        }
+
+        .tab:last-child {
+            border-right: 0;
+        }
+
+        .tab.active {
+            background-color: #eeeeee;
+        }
+
+        .tabContent {
+            display: none;
+            padding: 10px;
+            overflow: auto;
+        }
+
+        .tabContent.active {
+            display: block;
+        }
+
+        .advancedDetails .tabContent {
+            display: block;
+        }
+
+        .advancedDetails summary {
+            padding: 10px;
+            border-top: 1px solid #cccccc;
+            border-bottom: 1px solid #cccccc;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .section,
+        .advancedGroup {
+            margin-bottom: 14px;
+        }
+
+        .advancedGroup {
+            padding-bottom: 10px;
+            border-bottom: 1px solid #dddddd;
+        }
+
+        .section h2,
+        .advancedGroup h2 {
+            margin: 0 0 8px;
+            font-size: 13px;
+        }
+
+        .property {
+            display: grid;
+            grid-template-columns: 125px minmax(0, 1fr);
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 6px;
+        }
+
+        .property label {
+            font-size: 12px;
+        }
+
+        .property input,
+        .property select {
+            width: 100%;
+            min-width: 0;
+            padding: 5px;
+            border: 1px solid #cccccc;
+        }
+
+        .propertyCheckbox {
+            grid-template-columns: 1fr;
+        }
+
+        .propertyCheckbox label {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .propertyCheckbox input {
+            width: auto;
+        }
+
+        .layoutType {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 5px;
+        }
+
+        .layoutTypeButton {
+            padding: 8px;
+            border: 1px solid #cccccc;
+            background-color: #ffffff;
+            cursor: pointer;
+        }
+
+        .layoutTypeButton.active {
+            background-color: #dddddd;
+            border-color: #777777;
+        }
+
+        .presets {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 5px;
+        }
+
+        .preset {
+            padding: 8px 5px;
+            border: 1px solid #cccccc;
+            background-color: #ffffff;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .preset.active {
+            background-color: #eeeeee;
+            border-color: #777777;
+        }
+
+        .trackList {
+            display: grid;
+            gap: 5px;
+        }
+
+        .track {
+            display: grid;
+            grid-template-columns: 24px minmax(0, 1fr) 55px 26px 26px 26px;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .trackNumber {
+            font-size: 12px;
+            text-align: center;
+        }
+
+        .track input,
+        .track select,
+        .track button {
+            width: 100%;
+            min-width: 0;
+            height: 28px;
+            padding: 3px;
+            border: 1px solid #cccccc;
+            background-color: #ffffff;
+        }
+
+        .track button {
+            cursor: pointer;
+        }
+
+        .trackAdd {
+            width: 100%;
+            margin-top: 6px;
+            padding: 6px;
+            border: 1px solid #cccccc;
+            background-color: #ffffff;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .gridOnly,
+        .flexOnly {
+            display: none;
+        }
+
+        .gridOnly.active,
+        .flexOnly.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+<div class="editor">
+    <div class="workspace">
+        <div class="layout grid" id="layout"></div>
+    </div>
+
+    <div class="properties">
+        <div class="propertiesTitle">Свойства</div>
+
+        <div class="tabContent active" id="basic">
+            <div class="section">
+                <h2>Тип раскладки</h2>
+
+                <div class="layoutType">
+                    <button class="layoutTypeButton active" type="button" data-layout="grid">
+                        Grid
+                    </button>
+
+                    <button class="layoutTypeButton" type="button" data-layout="flex">
+                        Flex
+                    </button>
+                </div>
+            </div>
+
+            <div class="gridOnly active" id="basicGrid">
+                <div class="section">
+                    <h2>Готовая раскладка</h2>
+
+                    <div class="presets">
+                        <button class="preset active" type="button" data-grid-preset="page">
+                            Страница
+                        </button>
+
+                        <button class="preset" type="button" data-grid-preset="sidebarLeft">
+                            Меню слева
+                        </button>
+
+                        <button class="preset" type="button" data-grid-preset="sidebarRight">
+                            Меню справа
+                        </button>
+
+                        <button class="preset" type="button" data-grid-preset="sidebars">
+                            Две панели
+                        </button>
+
+                        <button class="preset" type="button" data-grid-preset="dashboard">
+                            Панель управления
+                        </button>
+
+                        <button class="preset" type="button" data-grid-preset="cards">
+                            Карточки
+                        </button>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>Сетка</h2>
+
+                    <div class="property">
+                        <label for="gridColumns">Колонки</label>
+                        <input id="gridColumns" type="number" value="1" min="1" max="12">
+                    </div>
+
+                    <div class="property" id="gridRowsProperty">
+                        <label for="gridRows">Строки</label>
+                        <input id="gridRows" type="number" value="3" min="1" max="12">
+                    </div>
+
+                    <div class="property">
+                        <label for="gridGap">Расстояние</label>
+                        <input id="gridGap" type="number" value="10" min="0">
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>Адаптация</h2>
+
+                    <div class="property propertyCheckbox">
+                        <label>
+                            <input id="gridAutoFit" type="checkbox">
+                            Подбирать колонки автоматически
+                        </label>
+                    </div>
+
+                    <div id="gridAutoFitProperties">
+                        <div class="property">
+                            <label for="gridMinWidth">Мин. ширина</label>
+                            <input id="gridMinWidth" type="number" value="220" min="1">
+                        </div>
+
+                        <div class="property">
+                            <label for="gridMaxWidth">Макс. ширина</label>
+                            <input id="gridMaxWidth" type="number" value="400" min="1">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>Выбранный элемент</h2>
+
+                    <div class="property">
+                        <label for="gridColumnSpan">Колонок</label>
+                        <input id="gridColumnSpan" type="number" value="1" min="1">
+                    </div>
+
+                    <div class="property">
+                        <label for="gridRowSpan">Строк</label>
+                        <input id="gridRowSpan" type="number" value="1" min="1">
+                    </div>
+                </div>
+            </div>
+
+            <div class="flexOnly" id="basicFlex">
+                <div class="section">
+                    <h2>Готовая раскладка</h2>
+
+                    <div class="presets">
+                        <button class="preset" type="button" data-flex-preset="row">
+                            В ряд
+                        </button>
+
+                        <button class="preset" type="button" data-flex-preset="column">
+                            В столбец
+                        </button>
+
+                        <button class="preset" type="button" data-flex-preset="toolbar">
+                            Панель кнопок
+                        </button>
+
+                        <button class="preset" type="button" data-flex-preset="wrap">
+                            С переносом
+                        </button>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>Расположение</h2>
+
+                    <div class="property">
+                        <label for="flexDirection">Направление</label>
+                        <select id="flexDirection">
+                            <option value="row">По горизонтали</option>
+                            <option value="column">По вертикали</option>
+                            <option value="row-reverse">Горизонтально наоборот</option>
+                            <option value="column-reverse">Вертикально наоборот</option>
+                        </select>
+                    </div>
+
+                    <div class="property">
+                        <label for="flexGap">Расстояние</label>
+                        <input id="flexGap" type="number" value="10" min="0">
+                    </div>
+
+                    <div class="property propertyCheckbox">
+                        <label>
+                            <input id="flexWrap" type="checkbox">
+                            Переносить элементы
+                        </label>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>Выравнивание</h2>
+
+                    <div class="property">
+                        <label for="flexJustify">По направлению</label>
+                        <select id="flexJustify">
+                            <option value="flex-start">В начале</option>
+                            <option value="center">По центру</option>
+                            <option value="flex-end">В конце</option>
+                            <option value="space-between">По краям</option>
+                            <option value="space-around">Равномерно</option>
+                            <option value="space-evenly">Одинаковые промежутки</option>
+                        </select>
+                    </div>
+
+                    <div class="property">
+                        <label for="flexAlign">Поперёк</label>
+                        <select id="flexAlign">
+                            <option value="stretch">Растянуть</option>
+                            <option value="flex-start">В начале</option>
+                            <option value="center">По центру</option>
+                            <option value="flex-end">В конце</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>Выбранный элемент</h2>
+
+                    <div class="property">
+                        <label for="flexItemSize">Размер</label>
+                        <select id="flexItemSize">
+                            <option value="auto">По содержимому</option>
+                            <option value="fill">Занять свободное место</option>
+                            <option value="fixed">Заданный</option>
+                            <option value="equal">Равная доля</option>
+                        </select>
+                    </div>
+
+                    <div class="property" id="flexBasisProperty">
+                        <label for="flexBasis">Размер</label>
+                        <input id="flexBasis" type="number" value="120" min="0">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <details class="advancedDetails">
+            <summary>Дополнительные</summary>
+
+            <div class="tabContent" id="advanced">
+            <div class="gridOnly active" id="advancedGrid">
+                <div class="advancedGroup">
+                    <h2>Колонки</h2>
+
+                    <div class="trackList" id="columnTracks"></div>
+
+                    <button class="trackAdd" id="addColumn" type="button">
+                        + Добавить колонку
+                    </button>
+                </div>
+
+                <div class="advancedGroup" id="rowTracksGroup">
+                    <h2>Строки</h2>
+
+                    <div class="trackList" id="rowTracks"></div>
+
+                    <button class="trackAdd" id="addRow" type="button">
+                        + Добавить строку
+                    </button>
+                </div>
+
+                <div class="advancedGroup">
+                    <h2>Автоматические колонки</h2>
+
+                    <div class="property">
+                        <label for="autoFitMode">Заполнение</label>
+                        <select id="autoFitMode">
+                            <option value="auto-fit">Заполнять место</option>
+                            <option value="auto-fill">Сохранять колонки</option>
+                        </select>
+                    </div>
+
+                    <div class="property">
+                        <label for="columnMinValue">Мин. ширина</label>
+                        <input id="columnMinValue" type="number" value="220" min="1">
+                    </div>
+
+                    <div class="property">
+                        <label for="columnMaxValue">Макс. размер</label>
+                        <select id="columnMaxValue">
+                            <option value="1fr">Растянуть</option>
+                            <option value="auto">По содержимому</option>
+                            <option value="max-content">Макс. содержимое</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="advancedGroup">
+                    <h2>Расстояния</h2>
+
+                    <div class="property">
+                        <label for="columnGap">Горизонтально</label>
+                        <input id="columnGap" type="number" value="10" min="0">
+                    </div>
+
+                    <div class="property">
+                        <label for="rowGap">Вертикально</label>
+                        <input id="rowGap" type="number" value="10" min="0">
+                    </div>
+
+                    <div class="property">
+                        <label for="gridPadding">Внутри</label>
+                        <input id="gridPadding" type="number" value="10" min="0">
+                    </div>
+                </div>
+
+                <div class="advancedGroup">
+                    <h2>Заполнение</h2>
+
+                    <div class="property">
+                        <label for="autoFlow">Порядок</label>
+                        <select id="autoFlow">
+                            <option value="row">По строкам</option>
+                            <option value="column">По колонкам</option>
+                            <option value="row dense">Без пустых мест</option>
+                            <option value="column dense">По колонкам без пустот</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="advancedGroup">
+                    <h2>Выбранный элемент</h2>
+
+                    <div class="property">
+                        <label for="gridItemColumn">Колонка</label>
+                        <select id="gridItemColumn">
+                            <option value="auto">Автоматически</option>
+                        </select>
+                    </div>
+
+                    <div class="property">
+                        <label for="gridItemRow">Строка</label>
+                        <select id="gridItemRow">
+                            <option value="auto">Автоматически</option>
+                        </select>
+                    </div>
+
+                    <div class="property">
+                        <label for="gridItemColumns">Занять колонок</label>
+                        <input id="gridItemColumns" type="number" value="1" min="1">
+                    </div>
+
+                    <div class="property">
+                        <label for="gridItemRows">Занять строк</label>
+                        <input id="gridItemRows" type="number" value="1" min="1">
+                    </div>
+                </div>
+            </div>
+
+            <div class="flexOnly" id="advancedFlex">
+                <div class="advancedGroup">
+                    <h2>Контейнер</h2>
+
+                    <div class="property">
+                        <label for="flexAdvancedDirection">Направление</label>
+                        <select id="flexAdvancedDirection">
+                            <option value="row">По горизонтали</option>
+                            <option value="column">По вертикали</option>
+                            <option value="row-reverse">Горизонтально наоборот</option>
+                            <option value="column-reverse">Вертикально наоборот</option>
+                        </select>
+                    </div>
+
+                    <div class="property">
+                        <label for="flexAdvancedWrap">Перенос</label>
+                        <select id="flexAdvancedWrap">
+                            <option value="nowrap">Без переноса</option>
+                            <option value="wrap">Переносить</option>
+                            <option value="wrap-reverse">Перенос наоборот</option>
+                        </select>
+                    </div>
+
+                    <div class="property">
+                        <label for="flexAdvancedGap">Расстояние</label>
+                        <input id="flexAdvancedGap" type="number" value="10" min="0">
+                    </div>
+
+                    <div class="property">
+                        <label for="flexAdvancedJustify">Распределение</label>
+                        <select id="flexAdvancedJustify">
+                            <option value="flex-start">В начале</option>
+                            <option value="center">По центру</option>
+                            <option value="flex-end">В конце</option>
+                            <option value="space-between">По краям</option>
+                            <option value="space-around">Равномерно</option>
+                            <option value="space-evenly">Одинаковые промежутки</option>
+                        </select>
+                    </div>
+
+                    <div class="property">
+                        <label for="flexAdvancedAlign">Выравнивание</label>
+                        <select id="flexAdvancedAlign">
+                            <option value="stretch">Растянуть</option>
+                            <option value="flex-start">В начале</option>
+                            <option value="center">По центру</option>
+                            <option value="flex-end">В конце</option>
+                            <option value="baseline">По тексту</option>
+                        </select>
+                    </div>
+
+                    <div class="property">
+                        <label for="flexAlignContent">Строки</label>
+                        <select id="flexAlignContent">
+                            <option value="stretch">Растянуть</option>
+                            <option value="flex-start">В начале</option>
+                            <option value="center">По центру</option>
+                            <option value="flex-end">В конце</option>
+                            <option value="space-between">По краям</option>
+                            <option value="space-around">Равномерно</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="advancedGroup">
+                    <h2>Выбранный элемент</h2>
+
+                    <div class="property">
+                        <label for="flexGrow">Расширение</label>
+                        <input id="flexGrow" type="number" value="0" min="0">
+                    </div>
+
+                    <div class="property">
+                        <label for="flexShrink">Сжатие</label>
+                        <input id="flexShrink" type="number" value="1" min="0">
+                    </div>
+
+                    <div class="property">
+                        <label for="flexAdvancedBasis">Базовый размер</label>
+                        <input id="flexAdvancedBasis" type="number" value="0" min="0">
+                    </div>
+
+                    <div class="property">
+                        <label for="flexSelf">Выравнивание</label>
+                        <select id="flexSelf">
+                            <option value="auto">Автоматически</option>
+                            <option value="stretch">Растянуть</option>
+                            <option value="flex-start">В начале</option>
+                            <option value="center">По центру</option>
+                            <option value="flex-end">В конце</option>
+                        </select>
+                    </div>
+
+                    <div class="property">
+                        <label for="flexOrder">Порядок</label>
+                        <input id="flexOrder" type="number" value="0">
+                    </div>
+                </div>
+            </div>
+            </div>
+        </details>
+    </div>
+</div>
+
+<script>
+    const layout = document.getElementById('layout');
+
+    const tabs = document.querySelectorAll('.tab');
+    const tabContents = document.querySelectorAll('.tabContent');
+
+    const layoutTypeButtons = document.querySelectorAll('.layoutTypeButton');
+    const gridOnly = document.querySelectorAll('.gridOnly');
+    const flexOnly = document.querySelectorAll('.flexOnly');
+
+    const gridPresets = document.querySelectorAll('[data-grid-preset]');
+    const flexPresets = document.querySelectorAll('[data-flex-preset]');
+
+    const gridColumns = document.getElementById('gridColumns');
+    const gridRows = document.getElementById('gridRows');
+    const gridRowsProperty = document.getElementById('gridRowsProperty');
+    const gridGap = document.getElementById('gridGap');
+
+    const gridAutoFit = document.getElementById('gridAutoFit');
+    const gridMaxWidth = document.getElementById('gridMaxWidth');
+    const gridAutoFitProperties = document.getElementById('gridAutoFitProperties');
+    const gridMinWidth = document.getElementById('gridMinWidth');
+    const gridMinWidthProperty = document.getElementById('gridMinWidthProperty');
+
+    const gridColumnSpan = document.getElementById('gridColumnSpan');
+    const gridRowSpan = document.getElementById('gridRowSpan');
+
+    const columnTracks = document.getElementById('columnTracks');
+    const rowTracks = document.getElementById('rowTracks');
+    const rowTracksGroup = document.getElementById('rowTracksGroup');
+
+    const addColumn = document.getElementById('addColumn');
+    const addRow = document.getElementById('addRow');
+
+    const autoFitMode = document.getElementById('autoFitMode');
+    const columnMinValue = document.getElementById('columnMinValue');
+    const columnMaxValue = document.getElementById('columnMaxValue');
+
+    const columnGap = document.getElementById('columnGap');
+    const rowGap = document.getElementById('rowGap');
+    const gridPadding = document.getElementById('gridPadding');
+    const autoFlow = document.getElementById('autoFlow');
+
+    const gridItemColumn = document.getElementById('gridItemColumn');
+    const gridItemRow = document.getElementById('gridItemRow');
+    const gridItemColumns = document.getElementById('gridItemColumns');
+    const gridItemRows = document.getElementById('gridItemRows');
+
+    const flexDirection = document.getElementById('flexDirection');
+    const flexGap = document.getElementById('flexGap');
+    const flexWrap = document.getElementById('flexWrap');
+    const flexJustify = document.getElementById('flexJustify');
+    const flexAlign = document.getElementById('flexAlign');
+
+    const flexItemSize = document.getElementById('flexItemSize');
+    const flexBasis = document.getElementById('flexBasis');
+    const flexBasisProperty = document.getElementById('flexBasisProperty');
+
+    const flexAdvancedDirection = document.getElementById('flexAdvancedDirection');
+    const flexAdvancedWrap = document.getElementById('flexAdvancedWrap');
+    const flexAdvancedGap = document.getElementById('flexAdvancedGap');
+    const flexAdvancedJustify = document.getElementById('flexAdvancedJustify');
+    const flexAdvancedAlign = document.getElementById('flexAdvancedAlign');
+    const flexAlignContent = document.getElementById('flexAlignContent');
+
+    const flexGrow = document.getElementById('flexGrow');
+    const flexShrink = document.getElementById('flexShrink');
+    const flexAdvancedBasis = document.getElementById('flexAdvancedBasis');
+    const flexSelf = document.getElementById('flexSelf');
+    const flexOrder = document.getElementById('flexOrder');
+
+    let layoutType = 'grid';
+    let selectedItem = null;
+    let isAutoRows = false;
+
+    function switchTab(tabName) {
+        tabs.forEach((tab) => {
+            tab.classList.toggle('active', tab.dataset.tab === tabName);
+        });
+
+        tabContents.forEach((content) => {
+            content.classList.toggle('active', content.id === tabName);
+        });
+    }
+
+    function setLayoutType(type) {
+        layoutType = type;
+
+        layout.classList.remove('grid', 'flex');
+        layout.classList.add(type);
+
+        layoutTypeButtons.forEach((button) => {
+            button.classList.toggle('active', button.dataset.layout === type);
+        });
+
+        gridOnly.forEach((element) => {
+            element.classList.toggle('active', type === 'grid');
+        });
+
+        flexOnly.forEach((element) => {
+            element.classList.toggle('active', type === 'flex');
+        });
+
+        if (type === 'grid') {
+            clearFlexStyles();
+            applyGridPreset('page');
+        }
+
+        if (type === 'flex') {
+            clearGridStyles();
+            applyFlexPreset('row');
+
+            Array.from(layout.children).forEach((item) => {
+                item.style.flex = '1 1 0';
+            });
+        }
+    }
+
+    function clearGridStyles() {
+        layout.style.gridTemplateColumns = '';
+        layout.style.gridTemplateRows = '';
+        layout.style.gridAutoRows = '';
+        layout.style.gridAutoFlow = '';
+
+        Array.from(layout.children).forEach((item) => {
+            item.style.gridColumn = '';
+            item.style.gridRow = '';
+        });
+    }
+
+    function clearFlexStyles() {
+        layout.style.flexDirection = '';
+        layout.style.flexWrap = '';
+        layout.style.justifyContent = '';
+        layout.style.alignItems = '';
+        layout.style.alignContent = '';
+
+        Array.from(layout.children).forEach((item) => {
+            item.style.flex = '';
+            item.style.flexGrow = '';
+            item.style.flexShrink = '';
+            item.style.flexBasis = '';
+            item.style.alignSelf = '';
+            item.style.order = '';
+        });
+    }
+
+    function createItem() {
+        const item = document.createElement('div');
+        item.className = 'layoutItem';
+
+        item.addEventListener('click', () => {
+            selectItem(item);
+        });
+
+        return item;
+    }
+
+    function updateItems(count) {
+        while (layout.children.length < count) {
+            layout.appendChild(createItem());
+        }
+
+        while (layout.children.length > count) {
+            if (layout.lastElementChild === selectedItem) {
+                selectedItem = null;
+            }
+
+            layout.lastElementChild.remove();
+        }
+
+        Array.from(layout.children).forEach((item, index) => {
+            item.textContent = item.dataset.label || index + 1;
+        });
+    }
+
+    function selectItem(item) {
+        if (selectedItem) {
+            selectedItem.classList.remove('selected');
+        }
+
+        selectedItem = item;
+        selectedItem.classList.add('selected');
+
+        if (layoutType === 'grid') {
+            gridColumnSpan.value = parseInt(item.dataset.columnSpan) || 1;
+            gridRowSpan.value = parseInt(item.dataset.rowSpan) || 1;
+
+            gridItemColumns.value = parseInt(item.dataset.columnSpan) || 1;
+            gridItemRows.value = parseInt(item.dataset.rowSpan) || 1;
+
+            gridItemColumn.value = item.dataset.columnStart || 'auto';
+            gridItemRow.value = item.dataset.rowStart || 'auto';
+        }
+
+        if (layoutType === 'flex') {
+            flexGrow.value = parseFloat(item.style.flexGrow) || 0;
+            flexShrink.value = item.style.flexShrink === '' ? 1 : parseFloat(item.style.flexShrink);
+            flexAdvancedBasis.value = parseInt(item.style.flexBasis) || 0;
+            flexSelf.value = item.style.alignSelf || 'auto';
+            flexOrder.value = parseInt(item.style.order) || 0;
+        }
+    }
+
+    function createTrack(index, type, value = 1, unit = 'fr') {
+        const track = document.createElement('div');
+        track.className = 'track';
+
+        const number = document.createElement('div');
+        number.className = 'trackNumber';
+        number.textContent = index + 1;
+
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.min = '0';
+        input.value = value;
+
+        const unitSelect = document.createElement('select');
+
+        const units = type === 'column'
+            ? ['fr', 'px', '%', 'rem', 'vw', 'auto']
+            : ['fr', 'px', '%', 'rem', 'vh', 'auto'];
+
+        units.forEach((unitValue) => {
+            const option = document.createElement('option');
+            option.value = unitValue;
+            option.textContent = unitValue;
+            unitSelect.appendChild(option);
+        });
+
+        unitSelect.value = unit;
+
+        const moveUp = document.createElement('button');
+        moveUp.type = 'button';
+        moveUp.textContent = '↑';
+
+        const moveDown = document.createElement('button');
+        moveDown.type = 'button';
+        moveDown.textContent = '↓';
+
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.textContent = '×';
+
+        input.addEventListener('input', updateGridFromTracks);
+        unitSelect.addEventListener('change', updateGridFromTracks);
+
+        moveUp.addEventListener('click', () => {
+            moveTrack(track, -1);
+        });
+
+        moveDown.addEventListener('click', () => {
+            moveTrack(track, 1);
+        });
+
+        remove.addEventListener('click', () => {
+            removeTrack(track);
+        });
+
+        track.appendChild(number);
+        track.appendChild(input);
+        track.appendChild(unitSelect);
+        track.appendChild(moveUp);
+        track.appendChild(moveDown);
+        track.appendChild(remove);
+
+        return track;
+    }
+
+    function moveTrack(track, direction) {
+        const container = track.parentElement;
+
+        if (direction < 0 && track.previousElementSibling) {
+            container.insertBefore(track, track.previousElementSibling);
+        }
+
+        if (direction > 0 && track.nextElementSibling) {
+            container.insertBefore(track.nextElementSibling, track);
+        }
+
+        renumberTracks(container);
+        updateGridFromTracks();
+    }
+
+    function removeTrack(track) {
+        const container = track.parentElement;
+
+        if (container.children.length <= 1) {
+            return;
+        }
+
+        track.remove();
+
+        renumberTracks(container);
+        updateGridFromTracks();
+    }
+
+    function renumberTracks(container) {
+        Array.from(container.children).forEach((track, index) => {
+            track.querySelector('.trackNumber').textContent = index + 1;
+        });
+    }
+
+    function setTrackValues(container, values, type) {
+        container.innerHTML = '';
+
+        values.forEach((trackValue, index) => {
+            container.appendChild(
+                createTrack(
+                    index,
+                    type,
+                    trackValue.value,
+                    trackValue.unit
+                )
+            );
+        });
+    }
+
+    function addTrack(container, type) {
+        container.appendChild(
+            createTrack(
+                container.children.length,
+                type
+            )
+        );
+
+        updateGridFromTracks();
+    }
+
+    function updateTrackList(container, count, type) {
+        while (container.children.length < count) {
+            container.appendChild(
+                createTrack(
+                    container.children.length,
+                    type
+                )
+            );
+        }
+
+        while (container.children.length > count) {
+            container.lastElementChild.remove();
+        }
+
+        renumberTracks(container);
+    }
+
+    function getTrackListValue(container) {
+        return Array.from(container.children)
+            .map((track) => {
+                const input = track.querySelector('input');
+                const select = track.querySelector('select');
+
+                if (select.value === 'auto') {
+                    return 'auto';
+                }
+
+                return `${input.value}${select.value}`;
+            })
+            .join(' ');
+    }
+
+    function setGridItem(index, options = {}) {
+        const item = layout.children[index];
+
+        if (!item) {
+            return;
+        }
+
+        if (options.label) {
+            item.dataset.label = options.label;
+            item.textContent = options.label;
+        }
+
+        if (options.columnStart) {
+            item.style.gridColumnStart = options.columnStart;
+            item.dataset.columnStart = options.columnStart;
+        }
+
+        if (options.rowStart) {
+            item.style.gridRowStart = options.rowStart;
+            item.dataset.rowStart = options.rowStart;
+        }
+
+        if (options.columnSpan) {
+            item.style.gridColumnEnd = `span ${options.columnSpan}`;
+            item.dataset.columnSpan = options.columnSpan;
+        }
+
+        if (options.rowSpan) {
+            item.style.gridRowEnd = `span ${options.rowSpan}`;
+            item.dataset.rowSpan = options.rowSpan;
+        }
+    }
+
+    function resetItems() {
+        Array.from(layout.children).forEach((item, index) => {
+            item.removeAttribute('style');
+            item.removeAttribute('data-column-start');
+            item.removeAttribute('data-row-start');
+            item.removeAttribute('data-column-span');
+            item.removeAttribute('data-row-span');
+            item.removeAttribute('data-label');
+            item.textContent = index + 1;
+        });
+    }
+
+    function applyGridPreset(preset) {
+        isAutoRows = false;
+        gridAutoFit.checked = false;
+        gridRowsProperty.style.display = 'grid';
+        rowTracksGroup.style.display = 'block';
+
+        layout.style.gridAutoRows = '';
+
+        gridPresets.forEach((button) => {
+            button.classList.toggle('active', button.dataset.gridPreset === preset);
+        });
+
+        if (preset === 'page') {
+            gridColumns.value = 1;
+            gridRows.value = 3;
+
+            setTrackValues(columnTracks, [
+                { value: 1, unit: 'fr' }
+            ], 'column');
+
+            setTrackValues(rowTracks, [
+                { value: 70, unit: 'px' },
+                { value: 1, unit: 'fr' },
+                { value: 60, unit: 'px' }
+            ], 'row');
+
+            updateItems(3);
+            resetItems();
+
+            setGridItem(0, { rowStart: 1, label: 'Шапка' });
+            setGridItem(1, { rowStart: 2, label: 'Основной контент' });
+            setGridItem(2, { rowStart: 3, label: 'Низ' });
+        }
+
+        if (preset === 'sidebarLeft') {
+            gridColumns.value = 2;
+            gridRows.value = 3;
+
+            setTrackValues(columnTracks, [
+                { value: 220, unit: 'px' },
+                { value: 1, unit: 'fr' }
+            ], 'column');
+
+            setTrackValues(rowTracks, [
+                { value: 70, unit: 'px' },
+                { value: 1, unit: 'fr' },
+                { value: 60, unit: 'px' }
+            ], 'row');
+
+            updateItems(4);
+            resetItems();
+
+            setGridItem(0, { rowStart: 1, columnSpan: 2, label: 'Шапка' });
+            setGridItem(1, { rowStart: 2, columnStart: 1, label: 'Меню' });
+            setGridItem(2, { rowStart: 2, columnStart: 2, label: 'Основной контент' });
+            setGridItem(3, { rowStart: 3, columnSpan: 2, label: 'Низ' });
+        }
+
+        if (preset === 'sidebarRight') {
+            gridColumns.value = 2;
+            gridRows.value = 3;
+
+            setTrackValues(columnTracks, [
+                { value: 1, unit: 'fr' },
+                { value: 220, unit: 'px' }
+            ], 'column');
+
+            setTrackValues(rowTracks, [
+                { value: 70, unit: 'px' },
+                { value: 1, unit: 'fr' },
+                { value: 60, unit: 'px' }
+            ], 'row');
+
+            updateItems(4);
+            resetItems();
+
+            setGridItem(0, { rowStart: 1, columnSpan: 2, label: 'Шапка' });
+            setGridItem(1, { rowStart: 2, columnStart: 1, label: 'Основной контент' });
+            setGridItem(2, { rowStart: 2, columnStart: 2, label: 'Панель' });
+            setGridItem(3, { rowStart: 3, columnSpan: 2, label: 'Низ' });
+        }
+
+        if (preset === 'sidebars') {
+            gridColumns.value = 3;
+            gridRows.value = 3;
+
+            setTrackValues(columnTracks, [
+                { value: 200, unit: 'px' },
+                { value: 1, unit: 'fr' },
+                { value: 200, unit: 'px' }
+            ], 'column');
+
+            setTrackValues(rowTracks, [
+                { value: 70, unit: 'px' },
+                { value: 1, unit: 'fr' },
+                { value: 60, unit: 'px' }
+            ], 'row');
+
+            updateItems(5);
+            resetItems();
+
+            setGridItem(0, { rowStart: 1, columnSpan: 3, label: 'Шапка' });
+            setGridItem(1, { rowStart: 2, columnStart: 1, label: 'Меню' });
+            setGridItem(2, { rowStart: 2, columnStart: 2, label: 'Основной контент' });
+            setGridItem(3, { rowStart: 2, columnStart: 3, label: 'Панель' });
+            setGridItem(4, { rowStart: 3, columnSpan: 3, label: 'Низ' });
+        }
+
+        if (preset === 'dashboard') {
+            gridColumns.value = 4;
+            gridRows.value = 3;
+
+            setTrackValues(columnTracks, [
+                { value: 180, unit: 'px' },
+                { value: 1, unit: 'fr' },
+                { value: 1, unit: 'fr' },
+                { value: 1, unit: 'fr' }
+            ], 'column');
+
+            setTrackValues(rowTracks, [
+                { value: 60, unit: 'px' },
+                { value: 120, unit: 'px' },
+                { value: 1, unit: 'fr' }
+            ], 'row');
+
+            updateItems(6);
+            resetItems();
+
+            setGridItem(0, { rowStart: 1, columnSpan: 4, label: 'Шапка' });
+            setGridItem(1, { rowStart: 2, columnStart: 1, rowSpan: 2, label: 'Меню' });
+            setGridItem(2, { rowStart: 2, columnStart: 2, label: 'Блок 1' });
+            setGridItem(3, { rowStart: 2, columnStart: 3, label: 'Блок 2' });
+            setGridItem(4, { rowStart: 2, columnStart: 4, label: 'Блок 3' });
+            setGridItem(5, { rowStart: 3, columnStart: 2, columnSpan: 3, label: 'Основной блок' });
+        }
+
+        if (preset === 'cards') {
+            isAutoRows = true;
+
+            gridColumns.value = 4;
+            gridAutoFit.checked = true;
+            gridMinWidth.value = 220;
+            columnMinValue.value = 220;
+
+            gridRowsProperty.style.display = 'none';
+            rowTracksGroup.style.display = 'none';
+
+            setTrackValues(columnTracks, [
+                { value: 1, unit: 'fr' },
+                { value: 1, unit: 'fr' },
+                { value: 1, unit: 'fr' },
+                { value: 1, unit: 'fr' }
+            ], 'column');
+
+            rowTracks.innerHTML = '';
+
+            updateItems(12);
+            resetItems();
+        }
+
+        updateGrid();
+    }
+
+    function applyFlexPreset(preset) {
+        flexPresets.forEach((button) => {
+            button.classList.toggle('active', button.dataset.flexPreset === preset);
+        });
+
+        if (preset === 'row') {
+            flexDirection.value = 'row';
+            flexWrap.checked = false;
+            flexGap.value = 10;
+            flexJustify.value = 'flex-start';
+            flexAlign.value = 'stretch';
+
+            updateItems(4);
+        }
+
+        if (preset === 'column') {
+            flexDirection.value = 'column';
+            flexWrap.checked = false;
+            flexGap.value = 10;
+            flexJustify.value = 'flex-start';
+            flexAlign.value = 'stretch';
+
+            updateItems(4);
+        }
+
+        if (preset === 'toolbar') {
+            flexDirection.value = 'row';
+            flexWrap.checked = false;
+            flexGap.value = 8;
+            flexJustify.value = 'space-between';
+            flexAlign.value = 'center';
+
+            updateItems(5);
+        }
+
+        if (preset === 'wrap') {
+            flexDirection.value = 'row';
+            flexWrap.checked = true;
+            flexGap.value = 10;
+            flexJustify.value = 'flex-start';
+            flexAlign.value = 'stretch';
+
+            updateItems(8);
+
+            Array.from(layout.children).forEach((item) => {
+                item.style.flex = '1 1 140px';
+            });
+        }
+
+        resetFlexLabels();
+        syncFlexBasicToAdvanced();
+        updateFlex();
+    }
+
+    function resetFlexLabels() {
+        Array.from(layout.children).forEach((item, index) => {
+            item.textContent = index + 1;
+        });
+    }
+
+    function updateGridFromTracks() {
+        gridColumns.value = columnTracks.children.length;
+
+        if (!isAutoRows) {
+            gridRows.value = rowTracks.children.length;
+        }
+
+        gridAutoFit.checked = false;
+
+        gridPresets.forEach((button) => {
+            button.classList.remove('active');
+        });
+
+        updateGrid();
+    }
+
+    function updateGridBasic() {
+        updateTrackList(
+            columnTracks,
+            Math.max(1, parseInt(gridColumns.value) || 1),
+            'column'
+        );
+
+        if (!isAutoRows) {
+            updateTrackList(
+                rowTracks,
+                Math.max(1, parseInt(gridRows.value) || 1),
+                'row'
+            );
+        }
+
+        columnGap.value = gridGap.value;
+        rowGap.value = gridGap.value;
+
+        columnMinValue.value = gridMinWidth.value;
+
+        updateGrid();
+    }
+
+    function updateGrid() {
+        if (gridAutoFit.checked) {
+            const minWidth = Math.max(1, parseInt(gridMinWidth.value) || 1);
+            const maxWidth = Math.max(minWidth, parseInt(gridMaxWidth.value) || minWidth);
+
+            layout.style.gridTemplateColumns =
+                `repeat(${autoFitMode.value}, minmax(min(100%, ${minWidth}px), ${maxWidth}px))`;
+        } else {
+            layout.style.gridTemplateColumns =
+                getTrackListValue(columnTracks);
+        }
+
+        if (isAutoRows) {
+            layout.style.gridTemplateRows = 'none';
+            layout.style.gridAutoRows = '1fr';
+        } else {
+            layout.style.gridTemplateRows =
+                getTrackListValue(rowTracks);
+
+            layout.style.gridAutoRows = '';
+        }
+
+        layout.style.columnGap = `${Math.max(0, parseInt(columnGap.value) || 0)}px`;
+        layout.style.rowGap = `${Math.max(0, parseInt(rowGap.value) || 0)}px`;
+        layout.style.padding = `${Math.max(0, parseInt(gridPadding.value) || 0)}px`;
+        layout.style.gridAutoFlow = autoFlow.value;
+
+        gridAutoFitProperties.style.display =
+            gridAutoFit.checked ? 'block' : 'none';
+
+        updateGridPositionOptions();
+    }
+
+    function updateGridPositionOptions() {
+        const columns = Math.max(1, columnTracks.children.length);
+        const rows = isAutoRows
+            ? Math.max(1, Math.ceil(layout.children.length / columns))
+            : Math.max(1, rowTracks.children.length);
+
+        const columnValue = gridItemColumn.value;
+        const rowValue = gridItemRow.value;
+
+        gridItemColumn.innerHTML = '<option value="auto">Автоматически</option>';
+        gridItemRow.innerHTML = '<option value="auto">Автоматически</option>';
+
+        for (let index = 1; index <= columns; index++) {
+            const option = document.createElement('option');
+            option.value = index;
+            option.textContent = index;
+            gridItemColumn.appendChild(option);
+        }
+
+        for (let index = 1; index <= rows; index++) {
+            const option = document.createElement('option');
+            option.value = index;
+            option.textContent = index;
+            gridItemRow.appendChild(option);
+        }
+
+        gridItemColumn.value = columnValue;
+        gridItemRow.value = rowValue;
+    }
+
+    function updateGridItem() {
+        if (!selectedItem) {
+            return;
+        }
+
+        const columnStart = gridItemColumn.value;
+        const rowStart = gridItemRow.value;
+
+        const columns = Math.max(1, parseInt(gridItemColumns.value) || 1);
+        const rows = Math.max(1, parseInt(gridItemRows.value) || 1);
+
+        selectedItem.style.gridColumnStart =
+            columnStart === 'auto' ? '' : columnStart;
+
+        selectedItem.style.gridRowStart =
+            rowStart === 'auto' ? '' : rowStart;
+
+        selectedItem.style.gridColumnEnd = `span ${columns}`;
+        selectedItem.style.gridRowEnd = `span ${rows}`;
+
+        selectedItem.dataset.columnStart = columnStart;
+        selectedItem.dataset.rowStart = rowStart;
+        selectedItem.dataset.columnSpan = columns;
+        selectedItem.dataset.rowSpan = rows;
+
+        gridColumnSpan.value = columns;
+        gridRowSpan.value = rows;
+    }
+
+    function updateGridItemBasic() {
+        if (!selectedItem) {
+            return;
+        }
+
+        gridItemColumns.value = gridColumnSpan.value;
+        gridItemRows.value = gridRowSpan.value;
+
+        updateGridItem();
+    }
+
+    function syncFlexBasicToAdvanced() {
+        flexAdvancedDirection.value = flexDirection.value;
+        flexAdvancedWrap.value = flexWrap.checked ? 'wrap' : 'nowrap';
+        flexAdvancedGap.value = flexGap.value;
+        flexAdvancedJustify.value = flexJustify.value;
+        flexAdvancedAlign.value = flexAlign.value;
+    }
+
+    function syncFlexAdvancedToBasic() {
+        flexDirection.value = flexAdvancedDirection.value;
+        flexWrap.checked = flexAdvancedWrap.value !== 'nowrap';
+        flexGap.value = flexAdvancedGap.value;
+        flexJustify.value = flexAdvancedJustify.value;
+        flexAlign.value = flexAdvancedAlign.value;
+    }
+
+    function updateFlexBasic() {
+        syncFlexBasicToAdvanced();
+        updateFlex();
+    }
+
+    function updateFlexAdvanced() {
+        syncFlexAdvancedToBasic();
+        updateFlex();
+    }
+
+    function updateFlex() {
+        layout.style.flexDirection = flexAdvancedDirection.value;
+        layout.style.flexWrap = flexAdvancedWrap.value;
+        layout.style.gap = `${Math.max(0, parseInt(flexAdvancedGap.value) || 0)}px`;
+        layout.style.justifyContent = flexAdvancedJustify.value;
+        layout.style.alignItems = flexAdvancedAlign.value;
+        layout.style.alignContent = flexAlignContent.value;
+    }
+
+    function updateFlexItemPreset() {
+        if (!selectedItem) {
+            return;
+        }
+
+        flexBasisProperty.style.display =
+            flexItemSize.value === 'fixed' ? 'grid' : 'none';
+
+        if (flexItemSize.value === 'auto') {
+            selectedItem.style.flex = '0 1 auto';
+        }
+
+        if (flexItemSize.value === 'fill') {
+            selectedItem.style.flex = '1 1 0';
+        }
+
+        if (flexItemSize.value === 'equal') {
+            selectedItem.style.flex = '1 1 0';
+        }
+
+        if (flexItemSize.value === 'fixed') {
+            selectedItem.style.flex =
+                `0 0 ${Math.max(0, parseInt(flexBasis.value) || 0)}px`;
+        }
+    }
+
+    function updateFlexItemAdvanced() {
+        if (!selectedItem) {
+            return;
+        }
+
+        selectedItem.style.flexGrow =
+            Math.max(0, parseFloat(flexGrow.value) || 0);
+
+        selectedItem.style.flexShrink =
+            Math.max(0, parseFloat(flexShrink.value) || 0);
+
+        selectedItem.style.flexBasis =
+            parseInt(flexAdvancedBasis.value) > 0
+                ? `${flexAdvancedBasis.value}px`
+                : 'auto';
+
+        selectedItem.style.alignSelf = flexSelf.value;
+        selectedItem.style.order = parseInt(flexOrder.value) || 0;
+    }
+
+    tabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+            switchTab(tab.dataset.tab);
+        });
+    });
+
+    layoutTypeButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            setLayoutType(button.dataset.layout);
+        });
+    });
+
+    gridPresets.forEach((button) => {
+        button.addEventListener('click', () => {
+            applyGridPreset(button.dataset.gridPreset);
+        });
+    });
+
+    flexPresets.forEach((button) => {
+        button.addEventListener('click', () => {
+            applyFlexPreset(button.dataset.flexPreset);
+        });
+    });
+
+    gridColumns.addEventListener('input', updateGridBasic);
+    gridRows.addEventListener('input', updateGridBasic);
+    gridGap.addEventListener('input', updateGridBasic);
+    gridAutoFit.addEventListener('change', updateGridBasic);
+    gridMinWidth.addEventListener('input', updateGridBasic);
+    gridMaxWidth.addEventListener('input', updateGridBasic);
+
+    gridColumnSpan.addEventListener('input', updateGridItemBasic);
+    gridRowSpan.addEventListener('input', updateGridItemBasic);
+
+    addColumn.addEventListener('click', () => {
+        addTrack(columnTracks, 'column');
+    });
+
+    addRow.addEventListener('click', () => {
+        addTrack(rowTracks, 'row');
+    });
+
+    autoFitMode.addEventListener('change', updateGrid);
+    columnMinValue.addEventListener('input', updateGrid);
+    columnMaxValue.addEventListener('change', updateGrid);
+
+    columnGap.addEventListener('input', updateGrid);
+    rowGap.addEventListener('input', updateGrid);
+    gridPadding.addEventListener('input', updateGrid);
+    autoFlow.addEventListener('change', updateGrid);
+
+    gridItemColumn.addEventListener('change', updateGridItem);
+    gridItemRow.addEventListener('change', updateGridItem);
+    gridItemColumns.addEventListener('input', updateGridItem);
+    gridItemRows.addEventListener('input', updateGridItem);
+
+    flexDirection.addEventListener('change', updateFlexBasic);
+    flexGap.addEventListener('input', updateFlexBasic);
+    flexWrap.addEventListener('change', updateFlexBasic);
+    flexJustify.addEventListener('change', updateFlexBasic);
+    flexAlign.addEventListener('change', updateFlexBasic);
+
+    flexItemSize.addEventListener('change', updateFlexItemPreset);
+    flexBasis.addEventListener('input', updateFlexItemPreset);
+
+    flexAdvancedDirection.addEventListener('change', updateFlexAdvanced);
+    flexAdvancedWrap.addEventListener('change', updateFlexAdvanced);
+    flexAdvancedGap.addEventListener('input', updateFlexAdvanced);
+    flexAdvancedJustify.addEventListener('change', updateFlexAdvanced);
+    flexAdvancedAlign.addEventListener('change', updateFlexAdvanced);
+    flexAlignContent.addEventListener('change', updateFlex);
+
+    flexGrow.addEventListener('input', updateFlexItemAdvanced);
+    flexShrink.addEventListener('input', updateFlexItemAdvanced);
+    flexAdvancedBasis.addEventListener('input', updateFlexItemAdvanced);
+    flexSelf.addEventListener('change', updateFlexItemAdvanced);
+    flexOrder.addEventListener('input', updateFlexItemAdvanced);
+
+    setLayoutType('grid');
+</script>
+
+</body>
+</html>
