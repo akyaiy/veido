@@ -181,6 +181,78 @@
             display: block;
         }
 
+        .breakpointActions {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 5px;
+            margin-top: 6px;
+        }
+
+        .breakpointStatus {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+            margin-top: 8px;
+            font-size: 11px;
+        }
+
+        .breakpointStatus button {
+            padding: 4px 6px;
+            border: 1px solid #cccccc;
+            background-color: #ffffff;
+            cursor: pointer;
+        }
+
+        .checkResult {
+            margin-top: 6px;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .propertyState {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 5px;
+            margin: -2px 0 6px;
+            padding-left: 131px;
+            font-size: 10px;
+            color: #666666;
+        }
+
+        .propertyState button {
+            padding: 2px 5px;
+            border: 1px solid #cccccc;
+            background-color: #ffffff;
+            cursor: pointer;
+            font-size: 10px;
+        }
+.variantList {
+            display: grid;
+            gap: 5px;
+            margin-bottom: 6px;
+        }
+
+        .variantRow {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto auto;
+            gap: 5px;
+        }
+
+        .variantRow input,
+        .variantRow button,
+.variantRow button {
+            cursor: pointer;
+        }
+
+        .exportOutput {
+            min-height: 110px;
+            resize: vertical;
+            font-family: monospace;
+            font-size: 11px;
+        }
+
         .advancedDetails .tabContent {
             display: block;
         }
@@ -365,6 +437,28 @@
                     <label for="breakpointEndInput">Макс. ширина</label>
                     <input id="breakpointEndInput" type="number" value="640" min="0">
                 </div>
+
+                <div class="property">
+                    <label for="breakpointNameInput">Название</label>
+                    <input id="breakpointNameInput" type="text" value="">
+                </div>
+
+                <div class="breakpointActions">
+                    <button class="trackAdd" id="duplicateBreakpoint" type="button">
+                        Дублировать
+                    </button>
+
+                    <button class="trackAdd" id="removeBreakpoint" type="button">
+                        Удалить
+                    </button>
+                </div>
+            </div>
+
+            <div class="breakpointStatus">
+                <span id="breakpointStatus">Базовые свойства</span>
+                <button id="resetBreakpoint" type="button">
+                    Сбросить изменения
+                </button>
             </div>
         </div>
 
@@ -572,11 +666,210 @@
             </div>
         </div>
 
+        <div class="tabContent active">
+            <div class="section">
+                <h2>Размер выбранного элемента</h2>
+
+                <div class="property">
+                    <label for="itemMinWidth">Мин. ширина</label>
+                    <input id="itemMinWidth" type="number" value="0" min="0">
+                </div>
+
+                <div class="property">
+                    <label for="itemMaxWidth">Макс. ширина</label>
+                    <input id="itemMaxWidth" type="number" value="0" min="0">
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Видимость</h2>
+
+                <div class="property propertyCheckbox">
+                    <label>
+                        <input id="itemHidden" type="checkbox">
+                        Скрыть выбранный элемент
+                    </label>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Варианты</h2>
+
+                <div class="variantList" id="variantList"></div>
+
+                <button class="trackAdd" id="addVariant" type="button">
+                    + Сохранить текущий вариант
+                </button>
+            </div>
+        </div>
+
         <details class="advancedDetails">
             <summary>Дополнительные</summary>
 
             <div class="tabContent" id="advanced">
-            <div class="gridOnly active" id="advancedGrid">
+            <div class="advancedGroup">
+                <h2>Ограничения выбранного элемента</h2>
+
+                <div class="property">
+                    <label for="itemMinHeight">Мин. высота</label>
+                    <input id="itemMinHeight" type="number" value="0" min="0">
+                </div>
+
+                <div class="property">
+                    <label for="itemMaxHeight">Макс. высота</label>
+                    <input id="itemMaxHeight" type="number" value="0" min="0">
+                </div>
+
+                <div class="property">
+                    <label for="itemAspectRatio">Пропорции</label>
+                    <select id="itemAspectRatio">
+                        <option value="">Нет</option>
+                        <option value="1 / 1">1:1</option>
+                        <option value="4 / 3">4:3</option>
+                        <option value="16 / 9">16:9</option>
+                    </select>
+                </div>
+
+                <div class="property">
+                    <label for="itemOverflow">Переполнение</label>
+                    <select id="itemOverflow">
+                        <option value="">По умолчанию</option>
+                        <option value="visible">Показывать</option>
+                        <option value="hidden">Скрыть</option>
+                        <option value="auto">Прокрутка</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="advancedGroup">
+                <h2>Плавные значения</h2>
+
+                <div class="property propertyCheckbox">
+                    <label>
+                        <input id="fluidGapEnabled" type="checkbox">
+                        Плавно изменять расстояние
+                    </label>
+                </div>
+
+                <div id="fluidGapProperties">
+                    <div class="property">
+                        <label for="fluidGapMin">Мин. значение</label>
+                        <input id="fluidGapMin" type="number" value="8" min="0">
+                    </div>
+
+                    <div class="property">
+                        <label for="fluidGapMax">Макс. значение</label>
+                        <input id="fluidGapMax" type="number" value="24" min="0">
+                    </div>
+                </div>
+            </div>
+
+            <div class="advancedGroup">
+                <h2>Текст и переполнение</h2>
+
+                <div class="property">
+                    <label for="textWrapMode">Перенос</label>
+                    <select id="textWrapMode">
+                        <option value="">Обычный</option>
+                        <option value="anywhere">Разрывать слова</option>
+                        <option value="nowrap">Без переноса</option>
+                    </select>
+                </div>
+
+                <div class="property">
+                    <label for="textOverflowMode">Переполнение</label>
+                    <select id="textOverflowMode">
+                        <option value="">По умолчанию</option>
+                        <option value="ellipsis">Многоточие</option>
+                        <option value="hidden">Скрыть</option>
+                        <option value="auto">Прокрутка</option>
+                    </select>
+                </div>
+
+                <div class="property">
+                    <label for="textLineClamp">Макс. строк</label>
+                    <input id="textLineClamp" type="number" value="0" min="0">
+                </div>
+            </div>
+
+            <div class="advancedGroup">
+                <h2>Container rule</h2>
+
+                <div class="property propertyCheckbox">
+                    <label>
+                        <input id="containerRuleEnabled" type="checkbox">
+                        Реагировать на родителя
+                    </label>
+                </div>
+
+                <div id="containerRuleProperties">
+                    <div class="property">
+                        <label for="containerRuleWidth">До ширины</label>
+                        <input id="containerRuleWidth" type="number" value="360" min="1">
+                    </div>
+
+                    <div class="property">
+                        <label for="containerRuleAction">Изменение</label>
+                        <select id="containerRuleAction">
+                            <option value="column">В столбец</option>
+                            <option value="wrap">Разрешить перенос</option>
+                            <option value="hide">Скрыть</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="advancedGroup" id="responsiveMediaGroup">
+                <h2>Responsive media</h2>
+
+                <div class="property">
+                    <label for="mediaSrc">Источник</label>
+                    <input id="mediaSrc" type="text" value="">
+                </div>
+
+                <div class="property">
+                    <label for="mediaSrcset">Варианты</label>
+                    <input id="mediaSrcset" type="text" placeholder="480.webp 480w, 800.webp 800w">
+                </div>
+
+                <div class="property">
+                    <label for="mediaSizes">Размеры</label>
+                    <input id="mediaSizes" type="text" placeholder="(max-width: 700px) 100vw, 50vw">
+                </div>
+
+                <div class="property">
+                    <label for="mediaFit">Отображение</label>
+                    <select id="mediaFit">
+                        <option value="">По умолчанию</option>
+                        <option value="cover">Заполнить</option>
+                        <option value="contain">Вместить</option>
+                    </select>
+                </div>
+
+                <div class="property">
+                    <label for="mediaLoading">Загрузка</label>
+                    <select id="mediaLoading">
+                        <option value="">По умолчанию</option>
+                        <option value="lazy">Ленивая</option>
+                        <option value="eager">Сразу</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="advancedGroup">
+                <h2>Проверка адаптивности</h2>
+
+                <button class="trackAdd" id="checkResponsive" type="button">
+                    Проверить 320-1200px
+                </button>
+
+                <button class="trackAdd" id="stressContent" type="button">
+                    Стресс-тест текста
+                </button>
+
+                <div class="checkResult" id="checkResponsiveResult"></div>
+            </div>
+<div class="gridOnly active" id="advancedGrid">
                 <div class="advancedGroup">
                     <h2>Колонки</h2>
 
@@ -872,6 +1165,48 @@
     const breakpointStartInput = document.getElementById('breakpointStartInput');
     const breakpointEndInput = document.getElementById('breakpointEndInput');
     const addBreakpoint = document.getElementById('addBreakpoint');
+    const breakpointNameInput = document.getElementById('breakpointNameInput');
+    const duplicateBreakpoint = document.getElementById('duplicateBreakpoint');
+    const removeBreakpoint = document.getElementById('removeBreakpoint');
+    const resetBreakpoint = document.getElementById('resetBreakpoint');
+    const breakpointStatus = document.getElementById('breakpointStatus');
+
+    const itemMinWidth = document.getElementById('itemMinWidth');
+    const itemMaxWidth = document.getElementById('itemMaxWidth');
+    const itemMinHeight = document.getElementById('itemMinHeight');
+    const itemMaxHeight = document.getElementById('itemMaxHeight');
+    const itemAspectRatio = document.getElementById('itemAspectRatio');
+    const itemOverflow = document.getElementById('itemOverflow');
+    const itemHidden = document.getElementById('itemHidden');
+
+    const fluidGapEnabled = document.getElementById('fluidGapEnabled');
+    const fluidGapProperties = document.getElementById('fluidGapProperties');
+    const fluidGapMin = document.getElementById('fluidGapMin');
+    const fluidGapMax = document.getElementById('fluidGapMax');
+
+    const checkResponsive = document.getElementById('checkResponsive');
+    const checkResponsiveResult = document.getElementById('checkResponsiveResult');
+    const stressContent = document.getElementById('stressContent');
+
+    const variantList = document.getElementById('variantList');
+    const addVariant = document.getElementById('addVariant');
+
+    const textWrapMode = document.getElementById('textWrapMode');
+    const textOverflowMode = document.getElementById('textOverflowMode');
+    const textLineClamp = document.getElementById('textLineClamp');
+
+    const containerRuleEnabled = document.getElementById('containerRuleEnabled');
+    const containerRuleProperties = document.getElementById('containerRuleProperties');
+    const containerRuleWidth = document.getElementById('containerRuleWidth');
+    const containerRuleAction = document.getElementById('containerRuleAction');
+
+    const responsiveMediaGroup = document.getElementById('responsiveMediaGroup');
+    const mediaSrc = document.getElementById('mediaSrc');
+    const mediaSrcset = document.getElementById('mediaSrcset');
+    const mediaSizes = document.getElementById('mediaSizes');
+    const mediaFit = document.getElementById('mediaFit');
+    const mediaLoading = document.getElementById('mediaLoading');
+
 
     let layoutType = 'grid';
     let selectedItem = null;
@@ -880,11 +1215,20 @@
     let breakpointCounter = 0;
     let baseSnapshot = null;
     let isRestoringBreakpoint = false;
+    let variantCounter = 0;
+    let copiedBreakpoint = null;
+    let stressBackup = null;
+    let lastHistorySnapshot = '';
+
+    const itemVariants = new WeakMap();
+    const breakpointHistory = [];
+    const breakpointFuture = [];
 
     const breakpointRanges = [
         {
             id: 'all',
             label: 'Все размеры',
+            name: 'Все размеры',
             min: null,
             max: null,
             isBase: true,
@@ -905,6 +1249,18 @@
             return 'Все размеры';
         }
 
+        if (range.name) {
+            return range.name;
+        }
+
+        if (range.max === null) {
+            return `${range.min}+`;
+        }
+
+        return `${range.min}-${range.max}`;
+    }
+
+    function formatBreakpointRange(range) {
         if (range.max === null) {
             return `${range.min}+`;
         }
@@ -1214,6 +1570,8 @@
 
             const width = layout.getBoundingClientRect().width;
             applyVisualState(getStateForWidth(width));
+            updatePropertyStates();
+            pushBreakpointHistory();
             return;
         }
 
@@ -1247,6 +1605,627 @@
             baseSnapshot || current,
             current
         );
+
+        updateBreakpointStatus();
+        updatePropertyStates();
+        pushBreakpointHistory();
+    }
+
+    function getPropertyControlState(controlId) {
+        if (activeBreakpointId === 'all') {
+            return 'base';
+        }
+
+        const range = getActiveBreakpoint();
+        const controls = range?.overrides?.controls || {};
+
+        return Object.prototype.hasOwnProperty.call(controls, controlId)
+            ? 'override'
+            : 'inherited';
+    }
+
+    function resetPropertyOverride(controlId) {
+        if (activeBreakpointId === 'all') {
+            return;
+        }
+
+        const range = getActiveBreakpoint();
+
+        if (!range?.overrides?.controls) {
+            return;
+        }
+
+        delete range.overrides.controls[controlId];
+
+        const control = document.getElementById(controlId);
+        const value = baseSnapshot?.controls?.[controlId];
+
+        if (control) {
+            if (control.type === 'checkbox') {
+                control.checked = Boolean(value);
+                control.dispatchEvent(new Event('change', { bubbles: true }));
+            } else if (value !== undefined) {
+                control.value = value;
+                control.dispatchEvent(new Event('input', { bubbles: true }));
+                control.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }
+
+        updatePropertyStates();
+        updateBreakpointStatus();
+    }
+
+    function createPropertyState(control) {
+        if (
+            !control.id ||
+            control.closest('.breakpointRangeEditor') ||
+            control.closest('.variantRow')
+        ) {
+            return;
+        }
+
+        if (control.dataset.propertyStateBound === 'true') {
+            return;
+        }
+
+        const property = control.closest('.property');
+
+        if (!property) {
+            return;
+        }
+
+        control.dataset.propertyStateBound = 'true';
+
+        const state = document.createElement('div');
+        state.className = 'propertyState';
+        state.dataset.controlId = control.id;
+
+        const label = document.createElement('span');
+        label.className = 'propertyStateLabel';
+
+        const reset = document.createElement('button');
+        reset.type = 'button';
+        reset.textContent = 'Сбросить';
+
+        reset.addEventListener('click', () => {
+            resetPropertyOverride(control.id);
+        });
+
+        state.appendChild(label);
+        state.appendChild(reset);
+        property.insertAdjacentElement('afterend', state);
+    }
+
+    function updatePropertyStates() {
+        document.querySelectorAll('.propertyState').forEach((state) => {
+            const controlState = getPropertyControlState(state.dataset.controlId);
+            const label = state.querySelector('.propertyStateLabel');
+            const reset = state.querySelector('button');
+
+            if (controlState === 'base') {
+                label.textContent = 'База';
+                reset.style.display = 'none';
+                return;
+            }
+
+            if (controlState === 'override') {
+                label.textContent = 'Изменено';
+                reset.style.display = '';
+                return;
+            }
+
+            label.textContent = 'Наследуется';
+            reset.style.display = 'none';
+        });
+    }
+
+    function initializePropertyStates() {
+        document.querySelectorAll('.property input, .property select').forEach((control) => {
+            createPropertyState(control);
+        });
+
+        updatePropertyStates();
+    }
+
+    function getSelectedItemVariants() {
+        if (!selectedItem) {
+            return [];
+        }
+
+        if (!itemVariants.has(selectedItem)) {
+            itemVariants.set(selectedItem, []);
+        }
+
+        return itemVariants.get(selectedItem);
+    }
+
+    function renderVariants() {
+        variantList.innerHTML = '';
+
+        if (!selectedItem) {
+            variantList.textContent = 'Сначала выберите элемент';
+            addVariant.disabled = true;
+            return;
+        }
+
+        addVariant.disabled = false;
+
+        const variants = getSelectedItemVariants();
+
+        if (!variants.length) {
+            variantList.textContent = 'Вариантов нет';
+            return;
+        }
+
+        variants.forEach((variant) => {
+            const row = document.createElement('div');
+            row.className = 'variantRow';
+
+            const name = document.createElement('input');
+            name.type = 'text';
+            name.value = variant.name;
+
+            const apply = document.createElement('button');
+            apply.type = 'button';
+            apply.textContent = 'Применить';
+
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.textContent = '×';
+
+            name.addEventListener('input', () => {
+                variant.name = name.value;
+            });
+
+            apply.addEventListener('click', () => {
+                selectedItem.style.cssText = variant.css;
+                syncSelectedItemResponsiveProperties();
+                saveCurrentBreakpointState();
+            });
+
+            remove.addEventListener('click', () => {
+                const index = variants.indexOf(variant);
+
+                if (index !== -1) {
+                    variants.splice(index, 1);
+                }
+
+                renderVariants();
+            });
+
+            row.appendChild(name);
+            row.appendChild(apply);
+            row.appendChild(remove);
+            variantList.appendChild(row);
+        });
+    }
+
+    function addSelectedItemVariant() {
+        if (!selectedItem) {
+            return;
+        }
+
+        variantCounter += 1;
+
+        getSelectedItemVariants().push({
+            id: `variant-${variantCounter}`,
+            name: `Вариант ${variantCounter}`,
+            breakpointId: activeBreakpointId,
+            css: selectedItem.style.cssText
+        });
+
+        renderVariants();
+    }
+
+    function updateTextResponsiveProperties() {
+        if (!selectedItem) {
+            return;
+        }
+
+        selectedItem.style.overflowWrap =
+            textWrapMode.value === 'anywhere' ? 'anywhere' : '';
+
+        selectedItem.style.whiteSpace =
+            textWrapMode.value === 'nowrap' ? 'nowrap' : '';
+
+        selectedItem.style.textOverflow =
+            textOverflowMode.value === 'ellipsis' ? 'ellipsis' : '';
+
+        if (textOverflowMode.value === 'ellipsis') {
+            selectedItem.style.overflow = 'hidden';
+            selectedItem.style.whiteSpace = 'nowrap';
+        } else if (textOverflowMode.value === 'hidden') {
+            selectedItem.style.overflow = 'hidden';
+        } else if (textOverflowMode.value === 'auto') {
+            selectedItem.style.overflow = 'auto';
+        }
+
+        const lines = Math.max(0, parseInt(textLineClamp.value) || 0);
+
+        if (lines > 0) {
+            selectedItem.style.display = '-webkit-box';
+            selectedItem.style.webkitBoxOrient = 'vertical';
+            selectedItem.style.webkitLineClamp = lines;
+            selectedItem.style.overflow = 'hidden';
+        } else {
+            selectedItem.style.webkitBoxOrient = '';
+            selectedItem.style.webkitLineClamp = '';
+        }
+
+        saveCurrentBreakpointState();
+    }
+
+    function syncTextResponsiveProperties() {
+        if (!selectedItem) {
+            textWrapMode.value = '';
+            textOverflowMode.value = '';
+            textLineClamp.value = 0;
+            return;
+        }
+
+        if (selectedItem.style.overflowWrap === 'anywhere') {
+            textWrapMode.value = 'anywhere';
+        } else if (selectedItem.style.whiteSpace === 'nowrap') {
+            textWrapMode.value = 'nowrap';
+        } else {
+            textWrapMode.value = '';
+        }
+
+        if (selectedItem.style.textOverflow === 'ellipsis') {
+            textOverflowMode.value = 'ellipsis';
+        } else {
+            textOverflowMode.value = selectedItem.style.overflow || '';
+        }
+
+        textLineClamp.value =
+            parseInt(selectedItem.style.webkitLineClamp) || 0;
+    }
+
+    function updateContainerRule() {
+        containerRuleProperties.style.display =
+            containerRuleEnabled.checked ? 'block' : 'none';
+
+        if (!selectedItem) {
+            return;
+        }
+
+        selectedItem.dataset.containerRule =
+            containerRuleEnabled.checked ? 'true' : '';
+
+        selectedItem.dataset.containerWidth =
+            Math.max(1, parseInt(containerRuleWidth.value) || 360);
+
+        selectedItem.dataset.containerAction =
+            containerRuleAction.value;
+
+        applyContainerRule();
+        saveCurrentBreakpointState();
+    }
+
+    function applyContainerRule() {
+        if (!selectedItem || selectedItem.dataset.containerRule !== 'true') {
+            return;
+        }
+
+        const parentWidth = selectedItem.parentElement?.getBoundingClientRect().width || 0;
+        const limit = parseInt(selectedItem.dataset.containerWidth) || 360;
+        const action = selectedItem.dataset.containerAction;
+
+        selectedItem.style.flexDirection = '';
+        selectedItem.style.flexWrap = '';
+
+        if (selectedItem.dataset.containerHidden === 'true') {
+            selectedItem.style.display = '';
+            delete selectedItem.dataset.containerHidden;
+        }
+
+        if (parentWidth > limit) {
+            return;
+        }
+
+        if (action === 'column') {
+            selectedItem.style.flexDirection = 'column';
+        }
+
+        if (action === 'wrap') {
+            selectedItem.style.flexWrap = 'wrap';
+        }
+
+        if (action === 'hide') {
+            selectedItem.style.display = 'none';
+            selectedItem.dataset.containerHidden = 'true';
+        }
+    }
+
+    function syncContainerRule() {
+        const enabled = selectedItem?.dataset.containerRule === 'true';
+
+        containerRuleEnabled.checked = enabled;
+        containerRuleProperties.style.display = enabled ? 'block' : 'none';
+
+        if (!selectedItem) {
+            return;
+        }
+
+        containerRuleWidth.value =
+            selectedItem.dataset.containerWidth || 360;
+
+        containerRuleAction.value =
+            selectedItem.dataset.containerAction || 'column';
+    }
+
+    function updateResponsiveMedia() {
+        if (!selectedItem) {
+            return;
+        }
+
+        const isImage = selectedItem.tagName === 'IMG';
+        const isVideo = selectedItem.tagName === 'VIDEO';
+
+        if (!isImage && !isVideo) {
+            return;
+        }
+
+        if (mediaSrc.value) {
+            selectedItem.src = mediaSrc.value;
+        }
+
+        if (isImage) {
+            selectedItem.srcset = mediaSrcset.value;
+            selectedItem.sizes = mediaSizes.value;
+
+            if (mediaLoading.value) {
+                selectedItem.loading = mediaLoading.value;
+            }
+        }
+
+        selectedItem.style.objectFit = mediaFit.value;
+        saveCurrentBreakpointState();
+    }
+
+    function syncResponsiveMedia() {
+        const isMedia =
+            selectedItem &&
+            (selectedItem.tagName === 'IMG' || selectedItem.tagName === 'VIDEO');
+
+        responsiveMediaGroup.style.display = isMedia ? 'block' : 'none';
+
+        if (!isMedia) {
+            return;
+        }
+
+        mediaSrc.value = selectedItem.getAttribute('src') || '';
+        mediaSrcset.value = selectedItem.getAttribute('srcset') || '';
+        mediaSizes.value = selectedItem.getAttribute('sizes') || '';
+        mediaFit.value = selectedItem.style.objectFit || '';
+        mediaLoading.value = selectedItem.getAttribute('loading') || '';
+    }
+
+    function runStressContent() {
+        const items = Array.from(layout.children);
+
+        if (!stressBackup) {
+            stressBackup = items.map((item) => item.textContent);
+
+            const samples = [
+                'Очень длинный заголовок, который должен проверить перенос текста',
+                'ОченьДлинноеСловоБезПробеловДляПроверкиПереполнения',
+                '123 456 789,99 EUR - 31 декабря 2026 года',
+                'Navigation / Настройки / Дополнительные параметры'
+            ];
+
+            items.forEach((item, index) => {
+                item.textContent = samples[index % samples.length];
+            });
+
+            stressContent.textContent = 'Вернуть текст';
+            checkResponsiveRange();
+            return;
+        }
+
+        items.forEach((item, index) => {
+            item.textContent = stressBackup[index] || '';
+        });
+
+        stressBackup = null;
+        stressContent.textContent = 'Стресс-тест текста';
+    }
+
+    function pushBreakpointHistory() {
+        if (isRestoringBreakpoint) {
+            return;
+        }
+
+        const snapshot = JSON.stringify({
+            activeBreakpointId,
+            baseSnapshot,
+            breakpointRanges
+        });
+
+        if (snapshot === lastHistorySnapshot) {
+            return;
+        }
+
+        breakpointHistory.push(snapshot);
+
+        if (breakpointHistory.length > 30) {
+            breakpointHistory.shift();
+        }
+
+        lastHistorySnapshot = snapshot;
+        breakpointFuture.length = 0;
+    }
+
+    function restoreBreakpointHistory(snapshot) {
+        if (!snapshot) {
+            return;
+        }
+
+        const data = JSON.parse(snapshot);
+
+        baseSnapshot = data.baseSnapshot;
+        activeBreakpointId = data.activeBreakpointId;
+
+        breakpointRanges.splice(
+            0,
+            breakpointRanges.length,
+            ...data.breakpointRanges
+        );
+
+        updateBreakpointInputs();
+        applyBreakpointState();
+        renderBreakpointTabs();
+        updatePropertyStates();
+    }
+
+    function undoBreakpointState() {
+        if (breakpointHistory.length < 2) {
+            return;
+        }
+
+        breakpointFuture.push(breakpointHistory.pop());
+        restoreBreakpointHistory(breakpointHistory[breakpointHistory.length - 1]);
+        lastHistorySnapshot = breakpointHistory[breakpointHistory.length - 1];
+    }
+
+    function redoBreakpointState() {
+        if (!breakpointFuture.length) {
+            return;
+        }
+
+        const snapshot = breakpointFuture.pop();
+        breakpointHistory.push(snapshot);
+        restoreBreakpointHistory(snapshot);
+        lastHistorySnapshot = snapshot;
+    }
+
+    function copyActiveBreakpoint() {
+        const active = getActiveBreakpoint();
+
+        copiedBreakpoint = active.isBase
+            ? deepClone(baseSnapshot)
+            : deepClone(active.overrides);
+    }
+
+    function pasteActiveBreakpoint() {
+        if (!copiedBreakpoint) {
+            return;
+        }
+
+        const active = getActiveBreakpoint();
+
+        if (active.isBase) {
+            baseSnapshot = deepClone(copiedBreakpoint);
+        } else {
+            active.overrides = deepClone(copiedBreakpoint);
+        }
+
+        applyBreakpointState();
+        updateBreakpointStatus();
+        updatePropertyStates();
+        pushBreakpointHistory();
+    }
+
+    function toCssProperty(property) {
+        return property.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
+    }
+
+    function buildCssDeclarations(css) {
+        return Object.entries(css || {})
+            .filter(([, value]) => value !== '')
+            .map(([property, value]) => `    ${toCssProperty(property)}: ${value};`)
+            .join('\n');
+    }
+
+    function generateResponsiveCss() {
+        const base = baseSnapshot || captureEditorState();
+        let css = `.layout {\n${buildCssDeclarations(base.css)}\n}`;
+
+        breakpointRanges
+            .filter((range) => !range.isBase && range.overrides)
+            .forEach((range) => {
+                const declarations = buildCssDeclarations(range.overrides.css);
+
+                if (!declarations) {
+                    return;
+                }
+
+                let condition = '';
+
+                if (range.min !== null && range.max !== null) {
+                    condition =
+                        `(min-width: ${range.min}px) and (max-width: ${range.max}px)`;
+                } else if (range.min !== null) {
+                    condition = `(min-width: ${range.min}px)`;
+                } else {
+                    condition = `(max-width: ${range.max}px)`;
+                }
+
+                css += `\n\n@media ${condition} {\n    .layout {\n${declarations
+                    .split('\n')
+                    .map((line) => `    ${line}`)
+                    .join('\n')}\n    }\n}`;
+            });
+
+        const containerItems = Array.from(layout.children)
+            .filter((item) => item.dataset.containerRule === 'true');
+
+        containerItems.forEach((item, index) => {
+            const width = item.dataset.containerWidth || 360;
+            const action = item.dataset.containerAction || 'column';
+            let declaration = '';
+
+            if (action === 'column') {
+                declaration = 'flex-direction: column;';
+            }
+
+            if (action === 'wrap') {
+                declaration = 'flex-wrap: wrap;';
+            }
+
+            if (action === 'hide') {
+                declaration = 'display: none;';
+            }
+
+            css += `\n\n.layout { container-type: inline-size; }`;
+            css += `\n@container (max-width: ${width}px) {\n`;
+            css += `    .layoutItem:nth-child(${index + 1}) { ${declaration} }\n}`;
+        });
+
+        exportOutput.value = css;
+    }
+
+    function countBreakpointOverrides(range) {
+        if (!range || range.isBase || !range.overrides) {
+            return 0;
+        }
+
+        let count = Object.keys(range.overrides.controls || {}).length;
+        count += Object.keys(range.overrides.css || {}).length;
+        count += (range.overrides.items || []).filter(Boolean).length;
+
+        if (range.overrides.layoutType) {
+            count += 1;
+        }
+
+        return count;
+    }
+
+    function updateBreakpointStatus() {
+        const range = getActiveBreakpoint();
+
+        if (range.isBase) {
+            breakpointStatus.textContent = 'Базовые свойства';
+            resetBreakpoint.style.display = 'none';
+            return;
+        }
+
+        const count = countBreakpointOverrides(range);
+        breakpointStatus.textContent = count
+            ? `Изменено свойств: ${count}`
+            : 'Используются базовые свойства';
+
+        resetBreakpoint.style.display = count ? '' : 'none';
     }
 
     function renderBreakpointTabs() {
@@ -1260,7 +2239,9 @@
                 (activeBreakpointId === range.id ? ' active' : '');
 
             tab.textContent = formatBreakpointLabel(range);
-            tab.title = formatBreakpointLabel(range);
+            tab.title = range.isBase
+                ? 'Все размеры'
+                : formatBreakpointRange(range);
 
             tab.addEventListener('click', () => {
                 setActiveBreakpoint(range.id);
@@ -1275,12 +2256,17 @@
 
         if (active.isBase) {
             breakpointRangeEditor.classList.remove('visible');
+            updateBreakpointStatus();
+            updatePropertyStates();
             return;
         }
 
         breakpointStartInput.value = active.min;
         breakpointEndInput.value = active.max === null ? '' : active.max;
+        breakpointNameInput.value = active.name || '';
         breakpointRangeEditor.classList.add('visible');
+        updateBreakpointStatus();
+        updatePropertyStates();
     }
 
     function setActiveBreakpoint(id) {
@@ -1321,6 +2307,7 @@
         const range = {
             id: `bp-${breakpointCounter}`,
             label: '',
+            name: '',
             min,
             max,
             isBase: false,
@@ -1354,13 +2341,75 @@
 
         active.min = min;
         active.max = max;
+        active.name = breakpointNameInput.value.trim();
 
         applyBreakpointResizeLimits();
         renderBreakpointTabs();
+        updateBreakpointStatus();
+    }
+
+    function duplicateActiveBreakpoint() {
+        const active = getActiveBreakpoint();
+
+        if (active.isBase) {
+            return;
+        }
+
+        breakpointCounter += 1;
+
+        const copy = deepClone(active);
+        copy.id = `bp-${breakpointCounter}`;
+        copy.name = active.name
+            ? `${active.name} копия`
+            : '';
+
+        breakpointRanges.push(copy);
+        activeBreakpointId = copy.id;
+
+        updateBreakpointInputs();
+        applyBreakpointState();
+        renderBreakpointTabs();
+    }
+
+    function removeActiveBreakpoint() {
+        const active = getActiveBreakpoint();
+
+        if (active.isBase) {
+            return;
+        }
+
+        const index = breakpointRanges.findIndex((range) => range.id === active.id);
+
+        if (index !== -1) {
+            breakpointRanges.splice(index, 1);
+        }
+
+        activeBreakpointId = 'all';
+
+        updateBreakpointInputs();
+        applyBreakpointState();
+        renderBreakpointTabs();
+    }
+
+    function resetActiveBreakpoint() {
+        const active = getActiveBreakpoint();
+
+        if (active.isBase) {
+            return;
+        }
+
+        active.overrides = null;
+
+        applyBreakpointState();
+        updateBreakpointStatus();
     }
 
     function handleLayoutResize() {
         const width = layout.getBoundingClientRect().width;
+
+        if (selectedItem) {
+            applyContainerRule();
+        }
 
         if (activeBreakpointId === 'all') {
             applyVisualState(getStateForWidth(width));
@@ -1520,6 +2569,12 @@
             flexSelf.value = item.style.alignSelf || 'auto';
             flexOrder.value = parseInt(item.style.order) || 0;
         }
+
+        syncSelectedItemResponsiveProperties();
+        syncTextResponsiveProperties();
+        syncContainerRule();
+        syncResponsiveMedia();
+        renderVariants();
     }
 
     function createTrack(index, type, value = 1, unit = 'fr') {
@@ -2064,6 +3119,136 @@
         gridItemRow.value = rowValue;
     }
 
+    function updateSelectedItemResponsiveProperties() {
+        if (!selectedItem) {
+            return;
+        }
+
+        selectedItem.style.minWidth = parseInt(itemMinWidth.value) > 0
+            ? `${itemMinWidth.value}px`
+            : '';
+
+        selectedItem.style.maxWidth = parseInt(itemMaxWidth.value) > 0
+            ? `${itemMaxWidth.value}px`
+            : '';
+
+        selectedItem.style.minHeight = parseInt(itemMinHeight.value) > 0
+            ? `${itemMinHeight.value}px`
+            : '';
+
+        selectedItem.style.maxHeight = parseInt(itemMaxHeight.value) > 0
+            ? `${itemMaxHeight.value}px`
+            : '';
+
+        selectedItem.style.aspectRatio = itemAspectRatio.value;
+        selectedItem.style.overflow = itemOverflow.value;
+        selectedItem.style.display = itemHidden.checked ? 'none' : '';
+
+        saveCurrentBreakpointState();
+    }
+
+    function syncSelectedItemResponsiveProperties() {
+        if (!selectedItem) {
+            itemMinWidth.value = 0;
+            itemMaxWidth.value = 0;
+            itemMinHeight.value = 0;
+            itemMaxHeight.value = 0;
+            itemAspectRatio.value = '';
+            itemOverflow.value = '';
+            itemHidden.checked = false;
+            return;
+        }
+
+        itemMinWidth.value = parseInt(selectedItem.style.minWidth) || 0;
+        itemMaxWidth.value = parseInt(selectedItem.style.maxWidth) || 0;
+        itemMinHeight.value = parseInt(selectedItem.style.minHeight) || 0;
+        itemMaxHeight.value = parseInt(selectedItem.style.maxHeight) || 0;
+        itemAspectRatio.value = selectedItem.style.aspectRatio || '';
+        itemOverflow.value = selectedItem.style.overflow || '';
+        itemHidden.checked = selectedItem.style.display === 'none';
+    }
+
+    function updateFluidGap() {
+        fluidGapProperties.style.display =
+            fluidGapEnabled.checked ? 'block' : 'none';
+
+        if (!fluidGapEnabled.checked) {
+            if (layoutType === 'grid') {
+                updateGrid();
+            } else {
+                updateFlex();
+            }
+
+            return;
+        }
+
+        const min = Math.max(0, parseInt(fluidGapMin.value) || 0);
+        const max = Math.max(min, parseInt(fluidGapMax.value) || min);
+        const value = `clamp(${min}px, 2vw, ${max}px)`;
+
+        layout.style.gap = value;
+        layout.style.columnGap = value;
+        layout.style.rowGap = value;
+
+        saveCurrentBreakpointState();
+    }
+
+    function checkResponsiveRange() {
+        const currentWidth = layout.getBoundingClientRect().width;
+        const activeId = activeBreakpointId;
+        const overflowWidths = [];
+        const childWidths = [];
+
+        for (let width = 320; width <= 1200; width += 20) {
+            layout.style.width = `${width}px`;
+
+            if (activeBreakpointId === 'all') {
+                applyVisualState(getStateForWidth(width));
+            }
+
+            Array.from(layout.children).forEach((item) => {
+                const rect = item.getBoundingClientRect();
+                const layoutRect = layout.getBoundingClientRect();
+
+                if (
+                    rect.left < layoutRect.left - 1 ||
+                    rect.right > layoutRect.right + 1
+                ) {
+                    childWidths.push(width);
+                }
+            });
+
+            if (
+                layout.scrollWidth > layout.clientWidth + 1 ||
+                layout.scrollHeight > layout.clientHeight + 1
+            ) {
+                overflowWidths.push(width);
+            }
+        }
+
+        layout.style.width = `${Math.round(currentWidth)}px`;
+        activeBreakpointId = activeId;
+        applyBreakpointState();
+
+        const messages = [];
+
+        if (overflowWidths.length) {
+            messages.push(
+                `Переполнение: ${[...new Set(overflowWidths)].join(', ')}px`
+            );
+        }
+
+        if (childWidths.length) {
+            messages.push(
+                `Элементы выходят за границы: ${[...new Set(childWidths)].join(', ')}px`
+            );
+        }
+
+        checkResponsiveResult.textContent = messages.length
+            ? messages.join('. ')
+            : 'Проблем адаптивности не найдено.';
+    }
+
     function updateGridItem() {
         if (!selectedItem) {
             return;
@@ -2283,10 +3468,54 @@
 
     breakpointStartInput.addEventListener('change', updateSelectedRangeFromInputs);
     breakpointEndInput.addEventListener('change', updateSelectedRangeFromInputs);
+    breakpointNameInput.addEventListener('input', updateSelectedRangeFromInputs);
     addBreakpoint.addEventListener('click', addBreakpointRange);
+    duplicateBreakpoint.addEventListener('click', duplicateActiveBreakpoint);
+    removeBreakpoint.addEventListener('click', removeActiveBreakpoint);
+    resetBreakpoint.addEventListener('click', resetActiveBreakpoint);
+
+    itemMinWidth.addEventListener('input', updateSelectedItemResponsiveProperties);
+    itemMaxWidth.addEventListener('input', updateSelectedItemResponsiveProperties);
+    itemMinHeight.addEventListener('input', updateSelectedItemResponsiveProperties);
+    itemMaxHeight.addEventListener('input', updateSelectedItemResponsiveProperties);
+    itemAspectRatio.addEventListener('change', updateSelectedItemResponsiveProperties);
+    itemOverflow.addEventListener('change', updateSelectedItemResponsiveProperties);
+    itemHidden.addEventListener('change', updateSelectedItemResponsiveProperties);
+
+    fluidGapEnabled.addEventListener('change', updateFluidGap);
+    fluidGapMin.addEventListener('input', updateFluidGap);
+    fluidGapMax.addEventListener('input', updateFluidGap);
+
+    checkResponsive.addEventListener('click', checkResponsiveRange);
+    stressContent.addEventListener('click', runStressContent);
+    addVariant.addEventListener('click', addSelectedItemVariant);
+
+    textWrapMode.addEventListener('change', updateTextResponsiveProperties);
+    textOverflowMode.addEventListener('change', updateTextResponsiveProperties);
+    textLineClamp.addEventListener('input', updateTextResponsiveProperties);
+
+    containerRuleEnabled.addEventListener('change', updateContainerRule);
+    containerRuleWidth.addEventListener('input', updateContainerRule);
+    containerRuleAction.addEventListener('change', updateContainerRule);
+
+    mediaSrc.addEventListener('input', updateResponsiveMedia);
+    mediaSrcset.addEventListener('input', updateResponsiveMedia);
+    mediaSizes.addEventListener('input', updateResponsiveMedia);
+    mediaFit.addEventListener('change', updateResponsiveMedia);
+    mediaLoading.addEventListener('change', updateResponsiveMedia);
+
+
+    fluidGapProperties.style.display = 'none';
+    resetBreakpoint.style.display = 'none';
+
+    containerRuleProperties.style.display = 'none';
+    responsiveMediaGroup.style.display = 'none';
 
     setLayoutType('grid');
     initializeBreakpointSystem();
+    initializePropertyStates();
+    renderVariants();
+    pushBreakpointHistory();
 </script>
 
 </body>
