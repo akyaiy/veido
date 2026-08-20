@@ -116,6 +116,71 @@
             display: block;
         }
 
+        .breakpointSection {
+            margin-bottom: 14px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #dddddd;
+        }
+
+        .breakpointSection h2 {
+            margin: 0 0 8px;
+            font-size: 13px;
+        }
+
+        .breakpointTabsRow {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+
+        .breakpointTabs {
+            display: flex;
+            flex: 1 1 auto;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .breakpointTab {
+            flex: 1 1 auto;
+            min-width: 0;
+            padding: 6px 8px;
+            border: 1px solid #cccccc;
+            background-color: #ffffff;
+            cursor: pointer;
+            font-size: 11px;
+            color: #333333;
+            text-align: center;
+        }
+
+        .breakpointTab.active {
+            background-color: #eeeeee;
+            border-color: #666666;
+        }
+
+        .breakpointAddButton {
+            width: 32px;
+            height: 32px;
+            border: 1px solid #cccccc;
+            background-color: #ffffff;
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 1;
+            color: #333333;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .breakpointRangeEditor {
+            display: none;
+        }
+
+        .breakpointRangeEditor.visible {
+            display: block;
+        }
+
         .advancedDetails .tabContent {
             display: block;
         }
@@ -280,17 +345,40 @@
     <div class="properties">
         <div class="propertiesTitle">Свойства</div>
 
+        <div class="breakpointSection">
+            <h2>Размеры экрана</h2>
+
+            <div class="breakpointTabsRow">
+                <div class="breakpointTabs" id="breakpointTabs"></div>
+                <button class="breakpointAddButton" id="addBreakpoint" type="button" title="Добавить диапазон">
+                    +
+                </button>
+            </div>
+
+            <div class="breakpointRangeEditor" id="breakpointRangeEditor">
+                <div class="property">
+                    <label for="breakpointStartInput">Мин. ширина</label>
+                    <input id="breakpointStartInput" type="number" value="0" min="0">
+                </div>
+
+                <div class="property">
+                    <label for="breakpointEndInput">Макс. ширина</label>
+                    <input id="breakpointEndInput" type="number" value="640" min="0">
+                </div>
+            </div>
+        </div>
+
         <div class="tabContent active" id="basic">
             <div class="section">
                 <h2>Тип раскладки</h2>
 
                 <div class="layoutType">
                     <button class="layoutTypeButton active" type="button" data-layout="grid">
-                        Grid
+                        Сетка
                     </button>
 
                     <button class="layoutTypeButton" type="button" data-layout="flex">
-                        Flex
+                        Ряд
                     </button>
                 </div>
             </div>
@@ -327,7 +415,7 @@
                 </div>
 
                 <div class="section">
-                    <h2>Сетка</h2>
+                    <h2>Колонки и строки</h2>
 
                     <div class="property">
                         <label for="gridColumns">Колонки</label>
@@ -346,7 +434,7 @@
                 </div>
 
                 <div class="section">
-                    <h2>Адаптация</h2>
+                    <h2>Автоматическое изменение колонок</h2>
 
                     <div class="property propertyCheckbox">
                         <label>
@@ -359,6 +447,11 @@
                         <div class="property">
                             <label for="gridMinWidth">Мин. ширина</label>
                             <input id="gridMinWidth" type="number" value="220" min="1">
+                        </div>
+
+                        <div class="property">
+                            <label for="gridNormalWidth">Обычная ширина</label>
+                            <input id="gridNormalWidth" type="number" value="300" min="1">
                         </div>
 
                         <div class="property">
@@ -407,7 +500,7 @@
                 </div>
 
                 <div class="section">
-                    <h2>Расположение</h2>
+                    <h2>Направление и перенос</h2>
 
                     <div class="property">
                         <label for="flexDirection">Направление</label>
@@ -505,7 +598,7 @@
                 </div>
 
                 <div class="advancedGroup">
-                    <h2>Автоматические колонки</h2>
+                    <h2>Колонки с авторазмером</h2>
 
                     <div class="property">
                         <label for="autoFitMode">Заполнение</label>
@@ -518,6 +611,11 @@
                     <div class="property">
                         <label for="columnMinValue">Мин. ширина</label>
                         <input id="columnMinValue" type="number" value="220" min="1">
+                    </div>
+
+                    <div class="property">
+                        <label for="columnNormalValue">Обычная ширина</label>
+                        <input id="columnNormalValue" type="number" value="300" min="1">
                     </div>
 
                     <div class="property">
@@ -550,7 +648,7 @@
                 </div>
 
                 <div class="advancedGroup">
-                    <h2>Заполнение</h2>
+                    <h2>Порядок размещения</h2>
 
                     <div class="property">
                         <label for="autoFlow">Порядок</label>
@@ -594,7 +692,7 @@
 
             <div class="flexOnly" id="advancedFlex">
                 <div class="advancedGroup">
-                    <h2>Контейнер</h2>
+                    <h2>Настройки контейнера</h2>
 
                     <div class="property">
                         <label for="flexAdvancedDirection">Направление</label>
@@ -715,6 +813,7 @@
     const gridGap = document.getElementById('gridGap');
 
     const gridAutoFit = document.getElementById('gridAutoFit');
+    const gridNormalWidth = document.getElementById('gridNormalWidth');
     const gridMaxWidth = document.getElementById('gridMaxWidth');
     const gridAutoFitProperties = document.getElementById('gridAutoFitProperties');
     const gridMinWidth = document.getElementById('gridMinWidth');
@@ -732,6 +831,7 @@
 
     const autoFitMode = document.getElementById('autoFitMode');
     const columnMinValue = document.getElementById('columnMinValue');
+    const columnNormalValue = document.getElementById('columnNormalValue');
     const columnMaxValue = document.getElementById('columnMaxValue');
 
     const columnGap = document.getElementById('columnGap');
@@ -767,9 +867,531 @@
     const flexSelf = document.getElementById('flexSelf');
     const flexOrder = document.getElementById('flexOrder');
 
+    const breakpointTabs = document.getElementById('breakpointTabs');
+    const breakpointRangeEditor = document.getElementById('breakpointRangeEditor');
+    const breakpointStartInput = document.getElementById('breakpointStartInput');
+    const breakpointEndInput = document.getElementById('breakpointEndInput');
+    const addBreakpoint = document.getElementById('addBreakpoint');
+
     let layoutType = 'grid';
     let selectedItem = null;
     let isAutoRows = false;
+    let activeBreakpointId = 'all';
+    let breakpointCounter = 0;
+    let baseSnapshot = null;
+    let isRestoringBreakpoint = false;
+
+    const breakpointRanges = [
+        {
+            id: 'all',
+            label: 'Все размеры',
+            min: null,
+            max: null,
+            isBase: true,
+            overrides: null
+        }
+    ];
+
+    function deepClone(value) {
+        return JSON.parse(JSON.stringify(value || {}));
+    }
+
+    function getActiveBreakpoint() {
+        return breakpointRanges.find((range) => range.id === activeBreakpointId) || breakpointRanges[0];
+    }
+
+    function formatBreakpointLabel(range) {
+        if (range.isBase) {
+            return 'Все размеры';
+        }
+
+        if (range.max === null) {
+            return `${range.min}+`;
+        }
+
+        return `${range.min}-${range.max}`;
+    }
+
+    function captureEditorState() {
+        const controls = {};
+
+        document.querySelectorAll('input, select').forEach((element) => {
+            if (
+                !element.id ||
+                element.id === 'breakpointStartInput' ||
+                element.id === 'breakpointEndInput'
+            ) {
+                return;
+            }
+
+            controls[element.id] = element.type === 'checkbox'
+                ? element.checked
+                : element.value;
+        });
+
+        return {
+            layoutType,
+            controls,
+            css: {
+                gridTemplateColumns: layout.style.gridTemplateColumns || '',
+                gridTemplateRows: layout.style.gridTemplateRows || '',
+                gridAutoRows: layout.style.gridAutoRows || '',
+                gridAutoFlow: layout.style.gridAutoFlow || '',
+                columnGap: layout.style.columnGap || '',
+                rowGap: layout.style.rowGap || '',
+                padding: layout.style.padding || '',
+                flexDirection: layout.style.flexDirection || '',
+                flexWrap: layout.style.flexWrap || '',
+                gap: layout.style.gap || '',
+                justifyContent: layout.style.justifyContent || '',
+                alignItems: layout.style.alignItems || '',
+                alignContent: layout.style.alignContent || ''
+            },
+            items: Array.from(layout.children).map((item) => ({
+                css: item.style.cssText || ''
+            }))
+        };
+    }
+
+    function createBreakpointOverrides(base, current) {
+        const overrides = {
+            controls: {},
+            css: {},
+            items: []
+        };
+
+        if (current.layoutType !== base.layoutType) {
+            overrides.layoutType = current.layoutType;
+        }
+
+        Object.entries(current.controls || {}).forEach(([id, value]) => {
+            if ((base.controls || {})[id] !== value) {
+                overrides.controls[id] = value;
+            }
+        });
+
+        Object.entries(current.css || {}).forEach(([property, value]) => {
+            if ((base.css || {})[property] !== value) {
+                overrides.css[property] = value;
+            }
+        });
+
+        const itemCount = Math.max(
+            (base.items || []).length,
+            (current.items || []).length
+        );
+
+        for (let index = 0; index < itemCount; index++) {
+            const baseCss = base.items?.[index]?.css || '';
+            const currentCss = current.items?.[index]?.css || '';
+
+            overrides.items[index] = currentCss !== baseCss
+                ? { css: currentCss }
+                : null;
+        }
+
+        return overrides;
+    }
+
+    function mergeBreakpointState(base, overrides) {
+        const merged = deepClone(base);
+
+        if (!overrides) {
+            return merged;
+        }
+
+        if (overrides.layoutType) {
+            merged.layoutType = overrides.layoutType;
+        }
+
+        merged.controls = {
+            ...(merged.controls || {}),
+            ...(overrides.controls || {})
+        };
+
+        merged.css = {
+            ...(merged.css || {}),
+            ...(overrides.css || {})
+        };
+
+        if (overrides.items) {
+            merged.items = merged.items || [];
+
+            overrides.items.forEach((item, index) => {
+                if (item) {
+                    merged.items[index] = deepClone(item);
+                }
+            });
+        }
+
+        return merged;
+    }
+
+    function restoreEditorState(snapshot, restoreControls = true) {
+        if (!snapshot) {
+            return;
+        }
+
+        isRestoringBreakpoint = true;
+
+        const stateType = snapshot.layoutType || 'grid';
+        setLayoutType(stateType, false);
+
+        if (restoreControls) {
+            Object.entries(snapshot.controls || {}).forEach(([id, value]) => {
+                const element = document.getElementById(id);
+
+                if (!element) {
+                    return;
+                }
+
+                if (element.type === 'checkbox') {
+                    element.checked = Boolean(value);
+                    return;
+                }
+
+                element.value = value;
+            });
+        }
+
+        layout.style.gridTemplateColumns = snapshot.css?.gridTemplateColumns || '';
+        layout.style.gridTemplateRows = snapshot.css?.gridTemplateRows || '';
+        layout.style.gridAutoRows = snapshot.css?.gridAutoRows || '';
+        layout.style.gridAutoFlow = snapshot.css?.gridAutoFlow || '';
+        layout.style.columnGap = snapshot.css?.columnGap || '';
+        layout.style.rowGap = snapshot.css?.rowGap || '';
+        layout.style.padding = snapshot.css?.padding || '';
+        layout.style.flexDirection = snapshot.css?.flexDirection || '';
+        layout.style.flexWrap = snapshot.css?.flexWrap || '';
+        layout.style.gap = snapshot.css?.gap || '';
+        layout.style.justifyContent = snapshot.css?.justifyContent || '';
+        layout.style.alignItems = snapshot.css?.alignItems || '';
+        layout.style.alignContent = snapshot.css?.alignContent || '';
+
+        (snapshot.items || []).forEach((itemState, index) => {
+            const item = layout.children[index];
+
+            if (item) {
+                item.style.cssText = itemState.css || '';
+            }
+        });
+
+        if (restoreControls) {
+            gridAutoFitProperties.style.display =
+                gridAutoFit.checked ? 'block' : 'none';
+
+            flexBasisProperty.style.display =
+                flexItemSize.value === 'fixed' ? 'grid' : 'none';
+
+            syncFlexBasicToAdvanced();
+            updateGridPositionOptions();
+        }
+
+        isRestoringBreakpoint = false;
+    }
+
+    function applyVisualState(snapshot) {
+        if (!snapshot) {
+            return;
+        }
+
+        isRestoringBreakpoint = true;
+
+        layout.classList.remove('grid', 'flex');
+        layout.classList.add(snapshot.layoutType || 'grid');
+
+        layout.style.gridTemplateColumns = snapshot.css?.gridTemplateColumns || '';
+        layout.style.gridTemplateRows = snapshot.css?.gridTemplateRows || '';
+        layout.style.gridAutoRows = snapshot.css?.gridAutoRows || '';
+        layout.style.gridAutoFlow = snapshot.css?.gridAutoFlow || '';
+        layout.style.columnGap = snapshot.css?.columnGap || '';
+        layout.style.rowGap = snapshot.css?.rowGap || '';
+        layout.style.padding = snapshot.css?.padding || '';
+        layout.style.flexDirection = snapshot.css?.flexDirection || '';
+        layout.style.flexWrap = snapshot.css?.flexWrap || '';
+        layout.style.gap = snapshot.css?.gap || '';
+        layout.style.justifyContent = snapshot.css?.justifyContent || '';
+        layout.style.alignItems = snapshot.css?.alignItems || '';
+        layout.style.alignContent = snapshot.css?.alignContent || '';
+
+        (snapshot.items || []).forEach((itemState, index) => {
+            const item = layout.children[index];
+
+            if (item) {
+                item.style.cssText = itemState.css || '';
+            }
+        });
+
+        isRestoringBreakpoint = false;
+    }
+
+    function applyStructureGuard() {
+        const isGlobal = activeBreakpointId === 'all';
+
+        document.querySelectorAll('.section').forEach((section) => {
+            if (section.querySelector('.presets')) {
+                section.style.display = isGlobal ? '' : 'none';
+            }
+        });
+
+        gridPresets.forEach((button) => {
+            button.style.display = isGlobal ? '' : 'none';
+        });
+
+        flexPresets.forEach((button) => {
+            button.style.display = isGlobal ? '' : 'none';
+        });
+
+        if (breakpointRangeEditor) {
+            breakpointRangeEditor.classList.toggle('visible', !isGlobal);
+        }
+    }
+
+    function getRangeForWidth(width) {
+        return breakpointRanges.find((range) => {
+            if (range.isBase) {
+                return false;
+            }
+
+            const matchesMin = width >= range.min;
+            const matchesMax = range.max === null || width <= range.max;
+
+            return matchesMin && matchesMax;
+        }) || null;
+    }
+
+    function getMergedStateForRange(range) {
+        const base = deepClone(baseSnapshot || captureEditorState());
+
+        if (!range || range.isBase) {
+            return base;
+        }
+
+        return mergeBreakpointState(base, range.overrides);
+    }
+
+    function getStateForWidth(width) {
+        const range = getRangeForWidth(width);
+
+        if (!range) {
+            return deepClone(baseSnapshot || captureEditorState());
+        }
+
+        return getMergedStateForRange(range);
+    }
+
+    function applyBreakpointResizeLimits() {
+        const range = getActiveBreakpoint();
+
+        if (range.isBase) {
+            layout.style.minWidth = '';
+            layout.style.maxWidth = '';
+            return;
+        }
+
+        layout.style.minWidth = `${range.min}px`;
+        layout.style.maxWidth = range.max === null
+            ? 'none'
+            : `${range.max}px`;
+
+        const currentWidth = layout.getBoundingClientRect().width;
+        let nextWidth = Math.max(range.min, currentWidth);
+
+        if (range.max !== null) {
+            nextWidth = Math.min(range.max, nextWidth);
+        }
+
+        layout.style.width = `${Math.round(nextWidth)}px`;
+    }
+
+    function applyBreakpointState() {
+        const range = getActiveBreakpoint();
+
+        if (range.isBase) {
+            restoreEditorState(baseSnapshot || captureEditorState());
+            applyStructureGuard();
+            applyBreakpointResizeLimits();
+
+            const width = layout.getBoundingClientRect().width;
+            applyVisualState(getStateForWidth(width));
+            return;
+        }
+
+        restoreEditorState(getMergedStateForRange(range));
+        applyStructureGuard();
+        applyBreakpointResizeLimits();
+    }
+
+    function saveCurrentBreakpointState() {
+        if (isRestoringBreakpoint) {
+            return;
+        }
+
+        const current = captureEditorState();
+
+        if (activeBreakpointId === 'all') {
+            baseSnapshot = current;
+
+            const width = layout.getBoundingClientRect().width;
+            applyVisualState(getStateForWidth(width));
+            return;
+        }
+
+        const range = getActiveBreakpoint();
+
+        if (!range || range.isBase) {
+            return;
+        }
+
+        range.overrides = createBreakpointOverrides(
+            baseSnapshot || current,
+            current
+        );
+    }
+
+    function renderBreakpointTabs() {
+        breakpointTabs.innerHTML = '';
+
+        breakpointRanges.forEach((range) => {
+            const tab = document.createElement('button');
+            tab.type = 'button';
+            tab.className =
+                'breakpointTab' +
+                (activeBreakpointId === range.id ? ' active' : '');
+
+            tab.textContent = formatBreakpointLabel(range);
+            tab.title = formatBreakpointLabel(range);
+
+            tab.addEventListener('click', () => {
+                setActiveBreakpoint(range.id);
+            });
+
+            breakpointTabs.appendChild(tab);
+        });
+    }
+
+    function updateBreakpointInputs() {
+        const active = getActiveBreakpoint();
+
+        if (active.isBase) {
+            breakpointRangeEditor.classList.remove('visible');
+            return;
+        }
+
+        breakpointStartInput.value = active.min;
+        breakpointEndInput.value = active.max === null ? '' : active.max;
+        breakpointRangeEditor.classList.add('visible');
+    }
+
+    function setActiveBreakpoint(id) {
+        if (!isRestoringBreakpoint) {
+            saveCurrentBreakpointState();
+        }
+
+        activeBreakpointId = id;
+        updateBreakpointInputs();
+        applyBreakpointState();
+        renderBreakpointTabs();
+    }
+
+    function addBreakpointRange() {
+        saveCurrentBreakpointState();
+
+        const ranges = breakpointRanges
+            .filter((range) => !range.isBase)
+            .sort((a, b) => a.min - b.min);
+
+        let min = 0;
+        let max = 640;
+
+        if (ranges.length) {
+            const last = ranges[ranges.length - 1];
+
+            if (last.max === null) {
+                min = last.min + 1;
+                max = min + 639;
+            } else {
+                min = last.max + 1;
+                max = min + 639;
+            }
+        }
+
+        breakpointCounter += 1;
+
+        const range = {
+            id: `bp-${breakpointCounter}`,
+            label: '',
+            min,
+            max,
+            isBase: false,
+            overrides: null
+        };
+
+        breakpointRanges.push(range);
+        activeBreakpointId = range.id;
+
+        updateBreakpointInputs();
+        applyBreakpointState();
+        renderBreakpointTabs();
+    }
+
+    function updateSelectedRangeFromInputs() {
+        const active = getActiveBreakpoint();
+
+        if (active.isBase) {
+            return;
+        }
+
+        const min = Math.max(
+            0,
+            parseInt(breakpointStartInput.value) || 0
+        );
+
+        const maxValue = breakpointEndInput.value.trim();
+        const max = maxValue === ''
+            ? null
+            : Math.max(min, parseInt(maxValue) || min);
+
+        active.min = min;
+        active.max = max;
+
+        applyBreakpointResizeLimits();
+        renderBreakpointTabs();
+    }
+
+    function handleLayoutResize() {
+        const width = layout.getBoundingClientRect().width;
+
+        if (activeBreakpointId === 'all') {
+            applyVisualState(getStateForWidth(width));
+            return;
+        }
+
+        const range = getActiveBreakpoint();
+        let nextWidth = Math.max(range.min, width);
+
+        if (range.max !== null) {
+            nextWidth = Math.min(range.max, nextWidth);
+        }
+
+        if (Math.abs(nextWidth - width) > 1) {
+            layout.style.width = `${Math.round(nextWidth)}px`;
+        }
+    }
+
+    function initializeBreakpointSystem() {
+        baseSnapshot = captureEditorState();
+        renderBreakpointTabs();
+        updateBreakpointInputs();
+        applyStructureGuard();
+        applyBreakpointResizeLimits();
+
+        const resizeObserver = new ResizeObserver(() => {
+            handleLayoutResize();
+        });
+
+        resizeObserver.observe(layout);
+    }
 
     function switchTab(tabName) {
         tabs.forEach((tab) => {
@@ -781,7 +1403,7 @@
         });
     }
 
-    function setLayoutType(type) {
+    function setLayoutType(type, applyPreset = true) {
         layoutType = type;
 
         layout.classList.remove('grid', 'flex');
@@ -799,12 +1421,12 @@
             element.classList.toggle('active', type === 'flex');
         });
 
-        if (type === 'grid') {
+        if (type === 'grid' && applyPreset) {
             clearFlexStyles();
             applyGridPreset('page');
         }
 
-        if (type === 'flex') {
+        if (type === 'flex' && applyPreset) {
             clearGridStyles();
             applyFlexPreset('row');
 
@@ -1103,6 +1725,10 @@
     }
 
     function applyGridPreset(preset) {
+        if (activeBreakpointId !== 'all') {
+            return;
+        }
+
         isAutoRows = false;
         gridAutoFit.checked = false;
         gridRowsProperty.style.display = 'grid';
@@ -1263,9 +1889,14 @@
         }
 
         updateGrid();
+        saveCurrentBreakpointState();
     }
 
     function applyFlexPreset(preset) {
+        if (activeBreakpointId !== 'all') {
+            return;
+        }
+
         flexPresets.forEach((button) => {
             button.classList.toggle('active', button.dataset.flexPreset === preset);
         });
@@ -1317,6 +1948,7 @@
         resetFlexLabels();
         syncFlexBasicToAdvanced();
         updateFlex();
+        saveCurrentBreakpointState();
     }
 
     function resetFlexLabels() {
@@ -1339,6 +1971,7 @@
         });
 
         updateGrid();
+        saveCurrentBreakpointState();
     }
 
     function updateGridBasic() {
@@ -1360,14 +1993,17 @@
         rowGap.value = gridGap.value;
 
         columnMinValue.value = gridMinWidth.value;
+        columnNormalValue.value = gridNormalWidth.value;
 
         updateGrid();
+        saveCurrentBreakpointState();
     }
 
     function updateGrid() {
         if (gridAutoFit.checked) {
             const minWidth = Math.max(1, parseInt(gridMinWidth.value) || 1);
-            const maxWidth = Math.max(minWidth, parseInt(gridMaxWidth.value) || minWidth);
+            const normalWidth = Math.max(minWidth, parseInt(gridNormalWidth.value) || minWidth);
+            const maxWidth = Math.max(normalWidth, parseInt(gridMaxWidth.value) || normalWidth);
 
             layout.style.gridTemplateColumns =
                 `repeat(${autoFitMode.value}, minmax(min(100%, ${minWidth}px), ${maxWidth}px))`;
@@ -1395,6 +2031,7 @@
             gridAutoFit.checked ? 'block' : 'none';
 
         updateGridPositionOptions();
+        saveCurrentBreakpointState();
     }
 
     function updateGridPositionOptions() {
@@ -1454,6 +2091,8 @@
 
         gridColumnSpan.value = columns;
         gridRowSpan.value = rows;
+
+        saveCurrentBreakpointState();
     }
 
     function updateGridItemBasic() {
@@ -1486,11 +2125,13 @@
     function updateFlexBasic() {
         syncFlexBasicToAdvanced();
         updateFlex();
+        saveCurrentBreakpointState();
     }
 
     function updateFlexAdvanced() {
         syncFlexAdvancedToBasic();
         updateFlex();
+        saveCurrentBreakpointState();
     }
 
     function updateFlex() {
@@ -1500,6 +2141,7 @@
         layout.style.justifyContent = flexAdvancedJustify.value;
         layout.style.alignItems = flexAdvancedAlign.value;
         layout.style.alignContent = flexAlignContent.value;
+        saveCurrentBreakpointState();
     }
 
     function updateFlexItemPreset() {
@@ -1526,6 +2168,8 @@
             selectedItem.style.flex =
                 `0 0 ${Math.max(0, parseInt(flexBasis.value) || 0)}px`;
         }
+
+        saveCurrentBreakpointState();
     }
 
     function updateFlexItemAdvanced() {
@@ -1546,6 +2190,8 @@
 
         selectedItem.style.alignSelf = flexSelf.value;
         selectedItem.style.order = parseInt(flexOrder.value) || 0;
+
+        saveCurrentBreakpointState();
     }
 
     tabs.forEach((tab) => {
@@ -1556,7 +2202,11 @@
 
     layoutTypeButtons.forEach((button) => {
         button.addEventListener('click', () => {
-            setLayoutType(button.dataset.layout);
+            setLayoutType(
+                button.dataset.layout,
+                activeBreakpointId === 'all'
+            );
+            saveCurrentBreakpointState();
         });
     });
 
@@ -1577,6 +2227,7 @@
     gridGap.addEventListener('input', updateGridBasic);
     gridAutoFit.addEventListener('change', updateGridBasic);
     gridMinWidth.addEventListener('input', updateGridBasic);
+    gridNormalWidth.addEventListener('input', updateGridBasic);
     gridMaxWidth.addEventListener('input', updateGridBasic);
 
     gridColumnSpan.addEventListener('input', updateGridItemBasic);
@@ -1592,6 +2243,10 @@
 
     autoFitMode.addEventListener('change', updateGrid);
     columnMinValue.addEventListener('input', updateGrid);
+    columnNormalValue.addEventListener('input', () => {
+        gridNormalWidth.value = columnNormalValue.value;
+        updateGrid();
+    });
     columnMaxValue.addEventListener('change', updateGrid);
 
     columnGap.addEventListener('input', updateGrid);
@@ -1626,7 +2281,12 @@
     flexSelf.addEventListener('change', updateFlexItemAdvanced);
     flexOrder.addEventListener('input', updateFlexItemAdvanced);
 
+    breakpointStartInput.addEventListener('change', updateSelectedRangeFromInputs);
+    breakpointEndInput.addEventListener('change', updateSelectedRangeFromInputs);
+    addBreakpoint.addEventListener('click', addBreakpointRange);
+
     setLayoutType('grid');
+    initializeBreakpointSystem();
 </script>
 
 </body>
