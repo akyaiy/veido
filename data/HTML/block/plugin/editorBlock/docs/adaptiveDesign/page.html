@@ -405,6 +405,35 @@
         .flexOnly.active {
             display: block;
         }
+
+        .advancedSection {
+            margin: 0;
+            border-bottom: 1px solid #dddddd;
+        }
+
+        .advancedSection > summary {
+            padding: 9px 10px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .advancedSectionContent {
+            padding: 0 10px 6px;
+        }
+
+        .menuSelect {
+            width: 100%;
+            min-width: 0;
+            padding: 6px;
+            border: 1px solid #cccccc;
+            background-color: #ffffff;
+            font: inherit;
+        }
+
+        .breakpointTabsRow {
+            align-items: stretch;
+        }
     </style>
 </head>
 <body>
@@ -421,7 +450,14 @@
             <h2>Размеры экрана</h2>
 
             <div class="breakpointTabsRow">
-                <div class="breakpointTabs" id="breakpointTabs"></div>
+                <div class="breakpointTabs" id="breakpointTabs">
+                    <select class="menuSelect" id="breakpointSelect">
+                        <option value="all">Все размеры</option>
+                        <option value="preset-mobile">Мобильный 0-640</option>
+                        <option value="preset-tablet">Планшет 641-1024</option>
+                        <option value="preset-desktop">Десктоп 1025+</option>
+                    </select>
+                </div>
                 <button class="breakpointAddButton" id="addBreakpoint" type="button" title="Добавить диапазон">
                     +
                 </button>
@@ -464,52 +500,30 @@
 
         <div class="tabContent active" id="basic">
             <div class="section">
-                <h2>Тип раскладки</h2>
+                <h2>Расположение элементов</h2>
 
-                <div class="layoutType">
-                    <button class="layoutTypeButton active" type="button" data-layout="grid">
-                        Сетка
-                    </button>
-
-                    <button class="layoutTypeButton" type="button" data-layout="flex">
-                        Ряд
-                    </button>
-                </div>
+                <select class="menuSelect" id="layoutTypeSelect">
+                    <option value="grid">Grid</option>
+                    <option value="flex">Flex</option>
+                </select>
             </div>
 
             <div class="gridOnly active" id="basicGrid">
                 <div class="section">
-                    <h2>Готовая раскладка</h2>
+                    <h2>Шаблоны</h2>
 
-                    <div class="presets">
-                        <button class="preset active" type="button" data-grid-preset="page">
-                            Страница
-                        </button>
-
-                        <button class="preset" type="button" data-grid-preset="sidebarLeft">
-                            Меню слева
-                        </button>
-
-                        <button class="preset" type="button" data-grid-preset="sidebarRight">
-                            Меню справа
-                        </button>
-
-                        <button class="preset" type="button" data-grid-preset="sidebars">
-                            Две панели
-                        </button>
-
-                        <button class="preset" type="button" data-grid-preset="dashboard">
-                            Панель управления
-                        </button>
-
-                        <button class="preset" type="button" data-grid-preset="cards">
-                            Карточки
-                        </button>
-                    </div>
+                    <select class="menuSelect" id="gridPresetSelect">
+                        <option value="cards">Карточки</option>
+                        <option value="twoColumns">2 колонки</option>
+                        <option value="mainSidebar">Основное + боковая панель</option>
+                        <option value="sidebarMain">Боковая панель + основное</option>
+                        <option value="page">Страница</option>
+                        <option value="dashboard">Dashboard</option>
+                    </select>
                 </div>
 
                 <div class="section">
-                    <h2>Колонки и строки</h2>
+                    <h2>Размер сетки</h2>
 
                     <div class="property">
                         <label for="gridColumns">Колонки</label>
@@ -522,82 +536,31 @@
                     </div>
 
                     <div class="property">
-                        <label for="gridGap">Расстояние</label>
+                        <label for="gridGap">Промежуток</label>
                         <input id="gridGap" type="number" value="10" min="0">
-                    </div>
-                </div>
-
-                <div class="section">
-                    <h2>Автоматическое изменение колонок</h2>
-
-                    <div class="property propertyCheckbox">
-                        <label>
-                            <input id="gridAutoFit" type="checkbox">
-                            Подбирать колонки автоматически
-                        </label>
-                    </div>
-
-                    <div id="gridAutoFitProperties">
-                        <div class="property">
-                            <label for="gridMinWidth">Мин. ширина</label>
-                            <input id="gridMinWidth" type="number" value="220" min="1">
-                        </div>
-
-                        <div class="property">
-                            <label for="gridNormalWidth">Обычная ширина</label>
-                            <input id="gridNormalWidth" type="number" value="300" min="1">
-                        </div>
-
-                        <div class="property">
-                            <label for="gridMaxWidth">Макс. ширина</label>
-                            <input id="gridMaxWidth" type="number" value="400" min="1">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="section">
-                    <h2>Выбранный элемент</h2>
-
-                    <div class="property">
-                        <label for="gridColumnSpan">Колонок</label>
-                        <input id="gridColumnSpan" type="number" value="1" min="1">
-                    </div>
-
-                    <div class="property">
-                        <label for="gridRowSpan">Строк</label>
-                        <input id="gridRowSpan" type="number" value="1" min="1">
                     </div>
                 </div>
             </div>
 
             <div class="flexOnly" id="basicFlex">
                 <div class="section">
-                    <h2>Готовая раскладка</h2>
+                    <h2>Шаблоны</h2>
 
-                    <div class="presets">
-                        <button class="preset" type="button" data-flex-preset="row">
-                            В ряд
-                        </button>
-
-                        <button class="preset" type="button" data-flex-preset="column">
-                            В столбец
-                        </button>
-
-                        <button class="preset" type="button" data-flex-preset="toolbar">
-                            Панель кнопок
-                        </button>
-
-                        <button class="preset" type="button" data-flex-preset="wrap">
-                            С переносом
-                        </button>
-                    </div>
+                    <select class="menuSelect" id="flexPresetSelect">
+                        <option value="row">В ряд</option>
+                        <option value="column">В столбец</option>
+                        <option value="between">По краям</option>
+                        <option value="center">По центру</option>
+                        <option value="evenly">Равномерно</option>
+                        <option value="wrap">С переносом</option>
+                    </select>
                 </div>
 
                 <div class="section">
-                    <h2>Направление и перенос</h2>
+                    <h2>Расположение</h2>
 
                     <div class="property">
-                        <label for="flexDirection">Направление</label>
+                        <label for="flexDirection">Расположение</label>
                         <select id="flexDirection">
                             <option value="row">По горизонтали</option>
                             <option value="column">По вертикали</option>
@@ -607,14 +570,14 @@
                     </div>
 
                     <div class="property">
-                        <label for="flexGap">Расстояние</label>
+                        <label for="flexGap">Промежуток</label>
                         <input id="flexGap" type="number" value="10" min="0">
                     </div>
 
                     <div class="property propertyCheckbox">
                         <label>
                             <input id="flexWrap" type="checkbox">
-                            Переносить элементы
+                            Переносить на новую строку
                         </label>
                     </div>
                 </div>
@@ -623,7 +586,7 @@
                     <h2>Выравнивание</h2>
 
                     <div class="property">
-                        <label for="flexJustify">По направлению</label>
+                        <label for="flexJustify">Распределение</label>
                         <select id="flexJustify">
                             <option value="flex-start">В начале</option>
                             <option value="center">По центру</option>
@@ -635,7 +598,7 @@
                     </div>
 
                     <div class="property">
-                        <label for="flexAlign">Поперёк</label>
+                        <label for="flexAlign">Выравнивание</label>
                         <select id="flexAlign">
                             <option value="stretch">Растянуть</option>
                             <option value="flex-start">В начале</option>
@@ -644,31 +607,12 @@
                         </select>
                     </div>
                 </div>
-
-                <div class="section">
-                    <h2>Выбранный элемент</h2>
-
-                    <div class="property">
-                        <label for="flexItemSize">Размер</label>
-                        <select id="flexItemSize">
-                            <option value="auto">По содержимому</option>
-                            <option value="fill">Занять свободное место</option>
-                            <option value="fixed">Заданный</option>
-                            <option value="equal">Равная доля</option>
-                        </select>
-                    </div>
-
-                    <div class="property" id="flexBasisProperty">
-                        <label for="flexBasis">Размер</label>
-                        <input id="flexBasis" type="number" value="120" min="0">
-                    </div>
-                </div>
             </div>
         </div>
 
         <div class="tabContent active">
             <div class="section">
-                <h2>Размер выбранного элемента</h2>
+                <h2>Размер элемента</h2>
 
                 <div class="property">
                     <label for="itemMinWidth">Мин. ширина</label>
@@ -692,398 +636,369 @@
                 </div>
             </div>
 
-            <div class="section">
-                <h2>Варианты</h2>
-
-                <div class="variantList" id="variantList"></div>
-
-                <button class="trackAdd" id="addVariant" type="button">
-                    + Сохранить текущий вариант
-                </button>
-            </div>
-        </div>
-
         <details class="advancedDetails">
-            <summary>Дополнительные</summary>
-
-            <div class="tabContent" id="advanced">
-            <div class="advancedGroup">
-                <h2>Ограничения выбранного элемента</h2>
-
-                <div class="property">
-                    <label for="itemMinHeight">Мин. высота</label>
-                    <input id="itemMinHeight" type="number" value="0" min="0">
-                </div>
-
-                <div class="property">
-                    <label for="itemMaxHeight">Макс. высота</label>
-                    <input id="itemMaxHeight" type="number" value="0" min="0">
-                </div>
-
-                <div class="property">
-                    <label for="itemAspectRatio">Пропорции</label>
-                    <select id="itemAspectRatio">
-                        <option value="">Нет</option>
-                        <option value="1 / 1">1:1</option>
-                        <option value="4 / 3">4:3</option>
-                        <option value="16 / 9">16:9</option>
-                    </select>
-                </div>
-
-                <div class="property">
-                    <label for="itemOverflow">Переполнение</label>
-                    <select id="itemOverflow">
-                        <option value="">По умолчанию</option>
-                        <option value="visible">Показывать</option>
-                        <option value="hidden">Скрыть</option>
-                        <option value="auto">Прокрутка</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="advancedGroup">
-                <h2>Плавные значения</h2>
-
-                <div class="property propertyCheckbox">
-                    <label>
-                        <input id="fluidGapEnabled" type="checkbox">
-                        Плавно изменять расстояние
-                    </label>
-                </div>
-
-                <div id="fluidGapProperties">
-                    <div class="property">
-                        <label for="fluidGapMin">Мин. значение</label>
-                        <input id="fluidGapMin" type="number" value="8" min="0">
-                    </div>
-
-                    <div class="property">
-                        <label for="fluidGapMax">Макс. значение</label>
-                        <input id="fluidGapMax" type="number" value="24" min="0">
-                    </div>
-                </div>
-            </div>
-
-            <div class="advancedGroup">
-                <h2>Текст и переполнение</h2>
-
-                <div class="property">
-                    <label for="textWrapMode">Перенос</label>
-                    <select id="textWrapMode">
-                        <option value="">Обычный</option>
-                        <option value="anywhere">Разрывать слова</option>
-                        <option value="nowrap">Без переноса</option>
-                    </select>
-                </div>
-
-                <div class="property">
-                    <label for="textOverflowMode">Переполнение</label>
-                    <select id="textOverflowMode">
-                        <option value="">По умолчанию</option>
-                        <option value="ellipsis">Многоточие</option>
-                        <option value="hidden">Скрыть</option>
-                        <option value="auto">Прокрутка</option>
-                    </select>
-                </div>
-
-                <div class="property">
-                    <label for="textLineClamp">Макс. строк</label>
-                    <input id="textLineClamp" type="number" value="0" min="0">
-                </div>
-            </div>
-
-            <div class="advancedGroup">
-                <h2>Container rule</h2>
-
-                <div class="property propertyCheckbox">
-                    <label>
-                        <input id="containerRuleEnabled" type="checkbox">
-                        Реагировать на родителя
-                    </label>
-                </div>
-
-                <div id="containerRuleProperties">
-                    <div class="property">
-                        <label for="containerRuleWidth">До ширины</label>
-                        <input id="containerRuleWidth" type="number" value="360" min="1">
-                    </div>
-
-                    <div class="property">
-                        <label for="containerRuleAction">Изменение</label>
-                        <select id="containerRuleAction">
-                            <option value="column">В столбец</option>
-                            <option value="wrap">Разрешить перенос</option>
-                            <option value="hide">Скрыть</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            <div class="advancedGroup" id="responsiveMediaGroup">
-                <h2>Responsive media</h2>
-
-                <div class="property">
-                    <label for="mediaSrc">Источник</label>
-                    <input id="mediaSrc" type="text" value="">
-                </div>
-
-                <div class="property">
-                    <label for="mediaSrcset">Варианты</label>
-                    <input id="mediaSrcset" type="text" placeholder="480.webp 480w, 800.webp 800w">
-                </div>
-
-                <div class="property">
-                    <label for="mediaSizes">Размеры</label>
-                    <input id="mediaSizes" type="text" placeholder="(max-width: 700px) 100vw, 50vw">
-                </div>
-
-                <div class="property">
-                    <label for="mediaFit">Отображение</label>
-                    <select id="mediaFit">
-                        <option value="">По умолчанию</option>
-                        <option value="cover">Заполнить</option>
-                        <option value="contain">Вместить</option>
-                    </select>
-                </div>
-
-                <div class="property">
-                    <label for="mediaLoading">Загрузка</label>
-                    <select id="mediaLoading">
-                        <option value="">По умолчанию</option>
-                        <option value="lazy">Ленивая</option>
-                        <option value="eager">Сразу</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="advancedGroup">
-                <h2>Проверка адаптивности</h2>
-
-                <button class="trackAdd" id="checkResponsive" type="button">
-                    Проверить 320-1200px
-                </button>
-
-                <button class="trackAdd" id="stressContent" type="button">
-                    Стресс-тест текста
-                </button>
-
-                <div class="checkResult" id="checkResponsiveResult"></div>
-            </div>
-<div class="gridOnly active" id="advancedGrid">
-                <div class="advancedGroup">
-                    <h2>Колонки</h2>
-
-                    <div class="trackList" id="columnTracks"></div>
-
-                    <button class="trackAdd" id="addColumn" type="button">
+<summary>Дополнительные</summary>
+<div class="tabContent" id="advanced"><details class="advancedSection"><summary>Сетка</summary><div class="advancedSectionContent"><div class="gridOnly active" id="advancedGrid"><div class="advancedGroup">
+<h2>Автоматические колонки</h2>
+<div class="property propertyCheckbox">
+<label>
+<input id="gridAutoFit" type="checkbox"/>
+                            Подстраивать колонки под ширину
+                        </label>
+</div>
+<div id="gridAutoFitProperties">
+<div class="property">
+<label for="gridMinWidth">Мин. ширина</label>
+<input id="gridMinWidth" min="1" type="number" value="220"/>
+</div>
+<div class="property">
+<label for="gridNormalWidth">Желаемая ширина</label>
+<input id="gridNormalWidth" min="1" type="number" value="300"/>
+</div>
+<div class="property">
+<label for="gridMaxWidth">Макс. ширина</label>
+<input id="gridMaxWidth" min="1" type="number" value="400"/>
+</div>
+</div>
+</div><div class="advancedGroup">
+<h2>Колонки</h2>
+<div class="trackList" id="columnTracks"></div>
+<button class="trackAdd" id="addColumn" type="button">
                         + Добавить колонку
                     </button>
-                </div>
-
-                <div class="advancedGroup" id="rowTracksGroup">
-                    <h2>Строки</h2>
-
-                    <div class="trackList" id="rowTracks"></div>
-
-                    <button class="trackAdd" id="addRow" type="button">
+</div><div class="advancedGroup" id="rowTracksGroup">
+<h2>Строки</h2>
+<div class="trackList" id="rowTracks"></div>
+<button class="trackAdd" id="addRow" type="button">
                         + Добавить строку
                     </button>
-                </div>
+</div><div class="advancedGroup">
+<h2>Автоматические колонки</h2>
+<div class="property">
+<label for="autoFitMode">Свободное место</label>
+<select id="autoFitMode">
+<option value="auto-fit">Заполнять место</option>
+<option value="auto-fill">Сохранять колонки</option>
+</select>
+</div>
+<div class="property">
+<label for="columnMinValue">Мин. ширина</label>
+<input id="columnMinValue" min="1" type="number" value="220"/>
+</div>
+<div class="property">
+<label for="columnNormalValue">Желаемая ширина</label>
+<input id="columnNormalValue" min="1" type="number" value="300"/>
+</div>
+<div class="property">
+<label for="columnMaxValue">Макс. ширина</label>
+<select id="columnMaxValue">
+<option value="1fr">Растянуть</option>
+<option value="auto">По содержимому</option>
+<option value="max-content">Макс. содержимое</option>
+</select>
+</div>
+</div></div></div></details><details class="advancedSection"><summary>Расположение</summary><div class="advancedSectionContent"><div class="gridOnly active"><div class="advancedGroup">
+<h2>Расстояния</h2>
+<div class="property">
+<label for="columnGap">Горизонтально</label>
+<input id="columnGap" min="0" type="number" value="10"/>
+</div>
+<div class="property">
+<label for="rowGap">Вертикально</label>
+<input id="rowGap" min="0" type="number" value="10"/>
+</div>
+<div class="property">
+<label for="gridPadding">Внутри</label>
+<input id="gridPadding" min="0" type="number" value="10"/>
+</div>
+</div><div class="advancedGroup">
+<h2>Автоматическое размещение</h2>
+<div class="property">
+<label for="autoFlow">Заполнять</label>
+<select id="autoFlow">
+<option value="row">По строкам</option>
+<option value="column">По колонкам</option>
+<option value="row dense">Без пустых мест</option>
+<option value="column dense">По колонкам без пустот</option>
+</select>
+</div>
+</div></div><div class="flexOnly" id="advancedFlex"><div class="advancedGroup">
+<h2>Расположение элементов</h2>
+<div class="property">
+<label for="flexAdvancedDirection">Расположение</label>
+<select id="flexAdvancedDirection">
+<option value="row">По горизонтали</option>
+<option value="column">По вертикали</option>
+<option value="row-reverse">Горизонтально наоборот</option>
+<option value="column-reverse">Вертикально наоборот</option>
+</select>
+</div>
+<div class="property">
+<label for="flexAdvancedWrap">Перенос строк</label>
+<select id="flexAdvancedWrap">
+<option value="nowrap">Без переноса</option>
+<option value="wrap">Переносить</option>
+<option value="wrap-reverse">Перенос наоборот</option>
+</select>
+</div>
+<div class="property">
+<label for="flexAdvancedGap">Промежуток</label>
+<input id="flexAdvancedGap" min="0" type="number" value="10"/>
+</div>
+<div class="property">
+<label for="flexAdvancedJustify">По основной стороне</label>
+<select id="flexAdvancedJustify">
+<option value="flex-start">В начале</option>
+<option value="center">По центру</option>
+<option value="flex-end">В конце</option>
+<option value="space-between">По краям</option>
+<option value="space-around">Равномерно</option>
+<option value="space-evenly">Одинаковые промежутки</option>
+</select>
+</div>
+<div class="property">
+<label for="flexAdvancedAlign">По второй стороне</label>
+<select id="flexAdvancedAlign">
+<option value="stretch">Растянуть</option>
+<option value="flex-start">В начале</option>
+<option value="center">По центру</option>
+<option value="flex-end">В конце</option>
+<option value="baseline">По тексту</option>
+</select>
+</div>
+<div class="property">
+<label for="flexAlignContent">Несколько строк</label>
+<select id="flexAlignContent">
+<option value="stretch">Растянуть</option>
+<option value="flex-start">В начале</option>
+<option value="center">По центру</option>
+<option value="flex-end">В конце</option>
+<option value="space-between">По краям</option>
+<option value="space-around">Равномерно</option>
+</select>
+</div>
+</div></div></div></details><details class="advancedSection"><summary>Выбранный элемент</summary><div class="advancedSectionContent"><div class="gridOnly active"><div class="advancedGroup">
+<h2>Выбранный элемент</h2>
+<div class="property">
+<label for="gridColumnSpan">Колонок</label>
+<input id="gridColumnSpan" min="1" type="number" value="1"/>
+</div>
+<div class="property">
+<label for="gridRowSpan">Строк</label>
+<input id="gridRowSpan" min="1" type="number" value="1"/>
+</div>
+</div><div class="advancedGroup">
+<h2>Выбранный элемент</h2>
+<div class="property">
+<label for="gridItemColumn">Колонка</label>
+<select id="gridItemColumn">
+<option value="auto">Автоматически</option>
+</select>
+</div>
+<div class="property">
+<label for="gridItemRow">Строка</label>
+<select id="gridItemRow">
+<option value="auto">Автоматически</option>
+</select>
+</div>
+<div class="property">
+<label for="gridItemColumns">Занять колонок</label>
+<input id="gridItemColumns" min="1" type="number" value="1"/>
+</div>
+<div class="property">
+<label for="gridItemRows">Занять строк</label>
+<input id="gridItemRows" min="1" type="number" value="1"/>
+</div>
+</div></div><div class="flexOnly"><div class="advancedGroup">
+<h2>Выбранный элемент</h2>
+<div class="property">
+<label for="flexItemSize">Размер</label>
+<select id="flexItemSize">
+<option value="auto">По содержимому</option>
+<option value="fill">Занять свободное место</option>
+<option value="fixed">Заданный</option>
+<option value="equal">Равная доля</option>
+</select>
+</div>
+<div class="property" id="flexBasisProperty">
+<label for="flexBasis">Размер</label>
+<input id="flexBasis" min="0" type="number" value="120"/>
+</div>
+</div><div class="advancedGroup">
+<h2>Выбранный элемент</h2>
+<div class="property">
+<label for="flexGrow">Можно расширять</label>
+<input id="flexGrow" min="0" type="number" value="0"/>
+</div>
+<div class="property">
+<label for="flexShrink">Можно сжимать</label>
+<input id="flexShrink" min="0" type="number" value="1"/>
+</div>
+<div class="property">
+<label for="flexAdvancedBasis">Начальный размер</label>
+<input id="flexAdvancedBasis" min="0" type="number" value="0"/>
+</div>
+<div class="property">
+<label for="flexSelf">Своё выравнивание</label>
+<select id="flexSelf">
+<option value="auto">Автоматически</option>
+<option value="stretch">Растянуть</option>
+<option value="flex-start">В начале</option>
+<option value="center">По центру</option>
+<option value="flex-end">В конце</option>
+</select>
+</div>
+<div class="property">
+<label for="flexOrder">Порядок</label>
+<input id="flexOrder" type="number" value="0"/>
+</div>
+</div></div><div class="advancedGroup">
+<h2>Варианты</h2>
+<div class="variantList" id="variantList"></div>
+<button class="trackAdd" id="addVariant" type="button">
+                    + Сохранить вариант
+                </button>
+</div></div></details><details class="advancedSection"><summary>Размер и адаптивность</summary><div class="advancedSectionContent"><div class="advancedGroup">
+<h2>Ограничения размера</h2>
+<div class="property">
+<label for="itemMinHeight">Мин. высота</label>
+<input id="itemMinHeight" min="0" type="number" value="0"/>
+</div>
+<div class="property">
+<label for="itemMaxHeight">Макс. высота</label>
+<input id="itemMaxHeight" min="0" type="number" value="0"/>
+</div>
+<div class="property">
+<label for="itemAspectRatio">Пропорции</label>
+<select id="itemAspectRatio">
+<option value="">Нет</option>
+<option value="1 / 1">1:1</option>
+<option value="4 / 3">4:3</option>
+<option value="16 / 9">16:9</option>
+</select>
+</div>
+<div class="property">
+<label for="itemOverflow">Переполнение</label>
+<select id="itemOverflow">
+<option value="">По умолчанию</option>
+<option value="visible">Показывать</option>
+<option value="hidden">Скрыть</option>
+<option value="auto">Прокрутка</option>
+</select>
+</div>
+</div><div class="advancedGroup">
+<h2>Плавный промежуток</h2>
+<div class="property propertyCheckbox">
+<label>
+<input id="fluidGapEnabled" type="checkbox"/>
+                        Плавно менять промежуток
+                    </label>
+</div>
+<div id="fluidGapProperties">
+<div class="property">
+<label for="fluidGapMin">Мин. значение</label>
+<input id="fluidGapMin" min="0" type="number" value="8"/>
+</div>
+<div class="property">
+<label for="fluidGapMax">Макс. значение</label>
+<input id="fluidGapMax" min="0" type="number" value="24"/>
+</div>
+</div>
+</div><div class="advancedGroup">
+<h2>Зависимость от родителя</h2>
+<div class="property propertyCheckbox">
+<label>
+<input id="containerRuleEnabled" type="checkbox"/>
+                        Менять при узком родителе
+                    </label>
+</div>
+<div id="containerRuleProperties">
+<div class="property">
+<label for="containerRuleWidth">Если уже</label>
+<input id="containerRuleWidth" min="1" type="number" value="360"/>
+</div>
+<div class="property">
+<label for="containerRuleAction">Что сделать</label>
+<select id="containerRuleAction">
+<option value="column">В столбец</option>
+<option value="wrap">Разрешить перенос</option>
+<option value="hide">Скрыть</option>
+</select>
+</div>
+</div>
+</div></div></details><details class="advancedSection"><summary>Текст, медиа и проверка</summary><div class="advancedSectionContent"><div class="advancedGroup">
+<h2>Текст</h2>
+<div class="property">
+<label for="textWrapMode">Перенос текста</label>
+<select id="textWrapMode">
+<option value="">Обычный</option>
+<option value="anywhere">Разрывать слова</option>
+<option value="nowrap">Без переноса</option>
+</select>
+</div>
+<div class="property">
+<label for="textOverflowMode">Если не помещается</label>
+<select id="textOverflowMode">
+<option value="">По умолчанию</option>
+<option value="ellipsis">Многоточие</option>
+<option value="hidden">Скрыть</option>
+<option value="auto">Прокрутка</option>
+</select>
+</div>
+<div class="property">
+<label for="textLineClamp">Макс. строк</label>
+<input id="textLineClamp" min="0" type="number" value="0"/>
+</div>
+</div><div class="advancedGroup" id="responsiveMediaGroup">
+<h2>Изображение и видео</h2>
+<div class="property">
+<label for="mediaSrc">Файл</label>
+<input id="mediaSrc" type="text" value=""/>
+</div>
+<div class="property">
+<label for="mediaSrcset">Другие размеры</label>
+<input id="mediaSrcset" placeholder="480.webp 480w, 800.webp 800w" type="text"/>
+</div>
+<div class="property">
+<label for="mediaSizes">Правила размеров</label>
+<input id="mediaSizes" placeholder="(max-width: 700px) 100vw, 50vw" type="text"/>
+</div>
+<div class="property">
+<label for="mediaFit">Вписывание</label>
+<select id="mediaFit">
+<option value="">По умолчанию</option>
+<option value="cover">Заполнить</option>
+<option value="contain">Вместить</option>
+</select>
+</div>
+<div class="property">
+<label for="mediaLoading">Загрузка файла</label>
+<select id="mediaLoading">
+<option value="">По умолчанию</option>
+<option value="lazy">Ленивая</option>
+<option value="eager">Сразу</option>
+</select>
+</div>
+</div><div class="advancedGroup">
+<h2>Проверка на разных размерах</h2>
+<button class="trackAdd" id="checkResponsive" type="button">
+                    Проверить размеры
+                </button>
+<button class="trackAdd" id="stressContent" type="button">
+                    Проверить длинный текст
+                </button>
+<div class="checkResult" id="checkResponsiveResult"></div>
+</div></div></details></div>
 
-                <div class="advancedGroup">
-                    <h2>Колонки с авторазмером</h2>
 
-                    <div class="property">
-                        <label for="autoFitMode">Заполнение</label>
-                        <select id="autoFitMode">
-                            <option value="auto-fit">Заполнять место</option>
-                            <option value="auto-fill">Сохранять колонки</option>
-                        </select>
-                    </div>
 
-                    <div class="property">
-                        <label for="columnMinValue">Мин. ширина</label>
-                        <input id="columnMinValue" type="number" value="220" min="1">
-                    </div>
 
-                    <div class="property">
-                        <label for="columnNormalValue">Обычная ширина</label>
-                        <input id="columnNormalValue" type="number" value="300" min="1">
-                    </div>
 
-                    <div class="property">
-                        <label for="columnMaxValue">Макс. размер</label>
-                        <select id="columnMaxValue">
-                            <option value="1fr">Растянуть</option>
-                            <option value="auto">По содержимому</option>
-                            <option value="max-content">Макс. содержимое</option>
-                        </select>
-                    </div>
-                </div>
 
-                <div class="advancedGroup">
-                    <h2>Расстояния</h2>
 
-                    <div class="property">
-                        <label for="columnGap">Горизонтально</label>
-                        <input id="columnGap" type="number" value="10" min="0">
-                    </div>
 
-                    <div class="property">
-                        <label for="rowGap">Вертикально</label>
-                        <input id="rowGap" type="number" value="10" min="0">
-                    </div>
 
-                    <div class="property">
-                        <label for="gridPadding">Внутри</label>
-                        <input id="gridPadding" type="number" value="10" min="0">
-                    </div>
-                </div>
-
-                <div class="advancedGroup">
-                    <h2>Порядок размещения</h2>
-
-                    <div class="property">
-                        <label for="autoFlow">Порядок</label>
-                        <select id="autoFlow">
-                            <option value="row">По строкам</option>
-                            <option value="column">По колонкам</option>
-                            <option value="row dense">Без пустых мест</option>
-                            <option value="column dense">По колонкам без пустот</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="advancedGroup">
-                    <h2>Выбранный элемент</h2>
-
-                    <div class="property">
-                        <label for="gridItemColumn">Колонка</label>
-                        <select id="gridItemColumn">
-                            <option value="auto">Автоматически</option>
-                        </select>
-                    </div>
-
-                    <div class="property">
-                        <label for="gridItemRow">Строка</label>
-                        <select id="gridItemRow">
-                            <option value="auto">Автоматически</option>
-                        </select>
-                    </div>
-
-                    <div class="property">
-                        <label for="gridItemColumns">Занять колонок</label>
-                        <input id="gridItemColumns" type="number" value="1" min="1">
-                    </div>
-
-                    <div class="property">
-                        <label for="gridItemRows">Занять строк</label>
-                        <input id="gridItemRows" type="number" value="1" min="1">
-                    </div>
-                </div>
-            </div>
-
-            <div class="flexOnly" id="advancedFlex">
-                <div class="advancedGroup">
-                    <h2>Настройки контейнера</h2>
-
-                    <div class="property">
-                        <label for="flexAdvancedDirection">Направление</label>
-                        <select id="flexAdvancedDirection">
-                            <option value="row">По горизонтали</option>
-                            <option value="column">По вертикали</option>
-                            <option value="row-reverse">Горизонтально наоборот</option>
-                            <option value="column-reverse">Вертикально наоборот</option>
-                        </select>
-                    </div>
-
-                    <div class="property">
-                        <label for="flexAdvancedWrap">Перенос</label>
-                        <select id="flexAdvancedWrap">
-                            <option value="nowrap">Без переноса</option>
-                            <option value="wrap">Переносить</option>
-                            <option value="wrap-reverse">Перенос наоборот</option>
-                        </select>
-                    </div>
-
-                    <div class="property">
-                        <label for="flexAdvancedGap">Расстояние</label>
-                        <input id="flexAdvancedGap" type="number" value="10" min="0">
-                    </div>
-
-                    <div class="property">
-                        <label for="flexAdvancedJustify">Распределение</label>
-                        <select id="flexAdvancedJustify">
-                            <option value="flex-start">В начале</option>
-                            <option value="center">По центру</option>
-                            <option value="flex-end">В конце</option>
-                            <option value="space-between">По краям</option>
-                            <option value="space-around">Равномерно</option>
-                            <option value="space-evenly">Одинаковые промежутки</option>
-                        </select>
-                    </div>
-
-                    <div class="property">
-                        <label for="flexAdvancedAlign">Выравнивание</label>
-                        <select id="flexAdvancedAlign">
-                            <option value="stretch">Растянуть</option>
-                            <option value="flex-start">В начале</option>
-                            <option value="center">По центру</option>
-                            <option value="flex-end">В конце</option>
-                            <option value="baseline">По тексту</option>
-                        </select>
-                    </div>
-
-                    <div class="property">
-                        <label for="flexAlignContent">Строки</label>
-                        <select id="flexAlignContent">
-                            <option value="stretch">Растянуть</option>
-                            <option value="flex-start">В начале</option>
-                            <option value="center">По центру</option>
-                            <option value="flex-end">В конце</option>
-                            <option value="space-between">По краям</option>
-                            <option value="space-around">Равномерно</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="advancedGroup">
-                    <h2>Выбранный элемент</h2>
-
-                    <div class="property">
-                        <label for="flexGrow">Расширение</label>
-                        <input id="flexGrow" type="number" value="0" min="0">
-                    </div>
-
-                    <div class="property">
-                        <label for="flexShrink">Сжатие</label>
-                        <input id="flexShrink" type="number" value="1" min="0">
-                    </div>
-
-                    <div class="property">
-                        <label for="flexAdvancedBasis">Базовый размер</label>
-                        <input id="flexAdvancedBasis" type="number" value="0" min="0">
-                    </div>
-
-                    <div class="property">
-                        <label for="flexSelf">Выравнивание</label>
-                        <select id="flexSelf">
-                            <option value="auto">Автоматически</option>
-                            <option value="stretch">Растянуть</option>
-                            <option value="flex-start">В начале</option>
-                            <option value="center">По центру</option>
-                            <option value="flex-end">В конце</option>
-                        </select>
-                    </div>
-
-                    <div class="property">
-                        <label for="flexOrder">Порядок</label>
-                        <input id="flexOrder" type="number" value="0">
-                    </div>
-                </div>
-            </div>
-            </div>
-        </details>
+</details>
     </div>
 </div>
 
@@ -1161,6 +1076,10 @@
     const flexOrder = document.getElementById('flexOrder');
 
     const breakpointTabs = document.getElementById('breakpointTabs');
+    const breakpointSelect = document.getElementById('breakpointSelect');
+    const layoutTypeSelect = document.getElementById('layoutTypeSelect');
+    const gridPresetSelect = document.getElementById('gridPresetSelect');
+    const flexPresetSelect = document.getElementById('flexPresetSelect');
     const breakpointRangeEditor = document.getElementById('breakpointRangeEditor');
     const breakpointStartInput = document.getElementById('breakpointStartInput');
     const breakpointEndInput = document.getElementById('breakpointEndInput');
@@ -1212,7 +1131,7 @@
     let selectedItem = null;
     let isAutoRows = false;
     let activeBreakpointId = 'all';
-    let breakpointCounter = 0;
+    let breakpointCounter = 4;
     let baseSnapshot = null;
     let isRestoringBreakpoint = false;
     let variantCounter = 0;
@@ -1232,6 +1151,42 @@
             min: null,
             max: null,
             isBase: true,
+            overrides: null
+        },
+        {
+            id: 'bp-phone',
+            label: 'Телефон',
+            name: 'Телефон',
+            min: 0,
+            max: 480,
+            isBase: false,
+            overrides: null
+        },
+        {
+            id: 'bp-tablet',
+            label: 'Планшет',
+            name: 'Планшет',
+            min: 481,
+            max: 1024,
+            isBase: false,
+            overrides: null
+        },
+        {
+            id: 'bp-laptop',
+            label: 'Ноутбук',
+            name: 'Ноутбук',
+            min: 1025,
+            max: 1920,
+            isBase: false,
+            overrides: null
+        },
+        {
+            id: 'bp-large',
+            label: 'Большой экран',
+            name: 'Большой экран',
+            min: 1921,
+            max: 3840,
+            isBase: false,
             overrides: null
         }
     ];
@@ -2028,7 +1983,7 @@
         });
 
         stressBackup = null;
-        stressContent.textContent = 'Стресс-тест текста';
+        stressContent.textContent = 'Проверить длинный текст';
     }
 
     function pushBreakpointHistory() {
@@ -2229,26 +2184,36 @@
     }
 
     function renderBreakpointTabs() {
-        breakpointTabs.innerHTML = '';
+        if (!breakpointSelect) {
+            return;
+        }
+
+        breakpointSelect.innerHTML = '';
 
         breakpointRanges.forEach((range) => {
-            const tab = document.createElement('button');
-            tab.type = 'button';
-            tab.className =
-                'breakpointTab' +
-                (activeBreakpointId === range.id ? ' active' : '');
+            const option = document.createElement('option');
+            option.value = range.id;
+            option.textContent = formatBreakpointLabel(range);
 
-            tab.textContent = formatBreakpointLabel(range);
-            tab.title = range.isBase
-                ? 'Все размеры'
-                : formatBreakpointRange(range);
-
-            tab.addEventListener('click', () => {
-                setActiveBreakpoint(range.id);
-            });
-
-            breakpointTabs.appendChild(tab);
+            breakpointSelect.appendChild(option);
         });
+
+        if (breakpointRanges.length === 1) {
+            const presets = [
+                { value: 'preset-mobile', label: 'Мобильный 0-640' },
+                { value: 'preset-tablet', label: 'Планшет 641-1024' },
+                { value: 'preset-desktop', label: 'Десктоп 1025+' }
+            ];
+
+            presets.forEach((preset) => {
+                const option = document.createElement('option');
+                option.value = preset.value;
+                option.textContent = preset.label;
+                breakpointSelect.appendChild(option);
+            });
+        }
+
+        breakpointSelect.value = activeBreakpointId;
     }
 
     function updateBreakpointInputs() {
@@ -2461,6 +2426,10 @@
         layoutTypeButtons.forEach((button) => {
             button.classList.toggle('active', button.dataset.layout === type);
         });
+
+        if (layoutTypeSelect) {
+            layoutTypeSelect.value = type;
+        }
 
         gridOnly.forEach((element) => {
             element.classList.toggle('active', type === 'grid');
@@ -2795,6 +2764,96 @@
             button.classList.toggle('active', button.dataset.gridPreset === preset);
         });
 
+        if (gridPresetSelect) {
+            gridPresetSelect.value = preset;
+        }
+
+        if (preset === 'cards') {
+            isAutoRows = true;
+
+            gridColumns.value = 3;
+            gridAutoFit.checked = true;
+            gridMinWidth.value = 220;
+            gridNormalWidth.value = 280;
+            gridMaxWidth.value = 1;
+
+            columnMinValue.value = 220;
+            columnNormalValue.value = 280;
+            columnMaxValue.value = '1fr';
+            autoFitMode.value = 'auto-fit';
+
+            gridRowsProperty.style.display = 'none';
+            rowTracksGroup.style.display = 'none';
+
+            setTrackValues(columnTracks, [
+                { value: 1, unit: 'fr' },
+                { value: 1, unit: 'fr' },
+                { value: 1, unit: 'fr' }
+            ], 'column');
+
+            rowTracks.innerHTML = '';
+
+            updateItems(6);
+            resetItems();
+        }
+
+        if (preset === 'twoColumns') {
+            gridColumns.value = 2;
+            gridRows.value = 1;
+
+            setTrackValues(columnTracks, [
+                { value: 1, unit: 'fr' },
+                { value: 1, unit: 'fr' }
+            ], 'column');
+
+            setTrackValues(rowTracks, [
+                { value: 1, unit: 'fr' }
+            ], 'row');
+
+            updateItems(2);
+            resetItems();
+        }
+
+        if (preset === 'mainSidebar') {
+            gridColumns.value = 2;
+            gridRows.value = 1;
+
+            setTrackValues(columnTracks, [
+                { value: 1, unit: 'fr' },
+                { value: 320, unit: 'px' }
+            ], 'column');
+
+            setTrackValues(rowTracks, [
+                { value: 1, unit: 'fr' }
+            ], 'row');
+
+            updateItems(2);
+            resetItems();
+
+            setGridItem(0, { columnStart: 1, label: 'Основное' });
+            setGridItem(1, { columnStart: 2, label: 'Боковая панель' });
+        }
+
+        if (preset === 'sidebarMain') {
+            gridColumns.value = 2;
+            gridRows.value = 1;
+
+            setTrackValues(columnTracks, [
+                { value: 320, unit: 'px' },
+                { value: 1, unit: 'fr' }
+            ], 'column');
+
+            setTrackValues(rowTracks, [
+                { value: 1, unit: 'fr' }
+            ], 'row');
+
+            updateItems(2);
+            resetItems();
+
+            setGridItem(0, { columnStart: 1, label: 'Боковая панель' });
+            setGridItem(1, { columnStart: 2, label: 'Основное' });
+        }
+
         if (preset === 'page') {
             gridColumns.value = 1;
             gridRows.value = 3;
@@ -2804,143 +2863,54 @@
             ], 'column');
 
             setTrackValues(rowTracks, [
-                { value: 70, unit: 'px' },
+                { value: 72, unit: 'px' },
                 { value: 1, unit: 'fr' },
-                { value: 60, unit: 'px' }
+                { value: 64, unit: 'px' }
             ], 'row');
 
             updateItems(3);
             resetItems();
 
-            setGridItem(0, { rowStart: 1, label: 'Шапка' });
-            setGridItem(1, { rowStart: 2, label: 'Основной контент' });
-            setGridItem(2, { rowStart: 3, label: 'Низ' });
-        }
-
-        if (preset === 'sidebarLeft') {
-            gridColumns.value = 2;
-            gridRows.value = 3;
-
-            setTrackValues(columnTracks, [
-                { value: 220, unit: 'px' },
-                { value: 1, unit: 'fr' }
-            ], 'column');
-
-            setTrackValues(rowTracks, [
-                { value: 70, unit: 'px' },
-                { value: 1, unit: 'fr' },
-                { value: 60, unit: 'px' }
-            ], 'row');
-
-            updateItems(4);
-            resetItems();
-
-            setGridItem(0, { rowStart: 1, columnSpan: 2, label: 'Шапка' });
-            setGridItem(1, { rowStart: 2, columnStart: 1, label: 'Меню' });
-            setGridItem(2, { rowStart: 2, columnStart: 2, label: 'Основной контент' });
-            setGridItem(3, { rowStart: 3, columnSpan: 2, label: 'Низ' });
-        }
-
-        if (preset === 'sidebarRight') {
-            gridColumns.value = 2;
-            gridRows.value = 3;
-
-            setTrackValues(columnTracks, [
-                { value: 1, unit: 'fr' },
-                { value: 220, unit: 'px' }
-            ], 'column');
-
-            setTrackValues(rowTracks, [
-                { value: 70, unit: 'px' },
-                { value: 1, unit: 'fr' },
-                { value: 60, unit: 'px' }
-            ], 'row');
-
-            updateItems(4);
-            resetItems();
-
-            setGridItem(0, { rowStart: 1, columnSpan: 2, label: 'Шапка' });
-            setGridItem(1, { rowStart: 2, columnStart: 1, label: 'Основной контент' });
-            setGridItem(2, { rowStart: 2, columnStart: 2, label: 'Панель' });
-            setGridItem(3, { rowStart: 3, columnSpan: 2, label: 'Низ' });
-        }
-
-        if (preset === 'sidebars') {
-            gridColumns.value = 3;
-            gridRows.value = 3;
-
-            setTrackValues(columnTracks, [
-                { value: 200, unit: 'px' },
-                { value: 1, unit: 'fr' },
-                { value: 200, unit: 'px' }
-            ], 'column');
-
-            setTrackValues(rowTracks, [
-                { value: 70, unit: 'px' },
-                { value: 1, unit: 'fr' },
-                { value: 60, unit: 'px' }
-            ], 'row');
-
-            updateItems(5);
-            resetItems();
-
-            setGridItem(0, { rowStart: 1, columnSpan: 3, label: 'Шапка' });
-            setGridItem(1, { rowStart: 2, columnStart: 1, label: 'Меню' });
-            setGridItem(2, { rowStart: 2, columnStart: 2, label: 'Основной контент' });
-            setGridItem(3, { rowStart: 2, columnStart: 3, label: 'Панель' });
-            setGridItem(4, { rowStart: 3, columnSpan: 3, label: 'Низ' });
+            setGridItem(0, { rowStart: 1, label: 'Header' });
+            setGridItem(1, { rowStart: 2, label: 'Основная область' });
+            setGridItem(2, { rowStart: 3, label: 'Footer' });
         }
 
         if (preset === 'dashboard') {
-            gridColumns.value = 4;
-            gridRows.value = 3;
+            gridColumns.value = 2;
+            gridRows.value = 2;
 
             setTrackValues(columnTracks, [
-                { value: 180, unit: 'px' },
-                { value: 1, unit: 'fr' },
-                { value: 1, unit: 'fr' },
+                { value: 240, unit: 'px' },
                 { value: 1, unit: 'fr' }
             ], 'column');
 
             setTrackValues(rowTracks, [
-                { value: 60, unit: 'px' },
-                { value: 120, unit: 'px' },
+                { value: 64, unit: 'px' },
                 { value: 1, unit: 'fr' }
             ], 'row');
 
-            updateItems(6);
+            updateItems(3);
             resetItems();
 
-            setGridItem(0, { rowStart: 1, columnSpan: 4, label: 'Шапка' });
-            setGridItem(1, { rowStart: 2, columnStart: 1, rowSpan: 2, label: 'Меню' });
-            setGridItem(2, { rowStart: 2, columnStart: 2, label: 'Блок 1' });
-            setGridItem(3, { rowStart: 2, columnStart: 3, label: 'Блок 2' });
-            setGridItem(4, { rowStart: 2, columnStart: 4, label: 'Блок 3' });
-            setGridItem(5, { rowStart: 3, columnStart: 2, columnSpan: 3, label: 'Основной блок' });
-        }
+            setGridItem(0, {
+                columnStart: 1,
+                rowStart: 1,
+                rowSpan: 2,
+                label: 'Sidebar'
+            });
 
-        if (preset === 'cards') {
-            isAutoRows = true;
+            setGridItem(1, {
+                columnStart: 2,
+                rowStart: 1,
+                label: 'Header'
+            });
 
-            gridColumns.value = 4;
-            gridAutoFit.checked = true;
-            gridMinWidth.value = 220;
-            columnMinValue.value = 220;
-
-            gridRowsProperty.style.display = 'none';
-            rowTracksGroup.style.display = 'none';
-
-            setTrackValues(columnTracks, [
-                { value: 1, unit: 'fr' },
-                { value: 1, unit: 'fr' },
-                { value: 1, unit: 'fr' },
-                { value: 1, unit: 'fr' }
-            ], 'column');
-
-            rowTracks.innerHTML = '';
-
-            updateItems(12);
-            resetItems();
+            setGridItem(2, {
+                columnStart: 2,
+                rowStart: 2,
+                label: 'Основная область'
+            });
         }
 
         updateGrid();
@@ -2956,6 +2926,10 @@
             button.classList.toggle('active', button.dataset.flexPreset === preset);
         });
 
+        if (flexPresetSelect) {
+            flexPresetSelect.value = preset;
+        }
+
         if (preset === 'row') {
             flexDirection.value = 'row';
             flexWrap.checked = false;
@@ -2964,6 +2938,10 @@
             flexAlign.value = 'stretch';
 
             updateItems(4);
+
+            Array.from(layout.children).forEach((item) => {
+                item.style.flex = '1 1 0';
+            });
         }
 
         if (preset === 'column') {
@@ -2974,16 +2952,52 @@
             flexAlign.value = 'stretch';
 
             updateItems(4);
+
+            Array.from(layout.children).forEach((item) => {
+                item.style.flex = '1 1 0';
+            });
         }
 
-        if (preset === 'toolbar') {
+        if (preset === 'between') {
             flexDirection.value = 'row';
             flexWrap.checked = false;
-            flexGap.value = 8;
+            flexGap.value = 10;
             flexJustify.value = 'space-between';
             flexAlign.value = 'center';
 
-            updateItems(5);
+            updateItems(3);
+
+            Array.from(layout.children).forEach((item) => {
+                item.style.flex = '0 1 auto';
+            });
+        }
+
+        if (preset === 'center') {
+            flexDirection.value = 'row';
+            flexWrap.checked = false;
+            flexGap.value = 10;
+            flexJustify.value = 'center';
+            flexAlign.value = 'center';
+
+            updateItems(3);
+
+            Array.from(layout.children).forEach((item) => {
+                item.style.flex = '0 1 140px';
+            });
+        }
+
+        if (preset === 'evenly') {
+            flexDirection.value = 'row';
+            flexWrap.checked = false;
+            flexGap.value = 10;
+            flexJustify.value = 'space-evenly';
+            flexAlign.value = 'center';
+
+            updateItems(4);
+
+            Array.from(layout.children).forEach((item) => {
+                item.style.flex = '0 1 auto';
+            });
         }
 
         if (preset === 'wrap') {
@@ -2993,10 +3007,10 @@
             flexJustify.value = 'flex-start';
             flexAlign.value = 'stretch';
 
-            updateItems(8);
+            updateItems(6);
 
             Array.from(layout.children).forEach((item) => {
-                item.style.flex = '1 1 140px';
+                item.style.flex = '1 1 180px';
             });
         }
 
@@ -3394,6 +3408,34 @@
             saveCurrentBreakpointState();
         });
     });
+
+    if (layoutTypeSelect) {
+        layoutTypeSelect.addEventListener('change', () => {
+            setLayoutType(
+                layoutTypeSelect.value,
+                activeBreakpointId === 'all'
+            );
+            saveCurrentBreakpointState();
+        });
+    }
+
+    if (gridPresetSelect) {
+        gridPresetSelect.addEventListener('change', () => {
+            applyGridPreset(gridPresetSelect.value);
+        });
+    }
+
+    if (flexPresetSelect) {
+        flexPresetSelect.addEventListener('change', () => {
+            applyFlexPreset(flexPresetSelect.value);
+        });
+    }
+
+    if (breakpointSelect) {
+        breakpointSelect.addEventListener('change', () => {
+            setActiveBreakpoint(breakpointSelect.value);
+        });
+    }
 
     gridPresets.forEach((button) => {
         button.addEventListener('click', () => {
