@@ -108,7 +108,7 @@
 
         .tabContent {
             display: none;
-            padding: 10px;
+            padding: 0 0 10px 5px;
             overflow: auto;
         }
 
@@ -434,6 +434,281 @@
         .breakpointTabsRow {
             align-items: stretch;
         }
+
+        .properties {
+            font-size: 13px;
+        }
+
+        .propertiesTitle {
+            padding: 14px 12px 8px;
+            font-size: 18px;
+        }
+
+        .breakpointSection,
+        .tabContent.active,
+        .advancedDetails {
+            background-color: #ffffff;
+        }
+
+        .breakpointSection {
+            margin-bottom: 10px;
+            padding: 10px;
+        }
+
+        .breakpointSection h2,
+        .section h2,
+        .advancedGroup h2 {
+            margin-bottom: 4px;
+        }
+
+        .section {
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #e2e2e2;
+            background-color: #fafafa;
+        }
+
+        .section:last-child {
+            margin-bottom: 0;
+        }
+
+        .advancedDetails {
+            margin-top: 0;
+        }
+
+        .advancedDetails > summary {
+            padding: 10px 12px;
+            background-color: #f7f7f7;
+            border: 0;
+        }
+
+        .advancedSection {
+            border-top: 1px solid #e2e2e2;
+            border-bottom: 0;
+        }
+
+        .advancedSection > summary {
+            padding: 9px 12px;
+            background-color: #fbfbfb;
+            border: 0;
+        }
+
+        .advancedSection[open] > summary {
+            background-color: #f2f2f2;
+        }
+
+        .advancedSectionContent {
+            padding: 10px 0 10px 10px;
+        }
+
+        .advancedGroup {
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #e5e5e5;
+            background-color: #ffffff;
+        }
+
+        .advancedGroup:last-child {
+            margin-bottom: 0;
+        }
+
+        .property {
+            grid-template-columns: 118px minmax(0, 1fr);
+            gap: 8px;
+            margin-bottom: 7px;
+        }
+
+        .propertyCheckbox {
+            grid-template-columns: 1fr;
+        }
+
+        .property label {
+            color: #333333;
+        }
+
+        .property input,
+        .property select,
+        .menuSelect {
+            min-height: 32px;
+            padding: 6px 8px;
+            border: 1px solid #cfcfcf;
+            border-radius: 3px;
+            background-color: #ffffff;
+        }
+
+        .menuSelect {
+            font-weight: 600;
+        }
+
+        .numberField {
+            position: relative;
+        }
+
+        .numberField input {
+            padding-right: 30px;
+        }
+
+        .numberUnit {
+            position: absolute;
+            top: 50%;
+            right: 8px;
+            transform: translateY(-50%);
+            color: #777777;
+            font-size: 11px;
+            pointer-events: none;
+        }
+
+        .choiceButtons {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 5px;
+            margin-top: 5px;
+        }
+
+        .choiceButtons.choiceButtonsWide {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .choiceButton {
+            min-height: 32px;
+            padding: 5px 6px;
+            border: 1px solid #cccccc;
+            border-radius: 3px;
+            background-color: #ffffff;
+            cursor: pointer;
+            font-size: 11px;
+        }
+
+        .choiceButton.active {
+            border-color: #555555;
+            background-color: #eeeeee;
+            font-weight: bold;
+        }
+
+        .enhancedSelect {
+            display: none;
+        }
+
+        .breakpointTabsRow {
+            gap: 5px;
+        }
+
+        #breakpointSelect {
+            border-color: #777777;
+            background-color: #f7f7f7;
+        }
+
+        .breakpointSection {
+            position: relative;
+        }
+
+        .breakpointHint,
+        .settingHint {
+            position: absolute;
+            z-index: 10;
+            max-width: 240px;
+            padding: 6px 8px;
+            border: 1px solid #cccccc;
+            border-radius: 3px;
+            background-color: #ffffff;
+            color: #555555;
+            font-size: 10px;
+            line-height: 1.3;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transform: translateY(3px);
+            transition: opacity 0.12s ease, transform 0.12s ease, visibility 0.12s ease;
+        }
+
+        .breakpointHint {
+            top: 32px;
+            left: 10px;
+        }
+
+        .breakpointSection h2:hover + .breakpointHint,
+        .section h2:hover + .settingHint {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .breakpointStatus {
+            margin-top: 6px;
+            padding-top: 7px;
+            border-top: 1px solid #e3e3e3;
+            color: #666666;
+        }
+
+        .propertyState {
+            margin-top: -3px;
+            padding-left: 126px;
+            color: #888888;
+        }
+
+        .propertyStateLabel {
+            font-size: 10px;
+        }
+
+        .propertyState button,
+        #resetBreakpoint {
+            color: #555555;
+            background-color: #fafafa;
+        }
+
+        .breakpointActions {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #e3e3e3;
+        }
+
+        .breakpointActions .trackAdd,
+        #resetBreakpoint,
+        .breakpointAddButton {
+            border-color: #aaaaaa;
+            background-color: #f7f7f7;
+        }
+
+        #removeBreakpoint {
+            border-style: dashed;
+        }
+
+        .section {
+            position: relative;
+        }
+
+        .settingHint {
+            top: 34px;
+            left: 10px;
+        }
+
+        .linkedSettingHint {
+            margin: -3px 0 7px 126px;
+            color: #888888;
+            font-size: 10px;
+        }
+
+        .modeBadge {
+            display: inline-block;
+            margin-left: 5px;
+            padding: 1px 5px;
+            border: 1px solid #cccccc;
+            border-radius: 3px;
+            color: #666666;
+            font-size: 10px;
+            font-weight: normal;
+        }
+
+        .trackAdd {
+            min-height: 30px;
+            border-radius: 3px;
+        }
+
+        .gridOnly,
+        .flexOnly {
+            transition: none;
+        }
     </style>
 </head>
 <body>
@@ -448,6 +723,9 @@
 
         <div class="breakpointSection">
             <h2>Размеры экрана</h2>
+            <div class="breakpointHint" id="breakpointHint">
+                Базовые настройки применяются ко всем диапазонам.
+            </div>
 
             <div class="breakpointTabsRow">
                 <div class="breakpointTabs" id="breakpointTabs">
@@ -501,6 +779,7 @@
         <div class="tabContent active" id="basic">
             <div class="section">
                 <h2>Расположение элементов</h2>
+                <div class="settingHint">Выберите способ расположения элементов внутри блока.</div>
 
                 <select class="menuSelect" id="layoutTypeSelect">
                     <option value="grid">Grid</option>
@@ -511,6 +790,7 @@
             <div class="gridOnly active" id="basicGrid">
                 <div class="section">
                     <h2>Шаблоны</h2>
+                    <div class="settingHint">Готовая раскладка, которую можно использовать сразу.</div>
 
                     <select class="menuSelect" id="gridPresetSelect">
                         <option value="cards">Карточки</option>
@@ -526,17 +806,17 @@
                     <h2>Размер сетки</h2>
 
                     <div class="property">
-                        <label for="gridColumns">Колонки</label>
+                        <label for="gridColumns">Количество колонок</label>
                         <input id="gridColumns" type="number" value="1" min="1" max="12">
                     </div>
 
                     <div class="property" id="gridRowsProperty">
-                        <label for="gridRows">Строки</label>
+                        <label for="gridRows">Количество строк</label>
                         <input id="gridRows" type="number" value="3" min="1" max="12">
                     </div>
 
                     <div class="property">
-                        <label for="gridGap">Промежуток</label>
+                        <label for="gridGap">Расстояние</label>
                         <input id="gridGap" type="number" value="10" min="0">
                     </div>
                 </div>
@@ -545,6 +825,7 @@
             <div class="flexOnly" id="basicFlex">
                 <div class="section">
                     <h2>Шаблоны</h2>
+                    <div class="settingHint">Готовый вариант расположения элементов.</div>
 
                     <select class="menuSelect" id="flexPresetSelect">
                         <option value="row">В ряд</option>
@@ -560,7 +841,7 @@
                     <h2>Расположение</h2>
 
                     <div class="property">
-                        <label for="flexDirection">Расположение</label>
+                        <label for="flexDirection">Направление</label>
                         <select id="flexDirection">
                             <option value="row">По горизонтали</option>
                             <option value="column">По вертикали</option>
@@ -570,7 +851,7 @@
                     </div>
 
                     <div class="property">
-                        <label for="flexGap">Промежуток</label>
+                        <label for="flexGap">Расстояние</label>
                         <input id="flexGap" type="number" value="10" min="0">
                     </div>
 
@@ -586,7 +867,7 @@
                     <h2>Выравнивание</h2>
 
                     <div class="property">
-                        <label for="flexJustify">Распределение</label>
+                        <label for="flexJustify">Распределить</label>
                         <select id="flexJustify">
                             <option value="flex-start">В начале</option>
                             <option value="center">По центру</option>
@@ -598,7 +879,7 @@
                     </div>
 
                     <div class="property">
-                        <label for="flexAlign">Выравнивание</label>
+                        <label for="flexAlign">Выровнять</label>
                         <select id="flexAlign">
                             <option value="stretch">Растянуть</option>
                             <option value="flex-start">В начале</option>
@@ -615,12 +896,12 @@
                 <h2>Размер элемента</h2>
 
                 <div class="property">
-                    <label for="itemMinWidth">Мин. ширина</label>
+                    <label for="itemMinWidth">Не уже</label>
                     <input id="itemMinWidth" type="number" value="0" min="0">
                 </div>
 
                 <div class="property">
-                    <label for="itemMaxWidth">Макс. ширина</label>
+                    <label for="itemMaxWidth">Не шире</label>
                     <input id="itemMaxWidth" type="number" value="0" min="0">
                 </div>
             </div>
@@ -638,7 +919,7 @@
 
         <details class="advancedDetails">
 <summary>Дополнительные</summary>
-<div class="tabContent" id="advanced"><details class="advancedSection"><summary>Сетка</summary><div class="advancedSectionContent"><div class="gridOnly active" id="advancedGrid"><div class="advancedGroup">
+<div class="tabContent" id="advanced"><details class="advancedSection gridOnly active"><summary>Сетка <span class="modeBadge">Grid</span></summary><div class="advancedSectionContent"><div class="gridOnly active" id="advancedGrid"><div class="advancedGroup">
 <h2>Автоматические колонки</h2>
 <div class="property propertyCheckbox">
 <label>
@@ -697,7 +978,7 @@
 <option value="max-content">Макс. содержимое</option>
 </select>
 </div>
-</div></div></div></details><details class="advancedSection"><summary>Расположение</summary><div class="advancedSectionContent"><div class="gridOnly active"><div class="advancedGroup">
+</div></div></div></details><details class="advancedSection"><summary>Расположение <span class="modeBadge">Grid / Flex</span></summary><div class="advancedSectionContent"><div class="gridOnly active"><div class="advancedGroup">
 <h2>Расстояния</h2>
 <div class="property">
 <label for="columnGap">Горизонтально</label>
@@ -708,7 +989,7 @@
 <input id="rowGap" min="0" type="number" value="10"/>
 </div>
 <div class="property">
-<label for="gridPadding">Внутри</label>
+<label for="gridPadding">Отступ внутри</label>
 <input id="gridPadding" min="0" type="number" value="10"/>
 </div>
 </div><div class="advancedGroup">
@@ -777,7 +1058,7 @@
 <option value="space-around">Равномерно</option>
 </select>
 </div>
-</div></div></div></details><details class="advancedSection"><summary>Выбранный элемент</summary><div class="advancedSectionContent"><div class="gridOnly active"><div class="advancedGroup">
+</div></div></div></details><details class="advancedSection"><summary>Выбранный элемент <span class="modeBadge">Grid / Flex</span></summary><div class="advancedSectionContent"><div class="gridOnly active"><div class="advancedGroup">
 <h2>Выбранный элемент</h2>
 <div class="property">
 <label for="gridColumnSpan">Колонок</label>
@@ -827,15 +1108,15 @@
 </div><div class="advancedGroup">
 <h2>Выбранный элемент</h2>
 <div class="property">
-<label for="flexGrow">Можно расширять</label>
+<label for="flexGrow">Заполнять место</label>
 <input id="flexGrow" min="0" type="number" value="0"/>
 </div>
 <div class="property">
-<label for="flexShrink">Можно сжимать</label>
+<label for="flexShrink">Разрешить сжатие</label>
 <input id="flexShrink" min="0" type="number" value="1"/>
 </div>
 <div class="property">
-<label for="flexAdvancedBasis">Начальный размер</label>
+<label for="flexAdvancedBasis">Начальная ширина</label>
 <input id="flexAdvancedBasis" min="0" type="number" value="0"/>
 </div>
 <div class="property">
@@ -861,15 +1142,15 @@
 </div></div></details><details class="advancedSection"><summary>Размер и адаптивность</summary><div class="advancedSectionContent"><div class="advancedGroup">
 <h2>Ограничения размера</h2>
 <div class="property">
-<label for="itemMinHeight">Мин. высота</label>
+<label for="itemMinHeight">Не ниже</label>
 <input id="itemMinHeight" min="0" type="number" value="0"/>
 </div>
 <div class="property">
-<label for="itemMaxHeight">Макс. высота</label>
+<label for="itemMaxHeight">Не выше</label>
 <input id="itemMaxHeight" min="0" type="number" value="0"/>
 </div>
 <div class="property">
-<label for="itemAspectRatio">Пропорции</label>
+<label for="itemAspectRatio">Форма блока</label>
 <select id="itemAspectRatio">
 <option value="">Нет</option>
 <option value="1 / 1">1:1</option>
@@ -878,7 +1159,7 @@
 </select>
 </div>
 <div class="property">
-<label for="itemOverflow">Переполнение</label>
+<label for="itemOverflow">Если не помещается</label>
 <select id="itemOverflow">
 <option value="">По умолчанию</option>
 <option value="visible">Показывать</option>
@@ -1089,6 +1370,7 @@
     const removeBreakpoint = document.getElementById('removeBreakpoint');
     const resetBreakpoint = document.getElementById('resetBreakpoint');
     const breakpointStatus = document.getElementById('breakpointStatus');
+    const breakpointHint = document.getElementById('breakpointHint');
 
     const itemMinWidth = document.getElementById('itemMinWidth');
     const itemMaxWidth = document.getElementById('itemMaxWidth');
@@ -1190,6 +1472,143 @@
             overrides: null
         }
     ];
+
+    function enhanceSelect(select, columns = 2) {
+        if (!select || select.dataset.enhanced === 'true') {
+            return;
+        }
+
+        select.dataset.enhanced = 'true';
+        select.classList.add('enhancedSelect');
+
+        const buttons = document.createElement('div');
+        buttons.className =
+            'choiceButtons' +
+            (columns === 3 ? ' choiceButtonsWide' : '');
+
+        Array.from(select.options).forEach((option) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'choiceButton';
+            button.dataset.value = option.value;
+            button.textContent = option.textContent;
+
+            button.addEventListener('click', () => {
+                select.value = option.value;
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+                syncEnhancedSelect(select);
+            });
+
+            buttons.appendChild(button);
+        });
+
+        select.insertAdjacentElement('afterend', buttons);
+        syncEnhancedSelect(select);
+    }
+
+    function syncEnhancedSelect(select) {
+        if (!select) {
+            return;
+        }
+
+        const buttons = select.nextElementSibling;
+
+        if (!buttons?.classList.contains('choiceButtons')) {
+            return;
+        }
+
+        buttons.querySelectorAll('.choiceButton').forEach((button) => {
+            button.classList.toggle(
+                'active',
+                button.dataset.value === select.value
+            );
+        });
+    }
+
+    function addNumberUnit(input, unit = 'px') {
+        if (
+            !input ||
+            input.type !== 'number' ||
+            input.dataset.unitAdded === 'true'
+        ) {
+            return;
+        }
+
+        input.dataset.unitAdded = 'true';
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'numberField';
+
+        input.parentNode.insertBefore(wrapper, input);
+        wrapper.appendChild(input);
+
+        const label = document.createElement('span');
+        label.className = 'numberUnit';
+        label.textContent = unit;
+        wrapper.appendChild(label);
+    }
+
+    function initNumberUnits() {
+        const pixelInputs = [
+            'breakpointStartInput',
+            'breakpointEndInput',
+            'gridGap',
+            'flexGap',
+            'itemMinWidth',
+            'itemMaxWidth',
+            'itemMinHeight',
+            'itemMaxHeight',
+            'gridMinWidth',
+            'gridNormalWidth',
+            'gridMaxWidth',
+            'columnMinValue',
+            'columnNormalValue',
+            'columnGap',
+            'rowGap',
+            'gridPadding',
+            'flexAdvancedGap',
+            'flexBasis',
+            'flexAdvancedBasis',
+            'fluidGapMin',
+            'fluidGapMax',
+            'containerRuleWidth'
+        ];
+
+        pixelInputs.forEach((id) => {
+            addNumberUnit(document.getElementById(id));
+        });
+    }
+
+    function initVisualControls() {
+        enhanceSelect(flexDirection, 2);
+        enhanceSelect(flexJustify, 3);
+        enhanceSelect(flexAlign, 2);
+        enhanceSelect(itemAspectRatio, 2);
+        enhanceSelect(itemOverflow, 2);
+    }
+
+    function syncVisualControls() {
+        [
+            layoutTypeSelect,
+            flexDirection,
+            flexJustify,
+            flexAlign,
+            itemAspectRatio,
+            itemOverflow
+        ].forEach(syncEnhancedSelect);
+    }
+
+    function updateBreakpointHint() {
+        if (!breakpointHint) {
+            return;
+        }
+
+        const range = getActiveBreakpoint();
+
+        breakpointHint.textContent = range.isBase
+            ? 'Базовые настройки применяются ко всем диапазонам.'
+            : `Изменения применяются только при ширине ${formatBreakpointRange(range)}px.`;
+    }
 
     function deepClone(value) {
         return JSON.parse(JSON.stringify(value || {}));
@@ -1398,6 +1817,7 @@
             updateGridPositionOptions();
         }
 
+        syncVisualControls();
         isRestoringBreakpoint = false;
     }
 
@@ -1672,6 +2092,39 @@
             label.textContent = 'Наследуется';
             reset.style.display = 'none';
         });
+    }
+
+    function addLinkedSettingHint(controlId, textValue) {
+        const control = document.getElementById(controlId);
+        const property = control?.closest('.property');
+
+        if (!property || property.nextElementSibling?.classList.contains('linkedSettingHint')) {
+            return;
+        }
+
+        const hint = document.createElement('div');
+        hint.className = 'linkedSettingHint';
+        hint.textContent = textValue;
+        property.insertAdjacentElement('afterend', hint);
+    }
+
+    function initLinkedSettingHints() {
+        addLinkedSettingHint(
+            'flexAdvancedDirection',
+            'То же направление, что в основных настройках.'
+        );
+        addLinkedSettingHint(
+            'flexAdvancedGap',
+            'То же расстояние, что в основных настройках.'
+        );
+        addLinkedSettingHint(
+            'flexAdvancedJustify',
+            'Расширенная настройка того же распределения.'
+        );
+        addLinkedSettingHint(
+            'flexAdvancedAlign',
+            'Расширенная настройка того же выравнивания.'
+        );
     }
 
     function initializePropertyStates() {
@@ -2223,6 +2676,7 @@
             breakpointRangeEditor.classList.remove('visible');
             updateBreakpointStatus();
             updatePropertyStates();
+            updateBreakpointHint();
             return;
         }
 
@@ -2232,6 +2686,7 @@
         breakpointRangeEditor.classList.add('visible');
         updateBreakpointStatus();
         updatePropertyStates();
+        updateBreakpointHint();
     }
 
     function setActiveBreakpoint(id) {
@@ -2429,6 +2884,7 @@
 
         if (layoutTypeSelect) {
             layoutTypeSelect.value = type;
+            syncEnhancedSelect(layoutTypeSelect);
         }
 
         gridOnly.forEach((element) => {
@@ -3486,11 +3942,20 @@
     gridItemColumns.addEventListener('input', updateGridItem);
     gridItemRows.addEventListener('input', updateGridItem);
 
-    flexDirection.addEventListener('change', updateFlexBasic);
+    flexDirection.addEventListener('change', () => {
+        updateFlexBasic();
+        syncEnhancedSelect(flexDirection);
+    });
     flexGap.addEventListener('input', updateFlexBasic);
     flexWrap.addEventListener('change', updateFlexBasic);
-    flexJustify.addEventListener('change', updateFlexBasic);
-    flexAlign.addEventListener('change', updateFlexBasic);
+    flexJustify.addEventListener('change', () => {
+        updateFlexBasic();
+        syncEnhancedSelect(flexJustify);
+    });
+    flexAlign.addEventListener('change', () => {
+        updateFlexBasic();
+        syncEnhancedSelect(flexAlign);
+    });
 
     flexItemSize.addEventListener('change', updateFlexItemPreset);
     flexBasis.addEventListener('input', updateFlexItemPreset);
@@ -3520,8 +3985,14 @@
     itemMaxWidth.addEventListener('input', updateSelectedItemResponsiveProperties);
     itemMinHeight.addEventListener('input', updateSelectedItemResponsiveProperties);
     itemMaxHeight.addEventListener('input', updateSelectedItemResponsiveProperties);
-    itemAspectRatio.addEventListener('change', updateSelectedItemResponsiveProperties);
-    itemOverflow.addEventListener('change', updateSelectedItemResponsiveProperties);
+    itemAspectRatio.addEventListener('change', () => {
+        updateSelectedItemResponsiveProperties();
+        syncEnhancedSelect(itemAspectRatio);
+    });
+    itemOverflow.addEventListener('change', () => {
+        updateSelectedItemResponsiveProperties();
+        syncEnhancedSelect(itemOverflow);
+    });
     itemHidden.addEventListener('change', updateSelectedItemResponsiveProperties);
 
     fluidGapEnabled.addEventListener('change', updateFluidGap);
@@ -3556,6 +4027,10 @@
     setLayoutType('grid');
     initializeBreakpointSystem();
     initializePropertyStates();
+    initNumberUnits();
+    initVisualControls();
+    initLinkedSettingHints();
+    updateBreakpointHint();
     renderVariants();
     pushBreakpointHistory();
 </script>
