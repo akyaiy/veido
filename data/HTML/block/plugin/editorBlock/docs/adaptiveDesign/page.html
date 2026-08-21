@@ -116,6 +116,10 @@
             display: block;
         }
 
+        #advanced.tabContent {
+            padding-top: 0;
+        }
+
         .tabContent + .tabContent {
             padding-top: 0px;
         }
@@ -277,7 +281,6 @@
 
         .advancedGroup {
             padding-bottom: 10px;
-            border-bottom: 1px solid #dddddd;
         }
 
         .section h2,
@@ -468,7 +471,6 @@
         .section {
             margin-bottom: 10px;
             padding: 10px;
-            border: 1px solid #e2e2e2;
             background-color: #fafafa;
         }
 
@@ -508,12 +510,12 @@
         .advancedGroup {
             margin-bottom: 10px;
             padding: 10px;
-            border: 1px solid #e5e5e5;
-            background-color: #ffffff;
+            background-color: #fafafa;
         }
 
-        .advancedGroup:last-child {
-            margin-bottom: 0;
+        .gridOnly > .advancedGroup:last-child,
+        .flexOnly > .advancedGroup:last-child {
+            margin-bottom: 10px;
         }
 
         .property {
@@ -687,12 +689,6 @@
             left: 10px;
         }
 
-        .linkedSettingHint {
-            margin: -3px 0 7px 126px;
-            color: #888888;
-            font-size: 10px;
-        }
-
         .modeBadge {
             display: inline-block;
             margin-left: 5px;
@@ -767,7 +763,6 @@
 
         .advancedGroup > h2 {
             padding-bottom: 4px;
-            border-bottom: 1px solid #eeeeee;
         }
 
         .modeBadge {
@@ -1644,22 +1639,12 @@
     }
 
     function initVisualControls() {
-        enhanceSelect(flexDirection, 2);
-        enhanceSelect(flexJustify, 3);
-        enhanceSelect(flexAlign, 2);
-        enhanceSelect(itemAspectRatio, 2);
-        enhanceSelect(itemOverflow, 2);
     }
 
     function syncVisualControls() {
-        [
-            layoutTypeSelect,
-            flexDirection,
-            flexJustify,
-            flexAlign,
-            itemAspectRatio,
-            itemOverflow
-        ].forEach(syncEnhancedSelect);
+        if (layoutTypeSelect) {
+            syncEnhancedSelect(layoutTypeSelect);
+        }
     }
 
     function updateBreakpointHint() {
@@ -2165,39 +2150,6 @@
             label.textContent = 'Наследуется';
             reset.style.display = 'none';
         });
-    }
-
-    function addLinkedSettingHint(controlId, textValue) {
-        const control = document.getElementById(controlId);
-        const property = control?.closest('.property');
-
-        if (!property || property.nextElementSibling?.classList.contains('linkedSettingHint')) {
-            return;
-        }
-
-        const hint = document.createElement('div');
-        hint.className = 'linkedSettingHint';
-        hint.textContent = textValue;
-        property.insertAdjacentElement('afterend', hint);
-    }
-
-    function initLinkedSettingHints() {
-        addLinkedSettingHint(
-            'flexAdvancedDirection',
-            'То же направление, что в основных настройках.'
-        );
-        addLinkedSettingHint(
-            'flexAdvancedGap',
-            'То же расстояние, что в основных настройках.'
-        );
-        addLinkedSettingHint(
-            'flexAdvancedJustify',
-            'Расширенная настройка того же распределения.'
-        );
-        addLinkedSettingHint(
-            'flexAdvancedAlign',
-            'Расширенная настройка того же выравнивания.'
-        );
     }
 
     function initializePropertyStates() {
@@ -4102,7 +4054,6 @@
     initializePropertyStates();
     initNumberUnits();
     initVisualControls();
-    initLinkedSettingHints();
     updateBreakpointHint();
     renderVariants();
     pushBreakpointHistory();
