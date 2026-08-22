@@ -768,6 +768,16 @@
         .modeBadge {
             opacity: 0.7;
         }
+
+        .selectedItemBasic,
+        .selectedItemAdvanced {
+            display: none;
+        }
+
+        .properties.hasSelectedItem .selectedItemBasic,
+        .properties.hasSelectedItem .selectedItemAdvanced {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -778,21 +788,19 @@
     </div>
 
     <div class="properties">
-        <div class="propertiesTitle">Свойства</div>
-
         <div class="breakpointSection">
-            <h2>Размеры экрана</h2>
+            <h2>Размер экрана</h2>
             <div class="breakpointHint" id="breakpointHint">
-                Базовые настройки применяются ко всем диапазонам.
+                Общие настройки для всех размеров экрана.
             </div>
 
             <div class="breakpointTabsRow">
                 <div class="breakpointTabs" id="breakpointTabs">
                     <select class="menuSelect" id="breakpointSelect">
                         <option value="all">Все размеры</option>
-                        <option value="preset-mobile">Мобильный 0-640</option>
+                        <option value="preset-mobile">Телефон 0-640</option>
                         <option value="preset-tablet">Планшет 641-1024</option>
-                        <option value="preset-desktop">Десктоп 1025+</option>
+                        <option value="preset-desktop">Компьютер 1025+</option>
                     </select>
                 </div>
                 <button class="breakpointAddButton" id="addBreakpoint" type="button" title="Добавить диапазон">
@@ -802,12 +810,12 @@
 
             <div class="breakpointRangeEditor" id="breakpointRangeEditor">
                 <div class="property">
-                    <label for="breakpointStartInput">Мин. ширина</label>
+                    <label for="breakpointStartInput">От ширины</label>
                     <input id="breakpointStartInput" type="number" value="0" min="0">
                 </div>
 
                 <div class="property">
-                    <label for="breakpointEndInput">Макс. ширина</label>
+                    <label for="breakpointEndInput">До ширины</label>
                     <input id="breakpointEndInput" type="number" value="640" min="0">
                 </div>
 
@@ -828,17 +836,19 @@
             </div>
 
             <div class="breakpointStatus">
-                <span id="breakpointStatus">Базовые свойства</span>
+                <span id="breakpointStatus">Общие настройки</span>
                 <button id="resetBreakpoint" type="button">
                     Сбросить изменения
                 </button>
             </div>
         </div>
 
+        <div class="propertiesTitle">Свойства</div>
+
         <div class="tabContent active" id="basic">
             <div class="section">
-                <h2>Расположение элементов</h2>
-                <div class="settingHint">Выберите способ расположения элементов внутри блока.</div>
+                <h2>Тип макета</h2>
+                <div class="settingHint">Как расположить элементы внутри блока.</div>
 
                 <select class="menuSelect" id="layoutTypeSelect">
                     <option value="grid">Grid - сетка</option>
@@ -848,21 +858,21 @@
 
             <div class="gridOnly active" id="basicGrid">
                 <div class="section">
-                    <h2>Шаблоны</h2>
-                    <div class="settingHint">Готовая раскладка, которую можно использовать сразу.</div>
+                    <h2>Готовые раскладки</h2>
+                    <div class="settingHint">Готовое расположение элементов.</div>
 
                     <select class="menuSelect" id="gridPresetSelect">
-                        <option value="cards">Карточки</option>
-                        <option value="twoColumns">2 колонки</option>
-                        <option value="mainSidebar">Основное + боковая панель</option>
-                        <option value="sidebarMain">Боковая панель + основное</option>
-                        <option value="page">Страница</option>
-                        <option value="dashboard">Dashboard</option>
+                        <option value="cards">Карточки с автоколонками</option>
+                        <option value="twoColumns">Две равные колонки</option>
+                        <option value="mainSidebar">Основное + панель справа</option>
+                        <option value="sidebarMain">Панель слева + основное</option>
+                        <option value="page">Верх + содержимое + низ</option>
+                        <option value="dashboard">Панель</option>
                     </select>
                 </div>
 
                 <div class="section">
-                    <h2>Сетка</h2>
+                    <h2>Размер сетки</h2>
 
                     <div class="property">
                         <label for="gridColumns">Колонки</label>
@@ -875,7 +885,7 @@
                     </div>
 
                     <div class="property">
-                        <label for="gridGap">Расстояние</label>
+                        <label for="gridGap">Отступ между элементами</label>
                         <input id="gridGap" type="number" value="10" min="0">
                     </div>
                 </div>
@@ -883,15 +893,15 @@
 
             <div class="flexOnly" id="basicFlex">
                 <div class="section">
-                    <h2>Шаблоны</h2>
-                    <div class="settingHint">Готовый вариант расположения элементов.</div>
+                    <h2>Готовые раскладки</h2>
+                    <div class="settingHint">Готовое расположение элементов.</div>
 
                     <select class="menuSelect" id="flexPresetSelect">
                         <option value="row">В ряд</option>
                         <option value="column">В столбец</option>
                         <option value="between">По краям</option>
                         <option value="center">По центру</option>
-                        <option value="evenly">Равномерно</option>
+                        <option value="evenly">Равные промежутки</option>
                         <option value="wrap">С переносом</option>
                     </select>
                 </div>
@@ -900,24 +910,24 @@
                     <h2>Направление</h2>
 
                     <div class="property">
-                        <label for="flexDirection">Расположить</label>
+                        <label for="flexDirection">Направление</label>
                         <select id="flexDirection">
-                            <option value="row">По горизонтали</option>
-                            <option value="column">По вертикали</option>
-                            <option value="row-reverse">Горизонтально наоборот</option>
-                            <option value="column-reverse">Вертикально наоборот</option>
+                            <option value="row">Слева направо</option>
+                            <option value="column">Сверху вниз</option>
+                            <option value="row-reverse">Справа налево</option>
+                            <option value="column-reverse">Снизу вверх</option>
                         </select>
                     </div>
 
                     <div class="property">
-                        <label for="flexGap">Расстояние</label>
+                        <label for="flexGap">Отступ между элементами</label>
                         <input id="flexGap" type="number" value="10" min="0">
                     </div>
 
                     <div class="property propertyCheckbox">
                         <label>
                             <input id="flexWrap" type="checkbox">
-                            Переносить на новую строку
+                            Переносить, если не хватает места
                         </label>
                     </div>
                 </div>
@@ -926,7 +936,7 @@
                     <h2>Выравнивание</h2>
 
                     <div class="property">
-                        <label for="flexJustify">По направлению</label>
+                        <label for="flexJustify">По основной оси</label>
                         <select id="flexJustify">
                             <option value="flex-start">В начале</option>
                             <option value="center">По центру</option>
@@ -938,7 +948,7 @@
                     </div>
 
                     <div class="property">
-                        <label for="flexAlign">По второй стороне</label>
+                        <label for="flexAlign">По поперечной оси</label>
                         <select id="flexAlign">
                             <option value="stretch">Растянуть</option>
                             <option value="flex-start">В начале</option>
@@ -951,104 +961,85 @@
         </div>
 
         <div class="tabContent active">
-            <div class="section">
+            <div class="selectedItemBasic section">
                 <h2>Ширина элемента</h2>
 
                 <div class="property">
-                    <label for="itemMinWidth">Минимум</label>
+                    <label for="itemMinWidth">Мин. ширина</label>
                     <input id="itemMinWidth" type="number" value="0" min="0">
                 </div>
 
                 <div class="property">
-                    <label for="itemMaxWidth">Максимум</label>
+                    <label for="itemMaxWidth">Макс. ширина</label>
                     <input id="itemMaxWidth" type="number" value="0" min="0">
                 </div>
             </div>
 
-            <div class="section">
+            <div class="selectedItemBasic section">
                 <h2>Видимость</h2>
 
                 <div class="property propertyCheckbox">
                     <label>
                         <input id="itemHidden" type="checkbox">
-                        Скрыть выбранный элемент
+                        Скрыть элемент
                     </label>
                 </div>
             </div>
 
-        <details class="advancedDetails">
+       <details class="advancedDetails">
 <summary>Дополнительные</summary>
 <div class="tabContent" id="advanced"><details class="advancedSection gridOnly active"><summary>Сетка <span class="modeBadge">Grid</span></summary><div class="advancedSectionContent"><div class="gridOnly active" id="advancedGrid"><div class="advancedGroup">
-<h2>Автоподбор колонок</h2>
+<h2>Подбор колонок под ширину</h2>
 <div class="property propertyCheckbox">
 <label>
 <input id="gridAutoFit" type="checkbox"/>
-                            Подстраивать колонки под ширину
+                            Автоматически подбирать колонки под ширину блока
                         </label>
 </div>
 <div id="gridAutoFitProperties">
 <div class="property">
-<label for="gridMinWidth">Мин. ширина</label>
+<label for="gridMinWidth">Мин. ширина колонки</label>
 <input id="gridMinWidth" min="1" type="number" value="220"/>
 </div>
-<div class="property">
-<label for="gridNormalWidth">Желаемая ширина</label>
+<div class="property" style="display: none;">
 <input id="gridNormalWidth" min="1" type="number" value="300"/>
 </div>
 <div class="property">
-<label for="gridMaxWidth">Макс. ширина</label>
+<label for="gridMaxWidth">Макс. ширина колонки</label>
 <input id="gridMaxWidth" min="1" type="number" value="400"/>
+</div>
+<div class="property">
+<label for="autoFitMode">Как заполнять свободное место</label>
+<select id="autoFitMode">
+<option value="auto-fit">Растягивать колонки</option>
+<option value="auto-fill">Сохранять места колонок</option>
+</select>
 </div>
 </div>
 </div><div class="advancedGroup">
-<h2>Колонки</h2>
+<h2>Размеры колонок</h2>
 <div class="trackList" id="columnTracks"></div>
 <button class="trackAdd" id="addColumn" type="button">
                         + Добавить колонку
                     </button>
 </div><div class="advancedGroup" id="rowTracksGroup">
-<h2>Строки</h2>
+<h2>Размеры строк</h2>
 <div class="trackList" id="rowTracks"></div>
 <button class="trackAdd" id="addRow" type="button">
                         + Добавить строку
                     </button>
-</div><div class="advancedGroup">
-<h2>Точная настройка колонок</h2>
+</div></div></div></details><details class="advancedSection"><summary>Расположение элементов <span class="modeBadge">Grid / Flex</span></summary><div class="advancedSectionContent"><div class="gridOnly active"><div class="advancedGroup">
+<h2>Промежутки</h2>
 <div class="property">
-<label for="autoFitMode">Свободное место</label>
-<select id="autoFitMode">
-<option value="auto-fit">Заполнять место</option>
-<option value="auto-fill">Сохранять колонки</option>
-</select>
-</div>
-<div class="property">
-<label for="columnMinValue">Мин. ширина</label>
-<input id="columnMinValue" min="1" type="number" value="220"/>
-</div>
-<div class="property">
-<label for="columnNormalValue">Желаемая ширина</label>
-<input id="columnNormalValue" min="1" type="number" value="300"/>
-</div>
-<div class="property">
-<label for="columnMaxValue">Макс. ширина</label>
-<select id="columnMaxValue">
-<option value="1fr">Растянуть</option>
-<option value="auto">По содержимому</option>
-<option value="max-content">Макс. содержимое</option>
-</select>
-</div>
-</div></div></div></details><details class="advancedSection"><summary>Расположение <span class="modeBadge">Grid / Flex</span></summary><div class="advancedSectionContent"><div class="gridOnly active"><div class="advancedGroup">
-<h2>Отступы и расстояния</h2>
-<div class="property">
-<label for="columnGap">Горизонтально</label>
+<label for="columnGap">Между колонками</label>
 <input id="columnGap" min="0" type="number" value="10"/>
 </div>
 <div class="property">
-<label for="rowGap">Вертикально</label>
+<label for="rowGap">Между строками</label>
 <input id="rowGap" min="0" type="number" value="10"/>
 </div>
 <div class="property">
-<label for="gridPadding">Отступ внутри</label>
+<label for="gridPadding">Отступ от краёв</label>
 <input id="gridPadding" min="0" type="number" value="10"/>
 </div>
 </div><div class="advancedGroup">
@@ -1058,35 +1049,35 @@
 <select id="autoFlow">
 <option value="row">По строкам</option>
 <option value="column">По колонкам</option>
-<option value="row dense">Без пустых мест</option>
+<option value="row dense">По строкам без пустот</option>
 <option value="column dense">По колонкам без пустот</option>
 </select>
 </div>
 </div></div><div class="flexOnly" id="advancedFlex"><div class="advancedGroup">
 <h2>Расположение элементов</h2>
 <div class="property">
-<label for="flexAdvancedDirection">Расположение</label>
+<label for="flexAdvancedDirection">Направление</label>
 <select id="flexAdvancedDirection">
-<option value="row">По горизонтали</option>
-<option value="column">По вертикали</option>
-<option value="row-reverse">Горизонтально наоборот</option>
-<option value="column-reverse">Вертикально наоборот</option>
+<option value="row">Слева направо</option>
+<option value="column">Сверху вниз</option>
+<option value="row-reverse">Справа налево</option>
+<option value="column-reverse">Снизу вверх</option>
 </select>
 </div>
 <div class="property">
-<label for="flexAdvancedWrap">Перенос строк</label>
+<label for="flexAdvancedWrap">Перенос элементов</label>
 <select id="flexAdvancedWrap">
-<option value="nowrap">Без переноса</option>
+<option value="nowrap">Не переносить</option>
 <option value="wrap">Переносить</option>
 <option value="wrap-reverse">Перенос наоборот</option>
 </select>
 </div>
 <div class="property">
-<label for="flexAdvancedGap">Промежуток</label>
+<label for="flexAdvancedGap">Отступ между элементами</label>
 <input id="flexAdvancedGap" min="0" type="number" value="10"/>
 </div>
 <div class="property">
-<label for="flexAdvancedJustify">По основной стороне</label>
+<label for="flexAdvancedJustify">По основной оси</label>
 <select id="flexAdvancedJustify">
 <option value="flex-start">В начале</option>
 <option value="center">По центру</option>
@@ -1097,13 +1088,13 @@
 </select>
 </div>
 <div class="property">
-<label for="flexAdvancedAlign">По второй стороне</label>
+<label for="flexAdvancedAlign">По поперечной оси</label>
 <select id="flexAdvancedAlign">
 <option value="stretch">Растянуть</option>
 <option value="flex-start">В начале</option>
 <option value="center">По центру</option>
 <option value="flex-end">В конце</option>
-<option value="baseline">По тексту</option>
+<option value="baseline">По строке текста</option>
 </select>
 </div>
 <div class="property">
@@ -1117,18 +1108,16 @@
 <option value="space-around">Равномерно</option>
 </select>
 </div>
-</div></div></div></details><details class="advancedSection"><summary>Выбранный элемент <span class="modeBadge">Grid / Flex</span></summary><div class="advancedSectionContent"><div class="gridOnly active"><div class="advancedGroup">
-<h2>Размер в сетке</h2>
+</div></div></div></details><details class="advancedSection selectedItemAdvanced"><summary>Выбранный элемент <span class="modeBadge">Элемент</span></summary><div class="advancedSectionContent"><div class="gridOnly active"><div class="advancedGroup">
+<h2>Размер и позиция в сетке</h2>
 <div class="property">
-<label for="gridColumnSpan">Ширина в колонках</label>
+<label for="gridColumnSpan">Занять колонок</label>
 <input id="gridColumnSpan" min="1" type="number" value="1"/>
 </div>
 <div class="property">
-<label for="gridRowSpan">Высота в строках</label>
+<label for="gridRowSpan">Занять строк</label>
 <input id="gridRowSpan" min="1" type="number" value="1"/>
 </div>
-</div><div class="advancedGroup">
-<h2>Положение в сетке</h2>
 <div class="property">
 <label for="gridItemColumn">Начать с колонки</label>
 <select id="gridItemColumn">
@@ -1142,11 +1131,11 @@
 </select>
 </div>
 <div class="property">
-<label for="gridItemColumns">Занять по ширине</label>
+<label for="gridItemColumns">Колонки</label>
 <input id="gridItemColumns" min="1" type="number" value="1"/>
 </div>
 <div class="property">
-<label for="gridItemRows">Занять по высоте</label>
+<label for="gridItemRows">Строки</label>
 <input id="gridItemRows" min="1" type="number" value="1"/>
 </div>
 </div></div><div class="flexOnly"><div class="advancedGroup">
@@ -1156,30 +1145,30 @@
 <select id="flexItemSize">
 <option value="auto">По содержимому</option>
 <option value="fill">Занять свободное место</option>
-<option value="fixed">Заданный</option>
+<option value="fixed">Заданный размер</option>
 <option value="equal">Равная доля</option>
 </select>
 </div>
 <div class="property" id="flexBasisProperty">
-<label for="flexBasis">Размер</label>
+<label for="flexBasis">Заданный размер</label>
 <input id="flexBasis" min="0" type="number" value="120"/>
 </div>
 </div><div class="advancedGroup">
-<h2>Поведение элемента</h2>
+<h2>Растяжение и порядок</h2>
 <div class="property">
-<label for="flexGrow">Расширяться</label>
+<label for="flexGrow">Расширение</label>
 <input id="flexGrow" min="0" type="number" value="0"/>
 </div>
 <div class="property">
-<label for="flexShrink">Сжиматься</label>
+<label for="flexShrink">Сжатие</label>
 <input id="flexShrink" min="0" type="number" value="1"/>
 </div>
 <div class="property">
-<label for="flexAdvancedBasis">Базовый размер</label>
+<label for="flexAdvancedBasis">Начальный размер</label>
 <input id="flexAdvancedBasis" min="0" type="number" value="0"/>
 </div>
 <div class="property">
-<label for="flexSelf">Своё выравнивание</label>
+<label for="flexSelf">Выравнивание элемента</label>
 <select id="flexSelf">
 <option value="auto">Автоматически</option>
 <option value="stretch">Растянуть</option>
@@ -1189,23 +1178,17 @@
 </select>
 </div>
 <div class="property">
-<label for="flexOrder">Очередность</label>
+<label for="flexOrder">Порядок элемента</label>
 <input id="flexOrder" type="number" value="0"/>
 </div>
 </div></div><div class="advancedGroup">
-<h2>Варианты</h2>
-<div class="variantList" id="variantList"></div>
-<button class="trackAdd" id="addVariant" type="button">
-                    + Сохранить вариант
-                </button>
-</div></div></details><details class="advancedSection"><summary>Размер и адаптивность</summary><div class="advancedSectionContent"><div class="advancedGroup">
-<h2>Высота и границы</h2>
+<h2>Размер и высота</h2>
 <div class="property">
-<label for="itemMinHeight">Минимальная высота</label>
+<label for="itemMinHeight">Мин. высота</label>
 <input id="itemMinHeight" min="0" type="number" value="0"/>
 </div>
 <div class="property">
-<label for="itemMaxHeight">Максимальная высота</label>
+<label for="itemMaxHeight">Макс. высота</label>
 <input id="itemMaxHeight" min="0" type="number" value="0"/>
 </div>
 <div class="property">
@@ -1227,57 +1210,17 @@
 </select>
 </div>
 </div><div class="advancedGroup">
-<h2>Плавное расстояние</h2>
-<div class="property propertyCheckbox">
-<label>
-<input id="fluidGapEnabled" type="checkbox"/>
-                        Плавно менять промежуток
-                    </label>
-</div>
-<div id="fluidGapProperties">
-<div class="property">
-<label for="fluidGapMin">Мин. значение</label>
-<input id="fluidGapMin" min="0" type="number" value="8"/>
-</div>
-<div class="property">
-<label for="fluidGapMax">Макс. значение</label>
-<input id="fluidGapMax" min="0" type="number" value="24"/>
-</div>
-</div>
-</div><div class="advancedGroup">
-<h2>Поведение в узком блоке</h2>
-<div class="property propertyCheckbox">
-<label>
-<input id="containerRuleEnabled" type="checkbox"/>
-                        Менять при узком родителе
-                    </label>
-</div>
-<div id="containerRuleProperties">
-<div class="property">
-<label for="containerRuleWidth">При ширине до</label>
-<input id="containerRuleWidth" min="1" type="number" value="360"/>
-</div>
-<div class="property">
-<label for="containerRuleAction">Что сделать</label>
-<select id="containerRuleAction">
-<option value="column">В столбец</option>
-<option value="wrap">Разрешить перенос</option>
-<option value="hide">Скрыть</option>
-</select>
-</div>
-</div>
-</div></div></details><details class="advancedSection"><summary>Текст, медиа и проверка</summary><div class="advancedSectionContent"><div class="advancedGroup">
 <h2>Текст</h2>
 <div class="property">
 <label for="textWrapMode">Перенос текста</label>
 <select id="textWrapMode">
 <option value="">Обычный</option>
 <option value="anywhere">Разрывать слова</option>
-<option value="nowrap">Без переноса</option>
+<option value="nowrap">Не переносить</option>
 </select>
 </div>
 <div class="property">
-<label for="textOverflowMode">Если не помещается</label>
+<label for="textOverflowMode">Если текст не помещается</label>
 <select id="textOverflowMode">
 <option value="">По умолчанию</option>
 <option value="ellipsis">Многоточие</option>
@@ -1296,40 +1239,87 @@
 <input id="mediaSrc" type="text" value=""/>
 </div>
 <div class="property">
-<label for="mediaSrcset">Другие размеры</label>
+<label for="mediaSrcset">Файлы для разных экранов</label>
 <input id="mediaSrcset" placeholder="480.webp 480w, 800.webp 800w" type="text"/>
 </div>
 <div class="property">
-<label for="mediaSizes">Правила размеров</label>
+<label for="mediaSizes">Размер файла для экрана</label>
 <input id="mediaSizes" placeholder="(max-width: 700px) 100vw, 50vw" type="text"/>
 </div>
 <div class="property">
-<label for="mediaFit">Вписывание</label>
+<label for="mediaFit">Заполнение</label>
 <select id="mediaFit">
 <option value="">По умолчанию</option>
-<option value="cover">Заполнить</option>
-<option value="contain">Вместить</option>
+<option value="cover">Заполнить с обрезкой</option>
+<option value="contain">Вместить целиком</option>
+<option value="fill">Растянуть</option>
+<option value="none">Исходный размер</option>
 </select>
 </div>
 <div class="property">
-<label for="mediaLoading">Загрузка файла</label>
+<label for="mediaLoading">Загрузка</label>
 <select id="mediaLoading">
 <option value="">По умолчанию</option>
-<option value="lazy">Ленивая</option>
+<option value="lazy">При появлении рядом с экраном</option>
 <option value="eager">Сразу</option>
 </select>
 </div>
 </div><div class="advancedGroup">
-<h2>Проверка адаптивности</h2>
+<h2>Если родительский блок узкий</h2>
+<div class="property propertyCheckbox">
+<label>
+<input id="containerRuleEnabled" type="checkbox"/>
+            Изменять при ширине родителя меньше
+        </label>
+</div>
+<div id="containerRuleProperties">
+<div class="property">
+<label for="containerRuleWidth">Ширина родителя до</label>
+<input id="containerRuleWidth" min="1" type="number" value="360"/>
+</div>
+<div class="property">
+<label for="containerRuleAction">Что изменить</label>
+<select id="containerRuleAction">
+<option value="column">Сделать столбцом</option>
+<option value="wrap">Разрешить перенос</option>
+<option value="hide">Скрыть элемент</option>
+</select>
+</div>
+</div>
+</div><div class="advancedGroup">
+<h2>Шаблоны</h2>
+<div class="variantList" id="variantList"></div>
+<button class="trackAdd" id="addVariant" type="button">
+            + Сохранить шаблон
+        </button>
+</div></div></details><details class="advancedSection"><summary>Размер и адаптивность <span class="modeBadge">Grid / Flex</span></summary><div class="advancedSectionContent"><div class="advancedGroup">
+<h2>Отступ, который меняется вместе с шириной блока</h2>
+<div class="property propertyCheckbox">
+<label>
+    <input id="fluidGapEnabled" type="checkbox"/>
+    Автоматически менять отступ в зависимости от ширины блока
+</label>
+</div>
+<div id="fluidGapProperties">
+<div class="property">
+    <label for="fluidGapMin">Мин. отступ</label>
+    <input id="fluidGapMin" min="0" type="number" value="8"/>
+</div>
+<div class="property">
+    <label for="fluidGapMax">Макс. отступ</label>
+    <input id="fluidGapMax" min="0" type="number" value="24"/>
+</div>
+</div>
+</div></div></details><details class="advancedSection"><summary>Проверка</summary><div class="advancedSectionContent"><div class="advancedGroup">
+<h2>Проверка макета</h2>
 <button class="trackAdd" id="checkResponsive" type="button">
-                    Проверить размеры
-                </button>
+Проверить отображение на разных ширинах
+</button>
 <button class="trackAdd" id="stressContent" type="button">
-                    Проверить длинный текст
-                </button>
+Проверить длинный текст
+</button>
 <div class="checkResult" id="checkResponsiveResult"></div>
 </div></div></details></div>
-
 
 
 
@@ -1466,7 +1456,7 @@
     const mediaSizes = document.getElementById('mediaSizes');
     const mediaFit = document.getElementById('mediaFit');
     const mediaLoading = document.getElementById('mediaLoading');
-
+    const propertiesPanel = document.querySelector('.properties');
 
     let layoutType = 'grid';
     let selectedItem = null;
@@ -2186,7 +2176,7 @@
         const variants = getSelectedItemVariants();
 
         if (!variants.length) {
-            variantList.textContent = 'Вариантов нет';
+            variantList.textContent = 'Шаблонов нет';
             return;
         }
 
@@ -2242,7 +2232,7 @@
 
         getSelectedItemVariants().push({
             id: `variant-${variantCounter}`,
-            name: `Вариант ${variantCounter}`,
+            name: `Шаблон ${variantCounter}`,
             breakpointId: activeBreakpointId,
             css: selectedItem.style.cssText
         });
@@ -2897,6 +2887,14 @@
         });
     }
 
+    function syncSelectedItemVisibility() {
+        if (!propertiesPanel) {
+            return;
+        }
+
+        propertiesPanel.classList.toggle('hasSelectedItem', Boolean(selectedItem));
+    }
+
     function setLayoutType(type, applyPreset = true) {
         layoutType = type;
 
@@ -2993,6 +2991,21 @@
         });
     }
 
+    function clearSelection() {
+        if (!selectedItem) {
+            return;
+        }
+
+        selectedItem.classList.remove('selected');
+        selectedItem = null;
+        syncSelectedItemVisibility();
+        syncSelectedItemResponsiveProperties();
+        syncTextResponsiveProperties();
+        syncContainerRule();
+        syncResponsiveMedia();
+        renderVariants();
+    }
+
     function selectItem(item) {
         if (selectedItem) {
             selectedItem.classList.remove('selected');
@@ -3000,6 +3013,7 @@
 
         selectedItem = item;
         selectedItem.classList.add('selected');
+        syncSelectedItemVisibility();
 
         if (layoutType === 'grid') {
             gridColumnSpan.value = parseInt(item.dataset.columnSpan) || 1;
@@ -3542,8 +3556,13 @@
         columnGap.value = gridGap.value;
         rowGap.value = gridGap.value;
 
-        columnMinValue.value = gridMinWidth.value;
-        columnNormalValue.value = gridNormalWidth.value;
+        if (columnMinValue) {
+            columnMinValue.value = gridMinWidth.value;
+        }
+
+        if (columnNormalValue && gridNormalWidth) {
+            columnNormalValue.value = gridNormalWidth.value;
+        }
 
         updateGrid();
         saveCurrentBreakpointState();
@@ -3552,8 +3571,7 @@
     function updateGrid() {
         if (gridAutoFit.checked) {
             const minWidth = Math.max(1, parseInt(gridMinWidth.value) || 1);
-            const normalWidth = Math.max(minWidth, parseInt(gridNormalWidth.value) || minWidth);
-            const maxWidth = Math.max(normalWidth, parseInt(gridMaxWidth.value) || normalWidth);
+            const maxWidth = Math.max(minWidth, parseInt(gridMaxWidth.value) || minWidth);
 
             layout.style.gridTemplateColumns =
                 `repeat(${autoFitMode.value}, minmax(min(100%, ${minWidth}px), ${maxWidth}px))`;
@@ -3950,12 +3968,23 @@
     });
 
     autoFitMode.addEventListener('change', updateGrid);
-    columnMinValue.addEventListener('input', updateGrid);
-    columnNormalValue.addEventListener('input', () => {
-        gridNormalWidth.value = columnNormalValue.value;
-        updateGrid();
-    });
-    columnMaxValue.addEventListener('change', updateGrid);
+
+    if (columnMinValue) {
+        columnMinValue.addEventListener('input', updateGrid);
+    }
+
+    if (columnNormalValue) {
+        columnNormalValue.addEventListener('input', () => {
+            if (gridNormalWidth) {
+                gridNormalWidth.value = columnNormalValue.value;
+            }
+            updateGrid();
+        });
+    }
+
+    if (columnMaxValue) {
+        columnMaxValue.addEventListener('change', updateGrid);
+    }
 
     columnGap.addEventListener('input', updateGrid);
     rowGap.addEventListener('input', updateGrid);
@@ -4054,9 +4083,16 @@
     initializePropertyStates();
     initNumberUnits();
     initVisualControls();
+    syncSelectedItemVisibility();
     updateBreakpointHint();
     renderVariants();
     pushBreakpointHistory();
+
+    layout.addEventListener('click', (event) => {
+        if (event.target === layout) {
+            clearSelection();
+        }
+    });
 </script>
 
 </body>
