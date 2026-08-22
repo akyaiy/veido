@@ -368,6 +368,29 @@
             font-size: 18px;
         }
 
+        .propertiesTabs {
+            display: flex;
+            gap: 8px;
+            padding: 0 12px 8px;
+            background-color: #ffffff;
+        }
+
+        .propertiesTab {
+            flex: 1 1 0;
+            padding: 8px 10px;
+            border: 1px solid #cccccc;
+            background-color: #f7f7f7;
+            color: #333333;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .propertiesTab.active {
+            background-color: #ffffff;
+            border-bottom-color: #ffffff;
+        }
+
         .breakpointSection,
         .tabContent.active,
         .advancedDetails {
@@ -422,6 +445,67 @@
 
         .advancedSectionContent {
             padding: 10px 0 10px 10px;
+        }
+
+        .properties[data-view="main"] > #basic,
+        .properties[data-view="main"] > .mainContent {
+            display: block;
+        }
+
+        .properties[data-view="main"] .advancedDetails {
+            display: none !important;
+        }
+
+        .properties[data-view="advanced"] > #basic {
+            display: none !important;
+        }
+
+        .properties[data-view="advanced"] > .mainContent {
+            display: block !important;
+        }
+
+        .properties[data-view="advanced"] > .mainContent > .selectedItemBasic,
+        .properties[data-view="advanced"] > .mainContent > .selectedItemAdvanced,
+        .properties[data-view="advanced"] > .mainContent > .section {
+            display: none !important;
+        }
+
+        .properties[data-view="advanced"] > .mainContent > .advancedDetails,
+        .properties[data-view="advanced"] .advancedDetails {
+            display: block !important;
+        }
+
+        .advancedDetails.singleView > summary {
+            display: none !important;
+        }
+
+        .advancedDetails.singleView > .advancedSection {
+            display: none !important;
+        }
+
+        .advancedDetails.singleView > .advancedSection.is-active {
+            display: block !important;
+        }
+
+        .advancedSection.is-active > summary {
+            display: none !important;
+        }
+
+        .advancedBackButton {
+            display: none;
+            margin: 10px 10px 0;
+            padding: 5px 10px;
+            border: 1px solid #cccccc;
+            border-radius: 3px;
+            background-color: #f7f7f7;
+            color: #333333;
+            font-size: 18px;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .advancedDetails.singleView .advancedSection.is-active > .advancedBackButton {
+            display: inline-block;
         }
 
         .advancedGroup {
@@ -671,7 +755,7 @@
     </div>
 
     <!-- Панель свойств -->
-    <div class="properties">
+    <div class="properties" data-view="main">
         <div class="breakpointSection">
             <h2>Размер экрана</h2>
             <div class="breakpointHint" id="breakpointHint">
@@ -728,6 +812,11 @@
         </div>
 
         <div class="propertiesTitle">Свойства</div>
+
+        <div class="propertiesTabs" aria-label="Вкладки свойств">
+            <button class="propertiesTab active" type="button" data-tab="main">Главная</button>
+            <button class="propertiesTab" type="button" data-tab="advanced">Дополнительные</button>
+        </div>
 
         <!-- Основные настройки -->
         <div class="tabContent active" id="basic">
@@ -845,7 +934,7 @@
             </div>
         </div>
 
-        <div class="tabContent active">
+        <div class="tabContent mainContent active">
             <div class="selectedItemBasic section">
                 <h2>Ширина элемента</h2>
 
@@ -872,10 +961,7 @@
             </div>
 
                 <!-- Дополнительные настройки -->
-        <details class="advancedDetails">
-            <summary>
-                Дополнительные
-            </summary>
+        <div class="advancedDetails">
             <div class="tabContent" id="advanced">
                 <details class="advancedSection gridOnly active">
                     <summary>
@@ -1534,9 +1620,9 @@
                             </div>
                         </div>
                     </div>
-                </details>
+                </div>
             </div>
-        </details>
+        </div>
     </div>
 </div>
 
@@ -3691,6 +3777,89 @@
             : 'Проблем адаптивности не найдено.';
     }
 
+    function setPropertiesTab(tabName) {
+        const propertiesPanel = document.querySelector('.properties');
+        const propertyTabs = document.querySelectorAll('.propertiesTab');
+
+        if (!propertiesPanel) {
+            return;
+        }
+
+        propertiesPanel.dataset.view = tabName;
+
+        propertyTabs.forEach((tab) => {
+            tab.classList.toggle('active', tab.dataset.tab === tabName);
+        });
+
+        const advancedDetails = document.querySelector('.advancedDetails');
+        if (advancedDetails) {
+            advancedDetails.classList.remove('singleView');
+            advancedDetails.querySelectorAll('.advancedSection').forEach((section) => {
+                section.classList.remove('is-active');
+                section.style.display = '';
+                section.open = false;
+            });
+            advancedDetails.open = tabName === 'advanced';
+        }
+    }
+
+    function setupAdvancedSubsectionNavigation() {
+        const advancedDetails = document.querySelector('.advancedDetails');
+        if (!advancedDetails) {
+            return;
+        }
+
+        const sections = Array.from(advancedDetails.querySelectorAll('.advancedSection'));
+
+        sections.forEach((section) => {
+            const summary = section.querySelector(':scope > summary');
+            if (!summary) {
+                return;
+            }
+
+            if (!section.querySelector('.advancedBackButton')) {
+                const backButton = document.createElement('button');
+                backButton.type = 'button';
+                backButton.className = 'advancedBackButton';
+                backButton.textContent = '<';
+                backButton.setAttribute('aria-label', 'Вернуться к списку разделов');
+                backButton.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    advancedDetails.classList.remove('singleView');
+                    sections.forEach((item) => {
+                        item.classList.remove('is-active');
+                        item.style.display = '';
+                        item.open = false;
+                    });
+
+                    advancedDetails.open = true;
+                });
+
+                section.insertBefore(backButton, section.querySelector('.advancedSectionContent'));
+            }
+
+            summary.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+
+                advancedDetails.classList.add('singleView');
+                sections.forEach((item) => {
+                    const isSelected = item === section;
+                    item.classList.toggle('is-active', isSelected);
+                    item.style.display = isSelected ? 'block' : 'none';
+                    item.open = isSelected;
+                });
+
+                section.classList.add('is-active');
+                section.style.display = 'block';
+                section.open = true;
+                advancedDetails.open = true;
+            });
+        });
+    }
+
     function updateGridItem() {
         if (!selectedItem) {
             return;
@@ -3966,6 +4135,14 @@
     syncSelectedItemVisibility();
     updateBreakpointHint();
     renderVariants();
+    setPropertiesTab('main');
+    setupAdvancedSubsectionNavigation();
+
+    document.querySelectorAll('.propertiesTab').forEach((tab) => {
+        tab.addEventListener('click', () => {
+            setPropertiesTab(tab.dataset.tab);
+        });
+    });
 
     layout.addEventListener('click', (event) => {
         if (event.target === layout) {
