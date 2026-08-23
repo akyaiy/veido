@@ -1072,7 +1072,7 @@
                                 <h2>
                                     Порядок заполнения
                                 </h2>
-                                <div class="property">
+                                <div class="property" id="gridAutoFlowProperty">
                                     <label for="autoFlow">
                                         Заполнять
                                     </label>
@@ -1139,6 +1139,34 @@
                                     </label>
                                     <input id="flexAdvancedGap" min="0" type="number" value="10"/>
                                 </div>
+                                <div class="property" id="flexAlignContentProperty">
+                                    <label for="flexAlignContent">
+                                        Несколько строк
+                                    </label>
+                                    <select id="flexAlignContent">
+                                        <option value="stretch">
+                                            Растянуть
+                                        </option>
+                                        <option value="flex-start">
+                                            В начале
+                                        </option>
+                                        <option value="center">
+                                            По центру
+                                        </option>
+                                        <option value="flex-end">
+                                            В конце
+                                        </option>
+                                        <option value="space-between">
+                                            По краям
+                                        </option>
+                                        <option value="space-around">
+                                            Равномерно
+                                        </option>
+                                        <option value="space-evenly">
+                                            Одинаковые промежутки
+                                        </option>
+                                    </select>
+                                </div>
                                 <div class="property">
                                     <label for="flexAdvancedJustify">
                                         По основной оси
@@ -1183,31 +1211,6 @@
                                         </option>
                                         <option value="baseline">
                                             По строке текста
-                                        </option>
-                                    </select>
-                                </div>
-                                <div class="property">
-                                    <label for="flexAlignContent">
-                                        Несколько строк
-                                    </label>
-                                    <select id="flexAlignContent">
-                                        <option value="stretch">
-                                            Растянуть
-                                        </option>
-                                        <option value="flex-start">
-                                            В начале
-                                        </option>
-                                        <option value="center">
-                                            По центру
-                                        </option>
-                                        <option value="flex-end">
-                                            В конце
-                                        </option>
-                                        <option value="space-between">
-                                            По краям
-                                        </option>
-                                        <option value="space-around">
-                                            Равномерно
                                         </option>
                                     </select>
                                 </div>
@@ -1315,7 +1318,7 @@
                                     </label>
                                     <input id="flexGrow" min="0" type="number" value="0"/>
                                 </div>
-                                <div class="property">
+                                <div class="property" id="flexShrinkProperty">
                                     <label for="flexShrink">
                                         Сжатие
                                     </label>
@@ -1574,7 +1577,7 @@
                         </span>
                     </summary>
                     <div class="advancedSectionContent">
-                        <div class="advancedGroup">
+                        <div class="advancedGroup" id="fluidGapSection">
                             <h2>
                                 Отступ, который меняется вместе с шириной блока
                             </h2>
@@ -1644,6 +1647,7 @@
     const gridNormalWidth = document.getElementById('gridNormalWidth');
     const gridMaxWidth = document.getElementById('gridMaxWidth');
     const gridAutoFitProperties = document.getElementById('gridAutoFitProperties');
+    const gridAutoFlowProperty = document.getElementById('gridAutoFlowProperty');
     const gridMinWidth = document.getElementById('gridMinWidth');
 
     const gridColumnSpan = document.getElementById('gridColumnSpan');
@@ -1684,9 +1688,11 @@
     const flexAdvancedJustify = document.getElementById('flexAdvancedJustify');
     const flexAdvancedAlign = document.getElementById('flexAdvancedAlign');
     const flexAlignContent = document.getElementById('flexAlignContent');
+    const flexAlignContentProperty = document.getElementById('flexAlignContentProperty');
 
     const flexGrow = document.getElementById('flexGrow');
     const flexShrink = document.getElementById('flexShrink');
+    const flexShrinkProperty = document.getElementById('flexShrinkProperty');
     const flexAdvancedBasis = document.getElementById('flexAdvancedBasis');
     const flexSelf = document.getElementById('flexSelf');
     const flexOrder = document.getElementById('flexOrder');
@@ -1715,6 +1721,7 @@
     const itemHidden = document.getElementById('itemHidden');
 
     const fluidGapEnabled = document.getElementById('fluidGapEnabled');
+    const fluidGapSection = document.getElementById('fluidGapSection');
     const fluidGapProperties = document.getElementById('fluidGapProperties');
     const fluidGapMin = document.getElementById('fluidGapMin');
     const fluidGapMax = document.getElementById('fluidGapMax');
@@ -2933,6 +2940,66 @@
         }
 
         propertiesPanel.classList.toggle('hasSelectedItem', Boolean(selectedItem));
+        refreshRelevantControlVisibility();
+    }
+
+    function refreshRelevantControlVisibility() {
+        const gridLayout = layoutType === 'grid';
+        const flexLayout = layoutType === 'flex';
+        const hasMultipleItems = layout.children.length > 1;
+        const selectedItemExists = Boolean(selectedItem);
+
+        if (gridRowsProperty) {
+            gridRowsProperty.style.display = gridLayout && !isAutoRows ? 'grid' : 'none';
+        }
+
+        if (rowTracksGroup) {
+            rowTracksGroup.style.display = gridLayout && !isAutoRows ? 'block' : 'none';
+        }
+
+        if (gridAutoFitProperties) {
+            gridAutoFitProperties.style.display = gridLayout && gridAutoFit.checked ? 'block' : 'none';
+        }
+
+        const shouldShowGridAutoFlow = gridLayout
+            && hasMultipleItems
+            && (columnTracks.children.length > 1 || rowTracks.children.length > 1);
+
+        if (gridAutoFlowProperty) {
+            gridAutoFlowProperty.style.display = shouldShowGridAutoFlow ? '' : 'none';
+        }
+
+        if (fluidGapSection) {
+            fluidGapSection.style.display = (gridLayout || flexLayout) && hasMultipleItems ? 'block' : 'none';
+        }
+
+        if (flexAlignContentProperty) {
+            flexAlignContentProperty.style.display = flexLayout && hasMultipleItems && flexWrap.checked ? '' : 'none';
+        }
+
+        if (flexShrinkProperty) {
+            flexShrinkProperty.style.display = flexLayout && selectedItemExists && hasMultipleItems && !flexWrap.checked ? '' : 'none';
+        }
+
+        const visibleStateOwners = [
+            'gridAutoFlowProperty',
+            'flexAlignContentProperty',
+            'flexShrinkProperty'
+        ];
+
+        visibleStateOwners.forEach((id) => {
+            const control = document.getElementById(id);
+
+            if (!control) {
+                return;
+            }
+
+            const state = control.nextElementSibling;
+
+            if (state && state.classList && state.classList.contains('propertyState')) {
+                state.style.display = control.style.display === 'none' ? 'none' : '';
+            }
+        });
     }
 
     function setLayoutType(type, applyPreset = true) {
@@ -2940,6 +3007,7 @@
 
         layout.classList.remove('grid', 'flex');
         layout.classList.add(type);
+        refreshRelevantControlVisibility();
 
         if (layoutTypeSelect) {
             layoutTypeSelect.value = type;
@@ -3024,6 +3092,8 @@
         Array.from(layout.children).forEach((item, index) => {
             item.textContent = item.dataset.label || index + 1;
         });
+
+        refreshRelevantControlVisibility();
     }
 
     function clearSelection() {
@@ -3614,6 +3684,7 @@
             gridAutoFit.checked ? 'block' : 'none';
 
         updateGridPositionOptions();
+        refreshRelevantControlVisibility();
         saveCurrentBreakpointState();
     }
 
@@ -3937,6 +4008,7 @@
         layout.style.justifyContent = flexAdvancedJustify.value;
         layout.style.alignItems = flexAdvancedAlign.value;
         layout.style.alignContent = flexAlignContent.value;
+        refreshRelevantControlVisibility();
         saveCurrentBreakpointState();
     }
 
