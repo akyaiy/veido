@@ -251,11 +251,13 @@ function updatePropertiesPanel(element) {
         : window;
     const computedStyles = elementWindow.getComputedStyle(element);
     const isGrid = computedStyles.display === 'grid';
+    const isFlex = computedStyles.display === 'flex';
     const parentElement = element.parentElement;
     const parentWindow = parentElement && parentElement.ownerDocument && parentElement.ownerDocument.defaultView
         ? parentElement.ownerDocument.defaultView
         : elementWindow;
     const isGridItem = !!(parentElement && parentWindow.getComputedStyle(parentElement).display === 'grid');
+    const isFlexItem = !!(parentElement && parentWindow.getComputedStyle(parentElement).display === 'flex');
 
     // функция перевода rgb в hex
     const rgbToHex = (rgbStr) => {
@@ -410,6 +412,15 @@ function updatePropertiesPanel(element) {
                 break;
             }
             if (key === 'grid-item' && isGridItem) {
+                isVisible = true;
+                break;
+            }
+            if (key === 'flex' && isFlex) {
+                isVisible = true;
+                break;
+            }
+
+            if (key === 'flex-item' && isFlexItem) {
                 isVisible = true;
                 break;
             }
@@ -1318,7 +1329,55 @@ function hideClassAutocomplete() {
 
 
 /* ===
- * Обработчики событий панели свойств
+* Переключение вкладок свойств элемента
+=== */
+
+// Переменные для вкладок свойств элемента
+const propertyTabButtons = document.querySelectorAll('.propertiesElementTab[data-tab]');
+const propertyTabContents = document.querySelectorAll('[data-tab-content]');
+
+/* ***
+* handlePropertiesTabChange - переключение активной вкладки свойств элемента
+* - принимает имя вкладки
+* - обновляет классы активной вкладки и блока содержимого
+*** */
+function handlePropertiesTabChange(tabName) {
+   const activeTabName = String(tabName || 'main').trim();
+
+   propertyTabButtons.forEach((tabButton) => {
+       const isActive = tabButton.dataset.tab === activeTabName;
+       tabButton.classList.toggle('active', isActive);
+   });
+
+   propertyTabContents.forEach((tabContent) => {
+       const isActive = tabContent.dataset.tabContent === activeTabName;
+       tabContent.classList.toggle('active', isActive);
+   });
+}
+
+/* ***
+* handlePropertiesTabClick - обработчик клика по вкладке свойств элемента
+* - принимает событие клика
+* - активирует требуемую вкладку и скрывает остальные
+*** */
+function handlePropertiesTabClick(event) {
+   const nextTab = event.currentTarget;
+
+   if (!nextTab || !nextTab.dataset.tab) {
+       return;
+   }
+
+   handlePropertiesTabChange(nextTab.dataset.tab);
+}
+
+propertyTabButtons.forEach((tabButton) => {
+   tabButton.addEventListener('click', handlePropertiesTabClick);
+});
+
+handlePropertiesTabChange('main');
+
+/* ===
+* Обработчики событий панели свойств
 === */
 
 // разделяем события input и change чтобы не терять фокус при вводе текста

@@ -110,9 +110,18 @@
 #propertiesElement {
     padding: 0px;
 }
+.propertiesElementTab,
+.tabContent,
+.breakpointSettings {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
 #propertiesElement hr {
-    margin: 20px 0px;
-    width: 100%;
+    margin: 30px 0px;
+}
+#propertiesElement input, #propertiesElement select, #propertiesElement button, #propertiesElement textarea {
+    padding: 2px 4px;
 }
 
 

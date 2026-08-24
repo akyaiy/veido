@@ -368,14 +368,14 @@
             font-size: 18px;
         }
 
-        .propertiesTabs {
+        .propertiesElementTabs {
             display: flex;
             gap: 8px;
             padding: 0 12px 8px;
             background-color: #ffffff;
         }
 
-        .propertiesTab {
+        .propertiesElementTab {
             flex: 1 1 0;
             padding: 8px 10px;
             border: 1px solid #cccccc;
@@ -386,7 +386,7 @@
             cursor: pointer;
         }
 
-        .propertiesTab.active {
+        .propertiesElementTab.active {
             background-color: #ffffff;
             border-bottom-color: #ffffff;
         }
@@ -846,10 +846,10 @@
 
         <div class="propertiesTitle">Свойства</div>
 
-        <div class="propertiesTabs" aria-label="Вкладки свойств">
-            <button class="propertiesTab active" type="button" data-tab="main">Главная</button>
-            <button class="propertiesTab" type="button" data-tab="advanced">Дополнительные</button>
-            <button class="propertiesTab selectedItemTab" type="button" data-tab="selectedItem">Выбранный элемент</button>
+        <div class="propertiesElementTabs" aria-label="Вкладки свойств">
+            <button class="propertiesElementTab active" type="button" data-tab="main">Главная</button>
+            <button class="propertiesElementTab" type="button" data-tab="advanced">Дополнительные</button>
+            <button class="propertiesElementTab selectedItemTab" type="button" data-tab="selectedItem">Выбранный элемент</button>
         </div>
 
         <!-- Основные настройки -->
@@ -3887,7 +3887,7 @@
 
     function setPropertiesTab(tabName) {
         const propertiesPanel = document.querySelector('.properties');
-        const propertyTabs = document.querySelectorAll('.propertiesTab');
+        const propertyTabs = document.querySelectorAll('.propertiesElementTab');
 
         if (!propertiesPanel) {
             return;
@@ -4288,7 +4288,7 @@
     setupAdvancedSubsectionNavigation();
     setupSelectedItemNavigation();
 
-    document.querySelectorAll('.propertiesTab').forEach((tab) => {
+    document.querySelectorAll('.propertiesElementTab').forEach((tab) => {
         tab.addEventListener('click', () => {
             setPropertiesTab(tab.dataset.tab);
         });

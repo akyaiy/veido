@@ -25,7 +25,31 @@
     gap: 2px;
 }
 
+/* Вкладки свойств элемента */
+.propertiesElementTabs {
+    display: flex;
+}
 
+.propertiesElementTab[data-tab] {
+    flex: 1;
+    min-width: 0;
+    padding: 2px 4px;
+    border: 1px solid #ccc;
+    white-space: normal;
+    overflow-wrap: break-word;
+}
+
+.propertiesElementTab[data-tab].active {
+    background-color: #f0f0f0;
+}
+
+.tabContent {
+    display: none;
+}
+
+.tabContent.active {
+    display: flex;
+}
 
 /* Выравнивание по 4 сторонам */
 .marginGrid,
