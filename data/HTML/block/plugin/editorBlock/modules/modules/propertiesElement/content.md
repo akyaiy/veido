@@ -71,7 +71,7 @@
 <div data-target="grid-item">Высота в строках: <input data-prop="gridRowSpan"></div> -->
 
 <!-- Размер экрана -->
-<div class="breakpointSettings">
+<div class="breakpointSettings" data-target="grid flex">
 
 <div>Размер экрана:
     <select data-prop="breakpoint">
@@ -270,18 +270,6 @@
 <div data-target="grid flex">Минимальный отступ: <input data-prop="fluidGapMin" type="number" min="0"></div>
 <div data-target="grid flex">Максимальный отступ: <input data-prop="fluidGapMax" type="number" min="0"></div>
 
-<div data-target="grid flex">
-    Проверка макета:
-    <button type="button" data-action="checkResponsive">Проверить отображение на разных ширинах</button>
-</div>
-
-<div data-target="grid flex">
-    Проверка содержимого:
-    <button type="button" data-action="stressContent">Проверить длинный текст</button>
-</div>
-
-<div data-target="grid flex" data-prop="checkResponsiveResult"></div>
-
 </div>
 
 <!-- Выбранный элемент -->
@@ -375,8 +363,6 @@
 <div data-target="grid-item flex-item">Максимальное количество строк: <input data-prop="textLineClamp" type="number" min="0"></div>
 
 <div data-target="grid-item flex-item">Файл: <input data-prop="mediaSrc" type="text"></div>
-<div data-target="grid-item flex-item">Файлы для разных экранов: <input data-prop="mediaSrcset" type="text" placeholder="480.webp 480w, 800.webp 800w"></div>
-<div data-target="grid-item flex-item">Размер файла для экрана: <input data-prop="mediaSizes" type="text" placeholder="(max-width: 700px) 100vw, 50vw"></div>
 
 <div data-target="grid-item flex-item">Заполнение:
     <select data-prop="mediaFit">
