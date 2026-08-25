@@ -4264,6 +4264,159 @@ propertyTabButtons.forEach(tabButton => {
 
 updatePropertiesTabs(null);
 
+// Элементы основных вкладок свойств и их содержимое
+const propertiesElementTabsMain = document.querySelectorAll('.propertiesElementTabMain');
+const propertiesElementTabContents = document.querySelectorAll('.propertiesElementTabContent');
+const propertiesElementTabsMainContainer = document.querySelector('.propertiesElementTabsMain');
+
+// Текущая открытая вкладка свойств
+let activePropertiesElementTab = '';
+
+/* ***
+ * getPropertiesElementMainAvailability - получение доступности основных вкладок свойств
+ * получает текущий выбранный элемент
+ * проверяет свойства внутри каждой вкладки по data-target
+ * возвращает объект доступности вкладок
+*** */
+function getPropertiesElementMainAvailability() {
+    const element = window.editorBlock ? window.editorBlock.selectedElement : null;
+
+    if (!element) return {};
+
+    const availability = {};
+    const tagName = element.tagName.toLowerCase();
+    const inputType = tagName === 'input' ? (element.getAttribute('type') || 'text').toLowerCase() : '';
+    const elementWindow = element.ownerDocument && element.ownerDocument.defaultView ? element.ownerDocument.defaultView : window;
+    const styles = elementWindow.getComputedStyle(element);
+    const parentElement = element.parentElement;
+    const parentWindow = parentElement && parentElement.ownerDocument && parentElement.ownerDocument.defaultView ? parentElement.ownerDocument.defaultView : elementWindow;
+    const isGrid = styles.display === 'grid';
+    const isFlex = styles.display === 'flex';
+    const isGridItem = !!(parentElement && parentWindow.getComputedStyle(parentElement).display === 'grid');
+    const isFlexItem = !!(parentElement && parentWindow.getComputedStyle(parentElement).display === 'flex');
+
+    propertiesElementTabContents.forEach(content => {
+        const tabName = content.dataset.propertiesTabContent;
+
+        if (!tabName) return;
+
+        availability[tabName] = Array.from(content.querySelectorAll('[data-target]')).some(target => {
+            const targetValue = target.getAttribute('data-target');
+
+            if (!targetValue) return false;
+            if (targetValue === 'all') return true;
+
+            const keys = targetValue.split(' ').map(key => key.trim().toLowerCase());
+
+            for (const key of keys) {
+                if (key === tagName) return true;
+                if (key.startsWith('input:') && tagName === 'input' && key.split(':')[1] === inputType) return true;
+                if (key === 'grid' && isGrid) return true;
+                if (key === 'grid-item' && isGridItem) return true;
+                if (key === 'flex' && isFlex) return true;
+                if (key === 'flex-item' && isFlexItem) return true;
+                if (key === 'block' && ['div', 'section', 'header', 'footer', 'aside', 'main', 'article', 'nav', 'form', 'table'].includes(tagName)) return true;
+                if (key === 'text' && ['span', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'b', 'i', 'strong', 'em'].includes(tagName)) return true;
+                if (key === 'link' && tagName === 'a') return true;
+            }
+
+            return false;
+        });
+    });
+
+    return availability;
+}
+
+/* ***
+ * refreshPropertiesElementTabs - обновление основных вкладок свойств
+ * получает доступность вкладок для текущего элемента
+ * скрывает недоступные вкладки
+ * показывает содержимое активной вкладки
+*** */
+function refreshPropertiesElementTabs() {
+    const availability = getPropertiesElementMainAvailability();
+    const hasActiveTab = !!activePropertiesElementTab && availability[activePropertiesElementTab];
+
+    if (!hasActiveTab) activePropertiesElementTab = '';
+
+    propertiesElementTabsMain.forEach(tab => {
+        const tabName = tab.dataset.propertiesTab;
+        const isAvailable = !!availability[tabName];
+
+        tab.style.display = activePropertiesElementTab ? 'none' : (isAvailable ? '' : 'none');
+        tab.classList.toggle('active', tabName === activePropertiesElementTab);
+    });
+
+    propertiesElementTabContents.forEach(content => {
+        const tabName = content.dataset.propertiesTabContent;
+        const isActive = tabName === activePropertiesElementTab;
+
+        content.style.display = isActive ? 'block' : 'none';
+        content.classList.toggle('active', isActive);
+    });
+
+    propertiesElementTabsBack.style.display = activePropertiesElementTab ? 'block' : 'none';
+}
+
+/* ***
+ * handlePropertiesElementTabClick - обработка нажатия на основную вкладку свойств
+ * принимает объект события
+ * открывает выбранную доступную вкладку
+*** */
+function handlePropertiesElementTabClick(event) {
+    const tab = event.currentTarget;
+    const tabName = tab.dataset.propertiesTab;
+    const availability = getPropertiesElementMainAvailability();
+
+    if (!tabName || !availability[tabName]) return;
+
+    activePropertiesElementTab = tabName;
+    refreshPropertiesElementTabs();
+}
+
+/* ***
+ * handlePropertiesElementTabsBack - обработка возврата к списку вкладок
+ * закрывает текущую вкладку
+ * показывает доступные вкладки текущего элемента
+*** */
+function handlePropertiesElementTabsBack() {
+    activePropertiesElementTab = '';
+    refreshPropertiesElementTabs();
+}
+
+/* ***
+ * handlePropertiesElementSelected - обработка выбора элемента
+ * проверяет доступность текущей вкладки для нового элемента
+ * обновляет основные вкладки свойств
+*** */
+function handlePropertiesElementSelected() {
+    const availability = getPropertiesElementMainAvailability();
+
+    if (activePropertiesElementTab && !availability[activePropertiesElementTab]) activePropertiesElementTab = '';
+
+    refreshPropertiesElementTabs();
+}
+
+// Кнопка возврата к списку основных вкладок
+const propertiesElementTabsBack = document.createElement('button');
+
+propertiesElementTabsBack.className = 'propertiesElementTabsBack';
+propertiesElementTabsBack.textContent = '<';
+propertiesElementTabsBack.style.display = 'none';
+
+if (propertiesElementTabsMainContainer) propertiesElementTabsMainContainer.before(propertiesElementTabsBack);
+
+// Обработчики основных вкладок свойств
+propertiesElementTabsMain.forEach(tab => {
+    tab.addEventListener('click', handlePropertiesElementTabClick);
+});
+
+propertiesElementTabsBack.addEventListener('click', handlePropertiesElementTabsBack);
+document.addEventListener('editorBlock:elementSelected', handlePropertiesElementSelected);
+
+// Инициализация основных вкладок свойств
+refreshPropertiesElementTabs();
+
 
 
 /* ===

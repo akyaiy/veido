@@ -1,4 +1,15 @@
-<!-- Основные -->
+<div class="propertiesElementTabsMain">
+    <div class="propertiesElementTabMain active" data-properties-tab="main">Основные</div>
+    <div class="propertiesElementTabMain" data-properties-tab="grid">Сетка</div>
+    <div class="propertiesElementTabMain" data-properties-tab="advanced">Дополнительные</div>
+    <div class="propertiesElementTabMain" data-properties-tab="special">Особенные</div>
+</div>
+
+
+
+<div class="propertiesElementTabContent active" data-properties-tab-content="main">
+
+<!-- !!!Основные -->
 
 <div class="propertiesElementTab">
 
@@ -19,11 +30,15 @@
 
 <div data-target="div main section article">Подключение блока: <input type="text" data-prop="data-block-src"></div>
 
+</div>
+
+</div>
 
 
-<hr>
 
-<!-- Сетка -->
+<div class="propertiesElementTabContent" data-properties-tab-content="grid">
+
+<!-- !!!Сетка -->
 
 <!-- <div data-target="grid">Изменение колонок:
     <select data-prop="gridMode">
@@ -97,8 +112,6 @@
     <button type="button" data-action="resetBreakpoint">Сбросить изменения</button>
 </div>
 
-</div>
-
 <!-- Вкладки -->
 <div class="propertiesElementTabs">
     <div class="propertiesElementTab active" data-tab="main">Базовые</div>
@@ -109,7 +122,7 @@
 <!-- Главная -->
 <div class="tabContent active" data-tab-content="main">
 
-<div data-target="all">Тип макета:
+<div data-target="grid flex">Тип макета:
     <select data-prop="layoutType">
         <option value="grid">Grid - сетка</option>
         <option value="flex">Flex - ряд или столбец</option>
@@ -391,11 +404,15 @@
 
 </div>
 
+</div>
+
+</div>
 
 
-<hr>
 
-<!-- Дополнительные -->
+<div class="propertiesElementTabContent" data-properties-tab-content="advanced">
+
+<!-- !!!Дополнительные -->
 
 <div data-target="all">Внешние отступы: <div class="marginGrid">
     <div class="col left"><input data-prop="marginLeft" placeholder="Слева"></div>
@@ -446,11 +463,13 @@
 
 </div>
 
+</div>
 
 
-<hr>
 
-<!-- Особенные -->
+<div class="propertiesElementTabContent" data-properties-tab-content="special">
+
+<!-- !!!Особенные -->
 
 <div data-target="input">Текст подсказки: <input type="text" data-prop="inputPlaceholder"></div>
 <div data-target="input">Тип поля: <select data-prop="inputType">
@@ -492,5 +511,9 @@
 <div data-target="input:range">Максимальное значение: <input type="number" step="any" data-prop="rangeMax"></div>
 <div data-target="input:range">Текущее значение: <input type="number" step="any" data-prop="rangeValue"></div>
 <div data-target="progress">Текущее значение: <input type="number" step="any" data-prop="progressValue"></div>
+
+</div>
+
+</div>
 
 </div>
