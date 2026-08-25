@@ -73,7 +73,6 @@ const propertyMap = {
     flexBasis: { type: 'special', action: 'flexBasis' },
     flexGrow: { type: 'style', cssName: 'flexGrow' },
     flexShrink: { type: 'style', cssName: 'flexShrink' },
-    flexAdvancedBasis: { type: 'special', action: 'flexAdvancedBasis' },
     flexSelf: { type: 'style', cssName: 'alignSelf' },
     flexOrder: { type: 'style', cssName: 'order' },
     itemMinWidth: { type: 'style', cssName: 'minWidth', isNumeric: true },
@@ -308,7 +307,6 @@ const layoutLiveProperties = new Set([
     'flexAdvancedGap',
     'flexGrow',
     'flexShrink',
-    'flexAdvancedBasis',
     'flexOrder'
 ]);
 
@@ -1719,7 +1717,6 @@ function refreshRelevantControlVisibility(element) {
     const isFixedFlexItem = isFlexItem && flexSizeMode === 'fixed';
 
     setPropertyRowVisible('flexBasis', isFixedFlexItem);
-    setPropertyRowVisible('flexAdvancedBasis', isFixedFlexItem);
 
     setPropertyRowVisible('fluidGapMin', !!(fluidGapEnabled && fluidGapEnabled.checked));
     setPropertyRowVisible('fluidGapMax', !!(fluidGapEnabled && fluidGapEnabled.checked));
@@ -3127,8 +3124,6 @@ function updatePropertiesPanel(element) {
             finalValue = getFlexItemSize(element, computedStyles);
         } else if (config.type === 'special' && config.action === 'flexBasis') {
             finalValue = parseFloat(computedStyles.flexBasis) || 0;
-        } else if (config.type === 'special' && config.action === 'flexAdvancedBasis') {
-            finalValue = parseFloat(computedStyles.flexBasis) || 0;
         } else if (config.type === 'special' && config.action === 'tableDimensions' && tagName === 'table') {
             if (prop === 'tableRows') {
                 finalValue = element.querySelectorAll('tr').length;
@@ -3581,16 +3576,6 @@ function applyPropertyToElement(element, propertyName, rawValue, targetProperty 
         } else {
             element.style.flexBasis = `${basis}px`;
         }
-
-        markBlockDirty(element);
-
-        return;
-    }
-
-    if (config.type === 'special' && config.action === 'flexAdvancedBasis') {
-        const basis = Math.max(0, parseInt(value, 10) || 0);
-
-        element.style.flexBasis = basis > 0 ? `${basis}px` : 'auto';
 
         markBlockDirty(element);
 

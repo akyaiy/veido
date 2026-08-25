@@ -70,12 +70,12 @@
 <div data-target="grid-item">Ширина в колонках: <input data-prop="gridColumnSpan"></div>
 <div data-target="grid-item">Высота в строках: <input data-prop="gridRowSpan"></div> -->
 
-<!-- Размер экрана -->
+<!-- Диапазон экрана -->
 <div class="breakpointSettings" data-target="grid flex">
 
-<div>Размер экрана:
+<div>Диапазон экрана:
     <select data-prop="breakpoint">
-        <option value="all">Все размеры</option>
+        <option value="all">Все диапазоны</option>
         <option value="preset-mobile">Телефон 0-640</option>
         <option value="preset-tablet">Планшет 641-1024</option>
         <option value="preset-desktop">Компьютер 1025+</option>
@@ -83,9 +83,9 @@
     <button type="button" data-action="addBreakpoint">+</button>
 </div>
 
-<div data-breakpoint-edit>От ширины: <input data-prop="breakpointStart" type="number" min="0"></div>
-<div data-breakpoint-edit>До ширины: <input data-prop="breakpointEnd" type="number" min="0"></div>
-<div data-breakpoint-edit>Название: <input data-prop="breakpointName" type="text"></div>
+<div data-breakpoint-edit>Начало диапазона: <input data-prop="breakpointStart" type="number" min="0"></div>
+<div data-breakpoint-edit>Конец диапазона: <input data-prop="breakpointEnd" type="number" min="0"></div>
+<div data-breakpoint-edit>Название диапазона: <input data-prop="breakpointName" type="text"></div>
 
 <div data-breakpoint-edit>
     <button type="button" data-action="duplicateBreakpoint">Дублировать</button>
@@ -101,8 +101,8 @@
 
 <!-- Вкладки -->
 <div class="propertiesElementTabs">
-    <div class="propertiesElementTab active" data-tab="main">Главная</div>
-    <div class="propertiesElementTab" data-tab="advanced">Дополнительные</div>
+    <div class="propertiesElementTab active" data-tab="main">Базовые</div>
+    <div class="propertiesElementTab" data-tab="advanced">Расширенные</div>
     <div class="propertiesElementTab" data-tab="selectedItem">Выбранный элемент</div>
 </div>
 
@@ -154,7 +154,7 @@
 <div data-target="flex">Отступ между элементами: <input data-prop="flexGap" type="number" min="0"></div>
 <div data-target="flex">Переносить элементы: <input data-prop="flexWrap" type="checkbox"></div>
 
-<div data-target="flex">По основной оси:
+<div data-target="flex">Расположение по направлению:
     <select data-prop="flexJustify">
         <option value="flex-start">В начале</option>
         <option value="center">По центру</option>
@@ -165,7 +165,7 @@
     </select>
 </div>
 
-<div data-target="flex">По поперечной оси:
+<div data-target="flex">Выравнивание элементов:
     <select data-prop="flexAlign">
         <option value="stretch">Растянуть</option>
         <option value="flex-start">В начале</option>
@@ -179,7 +179,7 @@
 <!-- Дополнительные -->
 <div class="tabContent" data-tab-content="advanced">
 
-<div data-target="grid">Подбирать колонки автоматически: <input data-prop="gridAutoFit" type="checkbox"></div>
+<div data-target="grid">Подстраивать колонки под ширину: <input data-prop="gridAutoFit" type="checkbox"></div>
 <div data-target="grid">Минимальная ширина колонки: <input data-prop="gridMinWidth" type="number" min="1"></div>
 <div data-target="grid" style="display: none;">Обычная ширина колонки: <input data-prop="gridNormalWidth" type="number" min="1"></div>
 <div data-target="grid">Максимальная ширина колонки: <input data-prop="gridMaxWidth" type="number" min="1"></div>
@@ -205,16 +205,16 @@
 <div data-target="grid">Отступ между строками: <input data-prop="rowGap" type="number" min="0"></div>
 <div data-target="grid">Отступ от краёв: <input data-prop="gridPadding" type="number" min="0"></div>
 
-<div data-target="grid">Порядок заполнения:
+<div data-target="grid">Как добавлять элементы:
     <select data-prop="autoFlow">
-        <option value="row">По строкам</option>
-        <option value="column">По колонкам</option>
-        <option value="row dense">По строкам без пустот</option>
-        <option value="column dense">По колонкам без пустот</option>
+        <option value="row">Слева направо</option>
+        <option value="column">Сверху вниз</option>
+        <option value="row dense">Слева направо без пустот</option>
+        <option value="column dense">Сверху вниз без пустот</option>
     </select>
 </div>
 
-<div data-target="flex">Направление:
+<div data-target="flex">Расположение элементов:
     <select data-prop="flexAdvancedDirection">
         <option value="row">Слева направо</option>
         <option value="column">Сверху вниз</option>
@@ -223,17 +223,17 @@
     </select>
 </div>
 
-<div data-target="flex">Перенос элементов:
+<div data-target="flex">Перенос элементов по строкам:
     <select data-prop="flexAdvancedWrap">
         <option value="nowrap">Не переносить</option>
         <option value="wrap">Переносить</option>
-        <option value="wrap-reverse">Перенос наоборот</option>
+        <option value="wrap-reverse">Переносить в обратную сторону</option>
     </select>
 </div>
 
 <div data-target="flex">Отступ между элементами: <input data-prop="flexAdvancedGap" type="number" min="0"></div>
 
-<div data-target="flex">Несколько строк:
+<div data-target="flex">Расположение строк:
     <select data-prop="flexAlignContent">
         <option value="stretch">Растянуть</option>
         <option value="flex-start">В начале</option>
@@ -245,7 +245,7 @@
     </select>
 </div>
 
-<div data-target="flex">По основной оси:
+<div data-target="flex">Расположение элементов:
     <select data-prop="flexAdvancedJustify">
         <option value="flex-start">В начале</option>
         <option value="center">По центру</option>
@@ -256,7 +256,7 @@
     </select>
 </div>
 
-<div data-target="flex">По поперечной оси:
+<div data-target="flex">Выравнивание элементов:
     <select data-prop="flexAdvancedAlign">
         <option value="stretch">Растянуть</option>
         <option value="flex-start">В начале</option>
@@ -308,10 +308,9 @@
     </select>
 </div>
 
-<div data-target="flex-item">Заданный размер: <input data-prop="flexBasis" type="number" min="0"></div>
-<div data-target="flex-item">Расширение: <input data-prop="flexGrow" type="number" min="0"></div>
-<div data-target="flex-item">Сжатие: <input data-prop="flexShrink" type="number" min="0"></div>
-<div data-target="flex-item">Начальный размер: <input data-prop="flexAdvancedBasis" type="number" min="0"></div>
+<div data-target="flex-item">Базовый размер: <input data-prop="flexBasis" type="number" min="0"></div>
+<div data-target="flex-item">Насколько увеличивать: <input data-prop="flexGrow" type="number" min="0"></div>
+<div data-target="flex-item">Насколько уменьшать: <input data-prop="flexShrink" type="number" min="0"></div>
 
 <div data-target="flex-item">Выравнивание элемента:
     <select data-prop="flexSelf">
@@ -323,11 +322,11 @@
     </select>
 </div>
 
-<div data-target="flex-item">Порядок элемента: <input data-prop="flexOrder" type="number"></div>
+<div data-target="flex-item">Позиция элемента: <input data-prop="flexOrder" type="number"></div>
 
-<div data-target="grid-item flex-item">Форма блока:
+<div data-target="grid-item flex-item">Соотношение сторон:
     <select data-prop="itemAspectRatio">
-        <option value="">Нет</option>
+        <option value="">Авто</option>
         <option value="1 / 1">1:1</option>
         <option value="4 / 3">4:3</option>
         <option value="16 / 9">16:9</option>
@@ -345,7 +344,7 @@
 
 <div data-target="grid-item flex-item">Перенос текста:
     <select data-prop="textWrapMode">
-        <option value="">Обычный</option>
+        <option value="">По умолчанию</option>
         <option value="anywhere">Разрывать слова</option>
         <option value="nowrap">Не переносить</option>
     </select>
@@ -362,33 +361,24 @@
 
 <div data-target="grid-item flex-item">Максимальное количество строк: <input data-prop="textLineClamp" type="number" min="0"></div>
 
-<div data-target="grid-item flex-item">Файл: <input data-prop="mediaSrc" type="text"></div>
+<div data-target="grid-item flex-item">Путь к файлу: <input data-prop="mediaSrc" type="text"></div>
 
-<div data-target="grid-item flex-item">Заполнение:
+<div data-target="grid-item flex-item">Отображение файла:
     <select data-prop="mediaFit">
-        <option value="">По умолчанию</option>
+        <option value="">Авто</option>
         <option value="cover">Заполнить с обрезкой</option>
-        <option value="contain">Вместить целиком</option>
+        <option value="contain">Показать целиком</option>
         <option value="fill">Растянуть</option>
         <option value="none">Исходный размер</option>
     </select>
 </div>
 
-<div data-target="grid-item flex-item">Загрузка:
-    <select data-prop="mediaLoading">
-        <option value="">По умолчанию</option>
-        <option value="lazy">При появлении рядом с экраном</option>
-        <option value="eager">Сразу</option>
-    </select>
-</div>
-
-<div data-target="grid-item flex-item">Изменять при ширине родителя меньше: <input data-prop="containerRuleEnabled" type="checkbox"></div>
-<div data-target="grid-item flex-item">Ширина родителя до: <input data-prop="containerRuleWidth" type="number" min="1"></div>
-
-<div data-target="grid-item flex-item">Что изменить:
+<div data-target="grid-item flex-item">Менять при уменьшении родителя: <input data-prop="containerRuleEnabled" type="checkbox"></div>
+<div data-target="grid-item flex-item">Ширина родителя меньше: <input data-prop="containerRuleWidth" type="number" min="1"></div>
+<div data-target="grid-item flex-item">Изменение:
     <select data-prop="containerRuleAction">
-        <option value="column">Сделать столбцом</option>
-        <option value="wrap">Разрешить перенос</option>
+        <option value="column">Расположить вертикально</option>
+        <option value="wrap">Переносить элементы</option>
         <option value="hide">Скрыть элемент</option>
     </select>
 </div>
