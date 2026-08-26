@@ -29,7 +29,8 @@
 /* Области редакторов */
 #viewEditor,
 #mdEditor,
-#jsEditor {
+#jsEditor,
+#cssEditorText {
     flex: 1;
     box-sizing: border-box;
     min-height: 0;

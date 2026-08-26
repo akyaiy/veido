@@ -33,14 +33,15 @@ async function loadEditorBlock() {
         'rightPanelTabs',
         'propertiesText',
         'eventsEditor',
-        'attributesElement',
+        // 'attributesElement',
         'propertiesElement',
-        'cssEditor',
+        // 'cssEditor',
         'treeElements',
 
         'viewEditor',
         'viewEditorMenu',
         'mdEditor',
+        'cssEditorText',
         'jsEditor'
     ];
 

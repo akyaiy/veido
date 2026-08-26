@@ -277,6 +277,7 @@ function closeBlockTab(blockId) {
         const viewEditorContent = document.getElementById('viewEditorContent');
         const mdEditorContent = document.getElementById('mdEditorContent');
         const jsEditorContent = document.getElementById('jsEditorContent');
+        const cssEditorContent = document.getElementById('cssEditorContent');
         if (viewEditorContent) {
             // Сохраняем ручку изменения размера перед очисткой содержимого
             (function preserveResizeHandleClear(container) {
@@ -293,6 +294,7 @@ function closeBlockTab(blockId) {
         }
         if (mdEditorContent) mdEditorContent.textContent = '';
         if (jsEditorContent) jsEditorContent.textContent = '';
+        if (cssEditorContent) cssEditorContent.textContent = '';
     }
 }
 
@@ -415,7 +417,7 @@ function createViewEditorIframe(htmlContent, cssContent) {
 
     iframe.srcdoc = `<!DOCTYPE html> 
 <html style="background-color: #ffffff; width: stretch; height: stretch;">
-<head><meta charset="utf-8"><style> ${safeCss} </style></head>
+<head><meta charset="utf-8"><style data-editor-block-style="true"> ${safeCss} </style></head>
 <body contenteditable="true" spellcheck="false" style="width: stretch; height: stretch;"> ${renderedHtml} </body>
 </html>`;
 
@@ -813,6 +815,7 @@ function openLoadedBlock(blockId) {
     const viewEditorContent = document.getElementById('viewEditorContent');
     const mdEditorContent = document.getElementById('mdEditorContent');
     const jsEditorContent = document.getElementById('jsEditorContent');
+    const cssEditorContent = document.getElementById('cssEditorContent');
 
     // Получение содержимого блока
     const blockContent = getLoadedBlockContent(blockId);
@@ -835,6 +838,10 @@ function openLoadedBlock(blockId) {
 
     if (jsEditorContent) {
         jsEditorContent.textContent = jsContent;
+    }
+
+    if (cssEditorContent) {
+        cssEditorContent.textContent = cssContent;
     }
 
     // Обновление текущего активного блока
@@ -909,8 +916,10 @@ function savePreviousBlock(currentBlockId) {
 
     // Контейнеры для содержимого редакторов
     const htmlDiv = document.getElementById(currentBlockId + 'Html');
+    const cssDiv = document.getElementById(currentBlockId + 'Css');
     const jsDiv = document.getElementById(currentBlockId + 'Js');
     const mdEditorContent = document.getElementById('mdEditorContent');
+    const cssEditorContent = document.getElementById('cssEditorContent');
     const viewEditorContent = document.getElementById('viewEditorContent');
     const jsEditorContent = document.getElementById('jsEditorContent');
 
@@ -945,6 +954,13 @@ function savePreviousBlock(currentBlockId) {
         }
     }
 
+    if (cssDiv && cssEditorContent) {
+        const cssText = ('value' in cssEditorContent) ? cssEditorContent.value : cssEditorContent.textContent;
+        if (cssText && cssText.trim() !== '') {
+            cssDiv.textContent = cssText;
+        }
+    }
+
     if (jsDiv && jsEditorContent) {
         const jsText = ('value' in jsEditorContent) ? jsEditorContent.value : jsEditorContent.textContent;
         if (jsText && jsText.trim() !== '') {
@@ -972,13 +988,16 @@ function saveBlock() {
     const mdEditorContent = document.getElementById('mdEditorContent');
     const jsEditorContent = document.getElementById('jsEditorContent');
 
-    if (!viewEditorContent || !mdEditorContent || !jsEditorContent) {
+    const cssEditorContent = document.getElementById('cssEditorContent');
+
+    if (!viewEditorContent || !mdEditorContent || !jsEditorContent || !cssEditorContent) {
         return '';
     }
 
     return JSON.stringify({
         html: viewEditorContent.innerHTML,
         md: mdEditorContent.textContent,
+        css: cssEditorContent.textContent,
         js: jsEditorContent.textContent,
         blockId: currentBlockId
     });
@@ -1030,11 +1049,13 @@ document.addEventListener('editorBlock:loaded', () => {
     // Редакторы
     const viewEditor = document.getElementById('viewEditor');
     const mdEditor = document.getElementById('mdEditor');
+    const cssEditorText = document.getElementById('cssEditorText');
     const jsEditor = document.getElementById('jsEditor');
 
     // Контейнеры для содержимого редакторов
     const viewEditorContent = document.getElementById('viewEditorContent');
     const mdEditorContent = document.getElementById('mdEditorContent');
+    const cssEditorContent = document.getElementById('cssEditorContent');
     const jsEditorContent = document.getElementById('jsEditorContent');
 
     // Добавление обработчиков кликов для редакторов
@@ -1054,6 +1075,16 @@ document.addEventListener('editorBlock:loaded', () => {
         focusEditor(mdEditorContent);
     });
     
+    if (cssEditorText) {
+        cssEditorText.addEventListener('click', event => {
+            if (event.target !== event.currentTarget) {
+                return;
+            }
+
+            focusEditor(cssEditorContent);
+        });
+    }
+
     jsEditor.addEventListener('click', event => {
         if (event.target !== event.currentTarget) {
             return;
@@ -1072,21 +1103,31 @@ function syncEditors() {
     const activeEditor = document.querySelector('#viewBlock > .active');
 
     const mdEditorContent = document.getElementById('mdEditorContent');
+    const cssEditorContent = document.getElementById('cssEditorContent');
     const viewEditorContent = document.getElementById('viewEditorContent');
     const iframe = viewEditorContent ? viewEditorContent.querySelector('iframe') : null;
     const iframeDoc = iframe ? (iframe.contentDocument || iframe.contentWindow?.document) : null;
     const iframeBody = iframeDoc ? iframeDoc.body : null;
+    const iframeStyle = iframeDoc ? iframeDoc.querySelector('style[data-editor-block-style="true"]') : null;
+
+    if (!activeEditor) {
+        return;
+    }
 
     if (activeEditor.id === 'viewEditor') {
-        if (iframeBody) {
+        if (iframeBody && mdEditorContent) {
             mdEditorContent.textContent = iframeBody.innerHTML;
-        } else if (viewEditorContent) {
+        } else if (viewEditorContent && mdEditorContent) {
             mdEditorContent.textContent = viewEditorContent.innerHTML;
         }
+
+        if (iframeStyle && cssEditorContent) {
+            cssEditorContent.textContent = iframeStyle.textContent;
+        }
     } else if (activeEditor.id === 'mdEditor') {
-        if (iframeBody) {
+        if (iframeBody && mdEditorContent) {
             iframeBody.innerHTML = mdEditorContent.textContent;
-        } else if (viewEditorContent) {
+        } else if (viewEditorContent && mdEditorContent) {
             // Сохраняем ручку изменения размера перед перезаписью содержимого
             (function preserveResizeHandleSet(container, html) {
                 const handle = container.querySelector('#viewEditorResizeHandle');
@@ -1094,6 +1135,10 @@ function syncEditors() {
                 container.innerHTML = html || '';
                 if (handle) container.appendChild(handle);
             })(viewEditorContent, mdEditorContent.textContent);
+        }
+    } else if (activeEditor.id === 'cssEditorText') {
+        if (iframeStyle && cssEditorContent) {
+            iframeStyle.textContent = cssEditorContent.textContent;
         }
     }
 }
@@ -1106,6 +1151,7 @@ document.addEventListener('editorBlock:loaded', () => {
 
     // Контейнеры для содержимого редакторов
     const mdEditorContent = document.getElementById('mdEditorContent');
+    const cssEditorContent = document.getElementById('cssEditorContent');
     const viewEditorContent = document.getElementById('viewEditorContent');
 
     // Добавление обработчиков ввода для синхронизации между редакторами
@@ -1115,6 +1161,11 @@ document.addEventListener('editorBlock:loaded', () => {
     mdEditorContent.addEventListener('input', () => {
         syncEditors();
     });
+    if (cssEditorContent) {
+        cssEditorContent.addEventListener('input', () => {
+            syncEditors();
+        });
+    }
 
     // Добавление ResizeObserver для отслеживания изменений размеров viewEditorContent
     const ro = new ResizeObserver(entries => {
@@ -1825,7 +1876,7 @@ function isBlockActive() {
 function setEditorReadOnlyState(readOnly) {
 
     // Редакторы
-    const editors = ['viewEditorContent', 'mdEditorContent', 'jsEditorContent'];
+    const editors = ['viewEditorContent', 'mdEditorContent', 'cssEditorContent', 'jsEditorContent'];
 
     editors.forEach(id => {
         const editor = document.getElementById(id);
@@ -1869,7 +1920,7 @@ function blockEditorSelection(event) {
 
     if (
         target !== null &&
-        target.closest('#viewEditorContent, #mdEditorContent, #jsEditorContent')
+        target.closest('#viewEditorContent, #mdEditorContent, #cssEditorContent, #jsEditorContent')
     ) {
         event.preventDefault();
         event.stopPropagation();
