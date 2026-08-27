@@ -680,6 +680,28 @@ function initViewEditorHistory(iframe) {
 function initViewEditorInputEvents(iframe, iframeDoc) {
     const inputTarget = iframeDoc.body || iframeDoc.documentElement;
 
+    // Обработчик события selectionchange для обновления выбранного элемента и вкладок свойств
+    iframeDoc.addEventListener('selectionchange', () => {
+        const selection = iframeDoc.getSelection();
+
+        if (selection && !selection.isCollapsed) {
+            window.editorBlock.selectedElement = selection.anchorNode.parentElement;
+            window.editorBlock.refreshPropertiesElementTabs();
+        }
+    });
+
+    // Обработчик события mouseup для обновления выбранного элемента и вкладок свойств
+    iframeDoc.addEventListener('mouseup', () => {
+        setTimeout(() => {
+            const sel = iframeDoc.getSelection();
+
+            if (sel && !sel.isCollapsed) {
+                window.editorBlock.selectedElement = sel.anchorNode && sel.anchorNode.parentElement ? sel.anchorNode.parentElement : window.editorBlock.selectedElement;
+                window.editorBlock.refreshPropertiesElementTabs();
+            }
+        }, 0);
+    });
+
     inputTarget.addEventListener('input', () => {
         syncEditors();
         showViewEditorEmptyState();
@@ -1559,23 +1581,34 @@ function handleVisualEditorClick(event) {
         return null;
     }
 
-    // Проверяем, попал ли клик внутрь выделенного текста
+    // Проверяем, выделен ли текст
     const eventWindow = (event.view && event.view !== window)
         ? event.view
         : (event.target && event.target.ownerDocument && event.target.ownerDocument.defaultView)
             ? event.target.ownerDocument.defaultView
             : window;
     const selection = eventWindow.getSelection ? eventWindow.getSelection() : null;
-    const activeRange = (selection && !selection.isCollapsed)
-        ? selection.getRangeAt(0)
-        : textSelectionRangeBeforeClick;
 
-    if (activeRange && activeRange.intersectsNode(target)) {
+    if (selection && !selection.isCollapsed && selection.toString().trim()) {
+        window.editorBlock.selectedElement = selection.anchorNode.nodeType === Node.TEXT_NODE
+            ? selection.anchorNode.parentElement
+            : selection.anchorNode;
+
         clearElementHighlight();
         lastHighlightedElement = null;
         textSelectionRangeBeforeClick = null;
+
+        window.editorBlock.refreshPropertiesElementTabs();
+
         return null;
     }
+
+    // Сбрасываем старое выделение текста при выборе элемента
+    if (selection && !selection.isCollapsed) {
+        selection.removeAllRanges();
+    }
+
+    textSelectionRangeBeforeClick = null;
 
     const elementToHighlight = resolveHighlightTarget(target);
 

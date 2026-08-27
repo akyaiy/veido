@@ -1,6 +1,7 @@
 <div class="propertiesElementTabsMain">
     <div class="propertiesElementTabMain active" data-properties-tab="main">Основные</div>
     <div class="propertiesElementTabMain" data-properties-tab="grid">Сетка</div>
+    <div class="propertiesElementTabMain" data-properties-tab="text">Текст</div>
     <div class="propertiesElementTabMain" data-properties-tab="advanced">Дополнительные</div>
     <div class="propertiesElementTabMain" data-properties-tab="special">Особенные</div>
 </div>

@@ -9,8 +9,7 @@
 
 <!-- Вкладки свойств -->
 <div class="subTabsHeader" data-tab-head="propertiesElement">
-    <div class="subTabBtn active" data-tab-btn="propertiesText">Текст</div>
-    <div class="subTabBtn" data-tab-btn="propertiesElement">Свойства</div>
+    <div class="subTabBtn active" data-tab-btn="propertiesElement">Свойства</div>
     <div class="subTabBtn" data-tab-btn="eventsEditor">События</div>
 </div>
 

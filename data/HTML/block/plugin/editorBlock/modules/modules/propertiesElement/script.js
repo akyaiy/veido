@@ -4295,6 +4295,9 @@ function getPropertiesElementMainAvailability() {
     const isGridItem = !!(parentElement && parentWindow.getComputedStyle(parentElement).display === 'grid');
     const isFlexItem = !!(parentElement && parentWindow.getComputedStyle(parentElement).display === 'flex');
 
+    const selection = element.ownerDocument.getSelection();
+    const hasTextSelection = !!(selection && !selection.isCollapsed && selection.toString().trim());
+
     propertiesElementTabContents.forEach(content => {
         const tabName = content.dataset.propertiesTabContent;
 
@@ -4323,6 +4326,16 @@ function getPropertiesElementMainAvailability() {
             return false;
         });
     });
+
+    if (hasTextSelection) {
+        Object.keys(availability).forEach(tabName => {
+            availability[tabName] = false;
+        });
+
+        availability.text = true;
+    } else {
+        availability.text = false;
+    }
 
     return availability;
 }
@@ -4355,8 +4368,39 @@ function refreshPropertiesElementTabs() {
         content.classList.toggle('active', isActive);
     });
 
+    // Если выбрана вкладка "text" — показываем существующий внешний блок #propertiesText
+    if (activePropertiesElementTab === 'text') {
+        // Скрыть все панели правой панели кроме заголовка
+        document.querySelectorAll('#rightPanel > div:not(#rightPanelTabs)').forEach(panel => {
+            panel.style.display = 'none';
+        });
+
+        const textPanel = document.getElementById('propertiesText');
+        if (textPanel) {
+            textPanel.style.display = '';
+        }
+
+        // Спрячем сам контейнер propertiesElement чтобы не дублировать
+        const selfPanel = document.getElementById('propertiesElement');
+        if (selfPanel) {
+            selfPanel.style.display = 'none';
+        }
+    } else {
+        // По умолчанию показываем панель свойств элемента и скрываем propertiesText
+        const selfPanel = document.getElementById('propertiesElement');
+        if (selfPanel) {
+            selfPanel.style.display = '';
+        }
+
+        const textPanel = document.getElementById('propertiesText');
+        if (textPanel) {
+            textPanel.style.display = 'none';
+        }
+    }
+
     propertiesElementTabsBack.style.display = activePropertiesElementTab ? 'block' : 'none';
 }
+window.editorBlock.refreshPropertiesElementTabs = refreshPropertiesElementTabs;
 
 /* ***
  * handlePropertiesElementTabClick - обработка нажатия на основную вкладку свойств
