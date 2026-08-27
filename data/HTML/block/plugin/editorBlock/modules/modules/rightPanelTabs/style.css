@@ -1,4 +1,8 @@
 /* Основные стили для вкладок правой панели */
+#rightPanelTabs {
+    position: relative;
+}
+
 #rightPanelTabs .active {
     background-color: #f0f0f0;
     border-bottom: 3px solid #ccc;
@@ -10,9 +14,14 @@
 #rightPanelTabsMain {
     display: flex;
     width: 100%;
-    overflow: auto;
+    overflow-x: auto;
+    overflow-y: hidden;
     scrollbar-width: thin;
     font-size: 0.85rem;
+}
+
+#rightPanelTabsMain:not(:has(.rightPanelTab:not(.rightPanelTabAdd))) .rightPanelTabAdd {
+    flex: 1 1 0;
 }
 
 .rightPanelTab {
@@ -45,4 +54,38 @@
     border-bottom: 1px solid #ccc;
     text-align: center;
     white-space: nowrap;
+}
+
+
+
+/* Кнопка добавления вкладки */
+.rightPanelTabAdd {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 24px;
+}
+
+#rightPanelTabsAddMenu {
+    font-size: 0.85rem;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background-color: #ffffff;
+    border: 1px solid #ccc;
+    z-index: 10;
+}
+
+#rightPanelTabsAddMenu div {
+    padding: 3px 8px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+#rightPanelTabsMain {
+    position: relative;
+}
+
+.rightPanelTabClose {
+    margin-left: 5px;
+    cursor: pointer;
 }
