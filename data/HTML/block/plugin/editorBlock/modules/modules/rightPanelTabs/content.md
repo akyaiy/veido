@@ -1,17 +1,17 @@
 <!-- Переключатель вкладок правой панели -->
 <div id="rightPanelTabsMain">
-    <div class="rightPanelTab active" right-panel-tab="propertiesElement">Элемент</div>
+    <!-- <div class="rightPanelTab active" right-panel-tab="propertiesElement">Элемент</div> -->
+    <div class="rightPanelTab active" right-panel-tab="propertiesElement">Свойства</div>
+    <div class="rightPanelTab" right-panel-tab="eventsEditor">События</div>
     <div class="rightPanelTab" right-panel-tab="treeElements">Древо</div>
     <!-- <div class="rightPanelTab" right-panel-tab="code">Код</div> -->
 </div>
 
-
-
 <!-- Вкладки свойств -->
-<div class="subTabsHeader" data-tab-head="propertiesElement">
+<!-- <div class="subTabsHeader" data-tab-head="propertiesElement">
     <div class="subTabBtn active" data-tab-btn="propertiesElement">Свойства</div>
     <div class="subTabBtn" data-tab-btn="eventsEditor">События</div>
-</div>
+</div> -->
 
 <!-- Вкладки кода -->
 <!-- <div class="subTabsHeader" data-tab-head="code" style="display: none;">
