@@ -413,7 +413,11 @@ function createViewEditorIframe(htmlContent, cssContent) {
         typographer: true
     });
     const normalizedHtml = normalizeViewEditorHtml(htmlContent);
-    const renderedHtml = md.render(normalizedHtml);
+
+    const isHtml = /<\/?[a-z][\s\S]*>/i.test(normalizedHtml);
+    const renderedHtml = isHtml
+        ? normalizedHtml
+        : md.render(normalizedHtml);
 
     iframe.srcdoc = `<!DOCTYPE html> 
 <html style="background-color: #ffffff; width: stretch; height: stretch;">
