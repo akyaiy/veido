@@ -38,8 +38,8 @@ function initPreviewResize() {
     let startHeight = 0;
 
     const minSize = 20;
-    let lastWidth = 0;
-    let lastHeight = 0;
+    let resizeFactorX = 2;
+    let resizeFactorY = 2;
 
     /* ***
      * getCurrentZoom - получение текущего масштаба элемента
@@ -77,19 +77,9 @@ function initPreviewResize() {
             window.editorBlock.saveViewEditorSettings();
         }
 
-        const widthInput = document.getElementById('viewEditorWidthInput');
-        const heightInput = document.getElementById('viewEditorHeightInput');
-        const currentMinWidth = getMinSize(widthInput, viewEditorContent.dataset.viewEditorWidth || viewEditorContent.style.width);
-        const currentMinHeight = getMinSize(heightInput, viewEditorContent.dataset.viewEditorHeight || viewEditorContent.style.height);
-        const iframeElement = document.getElementById('viewEditorIframe');
-        const iframeWidth = iframeElement ? iframeElement.offsetWidth : viewEditorContent.offsetWidth;
-        const iframeHeight = iframeElement ? iframeElement.offsetHeight : viewEditorContent.offsetHeight;
-        const hasRightDarkening = iframeWidth - currentMinWidth > 0 && currentMinWidth > 0;
-        const hasBottomDarkening = iframeHeight - currentMinHeight > 0 && currentMinHeight > 0;
-
         const zoom = getCurrentZoom(viewEditorContent);
-        const deltaX = (event.clientX - startX) / zoom * (hasRightDarkening ? 1 : 2);
-        const deltaY = (event.clientY - startY) / zoom * (hasBottomDarkening ? 1 : 2);
+        const deltaX = (event.clientX - startX) / zoom * resizeFactorX * 2;
+        const deltaY = (event.clientY - startY) / zoom * resizeFactorY;
 
         let nextWidth = Math.max(minSize, Math.round(startWidth + deltaX));
         let nextHeight = Math.max(minSize, Math.round(startHeight + deltaY));
@@ -128,6 +118,7 @@ function initPreviewResize() {
     *** */
     const onMouseUp = () => {
         isResizing = false;
+        viewEditorContent.dataset.isResizing = 'false';
         document.body.style.userSelect = '';
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
@@ -163,7 +154,21 @@ function initPreviewResize() {
         const handleRect = resizeHandle.getBoundingClientRect();
         const zoom = getCurrentZoom(viewEditorContent);
 
+        const widthInput = document.getElementById('viewEditorWidthInput');
+        const heightInput = document.getElementById('viewEditorHeightInput');
+        const iframeElement = document.getElementById('viewEditorIframe');
+
+        const currentMinWidth = getMinSize(widthInput, viewEditorContent.dataset.viewEditorWidth || viewEditorContent.style.width);
+        const currentMinHeight = getMinSize(heightInput, viewEditorContent.dataset.viewEditorHeight || viewEditorContent.style.height);
+
+        const iframeWidth = iframeElement ? iframeElement.offsetWidth : viewEditorContent.offsetWidth;
+        const iframeHeight = iframeElement ? iframeElement.offsetHeight : viewEditorContent.offsetHeight;
+
+        resizeFactorX = iframeWidth > currentMinWidth && currentMinWidth > 0 ? 1 : 2;
+        resizeFactorY = iframeHeight > currentMinHeight && currentMinHeight > 0 ? 1 : 2;
+
         isResizing = true;
+        viewEditorContent.dataset.isResizing = 'true';
         startX = handleRect.right;
         startY = handleRect.bottom;
         startWidth = (handleRect.right - contentRect.left) / zoom;
