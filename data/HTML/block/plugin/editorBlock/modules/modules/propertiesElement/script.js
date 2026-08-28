@@ -4348,9 +4348,11 @@ function getPropertiesElementMainAvailability() {
 *** */
 function refreshPropertiesElementTabs() {
     const availability = getPropertiesElementMainAvailability();
-    const hasActiveTab = !!activePropertiesElementTab && availability[activePropertiesElementTab];
 
-    if (!hasActiveTab) activePropertiesElementTab = '';
+    // Закрытие вкладки при выделении текста
+    if (availability.text && activePropertiesElementTab !== 'text') {
+        activePropertiesElementTab = '';
+    }
 
     propertiesElementTabsMain.forEach(tab => {
         const tabName = tab.dataset.propertiesTab;
@@ -4434,10 +4436,21 @@ function handlePropertiesElementTabsBack() {
  * обновляет основные вкладки свойств
 *** */
 function handlePropertiesElementSelected() {
+    const element = window.editorBlock ? window.editorBlock.selectedElement : null;
+
+    // Пропуск временного снятия выделения
+    if (!element) {
+        return;
+    }
+
     const availability = getPropertiesElementMainAvailability();
 
-    if (activePropertiesElementTab && !availability[activePropertiesElementTab]) activePropertiesElementTab = '';
+    // Проверка доступности текущей вкладки
+    if (activePropertiesElementTab && !availability[activePropertiesElementTab]) {
+        activePropertiesElementTab = '';
+    }
 
+    // Обновление вкладок свойств
     refreshPropertiesElementTabs();
 }
 

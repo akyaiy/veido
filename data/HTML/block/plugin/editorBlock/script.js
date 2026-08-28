@@ -57,6 +57,14 @@ async function loadEditorBlock() {
     });
 
     await Promise.all(loadPromises);
+
+    // Перемещение свойств текста в область вкладок правой панели
+    const propertiesText = document.getElementById('propertiesText');
+    const propertiesElement = document.getElementById('propertiesElement');
+
+    if (propertiesText && propertiesElement && propertiesElement.parentElement) {
+        propertiesElement.parentElement.appendChild(propertiesText);
+    }
 }
 
 /* ***
