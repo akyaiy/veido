@@ -90,8 +90,8 @@
 <div class="breakpointSettings" data-target="grid flex">
 
 <div>Диапазон экрана:
-    <select data-prop="breakpoint">
-        <option value="all">Все диапазоны</option>
+    <select data-prop="breakpointSelect">
+        <option value="all" selected>Все диапазоны</option>
         <option value="preset-mobile">Телефон 0-640</option>
         <option value="preset-tablet">Планшет 641-1024</option>
         <option value="preset-desktop">Компьютер 1025+</option>
@@ -111,6 +111,8 @@
 <div>
     <span data-prop="breakpointStatus">Общие настройки</span>
     <button type="button" data-action="resetBreakpoint">Сбросить изменения</button>
+</div>
+
 </div>
 
 <!-- Вкладки -->

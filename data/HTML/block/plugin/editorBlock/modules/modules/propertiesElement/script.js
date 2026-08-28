@@ -1731,6 +1731,167 @@ function refreshRelevantControlVisibility(element) {
 }
 
 /* ***
+ * getElementVariants - получение шаблонов элемента
+ * принимает выбранный элемент
+ * возвращает массив сохранённых шаблонов
+*** */
+function getElementVariants(element) {
+    if (!element || !element.dataset.variants) {
+        return [];
+    }
+
+    try {
+        return JSON.parse(element.dataset.variants);
+    } catch (error) {
+        return [];
+    }
+}
+
+/* ***
+ * renderElementVariants - обновление списка шаблонов
+ * принимает выбранный элемент
+ * создаёт кнопки применения и удаления шаблонов
+*** */
+function renderElementVariants(element) {
+    const variantList = getLayoutProperty('variantList');
+
+    if (!variantList) {
+        return;
+    }
+
+    variantList.innerHTML = '';
+
+    if (!element) {
+        return;
+    }
+
+    const variants = getElementVariants(element);
+
+    variants.forEach((variant, index) => {
+        const row = document.createElement('div');
+        const applyButton = document.createElement('button');
+        const removeButton = document.createElement('button');
+
+        applyButton.type = 'button';
+        applyButton.textContent = variant.name;
+        applyButton.dataset.variantIndex = index;
+
+        removeButton.type = 'button';
+        removeButton.textContent = '×';
+        removeButton.dataset.removeVariantIndex = index;
+
+        row.appendChild(applyButton);
+        row.appendChild(removeButton);
+
+        variantList.appendChild(row);
+    });
+}
+
+/* ***
+ * handleVariantAdd - обработка сохранения шаблона
+ * принимает событие клика
+ * сохраняет текущие стили выбранного элемента
+*** */
+function handleVariantAdd(event) {
+    const button = event.target.closest('[data-action="addVariant"]');
+
+    if (!button) {
+        return;
+    }
+
+    const element = window.editorBlock ? window.editorBlock.selectedElement : null;
+
+    if (!element) {
+        return;
+    }
+
+    event.preventDefault();
+
+    const variants = getElementVariants(element);
+
+    variants.push({
+        name: `Шаблон ${variants.length + 1}`,
+        style: element.getAttribute('style') || ''
+    });
+
+    element.dataset.variants = JSON.stringify(variants);
+
+    renderElementVariants(element);
+    markBlockDirty(element);
+}
+
+/* ***
+ * handleVariantApply - обработка применения шаблона
+ * принимает событие клика
+ * восстанавливает сохранённые стили элемента
+*** */
+function handleVariantApply(event) {
+    const button = event.target.closest('[data-variant-index]');
+
+    if (!button) {
+        return;
+    }
+
+    const element = window.editorBlock ? window.editorBlock.selectedElement : null;
+
+    if (!element) {
+        return;
+    }
+
+    const variants = getElementVariants(element);
+    const variant = variants[Number(button.dataset.variantIndex)];
+
+    if (!variant) {
+        return;
+    }
+
+    element.setAttribute('style', variant.style);
+
+    updatePropertiesPanel(element);
+    markBlockDirty(element);
+
+    if (window.editorBlock && typeof window.editorBlock.syncEditors === 'function') {
+        window.editorBlock.syncEditors();
+    }
+}
+
+/* ***
+ * handleVariantRemove - обработка удаления шаблона
+ * принимает событие клика
+ * удаляет выбранный шаблон
+*** */
+function handleVariantRemove(event) {
+    const button = event.target.closest('[data-remove-variant-index]');
+
+    if (!button) {
+        return;
+    }
+
+    const element = window.editorBlock ? window.editorBlock.selectedElement : null;
+
+    if (!element) {
+        return;
+    }
+
+    event.preventDefault();
+
+    const variants = getElementVariants(element);
+    const index = Number(button.dataset.removeVariantIndex);
+
+    variants.splice(index, 1);
+
+    element.dataset.variants = JSON.stringify(variants);
+
+    renderElementVariants(element);
+    markBlockDirty(element);
+}
+
+// Обработчики шаблонов
+document.addEventListener('click', handleVariantAdd);
+document.addEventListener('click', handleVariantApply);
+document.addEventListener('click', handleVariantRemove);
+
+/* ***
  * removeUnusedLayoutControls - удаление лишних настроек из панели
  * удаляет mediaSrcset, mediaSizes и блок шаблонов
 *** */
@@ -1753,25 +1914,6 @@ function removeUnusedLayoutControls() {
                 target.remove();
             } else {
                 control.remove();
-            }
-        }
-    }
-
-    const variantList = document.getElementById('variantList');
-    const addVariant = document.getElementById('addVariant');
-
-    if (variantList || addVariant) {
-        const variantGroup = variantList ? variantList.closest('.advancedGroup, .section') : addVariant.closest('.advancedGroup, .section');
-
-        if (variantGroup) {
-            variantGroup.remove();
-        } else {
-            if (variantList) {
-                variantList.remove();
-            }
-
-            if (addVariant) {
-                addVariant.remove();
             }
         }
     }
@@ -2284,30 +2426,28 @@ function renderBreakpointTabs() {
         breakpointSelect.appendChild(option);
     }
 
-    if (store.ranges.length === 1) {
-        const presets = [
-            {
-                value: 'preset-mobile',
-                label: 'Телефон 0-640'
-            },
-            {
-                value: 'preset-tablet',
-                label: 'Планшет 641-1024'
-            },
-            {
-                value: 'preset-desktop',
-                label: 'Компьютер 1025+'
-            }
-        ];
-
-        for (const preset of presets) {
-            const option = document.createElement('option');
-
-            option.value = preset.value;
-            option.textContent = preset.label;
-
-            breakpointSelect.appendChild(option);
+    const presets = [
+        {
+            value: 'preset-mobile',
+            label: 'Телефон 0-640'
+        },
+        {
+            value: 'preset-tablet',
+            label: 'Планшет 641-1024'
+        },
+        {
+            value: 'preset-desktop',
+            label: 'Компьютер 1025+'
         }
+    ];
+
+    for (const preset of presets) {
+        const option = document.createElement('option');
+
+        option.value = preset.value;
+        option.textContent = preset.label;
+
+        breakpointSelect.appendChild(option);
     }
 
     breakpointSelect.value = store.activeId;
@@ -2369,10 +2509,10 @@ function updateBreakpointStatus() {
  * показывает редактор границ только для отдельного диапазона
 *** */
 function updateBreakpointInputs() {
-    const breakpointRangeEditor = getBreakpointControl('breakpointRangeEditor');
-    const breakpointStartInput = getBreakpointControl('breakpointStartInput');
-    const breakpointEndInput = getBreakpointControl('breakpointEndInput');
-    const breakpointNameInput = getBreakpointControl('breakpointNameInput');
+    const breakpointEditElements = document.querySelectorAll('[data-breakpoint-edit]');
+    const breakpointStartInput = getBreakpointControl('breakpointStart');
+    const breakpointEndInput = getBreakpointControl('breakpointEnd');
+    const breakpointNameInput = getBreakpointControl('breakpointName');
     const range = getActiveBreakpoint();
 
     if (!range) {
@@ -2380,10 +2520,9 @@ function updateBreakpointInputs() {
     }
 
     if (range.isBase) {
-        if (breakpointRangeEditor) {
-            breakpointRangeEditor.classList.remove('visible');
-            breakpointRangeEditor.style.display = 'none';
-        }
+        breakpointEditElements.forEach(element => {
+            element.style.display = 'none';
+        });
 
         updateBreakpointHint();
         updateBreakpointStatus();
@@ -2403,10 +2542,9 @@ function updateBreakpointInputs() {
         breakpointNameInput.value = range.name || '';
     }
 
-    if (breakpointRangeEditor) {
-        breakpointRangeEditor.classList.add('visible');
-        breakpointRangeEditor.style.display = '';
-    }
+    breakpointEditElements.forEach(element => {
+        element.style.display = '';
+    });
 
     updateBreakpointHint();
     updateBreakpointStatus();
@@ -2646,9 +2784,9 @@ function updateSelectedBreakpoint() {
         return;
     }
 
-    const breakpointStartInput = getBreakpointControl('breakpointStartInput');
-    const breakpointEndInput = getBreakpointControl('breakpointEndInput');
-    const breakpointNameInput = getBreakpointControl('breakpointNameInput');
+    const breakpointStartInput = getBreakpointControl('breakpointStart');
+    const breakpointEndInput = getBreakpointControl('breakpointEnd');
+    const breakpointNameInput = getBreakpointControl('breakpointName');
 
     if (!breakpointStartInput || !breakpointEndInput) {
         return;
@@ -2814,16 +2952,24 @@ function updateBreakpointContext(element) {
  * создаёт готовый диапазон или переключает существующий
 *** */
 function handleBreakpointSelect(event) {
-    const breakpointId = event.currentTarget.value;
+    const breakpointId = event.target.value;
 
     if (breakpointId.startsWith('preset-')) {
-        saveCurrentBreakpointState();
-
-        const range = createPresetBreakpoint(breakpointId);
         const store = getBreakpointStore();
+        let range = store ? store.ranges.find(item => item.presetId === breakpointId) : null;
 
-        if (!range || !store) {
+        if (!store) {
             return;
+        }
+
+        if (!range) {
+            range = createPresetBreakpoint(breakpointId);
+
+            if (!range) {
+                return;
+            }
+
+            range.presetId = breakpointId;
         }
 
         store.activeId = range.id;
@@ -2881,24 +3027,16 @@ function handleBreakpointReset() {
 
 /* ***
  * initBreakpointSystem - инициализация размеров экрана
- * подключает существующие элементы интерфейса
- * скрывает блок до выбора Grid / Flex-контекста
+ * подключает обработчики размеров экрана
+ * использует делегирование событий для динамической панели
 *** */
 function initBreakpointSystem() {
-    const breakpointSelect = getBreakpointControl('breakpointSelect');
-    const breakpointStartInput = getBreakpointControl('breakpointStartInput');
-    const breakpointEndInput = getBreakpointControl('breakpointEndInput');
-    const breakpointNameInput = getBreakpointControl('breakpointNameInput');
-    const addBreakpoint = getBreakpointControl('addBreakpoint');
-    const duplicateBreakpoint = getBreakpointControl('duplicateBreakpoint');
-    const removeBreakpoint = getBreakpointControl('removeBreakpoint');
-    const resetBreakpoint = getBreakpointControl('resetBreakpoint');
-    const breakpointRangeEditor = getBreakpointControl('breakpointRangeEditor');
+    const breakpointEditElements = document.querySelectorAll('[data-breakpoint-edit]');
+    const resetBreakpoint = document.querySelector('[data-action="resetBreakpoint"]');
 
-    if (breakpointRangeEditor) {
-        breakpointRangeEditor.classList.remove('visible');
-        breakpointRangeEditor.style.display = 'none';
-    }
+    breakpointEditElements.forEach(element => {
+        element.style.display = 'none';
+    });
 
     if (resetBreakpoint) {
         resetBreakpoint.style.display = 'none';
@@ -2907,37 +3045,43 @@ function initBreakpointSystem() {
     updateBreakpointSectionVisibility(false);
 
     // Обработчики размеров экрана
-    if (breakpointSelect) {
-        breakpointSelect.addEventListener('change', handleBreakpointSelect);
-    }
+    document.addEventListener('change', event => {
+        const propertyName = event.target.dataset.prop;
 
-    if (breakpointStartInput) {
-        breakpointStartInput.addEventListener('change', handleBreakpointRangeChange);
-    }
+        if (propertyName === 'breakpointSelect') {
+            handleBreakpointSelect(event);
+        }
 
-    if (breakpointEndInput) {
-        breakpointEndInput.addEventListener('change', handleBreakpointRangeChange);
-    }
+        if (propertyName === 'breakpointStart' || propertyName === 'breakpointEnd') {
+            handleBreakpointRangeChange(event);
+        }
+    });
 
-    if (breakpointNameInput) {
-        breakpointNameInput.addEventListener('input', handleBreakpointRangeChange);
-    }
+    document.addEventListener('input', event => {
+        if (event.target.dataset.prop === 'breakpointName') {
+            handleBreakpointRangeChange(event);
+        }
+    });
 
-    if (addBreakpoint) {
-        addBreakpoint.addEventListener('click', handleBreakpointAdd);
-    }
+    document.addEventListener('click', event => {
+        const action = event.target.dataset.action;
 
-    if (duplicateBreakpoint) {
-        duplicateBreakpoint.addEventListener('click', handleBreakpointDuplicate);
-    }
+        if (action === 'addBreakpoint') {
+            handleBreakpointAdd();
+        }
 
-    if (removeBreakpoint) {
-        removeBreakpoint.addEventListener('click', handleBreakpointRemove);
-    }
+        if (action === 'duplicateBreakpoint') {
+            handleBreakpointDuplicate();
+        }
 
-    if (resetBreakpoint) {
-        resetBreakpoint.addEventListener('click', handleBreakpointReset);
-    }
+        if (action === 'removeBreakpoint') {
+            handleBreakpointRemove();
+        }
+
+        if (action === 'resetBreakpoint') {
+            handleBreakpointReset();
+        }
+    });
 }
 
 
@@ -3221,6 +3365,7 @@ function updatePropertiesPanel(element) {
 
     refreshRelevantControlVisibility(element);
     updatePropertiesTabs(element);
+    renderElementVariants(element);
 }
 
 // Подписываемся на событие выбора напрямую в документе
@@ -3468,9 +3613,13 @@ function applyPropertyToElement(element, propertyName, rawValue, targetProperty 
 
         element.dataset.fluidGapEnabled = enabled ? 'true' : 'false';
 
-        if (!enabled) {
-            delete element.dataset.fluidGapMin;
-            delete element.dataset.fluidGapMax;
+        if (enabled) {
+            const min = Math.max(0, parseInt(element.dataset.fluidGapMin, 10) || 0);
+            const max = Math.max(min, parseInt(element.dataset.fluidGapMax, 10) || min);
+
+            element.style.gap = `clamp(${min}px, 2vw, ${max}px)`;
+        } else {
+            element.style.gap = '';
         }
 
         refreshRelevantControlVisibility(element);
@@ -3482,10 +3631,13 @@ function applyPropertyToElement(element, propertyName, rawValue, targetProperty 
     if (config.type === 'special' && config.action === 'fluidGapRange') {
         const targetName = propertyName === 'fluidGapMin' ? 'fluidGapMin' : 'fluidGapMax';
 
-        if (!value) {
-            delete element.dataset[targetName];
-        } else {
-            element.dataset[targetName] = String(value).trim();
+        element.dataset[targetName] = String(Math.max(0, parseInt(value, 10) || 0));
+
+        if (element.dataset.fluidGapEnabled === 'true') {
+            const min = Math.max(0, parseInt(element.dataset.fluidGapMin, 10) || 0);
+            const max = Math.max(min, parseInt(element.dataset.fluidGapMax, 10) || min);
+
+            element.style.gap = `clamp(${min}px, 2vw, ${max}px)`;
         }
 
         refreshRelevantControlVisibility(element);
@@ -4139,9 +4291,7 @@ function getPropertyTabAvailability(element) {
 
     const isImmediateParentLayout = parentTagName !== 'body' && parentTagName !== 'html' && (parentStyles.display === 'grid' || parentStyles.display === 'flex');
 
-    const breakpointOwner = getBreakpointOwner(element);
-
-    const isFirstLevelItem = !!(isImmediateParentLayout && (breakpointOwner === parentElement || isLayout));
+    const isFirstLevelItem = isImmediateParentLayout;
 
     return {
         main: isLayout,
@@ -4222,7 +4372,7 @@ function handlePropertiesTabChange(tabName) {
     }
 
     const basicContent = document.getElementById('basic');
-    const selectedItemContent = document.querySelector('.selectedItemContent');
+    const selectedItemContent = document.querySelector('[data-tab-content="selectedItem"]');
     const advancedDetails = document.querySelector('.advancedDetails');
 
     if (basicContent) {
@@ -4390,9 +4540,6 @@ function refreshPropertiesElementTabs() {
     } else {
         // По умолчанию показываем панель свойств элемента и скрываем propertiesText
         const selfPanel = document.getElementById('propertiesElement');
-        if (selfPanel) {
-            selfPanel.style.display = '';
-        }
 
         const textPanel = document.getElementById('propertiesText');
         if (textPanel) {
