@@ -1,10 +1,19 @@
+<div id="propertiesSelectorPanel">
+    <select id="propertiesSelectorType">
+        <option value="element">Выбранный элемент</option>
+        <option value="id">ID</option>
+        <option value="class">Группа</option>
+    </select>
+    <input id="propertiesSelectorName" type="text" placeholder="Имя" style="display: none;">
+    <select id="propertiesSelectorExisting" style="display: none;"></select>
+</div>
+
 <div class="propertiesElementTabsMain">
     <div class="propertiesElementTabMain active" data-properties-tab="main">Основные</div>
     <div class="propertiesElementTabMain" data-properties-tab="grid">Сетка</div>
     <div class="propertiesElementTabMain" data-properties-tab="text">Текст</div>
     <div class="propertiesElementTabMain" data-properties-tab="advanced">Дополнительные</div>
     <div class="propertiesElementTabMain" data-properties-tab="special">Особенные</div>
-    <div class="propertiesElementTabMain" data-properties-tab="groups">ID и группы</div>
 </div>
 
 
@@ -526,7 +535,7 @@
 
 <!-- !!!ID и группы -->
 
-<div class="propertiesElementTabContent" data-properties-tab-content="groups">
+<!-- <div class="propertiesElementTabContent" data-properties-tab-content="groups">
 
 <div id="propertiesSelectorPanel">
     <select id="propertiesSelectorType">
@@ -534,6 +543,8 @@
         <option value="class">Группа</option>
     </select>
     <input id="propertiesSelectorName" type="text">
+    <select id="propertiesSelectorExisting">
+    </select>
 </div>
 
 <table id="propertiesSelectorProperties">
@@ -545,4 +556,4 @@
 
 </div>
 
-</div>
+</div> -->

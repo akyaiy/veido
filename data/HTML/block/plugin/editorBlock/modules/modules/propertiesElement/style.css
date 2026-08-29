@@ -16,12 +16,7 @@
 
 
 /* Стили для блока свойств */
-#propertiesElement [data-target]:not(:has(input[type="checkbox"])) {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
+#propertiesElement [data-target]:not(:has(input[type="checkbox"])),
 .propertiesElementTabContent {
     display: flex;
     flex-direction: column;
@@ -108,28 +103,28 @@
 
 
 
-/* ID и группы */
+/* Выбранный элемент, ID и группы */
 #propertiesSelectorPanel {
     display: flex;
     gap: 5px;
 }
 
 #propertiesSelectorType {
-    width: 25%;
-}
-
-#propertiesSelectorName {
-    width: 75%;
     flex: 1;
+    min-width: 0;
 }
 
-#propertiesSelectorProperties {
-    width: 100%;
-    table-layout: fixed;
-    border-collapse: collapse;
+#propertiesSelectorName:not([style*="display: none"]) ~ #propertiesSelectorExisting {
+    flex: 0 0 auto;
+    width: auto;
 }
 
-#propertiesSelectorProperties td input {
-    width: 100%;
-    box-sizing: border-box;
+#propertiesSelectorName:not([style*="display: none"]) {
+    flex: 7;
+    min-width: 0;
+}
+
+#propertiesSelectorPanel:has(#propertiesSelectorName:not([style*="display: none"])) #propertiesSelectorType {
+    flex: 3;
+    min-width: 0;
 }

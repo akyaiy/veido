@@ -3116,6 +3116,8 @@ function updatePropertiesPanel(element) {
 
     const tagName = element.tagName.toLowerCase();
     const inputType = tagName === 'input' ? (element.getAttribute('type') || 'text').toLowerCase() : '';
+    const selectorTarget = getCurrentPropertiesSelectorTarget();
+    const isSelectorTarget = !!propertiesSelectorType && getPropertiesSelectorTypeName() !== 'element';
 
     // получаем итоговые стили элемента из css правил
     const elementWindow = element && element.ownerDocument && element.ownerDocument.defaultView ? element.ownerDocument.defaultView : window;
@@ -3169,14 +3171,31 @@ function updatePropertiesPanel(element) {
             return;
         }
 
+        // В режиме ID / Группа используются только CSS стили
+        if (isSelectorTarget && config.type !== 'style') {
+            if (ctrl.type === 'checkbox') {
+                ctrl.checked = false;
+            } else {
+                ctrl.value = '';
+            }
+
+            return;
+        }
+
         let finalValue = '';
 
         if (config.type === 'style') {
-            // читаем стиль из тега или берем вычисленный из css
-            let val = element.style[config.cssName] || '';
+            // читаем только из CSS-правила текущего селектора при режиме ID / Группа
+            let val = '';
 
-            if (!val) {
-                val = computedStyles[config.cssName] || '';
+            if (isSelectorTarget) {
+                val = getPropertiesSelectorRuleValue(prop);
+            } else {
+                val = element.style[config.cssName] || '';
+
+                if (!val) {
+                    val = computedStyles[config.cssName] || '';
+                }
             }
 
             finalValue = config.isNumeric ? val.replace('px', '') : val;
@@ -3491,6 +3510,46 @@ function applyPropertyToElement(element, propertyName, rawValue, targetProperty 
 
     const value = rawValue === null || rawValue === undefined ? '' : String(rawValue);
     const config = propertyMap[propertyName];
+
+    if (propertiesSelectorType && getPropertiesSelectorTypeName() !== 'element') {
+        // В режиме ID / Группа ничего не применяется к выбранному DOM-элементу
+        if (!config) {
+            return;
+        }
+
+        if (config.type !== 'style') {
+            return;
+        }
+
+        const selectorRule = getCurrentPropertiesSelectorTarget() || ensurePropertiesSelectorRule();
+
+        if (!selectorRule) {
+            return;
+        }
+
+        const cssName = config.cssName || dashedToCamel(propertyName);
+        const cssProperty = cssName.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`);
+        let finalValue = value;
+
+        if (value === '') {
+            selectorRule.style.removeProperty(cssProperty);
+            markBlockDirty(element);
+            return;
+        }
+
+        if (config.isNumeric && checkIsNumericString(value)) {
+            finalValue = `${Number(value)}px`;
+        }
+
+        if ((propertyName === 'gridColumn' || propertyName === 'gridRow' || propertyName === 'gridColumnSpan' || propertyName === 'gridRowSpan') && /^\d+$/.test(value.trim())) {
+            finalValue = `span ${value.trim()}`;
+        }
+
+        selectorRule.style.setProperty(cssProperty, finalValue);
+        markBlockDirty(element);
+
+        return;
+    }
 
     if (!config) {
         applyFallbackStyle(element, propertyName, value);
@@ -4505,6 +4564,11 @@ function getPropertiesElementMainAvailability() {
 function refreshPropertiesElementTabs() {
     const availability = getPropertiesElementMainAvailability();
 
+    // Скрытие выбора элемента при выделении текста
+    if (propertiesSelectorPanel) {
+        propertiesSelectorPanel.style.display = availability.text ? 'none' : '';
+    }
+
     // Закрытие вкладки при выделении текста
     if (availability.text && activePropertiesElementTab !== 'text' && activePropertiesElementTab !== 'groups') {
         activePropertiesElementTab = '';
@@ -4522,7 +4586,7 @@ function refreshPropertiesElementTabs() {
         const tabName = content.dataset.propertiesTabContent;
         const isActive = tabName === activePropertiesElementTab;
 
-        content.style.display = isActive ? 'block' : 'none';
+        content.style.display = isActive ? '' : 'none';
         content.classList.toggle('active', isActive);
     });
 
@@ -4566,6 +4630,436 @@ function refreshPropertiesElementTabs() {
 }
 window.editorBlock.refreshPropertiesElementTabs = refreshPropertiesElementTabs;
 
+// Выбранный элемент, ID и группы
+const propertiesSelectorType = document.getElementById('propertiesSelectorType');
+const propertiesSelectorName = document.getElementById('propertiesSelectorName');
+const propertiesSelectorExisting = document.getElementById('propertiesSelectorExisting');
+
+/* ***
+ * getPropertiesSelectorDocument - получение документа для поиска ID/классов
+ * - возвращает документ текущего редактируемого блока или документ основного окна
+ *** */
+function getPropertiesSelectorDocument() {
+    const element = window.editorBlock ? window.editorBlock.selectedElement : null;
+
+    return element && element.ownerDocument ? element.ownerDocument : document;
+}
+
+/* ***
+ * getPropertiesSelectorValue - получение введённого имени селектора без префикса
+ * - возвращает значение из поля имени селектора без начального # или .
+ *** */
+function getPropertiesSelectorValue() {
+    const value = propertiesSelectorName ? String(propertiesSelectorName.value || '').trim() : '';
+
+    return value.replace(/^#|^\./, '');
+}
+
+/* ***
+ * getPropertiesSelectorTypeName - нормализация типа селектора
+ * - возвращает 'element', 'id' или 'class'
+ *** */
+function getPropertiesSelectorTypeName() {
+    const type = propertiesSelectorType ? propertiesSelectorType.value : 'element';
+
+    if (type === 'group' || type === 'class') {
+        return 'class';
+    }
+
+    return type;
+}
+
+/* ***
+ * getPropertiesSelectorCssName - получение CSS-селектора с префиксом
+ * - возвращает '#name' для ID или '.name' для группы, или пустую строку
+ *** */
+function getPropertiesSelectorCssName() {
+    const type = getPropertiesSelectorTypeName();
+    const value = getPropertiesSelectorValue();
+
+    if (type === 'element' || !value) {
+        return '';
+    }
+
+    return type === 'id' ? `#${value}` : `.${value}`;
+}
+
+/* ***
+ * getPropertiesSelectorRuleValue - чтение значения CSS-свойства из текущего правила ID / Группы
+ * принимает имя свойства панели
+ * возвращает значение из CSS-правила или пустую строку
+ *** */
+function getPropertiesSelectorRuleValue(propertyName) {
+    const selectorRule = getCurrentPropertiesSelectorTarget();
+
+    if (!selectorRule || !propertyName) {
+        return '';
+    }
+
+    const config = propertyMap[propertyName];
+    const cssName = (config && config.cssName) ? config.cssName : dashedToCamel(propertyName);
+    const cssProperty = cssName.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`);
+
+    return selectorRule.style.getPropertyValue(cssProperty) || selectorRule.style[cssName] || '';
+}
+
+/* ***
+ * getPropertiesSelectorRuleRoot - получение корня блока для поиска стилей
+ * - возвращает контейнер загруженного блока или документ владельца элемента
+ *** */
+function getPropertiesSelectorRuleRoot() {
+    const element = window.editorBlock ? window.editorBlock.selectedElement : null;
+
+    if (!element) {
+        return null;
+    }
+
+    return element.closest('[id^="loadedBlock_"][id$="_view"]') || element.ownerDocument || document;
+}
+
+/* ***
+ * getPropertiesSelectorStyleElements - получение элементов <style> текущего блока
+ * - ищет style[data-editor-block-style="true"] в корне блока или в документе
+ *** */
+function getPropertiesSelectorStyleElements() {
+    const doc = getPropertiesSelectorDocument();
+    const root = getPropertiesSelectorRuleRoot();
+    const nodes = [];
+
+    if (root && root.querySelectorAll) {
+        const blockStyles = root.querySelectorAll('style[data-editor-block-style="true"]');
+
+        blockStyles.forEach(styleElement => {
+            nodes.push(styleElement);
+        });
+    }
+
+    if (!nodes.length && doc && doc.querySelectorAll) {
+        const documentStyles = doc.querySelectorAll('style[data-editor-block-style="true"]');
+
+        documentStyles.forEach(styleElement => {
+            nodes.push(styleElement);
+        });
+    }
+
+    return nodes;
+}
+
+/* ***
+ * getPropertiesSelectorRuleTarget - получение контейнера CSS-правил текущего блока
+ * - возвращает существующий style[data-editor-block-style="true"] для текущего блока
+ * - не создаёт новый CSS-блок при вводе имени селектора
+ *** */
+function getPropertiesSelectorRuleTarget() {
+    const styles = getPropertiesSelectorStyleElements();
+
+    return styles.length ? styles[0] : null;
+}
+
+/* ***
+ * createPropertiesSelectorRuleTarget - создание контейнера CSS-правил текущего блока
+ * - создаёт style[data-editor-block-style="true"] только в момент первого изменения стиля
+ *** */
+function createPropertiesSelectorRuleTarget() {
+    const doc = getPropertiesSelectorDocument();
+
+    if (!doc || !doc.head) {
+        return null;
+    }
+
+    const styleElement = doc.createElement('style');
+
+    styleElement.setAttribute('data-editor-block-style', 'true');
+    doc.head.appendChild(styleElement);
+
+    return styleElement;
+}
+
+/* ***
+ * collectPropertiesSelectorValues - сбор существующих ID / групп из HTML и CSS
+ * принимает тип селектора
+ * возвращает список уникальных значений без служебных классов редактора
+ *** */
+function collectPropertiesSelectorValues(type) {
+    const values = new Set();
+    const doc = getPropertiesSelectorDocument();
+    const blockRoot = getPropertiesSelectorRuleRoot();
+    const collectionRoot = blockRoot && blockRoot.querySelectorAll ? blockRoot : (doc || document);
+    const normalizedType = type === 'group' || type === 'class' ? 'class' : type;
+
+    const addValue = value => {
+        if (!value) {
+            return;
+        }
+
+        if (normalizedType === 'id' && value.startsWith('loadedBlock_')) {
+            return;
+        }
+
+        if (value.startsWith('properties') || value.startsWith('editor') || value.startsWith('viewEditor')) {
+            return;
+        }
+
+        values.add(value);
+    };
+
+    const collectCssMatches = selectorText => {
+        const expression = normalizedType === 'id'
+            ? /#([A-Za-z0-9_-]+)/g
+            : /\.([A-Za-z0-9_-]+)/g;
+        const matches = selectorText.matchAll(expression);
+
+        for (const match of matches) {
+            addValue(match[1]);
+        }
+    };
+
+    if (normalizedType === 'id') {
+        collectionRoot.querySelectorAll('[id]:not(style)').forEach(element => {
+            const idValue = element.id && element.id.trim();
+
+            if (idValue && !idValue.endsWith('_view')) {
+                addValue(idValue);
+            }
+        });
+    }
+
+    if (normalizedType === 'class') {
+        collectionRoot.querySelectorAll('[class]:not(style)').forEach(element => {
+            Array.from(element.classList).forEach(className => {
+                addValue(className);
+            });
+        });
+    }
+
+    const styles = getPropertiesSelectorStyleElements();
+
+    styles.forEach(styleElement => {
+        const cssSheet = styleElement.sheet;
+
+        if (!cssSheet) {
+            return;
+        }
+
+        try {
+            const rules = cssSheet.cssRules || [];
+
+            Array.from(rules).forEach(rule => {
+                if (!rule || !rule.selectorText) {
+                    return;
+                }
+
+                const selectors = String(rule.selectorText).split(',');
+
+                selectors.forEach(selector => {
+                    collectCssMatches(selector);
+                });
+            });
+        } catch (error) {
+            // silent
+        }
+    });
+
+    return Array.from(values).sort();
+}
+
+/* ***
+ * updatePropertiesSelectorExisting - обновление списка существующих ID / групп
+ * - наполняет селект значениями, собранными из DOM и CSS текущего блока
+ *** */
+function updatePropertiesSelectorExisting() {
+    if (!propertiesSelectorType || !propertiesSelectorExisting) {
+        return;
+    }
+
+    const type = getPropertiesSelectorTypeName();
+    const currentValue = getPropertiesSelectorValue();
+
+    if (type === 'element') {
+        propertiesSelectorExisting.innerHTML = '';
+        return;
+    }
+
+    const values = collectPropertiesSelectorValues(type);
+    propertiesSelectorExisting.innerHTML = '';
+
+    values.forEach(value => {
+        const option = document.createElement('option');
+
+        option.value = value;
+        option.textContent = value;
+        propertiesSelectorExisting.appendChild(option);
+    });
+
+    if (currentValue) {
+        if (!values.includes(currentValue)) {
+            const option = document.createElement('option');
+
+            option.value = currentValue;
+            option.textContent = currentValue;
+            propertiesSelectorExisting.appendChild(option);
+        }
+
+        propertiesSelectorExisting.value = currentValue;
+    } else if (values.length) {
+        propertiesSelectorExisting.value = values[0];
+        propertiesSelectorName.value = values[0];
+    } else {
+        propertiesSelectorExisting.value = '';
+    }
+}
+
+/* ***
+ * getPropertiesSelectorRule - поиск CSS-правила по текущему селектору в блоке
+ * - возвращает найденное CSSRule или null
+ *** */
+function getPropertiesSelectorRule() {
+    const selectorName = getPropertiesSelectorCssName();
+    const doc = getPropertiesSelectorDocument();
+
+    if (!selectorName || !doc) {
+        return null;
+    }
+
+    const styleElement = getPropertiesSelectorRuleTarget();
+
+    if (!styleElement || !styleElement.sheet) {
+        return null;
+    }
+
+    const cssSheet = styleElement.sheet;
+    const rules = cssSheet.cssRules || [];
+
+    for (let index = 0; index < rules.length; index++) {
+        const rule = rules[index];
+
+        if (rule && rule.selectorText === selectorName) {
+            return rule;
+        }
+    }
+
+    return null;
+}
+
+/* ***
+ * ensurePropertiesSelectorRule - создание или получение CSS-правила для текущего ID / Группы
+ * - правило создаётся только при первом реальном изменении свойства
+ * - пустое значение имени селектора и отсутствие блока игнорируются
+ *** */
+function ensurePropertiesSelectorRule() {
+    const selectorName = getPropertiesSelectorCssName();
+    const doc = getPropertiesSelectorDocument();
+
+    if (!selectorName || !doc) {
+        return null;
+    }
+
+    let styleElement = getPropertiesSelectorRuleTarget();
+
+    if (!styleElement) {
+        styleElement = createPropertiesSelectorRuleTarget();
+    }
+
+    if (!styleElement || !styleElement.sheet) {
+        return null;
+    }
+
+    const cssSheet = styleElement.sheet;
+    const rules = cssSheet.cssRules || [];
+
+    for (let index = 0; index < rules.length; index++) {
+        const rule = rules[index];
+
+        if (rule && rule.selectorText === selectorName) {
+            return rule;
+        }
+    }
+
+    const ruleIndex = rules.length;
+
+    try {
+        cssSheet.insertRule(`${selectorName} {}`, ruleIndex);
+    } catch (error) {
+        return null;
+    }
+
+    return cssSheet.cssRules[ruleIndex] || null;
+}
+
+/* ***
+ * getCurrentPropertiesSelectorTarget - получить текущее CSSRule для редактирования
+ * - возвращает правило только если выбран режим ID/Группа и задано имя селектора
+ *** */
+function getCurrentPropertiesSelectorTarget() {
+    if (!propertiesSelectorType || getPropertiesSelectorTypeName() === 'element') {
+        return null;
+    }
+
+    const selectorName = getPropertiesSelectorCssName();
+
+    if (!selectorName) {
+        return null;
+    }
+
+    return getPropertiesSelectorRule();
+}
+
+/* ***
+ * handlePropertiesSelectorTypeChange - переключение типа редактируемого элемента
+ * скрывает дополнительные поля для выбранного элемента
+ * показывает поле имени и список для ID или группы
+*** */
+function handlePropertiesSelectorTypeChange() {
+    const isElement = getPropertiesSelectorTypeName() === 'element';
+    const selectedElement = window.editorBlock ? window.editorBlock.selectedElement : null;
+
+    propertiesSelectorName.style.display = isElement ? 'none' : '';
+    propertiesSelectorExisting.style.display = isElement ? 'none' : '';
+
+    if (!isElement) {
+        updatePropertiesSelectorExisting();
+
+        if (!propertiesSelectorName.value && propertiesSelectorExisting.value) {
+            propertiesSelectorName.value = propertiesSelectorExisting.value;
+        }
+
+        if (selectedElement) {
+            updatePropertiesPanel(selectedElement);
+        }
+    } else {
+        propertiesSelectorName.value = '';
+        propertiesSelectorExisting.innerHTML = '';
+
+        if (selectedElement) {
+            updatePropertiesPanel(selectedElement);
+        }
+    }
+}
+
+propertiesSelectorType.addEventListener('change', handlePropertiesSelectorTypeChange);
+propertiesSelectorExisting.addEventListener('change', () => {
+    if (getPropertiesSelectorTypeName() !== 'element' && propertiesSelectorExisting.value) {
+        propertiesSelectorName.value = propertiesSelectorExisting.value;
+        const selectedElement = window.editorBlock ? window.editorBlock.selectedElement : null;
+
+        if (selectedElement) {
+            updatePropertiesPanel(selectedElement);
+        }
+    }
+});
+propertiesSelectorName.addEventListener('input', () => {
+    if (getPropertiesSelectorTypeName() !== 'element') {
+        const selectedElement = window.editorBlock ? window.editorBlock.selectedElement : null;
+
+        if (selectedElement) {
+            updatePropertiesPanel(selectedElement);
+        }
+    }
+});
+
+// Начальное состояние
+handlePropertiesSelectorTypeChange();
+
 /* ***
  * handlePropertiesElementTabClick - обработка нажатия на основную вкладку свойств
  * принимает объект события
@@ -4594,7 +5088,8 @@ function handlePropertiesElementTabsBack() {
 
 /* ***
  * handlePropertiesElementSelected - обработка выбора элемента
- * проверяет доступность текущей вкладки для нового элемента
+ * сбрасывает выбор ID / группы
+ * скрывает выбор элемента при выделенном тексте
  * обновляет основные вкладки свойств
 *** */
 function handlePropertiesElementSelected() {
@@ -4606,6 +5101,19 @@ function handlePropertiesElementSelected() {
     }
 
     const availability = getPropertiesElementMainAvailability();
+    const selection = element.ownerDocument.getSelection();
+    const hasTextSelection = !!(selection && !selection.isCollapsed && selection.toString().trim());
+
+    // Сброс выбора ID / группы
+    propertiesSelectorType.value = 'element';
+    handlePropertiesSelectorTypeChange();
+
+    // Скрытие выбора элемента при выделении текста
+    const propertiesSelectorPanel = document.getElementById('propertiesSelectorPanel');
+
+    if (propertiesSelectorPanel) {
+        propertiesSelectorPanel.style.display = hasTextSelection ? 'none' : '';
+    }
 
     // Проверка доступности текущей вкладки
     if (activePropertiesElementTab && !availability[activePropertiesElementTab]) {
@@ -4650,6 +5158,32 @@ function commitPropertiesChange(selectedElement) {
         return;
     }
 
+    // Сохранение CSS выбранного ID / группы
+    if (getPropertiesSelectorTypeName() !== 'element') {
+        const styleElement = getPropertiesSelectorRuleTarget();
+        const cssEditorContent = document.getElementById('cssEditorContent');
+
+        if (styleElement && styleElement.sheet) {
+            const cssText = Array.from(styleElement.sheet.cssRules)
+                .map(rule => rule.cssText)
+                .join('\n');
+
+            styleElement.textContent = cssText;
+
+            if (cssEditorContent) {
+                cssEditorContent.textContent = cssText;
+            }
+        }
+
+        if (window.editorBlock && typeof window.editorBlock.saveHistoryState === 'function') {
+            window.editorBlock.saveHistoryState();
+        }
+
+        updatePropertiesPanel(selectedElement);
+
+        return;
+    }
+
     saveCurrentBreakpointState();
 
     if (!isBaseBreakpoint()) {
@@ -4688,7 +5222,13 @@ document.addEventListener('mousedown', event => {
     const selectedElement = window.editorBlock ? window.editorBlock.selectedElement : null;
     let initialColor = normalizeColorString(control.value || '#000000');
 
-    if (selectedElement) {
+    if (getPropertiesSelectorTypeName() !== 'element') {
+        const selectorColor = getPropertiesSelectorRuleValue(propertyName);
+
+        if (selectorColor) {
+            initialColor = normalizeColorString(selectorColor);
+        }
+    } else if (selectedElement) {
         const selectedWindow = selectedElement.ownerDocument && selectedElement.ownerDocument.defaultView ? selectedElement.ownerDocument.defaultView : window;
         const computedColor = selectedWindow.getComputedStyle(selectedElement)[propertyName];
 
