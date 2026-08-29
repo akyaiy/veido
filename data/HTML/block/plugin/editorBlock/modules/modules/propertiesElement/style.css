@@ -19,6 +19,13 @@
 #propertiesElement [data-target]:not(:has(input[type="checkbox"])) {
     display: flex;
     flex-direction: column;
+    gap: 2px;
+}
+
+.propertiesElementTabContent {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
 .borderSettings {
@@ -96,5 +103,33 @@
     width: 100%;
     max-width: 226px;
     min-width: 0;
+    box-sizing: border-box;
+}
+
+
+
+/* ID и группы */
+#propertiesSelectorPanel {
+    display: flex;
+    gap: 5px;
+}
+
+#propertiesSelectorType {
+    width: 25%;
+}
+
+#propertiesSelectorName {
+    width: 75%;
+    flex: 1;
+}
+
+#propertiesSelectorProperties {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+}
+
+#propertiesSelectorProperties td input {
+    width: 100%;
     box-sizing: border-box;
 }

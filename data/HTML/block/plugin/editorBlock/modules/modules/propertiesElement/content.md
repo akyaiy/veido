@@ -4,6 +4,7 @@
     <div class="propertiesElementTabMain" data-properties-tab="text">Текст</div>
     <div class="propertiesElementTabMain" data-properties-tab="advanced">Дополнительные</div>
     <div class="propertiesElementTabMain" data-properties-tab="special">Особенные</div>
+    <div class="propertiesElementTabMain" data-properties-tab="groups">ID и группы</div>
 </div>
 
 
@@ -516,6 +517,31 @@
 <div data-target="progress">Текущее значение: <input type="number" step="any" data-prop="progressValue"></div>
 
 </div>
+
+</div>
+
+</div>
+
+
+
+<!-- !!!ID и группы -->
+
+<div class="propertiesElementTabContent" data-properties-tab-content="groups">
+
+<div id="propertiesSelectorPanel">
+    <select id="propertiesSelectorType">
+        <option value="id">ID</option>
+        <option value="class">Группа</option>
+    </select>
+    <input id="propertiesSelectorName" type="text">
+</div>
+
+<table id="propertiesSelectorProperties">
+    <tr>
+        <td><input placeholder="Свойство"></td>
+        <td><input placeholder="Значение"></td>
+    </tr>
+</table>
 
 </div>
 

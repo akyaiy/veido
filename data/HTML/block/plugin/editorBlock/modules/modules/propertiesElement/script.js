@@ -4453,6 +4453,11 @@ function getPropertiesElementMainAvailability() {
 
         if (!tabName) return;
 
+        if (tabName === 'groups') {
+            availability[tabName] = true;
+            return;
+        }
+
         availability[tabName] = Array.from(content.querySelectorAll('[data-target]')).some(target => {
             const targetValue = target.getAttribute('data-target');
 
@@ -4483,6 +4488,7 @@ function getPropertiesElementMainAvailability() {
         });
 
         availability.text = true;
+        availability.groups = true;
     } else {
         availability.text = false;
     }
@@ -4500,7 +4506,7 @@ function refreshPropertiesElementTabs() {
     const availability = getPropertiesElementMainAvailability();
 
     // Закрытие вкладки при выделении текста
-    if (availability.text && activePropertiesElementTab !== 'text') {
+    if (availability.text && activePropertiesElementTab !== 'text' && activePropertiesElementTab !== 'groups') {
         activePropertiesElementTab = '';
     }
 
@@ -4520,28 +4526,37 @@ function refreshPropertiesElementTabs() {
         content.classList.toggle('active', isActive);
     });
 
-    // Если выбрана вкладка "text" — показываем существующий внешний блок #propertiesText
     if (activePropertiesElementTab === 'text') {
-        // Скрыть все панели правой панели кроме заголовка
-        document.querySelectorAll('#rightPanel > div:not(#rightPanelTabs)').forEach(panel => {
-            panel.style.display = 'none';
-        });
-
+        // Панели текста и свойств элемента
         const textPanel = document.getElementById('propertiesText');
+        const selfPanel = document.getElementById('propertiesElement');
+
+        // Перенос кнопки возврата в свойства текста
         if (textPanel) {
             textPanel.style.display = '';
+            textPanel.prepend(propertiesElementTabsBack);
         }
 
-        // Спрячем сам контейнер propertiesElement чтобы не дублировать
-        const selfPanel = document.getElementById('propertiesElement');
+        // Скрытие свойств элемента
         if (selfPanel) {
             selfPanel.style.display = 'none';
         }
     } else {
-        // По умолчанию показываем панель свойств элемента и скрываем propertiesText
+        // Панели текста и свойств элемента
         const selfPanel = document.getElementById('propertiesElement');
-
         const textPanel = document.getElementById('propertiesText');
+
+        // Показ свойств элемента
+        if (selfPanel) {
+            selfPanel.style.display = '';
+        }
+
+        // Возврат кнопки назад к вкладкам
+        if (propertiesElementTabsMainContainer) {
+            propertiesElementTabsMainContainer.before(propertiesElementTabsBack);
+        }
+
+        // Скрытие свойств текста
         if (textPanel) {
             textPanel.style.display = 'none';
         }

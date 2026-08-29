@@ -8,11 +8,6 @@
     min-height: 0;
 }
 
-#rightPanelTabs .active {
-    background-color: #f0f0f0;
-    border-bottom: 3px solid #ccc;
-}
-
 
 
 /* Переключатель вкладок правой панели */
@@ -49,6 +44,7 @@
     flex: 1 1 auto;
     min-height: 0;
     overflow: auto;
+    padding: 5px;
 }
 
 .rightPanelTabsRegionHeader:not(:has(.rightPanelTab:not(.rightPanelTabAdd))) .rightPanelTabAdd {
