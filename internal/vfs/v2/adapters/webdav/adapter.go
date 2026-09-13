@@ -242,7 +242,7 @@ func (a *WebDAVAdapter) OpenFile(ctx context.Context, name string, flag int, per
 	if err != nil {
 		return nil, translateError(err)
 	}
-	return &davFile{ctx: ctx, file: file}, nil
+	return &davFile{ctx: ctx, file: file, writing: flag&(os.O_WRONLY|os.O_RDWR|os.O_APPEND|os.O_CREATE|os.O_TRUNC) != 0}, nil
 }
 
 func (a *WebDAVAdapter) Stat(ctx context.Context, name string) (os.FileInfo, error) {
@@ -780,12 +780,30 @@ func translateError(err error) error {
 }
 
 type davFile struct {
-	ctx  context.Context
-	file vfs.File
+	ctx      context.Context
+	file     vfs.File
+	writing  bool
+	writeErr error
 }
 
 func (f *davFile) Close() error {
-	err := translateError(f.file.Close())
+	var closeErr error
+	if f.writing {
+		transferErr := f.writeErr
+		if transferErr == nil {
+			transferErr = f.ctx.Err()
+		}
+		if state, ok := f.ctx.Value(uploadContextKey{}).(*uploadState); ok && transferErr == nil {
+			transferErr = state.err
+			if transferErr == nil && !state.complete {
+				transferErr = io.ErrUnexpectedEOF
+			}
+		}
+		closeErr = vfs.FinishWrite(f.file, transferErr)
+	} else {
+		closeErr = f.file.Close()
+	}
+	err := translateError(closeErr)
 	switch {
 	case errors.Is(err, gowebdav.ErrForbidden):
 		MarkProtocolStatus(f.ctx, http.StatusForbidden)
@@ -800,7 +818,14 @@ func (f *davFile) Read(p []byte) (int, error) {
 }
 
 func (f *davFile) Write(p []byte) (int, error) {
-	return f.file.Write(p)
+	n, err := f.file.Write(p)
+	if err == nil && n != len(p) {
+		err = io.ErrShortWrite
+	}
+	if err != nil {
+		f.writeErr = err
+	}
+	return n, err
 }
 
 func (f *davFile) Seek(offset int64, whence int) (int64, error) {
@@ -811,7 +836,11 @@ func (f *davFile) Stat() (os.FileInfo, error) {
 	if f == nil || f.file == nil {
 		return nil, os.ErrInvalid
 	}
-	return f.file.Stat()
+	info, err := f.file.Stat()
+	if err != nil && f.writing {
+		f.writeErr = err
+	}
+	return info, err
 }
 
 func (f *davFile) Readdir(count int) ([]os.FileInfo, error) {

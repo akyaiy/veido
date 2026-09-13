@@ -56,6 +56,7 @@ type bufferedWriteFile struct {
 	info   os.FileInfo
 	commit func([]byte) error
 	closed bool
+	result error
 }
 
 func NewBufferedWriteFile(name string, commit func([]byte) error) vfs.File {
@@ -84,18 +85,36 @@ func (f *bufferedWriteFile) Seek(offset int64, whence int) (int64, error) {
 }
 
 func (f *bufferedWriteFile) Close() error {
+	return f.Commit()
+}
+
+func (f *bufferedWriteFile) Commit() error {
 	if f.closed {
-		return nil
+		return f.result
 	}
 	f.closed = true
 	if f.commit == nil {
 		return nil
 	}
-	return f.commit(f.buffer.Bytes())
+	f.result = f.commit(f.buffer.Bytes())
+	f.buffer.Reset()
+	return f.result
+}
+
+func (f *bufferedWriteFile) Abort() error {
+	if !f.closed {
+		f.closed = true
+		f.buffer.Reset()
+	}
+	return nil
 }
 
 func (f *bufferedWriteFile) Stat() (os.FileInfo, error) {
-	return f.info, nil
+	info := f.info.(fileInfo)
+	if !f.closed {
+		info.size = int64(f.buffer.Len())
+	}
+	return info, nil
 }
 
 type fileInfo struct {

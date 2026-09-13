@@ -33,54 +33,6 @@ func wrapConnectionToNode(connection *vfs.ProviderConnection) *vfs.Node {
 	}
 }
 
-// handleListScopes handles the scopes fetching.
-// It returns [[]*vfs.Node] and an error.
-func (p *Provider) handleListScopes(ctx context.Context) ([]*vfs.Node, error) {
-	rctx, ok := vfs.RequestContextFromContext(ctx)
-	if !ok {
-		return nil, vfs.ErrRequestContextNotFound
-	}
-
-	actor := rctx.ActorKey
-
-	scopes, err := p.scopes.List(ctx, common.SubjectKey(actor.String()))
-	if err != nil {
-		return nil, err
-	}
-
-	nodes := make([]*vfs.Node, 0, len(scopes))
-	for _, scope := range scopes {
-		nodes = append(nodes, wrapScopeToNode(scope))
-	}
-
-	return nodes, nil
-}
-
-func (p *Provider) handleScopeDir(ctx context.Context, scopeKey string) ([]*vfs.Node, error) {
-	scope, err := p.scopes.Get(ctx, scopeKey)
-	if err != nil {
-		return nil, err
-	}
-
-	return []*vfs.Node{
-		wrapScopeToNode(scope),
-	}, nil
-}
-
-func (p *Provider) handleConnectionsDir(ctx context.Context, scopeKey string) ([]*vfs.Node, error) {
-	connections, err := p.connections.List(ctx, scopeKey, "")
-	if err != nil {
-		return nil, err
-	}
-
-	nodes := make([]*vfs.Node, 0, len(connections))
-	for _, connection := range connections {
-		nodes = append(nodes, wrapConnectionToNode(connection))
-	}
-
-	return nodes, nil
-}
-
 func (p *Provider) handleGetDefaultScope(ctx context.Context) (*scopeInfoPayload, error) {
 	rctx, ok := vfs.RequestContextFromContext(ctx)
 	if !ok {

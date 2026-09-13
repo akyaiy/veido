@@ -4,14 +4,13 @@ import (
 	"MyServer/internal/common"
 	vfs "MyServer/internal/vfs/v2"
 	"MyServer/internal/vfs/v2/storage"
-	"MyServer/internal/vfs/v2/virtfs"
+	sdk "MyServer/pkg/vfs/providersdk"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"regexp"
 	"strings"
@@ -25,7 +24,7 @@ var connectionNamePartRe = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 type Provider struct {
 	connections storage.ConnectionStorageContract
 	scopes      storage.ScopeStorageContract
-	fs          *virtfs.FS
+	vfs.FSProvider
 }
 
 type DI struct {
@@ -33,232 +32,168 @@ type DI struct {
 	Scopes      storage.ScopeStorageContract
 }
 
-func Factory(ctx context.Context, di DI) vfs.ProviderFactory {
-	return func(ctx context.Context, connection vfs.ProviderConnection) (vfs.FSProvider, error) {
-		provider := &Provider{
-			connections: di.Connections,
-			scopes:      di.Scopes,
-		}
-		provider.fs = provider.buildFS()
-		return provider, nil
+func Factory(ctx context.Context, di DI) vfs.ProviderFactory { return Definition(di).Factory() }
+
+func Definition(di DI) sdk.Definition[struct{}] {
+	return sdk.Definition[struct{}]{
+		Key:     "scopes",
+		Summary: "Scopes and provider connection management",
+		Open: func(ctx context.Context, connection vfs.ProviderConnection, _ struct{}) (vfs.FSProvider, error) {
+			if di.Scopes == nil || di.Connections == nil {
+				return nil, vfs.ErrInvalidNewInstanceParams
+			}
+			provider := &Provider{connections: di.Connections, scopes: di.Scopes}
+			fs, err := provider.buildFS()
+			if err != nil {
+				return nil, err
+			}
+			provider.FSProvider = fs
+			return provider, nil
+		},
 	}
 }
 
-func (p *Provider) buildFS() *virtfs.FS {
-	return virtfs.New().
-		Route("/", virtfs.Handler{
-			Stat: func(ctx context.Context, req virtfs.Request) (*vfs.Node, error) {
-				return virtfs.DirNode("/"), nil
-			},
-			ReadDir: func(ctx context.Context, req virtfs.Request) ([]*vfs.Node, error) {
-				return []*vfs.Node{
-					virtfs.DirNode("scopes"),
-					virtfs.DirNode("me"),
-				}, nil
-			},
-		}).
-		Route("/scopes", virtfs.Handler{
-			Stat: func(ctx context.Context, req virtfs.Request) (*vfs.Node, error) {
-				return virtfs.DirNode("scopes"), nil
-			},
-			ReadDir: func(ctx context.Context, req virtfs.Request) ([]*vfs.Node, error) {
-				return p.handleListScopes(ctx)
-			},
-			Mkdir: func(ctx context.Context, req virtfs.Request, name string) (*vfs.Node, error) {
-				return p.createUserScope(ctx, name)
-			},
-		}).
-		Route("/me", virtfs.Handler{
-			Stat: func(ctx context.Context, req virtfs.Request) (*vfs.Node, error) {
-				return virtfs.DirNode("me"), nil
-			},
-			ReadDir: func(ctx context.Context, req virtfs.Request) ([]*vfs.Node, error) {
-				return []*vfs.Node{
-					virtfs.FileNode("default_scope.json", 0),
-				}, nil
-			},
-		}).
-		WritableGeneratedFile("/me/default_scope.json", func(ctx context.Context, req virtfs.Request) ([]byte, error) {
-			return p.defScopeInfoJSON(ctx)
-		}, func(ctx context.Context, req virtfs.Request, data []byte) error {
-			return p.setDefaultScopeJSON(ctx, data)
-		}).
-		Route("/scopes/{scopeKey}", virtfs.Handler{
-			Stat: func(ctx context.Context, req virtfs.Request) (*vfs.Node, error) {
-				scope, err := p.scopes.Get(ctx, req.Match.Param("scopeKey"))
-				if err != nil {
-					return nil, err
-				}
-				return wrapScopeToNode(scope), nil
-			},
-			ReadDir: func(ctx context.Context, req virtfs.Request) ([]*vfs.Node, error) {
-				data, err := p.scopeInfoJSON(ctx, req.Match.Param("scopeKey"))
-				if err != nil {
-					return nil, err
-				}
-				return []*vfs.Node{
-					virtfs.DirNode("connections"),
-					virtfs.FileNode("info.json", int64(len(data))),
-				}, nil
-			},
-			Delete: func(ctx context.Context, req virtfs.Request) error {
-				return p.deleteScope(ctx, req.Match.Param("scopeKey"))
-			},
-		}).
-		GeneratedFile("/scopes/{scopeKey}/info.json", func(ctx context.Context, req virtfs.Request) ([]byte, error) {
-			return p.scopeInfoJSON(ctx, req.Match.Param("scopeKey"))
-		}).
-		Route("/scopes/{scopeKey}/connections", virtfs.Handler{
-			Stat: func(ctx context.Context, req virtfs.Request) (*vfs.Node, error) {
-				if _, err := p.scopes.Get(ctx, req.Match.Param("scopeKey")); err != nil {
-					return nil, err
-				}
-				return virtfs.DirNode("connections"), nil
-			},
-			ReadDir: func(ctx context.Context, req virtfs.Request) ([]*vfs.Node, error) {
-				return p.handleConnectionsDir(ctx, req.Match.Param("scopeKey"))
-			},
-			Mkdir: func(ctx context.Context, req virtfs.Request, name string) (*vfs.Node, error) {
-				return p.createConnection(ctx, req.Match.Param("scopeKey"), name)
-			},
-		}).
-		Route("/scopes/{scopeKey}/connections/{connectionName}", virtfs.Handler{
-			Stat: func(ctx context.Context, req virtfs.Request) (*vfs.Node, error) {
-				providerKey, connectionKey, err := splitConnectionName(req.Match.Param("connectionName"))
-				if err != nil {
-					return nil, err
-				}
-				connection, err := p.connections.Get(ctx, req.Match.Param("scopeKey"), providerKey, connectionKey)
-				if err != nil {
-					return nil, err
-				}
-				return wrapConnectionToNode(connection), nil
-			},
-			ReadDir: func(ctx context.Context, req virtfs.Request) ([]*vfs.Node, error) {
-				providerKey, connectionKey, err := splitConnectionName(req.Match.Param("connectionName"))
-				if err != nil {
-					return nil, err
-				}
-				data, err := p.connectionInfoJSON(ctx, req.Match.Param("scopeKey"), providerKey, connectionKey)
-				if err != nil {
-					return nil, err
-				}
-				config, err := p.connectionConfigJSON(ctx, req.Match.Param("scopeKey"), providerKey, connectionKey)
-				if err != nil {
-					return nil, err
-				}
-				status, err := p.connectionStatusJSON(ctx, req.Match.Param("scopeKey"), providerKey, connectionKey)
-				if err != nil {
-					return nil, err
-				}
-				profile, err := p.connectionProfileJSON(ctx, req.Match.Param("scopeKey"), providerKey, connectionKey)
-				if err != nil {
-					return nil, err
-				}
-				return []*vfs.Node{
-					virtfs.FileNode("info.json", int64(len(data))),
-					virtfs.FileNode("profile.json", int64(len(profile))),
-					virtfs.FileNode("config.json", int64(len(config))),
-					virtfs.FileNode("status.json", int64(len(status))),
-				}, nil
-			},
-			Delete: func(ctx context.Context, req virtfs.Request) error {
-				providerKey, connectionKey, err := splitConnectionName(req.Match.Param("connectionName"))
-				if err != nil {
-					return err
-				}
-				return p.connections.Delete(ctx, req.Match.Param("scopeKey"), providerKey, connectionKey)
-			},
-			Move: func(ctx context.Context, req virtfs.Request, targetParentPath string, newName string) error {
-				scopeKey := req.Match.Param("scopeKey")
-				if targetParentPath != "/scopes/"+scopeKey+"/connections" {
-					return os.ErrPermission
-				}
-				providerKey, connectionKey, err := splitConnectionName(req.Match.Param("connectionName"))
-				if err != nil {
-					return err
-				}
-				displayName, err := validateConnectionDisplayName(newName)
-				if err != nil {
-					return err
-				}
-				return p.connections.SetDisplayName(ctx, scopeKey, providerKey, connectionKey, displayName)
-			},
-		}).
-		GeneratedFile("/scopes/{scopeKey}/connections/{connectionName}/info.json", func(ctx context.Context, req virtfs.Request) ([]byte, error) {
-			providerKey, connectionKey, err := splitConnectionName(req.Match.Param("connectionName"))
+func (p *Provider) Routes() []sdk.RouteInfo {
+	return p.FSProvider.(*sdk.Provider).Routes()
+}
+
+func (p *Provider) buildFS() (*sdk.Provider, error) {
+	tree := sdk.New()
+	root := tree.Root()
+	scopes := sdk.Collection(root, "scopes", "scopeKey", sdk.CollectionSpec[sdk.Unit, *vfs.Scope]{
+		List: func(ctx context.Context, req sdk.Request, _ sdk.Unit) ([]*vfs.Scope, error) {
+			actor, err := sdk.Actor(ctx)
 			if err != nil {
 				return nil, err
 			}
-			return p.connectionInfoJSON(ctx, req.Match.Param("scopeKey"), providerKey, connectionKey)
-		}).
-		WritableGeneratedFile("/scopes/{scopeKey}/connections/{connectionName}/profile.json", func(ctx context.Context, req virtfs.Request) ([]byte, error) {
-			providerKey, connectionKey, err := splitConnectionName(req.Match.Param("connectionName"))
+			return p.scopes.List(ctx, common.SubjectKey(actor.String()))
+		},
+		Lookup: func(ctx context.Context, req sdk.Request, _ sdk.Unit, key string) (*vfs.Scope, error) {
+			scope, err := p.scopes.Get(ctx, key)
+			if errors.Is(err, storage.ErrScopeNotFound) {
+				return nil, fmt.Errorf("%w: %w", vfs.ErrNotFound, err)
+			}
+			return scope, err
+		},
+		Node: wrapScopeToNode,
+		Create: func(ctx context.Context, req sdk.Request, _ sdk.Unit, name string) (*vfs.Node, error) {
+			return p.createUserScope(ctx, name)
+		},
+	})
+	scopes.Delete(func(ctx context.Context, req sdk.Request, scope *vfs.Scope) error {
+		if scope.Kind == "system" {
+			return os.ErrPermission
+		}
+		return p.scopes.Delete(ctx, scope.Key)
+	})
+	connections := sdk.Collection(scopes, "connections", "connectionName", sdk.CollectionSpec[*vfs.Scope, *vfs.ProviderConnection]{
+		List: func(ctx context.Context, req sdk.Request, scope *vfs.Scope) ([]*vfs.ProviderConnection, error) {
+			return p.connections.List(ctx, scope.Key, "")
+		},
+		Lookup: func(ctx context.Context, req sdk.Request, scope *vfs.Scope, name string) (*vfs.ProviderConnection, error) {
+			provider, key, err := splitConnectionName(name)
 			if err != nil {
 				return nil, err
 			}
-			return p.connectionProfileJSON(ctx, req.Match.Param("scopeKey"), providerKey, connectionKey)
-		}, func(ctx context.Context, req virtfs.Request, data []byte) error {
-			providerKey, connectionKey, err := splitConnectionName(req.Match.Param("connectionName"))
+			connection, err := p.connections.Get(ctx, scope.Key, provider, key)
+			if errors.Is(err, storage.ErrConnectionNotFound) {
+				return nil, fmt.Errorf("%w: %w", vfs.ErrNotFound, err)
+			}
+			return connection, err
+		},
+		Node: wrapConnectionToNode,
+		Create: func(ctx context.Context, req sdk.Request, scope *vfs.Scope, name string) (*vfs.Node, error) {
+			return p.createConnection(ctx, scope.Key, name)
+		},
+	})
+	sdk.JSON(scopes, "info.json", func(ctx context.Context, req sdk.Request, scope *vfs.Scope) (scopeInfoPayload, error) {
+		providers, err := p.connections.ListProviders(ctx, scope.Key)
+		if err != nil {
+			return scopeInfoPayload{}, err
+		}
+		keys := make([]string, 0, len(providers))
+		for _, provider := range providers {
+			if provider != nil {
+				keys = append(keys, provider.ProviderKey)
+			}
+		}
+		return scopeInfoPayload{ScopeKey: scope.Key, Kind: scope.Kind, OwnerSubjectKey: string(scope.OwnerSubjectKey), UpdatedAt: scope.UpdatedAt, Providers: keys}, nil
+	})
+	connections.Delete(func(ctx context.Context, req sdk.Request, c *vfs.ProviderConnection) error {
+		return p.connections.Delete(ctx, c.ScopeKey, c.ProviderKey, c.ConnectionKey)
+	})
+	connections.Move(func(ctx context.Context, req sdk.Request, c *vfs.ProviderConnection, target, name string) error {
+		if target != "/scopes/"+c.ScopeKey+"/connections" {
+			return os.ErrPermission
+		}
+		display, err := validateConnectionDisplayName(name)
+		if err != nil {
+			return err
+		}
+		return p.connections.SetDisplayName(ctx, c.ScopeKey, c.ProviderKey, c.ConnectionKey, display)
+	})
+	sdk.JSON(connections, "info.json", func(ctx context.Context, req sdk.Request, c *vfs.ProviderConnection) (connectionInfoPayload, error) {
+		return newConnectionInfoPayload(c), nil
+	})
+	sdk.Document(connections, "profile.json", sdk.DocumentSpec[*vfs.ProviderConnection, connectionProfilePayload]{
+		Read: func(ctx context.Context, req sdk.Request, c *vfs.ProviderConnection) (connectionProfilePayload, error) {
+			return connectionProfilePayload{DisplayName: c.DisplayName}, nil
+		},
+		Replace: func(ctx context.Context, req sdk.Request, c *vfs.ProviderConnection, value connectionProfilePayload) error {
+			name, err := validateConnectionDisplayName(value.DisplayName)
 			if err != nil {
 				return err
 			}
-			return p.setConnectionProfileJSON(ctx, req.Match.Param("scopeKey"), providerKey, connectionKey, data)
-		}).
-		WritableGeneratedFile("/scopes/{scopeKey}/connections/{connectionName}/config.json", func(ctx context.Context, req virtfs.Request) ([]byte, error) {
-			providerKey, connectionKey, err := splitConnectionName(req.Match.Param("connectionName"))
-			if err != nil {
-				return nil, err
+			return p.connections.SetDisplayName(ctx, c.ScopeKey, c.ProviderKey, c.ConnectionKey, name)
+		},
+	})
+	sdk.Document(connections, "config.json", sdk.DocumentSpec[*vfs.ProviderConnection, json.RawMessage]{
+		Read: func(ctx context.Context, req sdk.Request, c *vfs.ProviderConnection) (json.RawMessage, error) {
+			if json.Valid(c.Config) {
+				return json.RawMessage(c.Config), nil
 			}
-			return p.connectionConfigJSON(ctx, req.Match.Param("scopeKey"), providerKey, connectionKey)
-		}, func(ctx context.Context, req virtfs.Request, data []byte) error {
-			providerKey, connectionKey, err := splitConnectionName(req.Match.Param("connectionName"))
-			if err != nil {
-				return err
+			return mustJSONString(c.Config), nil
+		},
+		Replace: func(ctx context.Context, req sdk.Request, c *vfs.ProviderConnection, value json.RawMessage) error {
+			return p.connections.UpdateConfig(ctx, c.ScopeKey, c.ProviderKey, c.ConnectionKey, value)
+		},
+	})
+	sdk.Document(connections, "status.json", sdk.DocumentSpec[*vfs.ProviderConnection, connectionStatusUpdatePayload]{
+		Read: func(ctx context.Context, req sdk.Request, c *vfs.ProviderConnection) (connectionStatusUpdatePayload, error) {
+			status, ready := c.Status, c.Ready
+			return connectionStatusUpdatePayload{Status: &status, Ready: &ready}, nil
+		},
+		Replace: func(ctx context.Context, req sdk.Request, c *vfs.ProviderConnection, value connectionStatusUpdatePayload) error {
+			// Storage keeps status and ready as separately managed fields.
+			if value.Status != nil {
+				status := strings.TrimSpace(*value.Status)
+				if status == "" {
+					return vfs.ErrConnectionInactive
+				}
+				if err := p.connections.SetStatus(ctx, c.ScopeKey, c.ProviderKey, c.ConnectionKey, status); err != nil {
+					return err
+				}
 			}
-			return p.setConnectionConfigJSON(ctx, req.Match.Param("scopeKey"), providerKey, connectionKey, data)
-		}).
-		WritableGeneratedFile("/scopes/{scopeKey}/connections/{connectionName}/status.json", func(ctx context.Context, req virtfs.Request) ([]byte, error) {
-			providerKey, connectionKey, err := splitConnectionName(req.Match.Param("connectionName"))
-			if err != nil {
-				return nil, err
+			if value.Ready != nil {
+				return p.connections.SetReady(ctx, c.ScopeKey, c.ProviderKey, c.ConnectionKey, *value.Ready)
 			}
-			return p.connectionStatusJSON(ctx, req.Match.Param("scopeKey"), providerKey, connectionKey)
-		}, func(ctx context.Context, req virtfs.Request, data []byte) error {
-			providerKey, connectionKey, err := splitConnectionName(req.Match.Param("connectionName"))
+			return nil
+		},
+	})
+	me := sdk.Directory(root, "me")
+	sdk.Document(me, "default_scope.json", sdk.DocumentSpec[sdk.Unit, scopeInfoPayload]{
+		Read: func(ctx context.Context, req sdk.Request, _ sdk.Unit) (scopeInfoPayload, error) {
+			info, err := p.handleGetDefaultScope(ctx)
 			if err != nil {
-				return err
+				return scopeInfoPayload{}, err
 			}
-			return p.setConnectionStatusJSON(ctx, req.Match.Param("scopeKey"), providerKey, connectionKey, data)
-		})
-}
-
-func (p *Provider) Stat(ctx context.Context, rawPath string) (*vfs.Node, error) {
-	return p.fs.Stat(ctx, rawPath)
-}
-
-func (p *Provider) ReadDir(ctx context.Context, rawPath string) ([]*vfs.Node, error) {
-	return p.fs.ReadDir(ctx, rawPath)
-}
-
-func (p *Provider) OpenFile(ctx context.Context, rawPath string, flags int) (vfs.File, error) {
-	return p.fs.OpenFile(ctx, rawPath, flags)
-}
-
-func (p *Provider) Mkdir(ctx context.Context, parentPath string, name string) (*vfs.Node, error) {
-	return p.fs.Mkdir(ctx, parentPath, name)
-}
-
-func (p *Provider) Move(ctx context.Context, sourcePath string, targetParentPath string, newName string) error {
-	return p.fs.Move(ctx, sourcePath, targetParentPath, newName)
-}
-
-func (p *Provider) Delete(ctx context.Context, path string) error {
-	return p.fs.Delete(ctx, path)
-}
-
-func (p *Provider) Control(ctx context.Context, path string, command string, input []byte) ([]byte, error) {
-	return p.fs.Control(ctx, path, command, input)
+			return *info, nil
+		},
+		Replace: func(ctx context.Context, req sdk.Request, _ sdk.Unit, value scopeInfoPayload) error {
+			return p.setDefaultScope(ctx, value.ScopeKey)
+		},
+	})
+	return tree.Build()
 }
 
 func connectionName(providerKey string, connectionKey string) string {
@@ -412,133 +347,8 @@ func (p *Provider) deleteScope(ctx context.Context, scopeKey string) error {
 	return p.scopes.Delete(ctx, scopeKey)
 }
 
-func (p *Provider) scopeInfoJSON(ctx context.Context, scopeKey string) ([]byte, error) {
-	scope, err := p.scopes.Get(ctx, scopeKey)
-	if err != nil {
-		return nil, err
-	}
-	providers, err := p.connections.ListProviders(ctx, scopeKey)
-	if err != nil {
-		return nil, err
-	}
-
-	providerKeys := make([]string, 0, len(providers))
-	for _, provider := range providers {
-		if provider != nil {
-			providerKeys = append(providerKeys, provider.ProviderKey)
-		}
-	}
-
-	return json.MarshalIndent(scopeInfoPayload{
-		ScopeKey:        scope.Key,
-		Kind:            scope.Kind,
-		OwnerSubjectKey: string(scope.OwnerSubjectKey),
-		UpdatedAt:       scope.UpdatedAt,
-		Providers:       providerKeys,
-	}, "", "  ")
-}
-
-func (p *Provider) connectionInfoJSON(ctx context.Context, scopeKey string, providerKey string, connectionKey string) ([]byte, error) {
-	connection, err := p.connections.Get(ctx, scopeKey, providerKey, connectionKey)
-	if err != nil {
-		return nil, err
-	}
-
-	return json.MarshalIndent(newConnectionInfoPayload(connection), "", "  ")
-}
-
-func (p *Provider) connectionConfigJSON(ctx context.Context, scopeKey string, providerKey string, connectionKey string) ([]byte, error) {
-	connection, err := p.connections.Get(ctx, scopeKey, providerKey, connectionKey)
-	if err != nil {
-		return nil, err
-	}
-	config := json.RawMessage(connection.Config)
-	if !json.Valid(config) {
-		config = mustJSONString(connection.Config)
-	}
-	return json.MarshalIndent(config, "", "  ")
-}
-
-func (p *Provider) connectionProfileJSON(ctx context.Context, scopeKey string, providerKey string, connectionKey string) ([]byte, error) {
-	connection, err := p.connections.Get(ctx, scopeKey, providerKey, connectionKey)
-	if err != nil {
-		return nil, err
-	}
-	return json.MarshalIndent(connectionProfilePayload{
-		DisplayName: connection.DisplayName,
-	}, "", "  ")
-}
-
-func (p *Provider) setConnectionProfileJSON(ctx context.Context, scopeKey string, providerKey string, connectionKey string, data []byte) error {
-	var payload connectionProfilePayload
-	if err := json.Unmarshal(data, &payload); err != nil {
-		return fmt.Errorf("%w: invalid connection profile json: %v", os.ErrInvalid, err)
-	}
-	displayName, err := validateConnectionDisplayName(payload.DisplayName)
-	if err != nil {
-		return err
-	}
-	return p.connections.SetDisplayName(ctx, scopeKey, providerKey, connectionKey, displayName)
-}
-
-func (p *Provider) setConnectionConfigJSON(ctx context.Context, scopeKey string, providerKey string, connectionKey string, data []byte) error {
-	if len(strings.TrimSpace(string(data))) == 0 {
-		data = []byte("{}")
-	}
-	if !json.Valid(data) {
-		return fmt.Errorf("%w: invalid connection config json", os.ErrInvalid)
-	}
-	return p.connections.UpdateConfig(ctx, scopeKey, providerKey, connectionKey, data)
-}
-
-func (p *Provider) connectionStatusJSON(ctx context.Context, scopeKey string, providerKey string, connectionKey string) ([]byte, error) {
-	connection, err := p.connections.Get(ctx, scopeKey, providerKey, connectionKey)
-	if err != nil {
-		return nil, err
-	}
-	return json.MarshalIndent(connectionStatusPayload{
-		Status: connection.Status,
-		Ready:  connection.Ready,
-	}, "", "  ")
-}
-
-func (p *Provider) setConnectionStatusJSON(ctx context.Context, scopeKey string, providerKey string, connectionKey string, data []byte) error {
-	var payload connectionStatusUpdatePayload
-	if err := json.Unmarshal(data, &payload); err != nil {
-		return fmt.Errorf("%w: invalid connection status json: %v", os.ErrInvalid, err)
-	}
-	if payload.Status != nil {
-		status := strings.TrimSpace(*payload.Status)
-		if status == "" {
-			return fmt.Errorf("%w: empty connection status", vfs.ErrConnectionInactive)
-		}
-		if err := p.connections.SetStatus(ctx, scopeKey, providerKey, connectionKey, status); err != nil {
-			return err
-		}
-	}
-	if payload.Ready != nil {
-		if err := p.connections.SetReady(ctx, scopeKey, providerKey, connectionKey, *payload.Ready); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (p *Provider) defScopeInfoJSON(ctx context.Context) ([]byte, error) {
-	defaultScope, err := p.handleGetDefaultScope(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return json.MarshalIndent(defaultScope, "", "  ")
-}
-
-func (p *Provider) setDefaultScopeJSON(ctx context.Context, data []byte) error {
-	var payload defaultScopeUpdatePayload
-	if err := json.Unmarshal(data, &payload); err != nil {
-		return fmt.Errorf("%w: invalid default scope json: %v", os.ErrInvalid, err)
-	}
-
-	scopeKey := strings.TrimSpace(payload.ScopeKey)
+func (p *Provider) setDefaultScope(ctx context.Context, rawKey string) error {
+	scopeKey := strings.TrimSpace(rawKey)
 	if scopeKey == "" {
 		return fmt.Errorf("%w: empty scope_key", vfs.ErrInvalidScope)
 	}
@@ -559,37 +369,19 @@ func (p *Provider) setDefaultScopeJSON(ctx context.Context, data []byte) error {
 }
 
 func (p *Provider) validateScopeViaInfoJSON(ctx context.Context, scopeKey string) error {
-	bfs, ok := vfs.BoundVFSFromContext(ctx)
-	if !ok {
-		return vfs.ErrRequestContextNotFound
-	}
-
-	uri, err := bfs.SelfURI("/scopes/" + scopeKey + "/info.json")
+	uri, err := sdk.SelfURI(ctx, "/scopes/"+scopeKey+"/info.json")
 	if err != nil {
 		return err
 	}
-	file, err := bfs.OpenFile(ctx, uri, os.O_RDONLY)
+	info, err := sdk.ReadJSON[scopeInfoPayload](ctx, uri, sdk.DefaultMaxDocumentBytes)
 	if err != nil {
 		if errors.Is(err, storage.ErrScopeNotFound) {
 			return fmt.Errorf("%w: scope %q does not exist", vfs.ErrInvalidScope, scopeKey)
 		}
 		return err
 	}
-	data, readErr := io.ReadAll(file)
-	closeErr := file.Close()
-	if readErr != nil {
-		return readErr
-	}
-	if closeErr != nil {
-		return closeErr
-	}
-
-	var info scopeInfoPayload
-	if err := json.Unmarshal(data, &info); err != nil {
-		return fmt.Errorf("%w: invalid scope info json for %q: %v", os.ErrInvalid, scopeKey, err)
-	}
 	if info.ScopeKey != scopeKey {
-		return fmt.Errorf("%w: scope info key mismatch: got %q, want %q", vfs.ErrInvalidScope, info.ScopeKey, scopeKey)
+		return fmt.Errorf("%w: scope info key mismatch", vfs.ErrInvalidScope)
 	}
 	return nil
 }

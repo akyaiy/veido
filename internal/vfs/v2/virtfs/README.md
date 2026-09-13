@@ -1,5 +1,10 @@
 # virtfs
 
+For new providers, start with the [VFS v2 provider SDK guide](../../../../docs/VFS_V2_PROVIDER_SDK_RU.md).
+The public SDK builds on `virtfs` and adds typed resources, collections, documents,
+commands and development tools. Ordinary filesystem providers can use the SDK's
+backend adapters or keep implementing `FSProvider` directly.
+
 `virtfs` is a small helper for VFS v2 providers that synthesize their own tree.
 
 Use it when a provider is more like Linux `procfs` or `sysfs`: paths look like
@@ -149,6 +154,11 @@ fs.BufferedWriteFile("/reload", func(ctx context.Context, req virtfs.Request, da
 
 Reading this file returns `os.ErrPermission`; writing to it accumulates bytes
 and calls the handler on `Close`.
+
+The buffered handle also implements `vfs.WriteFile`. Use
+`vfs.FinishWrite(file, transferErr)` when copying an input stream: it calls `Abort`
+after a transfer error and commits only a complete upload. Repeated `Close` calls
+do not repeat the callback and preserve a failed commit's error.
 
 ## Control
 

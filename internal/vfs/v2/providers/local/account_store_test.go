@@ -323,6 +323,38 @@ func TestAccountProviderAppendCreatesReadableFile(t *testing.T) {
 	}
 }
 
+func TestAccountProviderAbortedUploadDoesNotPublish(t *testing.T) {
+	provider, ctx := newTestAccountProvider(t)
+	file, err := provider.OpenFile(ctx, "/incomplete.bin", os.O_CREATE|os.O_WRONLY|os.O_EXCL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := file.Write([]byte("partial")); err != nil {
+		t.Fatal(err)
+	}
+	if err := vfs.FinishWrite(file, io.ErrUnexpectedEOF); err == nil {
+		t.Fatal("lost transfer failure")
+	}
+	_ = file.Close()
+	if _, err := provider.Stat(ctx, "/incomplete.bin"); !os.IsNotExist(err) {
+		t.Fatalf("aborted file was published: %v", err)
+	}
+	file, err = provider.OpenFile(ctx, "/incomplete.bin", os.O_CREATE|os.O_WRONLY|os.O_EXCL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := file.Write([]byte("complete")); err != nil {
+		t.Fatal(err)
+	}
+	if err := vfs.FinishWrite(file, nil); err != nil {
+		t.Fatal(err)
+	}
+	node, err := provider.Stat(ctx, "/incomplete.bin")
+	if err != nil || node.Size != 8 {
+		t.Fatalf("complete file: %+v %v", node, err)
+	}
+}
+
 func TestAccountProviderAccountDirHiddenButAddressable(t *testing.T) {
 	provider, ctx := newTestAccountProvider(t)
 

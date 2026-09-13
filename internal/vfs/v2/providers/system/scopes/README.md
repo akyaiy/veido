@@ -18,11 +18,9 @@ directly into storage tables.
 
 ## Behavior
 
-The provider is mostly read-only.
-
-It supports directory browsing, generated metadata files, creating user scopes,
-and deleting non-system scopes. Attempts to move resources or write regular
-content should fail with permission-style errors.
+The provider supports browsing, generated metadata, creating/deleting user scopes
+and connections, and editing the declared JSON documents. A connection move within
+its parent updates its display name. Other mutations require explicit handlers.
 
 Creating a directory under the scopes listing creates a new user-owned scope.
 The owner is the full actor key, for example `user:42`, and the created scope
@@ -98,20 +96,17 @@ exports or a public API contract.
 
 ## Implementation Style
 
-The provider is built on `internal/vfs/v2/virtfs`.
+The provider declares its tree with `pkg/vfs/providersdk`:
 
-That keeps the provider from hand-writing the same routing logic in `Stat`,
-`ReadDir`, `OpenFile`, `Mkdir`, and `Delete`. The virtual tree is described
-once, and `virtfs` handles the boring filesystem defaults:
+- `Collection` loads each scope or connection once per operation and checks that
+  parent entities exist before serving their descendants.
+- `JSON` and `Document` define metadata views and typed replacement handlers.
+- Directory children follow from these declarations; route wrappers and manual
+  static file lists are unnecessary.
+- `Definition` supplies the factory and configuration description.
 
-- missing paths return `os.ErrNotExist`;
-- directories are not opened as files;
-- generated files are read-only;
-- unsupported mutating operations are denied by default;
-- unsupported control commands return `vfs.ErrNotImplemented`.
-
-This matters for WebDAV especially. WebDAV clients call filesystem methods in
-combinations that are easy to forget when a provider is written by hand.
+See the [provider SDK guide](../../../../../../docs/VFS_V2_PROVIDER_SDK_RU.md)
+for complete creation, filesystem backend, composition and testing examples.
 
 ## Intended Use
 

@@ -135,8 +135,8 @@ func TestDebugProviderThroughVFSFrontend(t *testing.T) {
 	ctx := context.Background()
 	actor := v2.Actor{Kind: v2.ActorUser, ID: "42"}
 
-	if _, err := frontend.Stat(ctx, actor, mustURI(t, "debug@default:///hello.txt")); err != nil {
-		t.Fatalf("Stat() error = %v", err)
+	if _, err := frontend.Stat(ctx, actor, mustURI(t, "debug@default:///hello.txt")); !os.IsNotExist(err) {
+		t.Fatalf("Stat(nonexistent debug file) error = %v, want not-exist", err)
 	}
 	if _, err := frontend.ReadDir(ctx, actor, mustURI(t, "debug@default[]:///")); err != nil {
 		t.Fatalf("ReadDir() error = %v", err)

@@ -3,6 +3,7 @@ package local
 import (
 	vfs "MyServer/internal/vfs/v2"
 	"MyServer/internal/vfs/v2/virtfs"
+	sdk "MyServer/pkg/vfs/providersdk"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -115,25 +116,16 @@ func parseCreateRequest(data []byte) (CreateRequest, error) {
 	return payload, nil
 }
 
-func accountControlFS(readInfo accountInfoReader, readStats accountStatsReader) *virtfs.FS {
-	return virtfs.New().
-		Route("/"+accountDir, virtfs.Handler{
-			Stat: func(ctx context.Context, req virtfs.Request) (*vfs.Node, error) {
-				return virtfs.DirNode(accountDir), nil
-			},
-			ReadDir: func(ctx context.Context, req virtfs.Request) ([]*vfs.Node, error) {
-				return []*vfs.Node{
-					virtfs.FileNode("info.json", 0),
-					virtfs.FileNode("stats.json", 0),
-				}, nil
-			},
-		}).
-		GeneratedFile("/"+accountDir+"/info.json", func(ctx context.Context, req virtfs.Request) ([]byte, error) {
-			return accountInfoJSON(ctx, readInfo)
-		}).
-		GeneratedFile("/"+accountDir+"/stats.json", func(ctx context.Context, req virtfs.Request) ([]byte, error) {
-			return accountStatsJSON(ctx, readStats)
-		})
+func accountControlFS(readInfo accountInfoReader, readStats accountStatsReader) *sdk.Provider {
+	tree := sdk.New()
+	account := sdk.Directory(tree.Root(), accountDir).Hidden()
+	sdk.JSON(account, "info.json", func(ctx context.Context, req sdk.Request, _ sdk.Unit) (*AccountInfo, error) { return readInfo(ctx) })
+	sdk.JSON(account, "stats.json", func(ctx context.Context, req sdk.Request, _ sdk.Unit) (*AccountStats, error) { return readStats(ctx) })
+	fs, err := tree.Build()
+	if err != nil {
+		panic(err)
+	} // constant resource declaration
+	return fs
 }
 
 func accountInfoJSON(ctx context.Context, readInfo accountInfoReader) ([]byte, error) {
@@ -146,23 +138,6 @@ func accountInfoJSON(ctx context.Context, readInfo accountInfoReader) ([]byte, e
 		return nil, err
 	}
 	return append(data, '\n'), nil
-}
-
-func accountStatsJSON(ctx context.Context, readStats accountStatsReader) ([]byte, error) {
-	stats, err := readStats(ctx)
-	if err != nil {
-		return nil, err
-	}
-	data, err := json.MarshalIndent(stats, "", "  ")
-	if err != nil {
-		return nil, err
-	}
-	return append(data, '\n'), nil
-}
-
-func isAccountControlPath(resourcePath string) bool {
-	cleaned := cleanPath(resourcePath)
-	return cleaned == "/"+accountDir || strings.HasPrefix(cleaned, "/"+accountDir+"/")
 }
 
 func cleanPath(resourcePath string) string {

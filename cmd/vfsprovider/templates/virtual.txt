@@ -1,0 +1,59 @@
+// A virtual provider exposes application data as a small filesystem.
+// Start here when resources are JSON documents, commands, or collections of
+// domain objects. See docs/VFS_V2_PROVIDER_SDK_RU.md in the repository root
+// for examples of Directory, Collection, Document, Command, and tests.
+package main
+
+import (
+    "MyServer/pkg/vfs"
+    sdk "MyServer/pkg/vfs/providersdk"
+    "context"
+    "log/slog"
+    "sync"
+)
+
+// Config is stored on a VFS connection. The development server loads it from
+// -config FILE (JSON); without that flag it passes {} to Definition.Defaults.
+// Add connection-specific options here, not per-request state.
+type Config struct { Message string `json:"message"` }
+
+// Settings is the content of the example /settings.json resource.
+type Settings struct { Enabled bool `json:"enabled"` }
+
+// Definition registers the provider key, configuration, and factory with VFS.
+// The VFS core resolves scope/connection and checks access before calling Open.
+func Definition() sdk.Definition[Config] {
+    return sdk.Definition[Config]{
+        // Key is the provider part of a VFS URI: provider@connection[scope]:///path.
+        Key: {{.Key}},
+        Summary: "Example resource provider",
+        // Defaults and an optional Validate control connection configuration.
+        // Definition.Factory() decodes the JSON into Config before Open runs.
+        Defaults: func() Config { return Config{Message: "hello"} },
+        // Open creates one provider instance for this connection. Keep shared
+        // mutable data synchronized; handlers may run concurrently.
+        Open: func(ctx context.Context, connection vfs.ProviderConnection, config Config) (vfs.FSProvider, error) {
+            tree := sdk.New()
+            // Observe is optional; trace data is useful while developing routes.
+            tree.Observe(func(trace sdk.Trace) { slog.Debug("provider operation", "operation", trace.Operation, "path", trace.Path, "route", trace.Pattern, "duration", trace.Duration, "error", trace.Err) })
+            // Add static resources here. JSON creates a read-only file and
+            // automatically supplies Stat, directory listing, and OpenFile.
+            // req contains the requested path, actor, and route parameters;
+            // sdk.Unit means this resource has no parent collection value.
+            sdk.JSON(tree.Root(), "info.json", func(ctx context.Context, req sdk.Request, _ sdk.Unit) (Config, error) { return config, nil })
+            // Document adds a writable JSON file. Replace runs after decoding
+            // and optional validation. This sample stores changes in memory;
+            // replace it with your own database or service to persist them.
+            var mu sync.RWMutex
+            settings := Settings{Enabled: true}
+            sdk.Document(tree.Root(), "settings.json", sdk.DocumentSpec[sdk.Unit, Settings]{
+                Read: func(ctx context.Context, req sdk.Request, _ sdk.Unit) (Settings, error) { mu.RLock(); defer mu.RUnlock(); return settings, nil },
+                Replace: func(ctx context.Context, req sdk.Request, _ sdk.Unit, value Settings) error { mu.Lock(); defer mu.Unlock(); settings = value; return nil },
+            })
+            // For nested paths, use sdk.Directory; for dynamic items, use
+            // sdk.Collection. sdk.Command declares actions on a resource.
+            // Build validates the tree and returns the FSProvider to VFS.
+            return tree.Build()
+        },
+    }
+}

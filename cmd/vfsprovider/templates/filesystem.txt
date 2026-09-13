@@ -1,0 +1,44 @@
+// A filesystem provider exposes an existing directory as VFS resources.
+// Files are discovered by the backend; do not register one route per file.
+// See docs/VFS_V2_PROVIDER_SDK_RU.md in the repository root for FromBackend,
+// write support, and combining a filesystem with virtual resources.
+package main
+
+import (
+    "MyServer/pkg/vfs"
+    sdk "MyServer/pkg/vfs/providersdk"
+    "context"
+    "os"
+)
+
+// Config is stored on a VFS connection. Pass a JSON file with -config when
+// running the development server, for example {"root":"/path/to/files"}.
+type Config struct { Root string `json:"root"` }
+
+// Definition tells VFS how to configure and open this provider.
+func Definition() sdk.Definition[Config] {
+    return sdk.Definition[Config]{
+        // Key is the provider part of a VFS URI: provider@connection[scope]:///path.
+        Key: {{.Key}},
+        Summary: "Read-only filesystem provider",
+        // Defaults applies when a config field is omitted. Change this if
+        // your provider should require an explicit root directory.
+        Defaults: func() Config { return Config{Root: "."} },
+        // Validate runs before Open, so a broken root fails at startup.
+        Validate: func(ctx context.Context, config Config) error {
+            info, err := os.Stat(config.Root)
+            if err != nil { return err }; if !info.IsDir() { return vfs.ErrInvalidArgument }; return nil
+        },
+        // Open creates the filesystem view for one VFS connection. The VFS
+        // core already resolves scope/connection and checks access.
+        Open: func(ctx context.Context, connection vfs.ProviderConnection, config Config) (vfs.FSProvider, error) {
+            // FromFS adapts io/fs.FS for read-only Stat, ReadDir, and OpenFile.
+            // It does not allow creating, changing, moving, or deleting files.
+            // For those, implement the relevant WriteBackend, MkdirBackend,
+            // MoveBackend, and DeleteBackend interfaces and use FromBackend.
+            // os.DirFS follows symlinks; choose a confined backend if files
+            // must not escape the configured root through symlinks.
+            return sdk.FromFS(os.DirFS(config.Root)), nil
+        },
+    }
+}

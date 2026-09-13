@@ -178,7 +178,7 @@ OpenFile(O_RDONLY)
 ```text
 OpenFile(O_CREATE | O_WRONLY | O_EXCL)
   -> copy limited request body
-  -> Close (commit)
+  -> FinishWrite (Commit при успехе, Abort при ошибке передачи)
   -> 201 Created
 ```
 
@@ -187,13 +187,13 @@ OpenFile(O_CREATE | O_WRONLY | O_EXCL)
 ```text
 OpenFile(O_WRONLY | O_TRUNC)
   -> copy limited request body
-  -> Close (commit)
+  -> FinishWrite (Commit при успехе, Abort при ошибке передачи)
   -> 204 No Content
 ```
 
 Успех нельзя отправлять до успешного `Close`, потому что provider может фиксировать запись именно при закрытии.
 
-Если `io.Copy` завершился ошибкой, файл все равно нужно закрыть. При этом исходная ошибка копирования имеет приоритет для ответа, а ошибка `Close` сохраняется в логе. Если копирование успешно, ошибка `Close` становится ошибкой запроса.
+Запись завершается через `vfs.FinishWrite(file, transferErr)`. При ошибке передачи staged-файл получает `Abort`; при успехе — `Commit`. Обычный файл закрывается без обещания отката прямой записи. Ошибка передачи имеет приоритет для HTTP-ответа; ошибка подтверждения после успешной передачи становится ошибкой запроса. См. [контракт записи SDK](VFS_V2_PROVIDER_SDK_RU.md#завершение-записи).
 
 ### Ограничение тела
 
@@ -318,7 +318,7 @@ WebDAV regression tests остаются отдельными, но нескол
 
 ### Этап 0. Исправить предпосылки VFSv2
 
-1. Перенести `OnResourceCreated` для `OpenFile(O_CREATE)` после подтвержденного создания provider-ом либо изменить lifecycle-контракт так, чтобы не возникало ложного события при `O_EXCL`.
+1. Выполнено в SDK: `OnResourceCreated` следует за успешным commit нового staged-файла либо успешным открытием файла с прямой записью. Конкурентное exclusive-создание остаётся гарантией backend.
 2. Зафиксировать именованные ошибки как минимум для invalid URI, not found, exists, permission denied, inactive connection и unsupported operation.
 3. Добавить тесты на flags и commit-on-close.
 
@@ -386,7 +386,7 @@ HTTP и WebDAV являются двумя transport adapter-ами одного
 
 ### Streaming без промежуточного буфера
 
-Файлы не загружаются полностью в RAM. Запись commit-ится через `Close`, чтение напрямую копируется в response.
+Файлы не загружаются полностью в RAM. Запись завершается через `FinishWrite` с поддержкой `Commit`/`Abort`, чтение напрямую копируется в response.
 
 ### Один error contract
 

@@ -2,7 +2,7 @@ package local
 
 import (
 	vfs "MyServer/internal/vfs/v2"
-	"MyServer/internal/vfs/v2/virtfs"
+	sdk "MyServer/pkg/vfs/providersdk"
 	"context"
 	"database/sql"
 	"errors"
@@ -11,10 +11,21 @@ import (
 )
 
 type AccountProvider struct {
+	vfs.FSProvider
+}
+
+func (p *AccountProvider) Close() error {
+	if closer, ok := p.FSProvider.(io.Closer); ok {
+		return closer.Close()
+	}
+	return nil
+}
+
+// accountFS implements ordinary filesystem operations; composition owns virtual paths.
+type accountFS struct {
 	connection vfs.ProviderConnection
 	accounts   AccountStore
 	account    *Account
-	control    *virtfs.FS
 	nodes      *nodeStore
 	paths      *pathResolver
 	artifacts  *artifactStore
@@ -22,7 +33,7 @@ type AccountProvider struct {
 
 func NewAccountProvider(connection vfs.ProviderConnection, accounts AccountStore, account *Account, db *sql.DB, storage StorageDriver) *AccountProvider {
 	nodes := newNodeStore(db)
-	provider := &AccountProvider{
+	provider := &accountFS{
 		connection: connection,
 		accounts:   accounts,
 		account:    account,
@@ -30,7 +41,7 @@ func NewAccountProvider(connection vfs.ProviderConnection, accounts AccountStore
 		paths:      newPathResolver(nodes, account.RootNodeID),
 		artifacts:  newArtifactStore(db, storage),
 	}
-	provider.control = accountControlFS(
+	control := accountControlFS(
 		func(ctx context.Context) (*AccountInfo, error) {
 			info := provider.account.info()
 			info.ConnectionID = provider.connection.ID
@@ -40,13 +51,14 @@ func NewAccountProvider(connection vfs.ProviderConnection, accounts AccountStore
 			return provider.nodes.stats(ctx, provider.account.RootNodeID)
 		},
 	)
-	return provider
+	composed, err := sdk.Compose(provider, sdk.Mount{Path: "/" + accountDir, Provider: control, Hidden: true, PreservePath: true})
+	if err != nil {
+		panic(err)
+	} // constant mount declaration is a construction invariant
+	return &AccountProvider{FSProvider: composed}
 }
 
-func (p *AccountProvider) Stat(ctx context.Context, resourcePath string) (*vfs.Node, error) {
-	if isAccountControlPath(resourcePath) {
-		return p.control.Stat(ctx, resourcePath)
-	}
+func (p *accountFS) Stat(ctx context.Context, resourcePath string) (*vfs.Node, error) {
 	node, err := p.paths.resolve(ctx, resourcePath)
 	if err != nil {
 		return nil, err
@@ -59,10 +71,7 @@ func (p *AccountProvider) Stat(ctx context.Context, resourcePath string) (*vfs.N
 	return nodeToVFS(node), nil
 }
 
-func (p *AccountProvider) ReadDir(ctx context.Context, resourcePath string) ([]*vfs.Node, error) {
-	if isAccountControlPath(resourcePath) {
-		return p.control.ReadDir(ctx, resourcePath)
-	}
+func (p *accountFS) ReadDir(ctx context.Context, resourcePath string) ([]*vfs.Node, error) {
 	parent, err := p.paths.resolve(ctx, resourcePath)
 	if err != nil {
 		return nil, err
@@ -84,10 +93,7 @@ func (p *AccountProvider) ReadDir(ctx context.Context, resourcePath string) ([]*
 	return nodes, nil
 }
 
-func (p *AccountProvider) OpenFile(ctx context.Context, resourcePath string, flags int) (vfs.File, error) {
-	if isAccountControlPath(resourcePath) {
-		return p.control.OpenFile(ctx, resourcePath, flags)
-	}
+func (p *accountFS) OpenFile(ctx context.Context, resourcePath string, flags int) (vfs.File, error) {
 
 	writeMode := wantsWrite(flags)
 	node, err := p.paths.resolve(ctx, resourcePath)
@@ -148,10 +154,7 @@ func (p *AccountProvider) OpenFile(ctx context.Context, resourcePath string, fla
 	}), nil
 }
 
-func (p *AccountProvider) Mkdir(ctx context.Context, parentPath string, name string) (*vfs.Node, error) {
-	if isAccountControlPath(parentPath) {
-		return nil, os.ErrPermission
-	}
+func (p *accountFS) Mkdir(ctx context.Context, parentPath string, name string) (*vfs.Node, error) {
 	parent, err := p.paths.resolveParent(ctx, parentPath)
 	if err != nil {
 		return nil, err
@@ -163,10 +166,7 @@ func (p *AccountProvider) Mkdir(ctx context.Context, parentPath string, name str
 	return nodeToVFS(node), nil
 }
 
-func (p *AccountProvider) Move(ctx context.Context, sourcePath string, targetParentPath string, newName string) error {
-	if isAccountControlPath(sourcePath) || isAccountControlPath(targetParentPath) {
-		return os.ErrPermission
-	}
+func (p *accountFS) Move(ctx context.Context, sourcePath string, targetParentPath string, newName string) error {
 	source, err := p.paths.resolve(ctx, sourcePath)
 	if err != nil {
 		return err
@@ -181,10 +181,7 @@ func (p *AccountProvider) Move(ctx context.Context, sourcePath string, targetPar
 	return p.nodes.move(ctx, p.account.RootNodeID, source.ID, targetParent.ID, newName)
 }
 
-func (p *AccountProvider) Delete(ctx context.Context, resourcePath string) error {
-	if isAccountControlPath(resourcePath) {
-		return os.ErrPermission
-	}
+func (p *accountFS) Delete(ctx context.Context, resourcePath string) error {
 	node, err := p.paths.resolve(ctx, resourcePath)
 	if err != nil {
 		return err
@@ -192,14 +189,11 @@ func (p *AccountProvider) Delete(ctx context.Context, resourcePath string) error
 	return p.nodes.delete(ctx, p.account.RootNodeID, node.ID)
 }
 
-func (p *AccountProvider) Control(ctx context.Context, resourcePath string, command string, input []byte) ([]byte, error) {
-	if isAccountControlPath(resourcePath) {
-		return p.control.Control(ctx, resourcePath, command, input)
-	}
+func (p *accountFS) Control(ctx context.Context, resourcePath string, command string, input []byte) ([]byte, error) {
 	return nil, vfs.ErrNotImplemented
 }
 
-func (p *AccountProvider) openReadFile(ctx context.Context, node *metadataNode) (vfs.File, error) {
+func (p *accountFS) openReadFile(ctx context.Context, node *metadataNode) (vfs.File, error) {
 	if node == nil || !node.Hash.Valid {
 		return nil, os.ErrNotExist
 	}
@@ -210,7 +204,7 @@ func (p *AccountProvider) openReadFile(ctx context.Context, node *metadataNode) 
 	return newArtifactReadFile(node.Name, node.Size, node.UpdatedAt, file), nil
 }
 
-func (p *AccountProvider) owner(ctx context.Context) string {
+func (p *accountFS) owner(ctx context.Context) string {
 	if rctx, ok := vfs.RequestContextFromContext(ctx); ok && rctx.ActorKey.Kind != "" && rctx.ActorKey.ID != "" {
 		return rctx.ActorKey.String()
 	}

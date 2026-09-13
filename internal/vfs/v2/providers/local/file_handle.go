@@ -56,12 +56,14 @@ func (f *artifactReadFile) Stat() (os.FileInfo, error) {
 }
 
 type artifactWriteFile struct {
-	ctx    context.Context
-	name   string
-	writer artifactWriter
-	size   int64
-	closed bool
-	commit func(artifactID int64, hash string, size int64) error
+	ctx      context.Context
+	name     string
+	writer   artifactWriter
+	size     int64
+	closed   bool
+	commit   func(artifactID int64, hash string, size int64) error
+	result   error
+	writeErr error
 }
 
 func newArtifactWriteFile(ctx context.Context, name string, writer artifactWriter, initialSize int64, commit func(artifactID int64, hash string, size int64) error) vfs.File {
@@ -84,6 +86,9 @@ func (f *artifactWriteFile) Write(p []byte) (int, error) {
 	}
 	n, err := f.writer.Write(p)
 	f.size += int64(n)
+	if err != nil {
+		f.writeErr = err
+	}
 	return n, err
 }
 
@@ -105,20 +110,43 @@ func (f *artifactWriteFile) Seek(offset int64, whence int) (int64, error) {
 }
 
 func (f *artifactWriteFile) Close() error {
+	return f.Commit()
+}
+
+func (f *artifactWriteFile) Abort() error {
 	if f.closed {
 		return nil
 	}
 	f.closed = true
+	return f.writer.Abort()
+}
+
+func (f *artifactWriteFile) Commit() error {
+	if f.closed {
+		return f.result
+	}
+	f.closed = true
+	if f.writeErr != nil {
+		f.result = f.writeErr
+	} else {
+		f.result = f.ctx.Err()
+	}
+	if f.result != nil {
+		_ = f.writer.Abort()
+		return f.result
+	}
 
 	artifactID, hash, size, err := f.writer.Commit(f.ctx)
 	if err != nil {
 		_ = f.writer.Abort()
-		return err
+		f.result = err
+		return f.result
 	}
 	if f.commit == nil {
 		return nil
 	}
-	return f.commit(artifactID, hash, size)
+	f.result = f.commit(artifactID, hash, size)
+	return f.result
 }
 
 func (f *artifactWriteFile) Stat() (os.FileInfo, error) {

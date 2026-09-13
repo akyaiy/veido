@@ -417,14 +417,9 @@ func TestScopesProviderThroughVFSFrontend_ReadDirMissingScopeConnections(t *test
 	ctx := context.Background()
 	actor := v2.Actor{Kind: v2.ActorUser, ID: "42"}
 
-	nodes, err := frontend.ReadDir(ctx, actor, mustURI(t, "scopes@scopes[system]:///scopes/missing/connections"))
-	if err != nil {
-		t.Fatalf("ReadDir(missing scope connections) error = %v", err)
-	}
-
-	logNodes(t, "VFSFrontend ReadDir(scopes@scopes[system]:///scopes/missing/connections)", nodes)
-	if len(nodes) != 0 {
-		t.Fatalf("nodes length = %d, want 0", len(nodes))
+	_, err := frontend.ReadDir(ctx, actor, mustURI(t, "scopes@scopes[system]:///scopes/missing/connections"))
+	if !errors.Is(err, storage.ErrScopeNotFound) {
+		t.Fatalf("ReadDir(missing scope connections) error = %v, want scope not found", err)
 	}
 }
 

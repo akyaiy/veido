@@ -12,6 +12,7 @@ import (
 	"MyServer/internal/vfs/v2/providers/local"
 	systemscopes "MyServer/internal/vfs/v2/providers/system/scopes"
 	"MyServer/internal/vfs/v2/storage"
+	sdk "MyServer/pkg/vfs/providersdk"
 	"bytes"
 	"context"
 	"database/sql"
@@ -120,8 +121,8 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle(*prefix+"/", handler)
-	mux.Handle(*prefix, handler)
+	mux.Handle(*prefix+"/", webdavadapter.TransactionalWrites(handler))
+	mux.Handle(*prefix, webdavadapter.TransactionalWrites(handler))
 	httpHandler, err := httpapi.NewHandler(frontend, httpRequestActor, httpapi.DefaultLimits(), slog.Default())
 	if err != nil {
 		log.Fatalf("init VFSv2 HTTP adapter: %v", err)
@@ -376,13 +377,15 @@ func newVFS(db *sql.DB) (vfs.VFSFrontend, error) {
 		return nil, err
 	}
 
-	registry := vfs.NewProviderRegistry()
+	registry := sdk.NewCatalog()
 	registry.Register("debug", providers.FactoryDebug)
 	accountStore, err := local.NewSQLiteAccountStore(db, nil)
 	if err != nil {
 		return nil, err
 	}
-	registry.Register("local", local.Factory(accountStore))
+	if err := sdk.RegisterDefinition(registry, local.Definition(accountStore)); err != nil {
+		return nil, err
+	}
 	scopeStorage, err := storage.NewScopeManager(db)
 	if err != nil {
 		return nil, err
@@ -391,10 +394,12 @@ func newVFS(db *sql.DB) (vfs.VFSFrontend, error) {
 	if err != nil {
 		return nil, err
 	}
-	registry.Register("scopes", systemscopes.Factory(context.Background(), systemscopes.DI{
+	if err := sdk.RegisterDefinition(registry, systemscopes.Definition(systemscopes.DI{
 		Connections: connectionStorage,
 		Scopes:      scopeStorage,
-	}))
+	})); err != nil {
+		return nil, err
+	}
 
 	pool, err := vfs.NewProviderPool(registry)
 	if err != nil {

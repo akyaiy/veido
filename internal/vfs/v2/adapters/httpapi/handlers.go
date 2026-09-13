@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"MyServer/internal/common"
+	vfs "MyServer/internal/vfs/v2"
 	"errors"
 	"io"
 	"log/slog"
@@ -102,15 +103,15 @@ func (h *Handler) writeFile(w http.ResponseWriter, r *http.Request, flags, succe
 		h.writeError(w, r, err)
 		return
 	}
-	_, copyErr := io.Copy(file, r.Body)
-	closeErr := file.Close()
+	written, copyErr := io.Copy(file, r.Body)
+	if copyErr == nil && r.ContentLength >= 0 && written != r.ContentLength {
+		copyErr = io.ErrUnexpectedEOF
+	}
+	closeErr := vfs.FinishWrite(file, copyErr)
 	if copyErr != nil {
 		var maxBytesErr *http.MaxBytesError
 		if errors.As(copyErr, &maxBytesErr) {
 			copyErr = requestProblem(http.StatusRequestEntityTooLarge, "payload_too_large", "request body is too large", copyErr)
-		}
-		if closeErr != nil {
-			h.logger.ErrorContext(r.Context(), "VFS file close also failed", slog.Any("error", closeErr))
 		}
 		h.writeError(w, r, copyErr)
 		return

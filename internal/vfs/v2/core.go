@@ -3,6 +3,7 @@ package v2
 import (
 	"MyServer/internal/common"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 )
@@ -270,9 +271,6 @@ func (c *VFSCore) OpenFile(ctx context.Context, actor Actor, uri common.CanonURI
 		if err := c.requireResourceAccess(ctx, actor, common.ActionWrite, parentResourceRef(resolved.Ref)); err != nil {
 			return nil, err
 		}
-		if err := c.lifecycle.OnResourceCreated(ctx, actor, resolved.Ref); err != nil {
-			return nil, err
-		}
 	}
 
 	provider, err := c.getProvider(ctx, resolved.Connection)
@@ -287,7 +285,30 @@ func (c *VFSCore) OpenFile(ctx context.Context, actor Actor, uri common.CanonURI
 	}
 	rctx := newRequestContext(actor, uri, resolved)
 	providerCtx := contextWithCoreRequest(ctx, &bound, rctx)
-	return provider.OpenFile(providerCtx, resolved.Ref.Path, flag)
+	created := false
+	if flag&os.O_CREATE != 0 {
+		_, statErr := provider.Stat(providerCtx, resolved.Ref.Path)
+		if statErr != nil && !errors.Is(statErr, os.ErrNotExist) && !errors.Is(statErr, ErrNotFound) {
+			return nil, statErr
+		}
+		created = statErr != nil
+	}
+	file, err := provider.OpenFile(providerCtx, resolved.Ref.Path, flag)
+	if err != nil {
+		return nil, err
+	}
+	if !created {
+		return file, nil
+	}
+	onCreated := func() error { return c.lifecycle.OnResourceCreated(ctx, actor, resolved.Ref) }
+	if staged, ok := file.(WriteFile); ok {
+		return &createdFile{WriteFile: staged, onCreated: onCreated}, nil
+	}
+	// Direct-write files create their namespace entry during OpenFile.
+	if err := onCreated(); err != nil {
+		return nil, errors.Join(err, file.Close())
+	}
+	return file, nil
 }
 
 func (c *VFSCore) Mkdir(ctx context.Context, actor Actor, uri common.CanonURI) (*Node, error) {
