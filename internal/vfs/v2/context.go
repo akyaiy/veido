@@ -6,6 +6,7 @@ import (
 )
 
 type RequestContextCtxKey struct{}
+type actorContextKey struct{}
 
 type RequestContext struct {
 	ActorKey   Actor
@@ -25,4 +26,18 @@ func ContextWithRequestContext(ctx context.Context, rctx RequestContext) context
 func RequestContextFromContext(ctx context.Context) (RequestContext, bool) {
 	rctx, ok := ctx.Value(RequestContextCtxKey{}).(RequestContext)
 	return rctx, ok
+}
+
+// ContextWithActor attaches the authenticated VFS actor to a transport
+// request context. Protocol adapters can share this value without depending on
+// the application's authentication implementation.
+func ContextWithActor(ctx context.Context, actor Actor) context.Context {
+	return context.WithValue(ctx, actorContextKey{}, actor)
+}
+
+// ActorFromContext returns the actor attached by the transport authentication
+// middleware.
+func ActorFromContext(ctx context.Context) (Actor, bool) {
+	actor, ok := ctx.Value(actorContextKey{}).(Actor)
+	return actor, ok
 }

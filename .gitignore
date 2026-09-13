@@ -11,3 +11,4 @@ data/testing/
 bak/
 data/db/vfs_test.sqlite3
 cas/
+.*/

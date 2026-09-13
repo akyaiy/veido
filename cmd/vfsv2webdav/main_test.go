@@ -1,11 +1,30 @@
 package main
 
 import (
+	vfs "MyServer/internal/vfs/v2"
+	httpapi "MyServer/internal/vfs/v2/adapters/httpapi"
 	webdavadapter "MyServer/internal/vfs/v2/adapters/webdav"
+	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
+
+func TestHTTPRequestActor(t *testing.T) {
+	want := vfs.Actor{Kind: vfs.ActorUser, ID: "42"}
+	request := httptest.NewRequest(http.MethodGet, "/api/v2/vfs/stat", nil)
+	request = request.WithContext(vfs.ContextWithActor(request.Context(), want))
+	got, err := httpRequestActor(request)
+	if err != nil || got != want {
+		t.Fatalf("httpRequestActor() = (%+v, %v), want (%+v, nil)", got, err, want)
+	}
+
+	request = request.WithContext(context.Background())
+	if _, err := httpRequestActor(request); !errors.Is(err, httpapi.ErrUnauthenticated) {
+		t.Fatalf("httpRequestActor() error = %v, want unauthenticated", err)
+	}
+}
 
 func TestWebDAVStatusHintRewritesMKCOLMethodNotAllowed(t *testing.T) {
 	handler := webdavStatusHint(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

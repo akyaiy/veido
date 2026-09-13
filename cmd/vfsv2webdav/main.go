@@ -6,6 +6,7 @@ import (
 	"MyServer/internal/config"
 	"MyServer/internal/sqliteDB"
 	vfs "MyServer/internal/vfs/v2"
+	httpapi "MyServer/internal/vfs/v2/adapters/httpapi"
 	webdavadapter "MyServer/internal/vfs/v2/adapters/webdav"
 	"MyServer/internal/vfs/v2/providers"
 	"MyServer/internal/vfs/v2/providers/local"
@@ -25,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	_ "github.com/mattn/go-sqlite3"
 	gowebdav "golang.org/x/net/webdav"
 )
@@ -119,11 +122,21 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle(*prefix+"/", handler)
 	mux.Handle(*prefix, handler)
+	httpHandler, err := httpapi.NewHandler(frontend, httpRequestActor, httpapi.DefaultLimits(), slog.Default())
+	if err != nil {
+		log.Fatalf("init VFSv2 HTTP adapter: %v", err)
+	}
+	apiRouter := chi.NewRouter()
+	apiRouter.Use(chimiddleware.RequestID)
+	apiRouter.Route("/api/v2/vfs", func(r chi.Router) {
+		httpapi.RegisterRoutes(r, httpHandler)
+	})
+	mux.Handle("/api/", apiRouter)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "WebDAV endpoint is mounted at "+*prefix, http.StatusNotFound)
+		http.Error(w, "VFS endpoints are mounted at "+*prefix+" and /api/v2/vfs", http.StatusNotFound)
 	})
 
-	slog.Info("vfsv2 webdav listening", "addr", *addr, "prefix", *prefix, "base_uri", *baseURI, "scopes_uri", *scopesURI, "fallback_actor", "user:"+*actorID, "admin_actor", "user:"+authActorID)
+	slog.Info("vfsv2 server listening", "addr", *addr, "webdav_prefix", *prefix, "http_prefix", "/api/v2/vfs", "base_uri", *baseURI, "scopes_uri", *scopesURI, "fallback_actor", "user:"+*actorID, "admin_actor", "user:"+authActorID)
 	server := &http.Server{
 		Addr:     *addr,
 		Handler:  webdavProtocolLogger(webdavBasicAuth(authService, webdavStatusHint(mux))),
@@ -132,6 +145,14 @@ func main() {
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func httpRequestActor(r *http.Request) (vfs.Actor, error) {
+	actor, ok := vfs.ActorFromContext(r.Context())
+	if !ok {
+		return vfs.Actor{}, httpapi.ErrUnauthenticated
+	}
+	return actor, nil
 }
 
 type responseLogWriter struct {
@@ -296,6 +317,11 @@ func webdavBasicAuth(authService *auth.Auth, next http.Handler) http.Handler {
 		)
 		user, err := authService.AuthenticateBasicRequest(r)
 		if err != nil || user == nil || user.ID == 0 {
+			if strings.HasPrefix(r.URL.Path, "/api/v2/vfs") {
+				w.Header().Set("WWW-Authenticate", `Basic realm="VFS"`)
+				next.ServeHTTP(w, r)
+				return
+			}
 			w.Header().Set("WWW-Authenticate", `Basic realm="WebDAV"`)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
@@ -305,7 +331,8 @@ func webdavBasicAuth(authService *auth.Auth, next http.Handler) http.Handler {
 			Kind: vfs.ActorUser,
 			ID:   fmt.Sprintf("%d", user.ID),
 		}
-		ctx := webdavadapter.ContextWithActor(r.Context(), actor)
+		ctx := vfs.ContextWithActor(r.Context(), actor)
+		ctx = webdavadapter.ContextWithActor(ctx, actor)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
