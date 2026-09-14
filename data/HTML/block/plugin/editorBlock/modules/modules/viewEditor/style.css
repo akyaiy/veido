@@ -20,23 +20,3 @@
     overflow: hidden;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
-
-
-
-/* Слои затемнения */
-.viewEditorOverlays {
-    position: absolute;
-    inset: 0px;
-    pointer-events: none;
-    z-index: 100;
-}
-
-.viewEditorOverlays .overlayRight,
-.viewEditorOverlays .overlayBottom,
-.viewEditorOverlays .overlayCorner {
-    position: absolute;
-    background: rgba(0, 0, 0, 0.1);
-    transition: opacity 160ms ease;
-    opacity: '0';
-    pointer-events: none;
-}
