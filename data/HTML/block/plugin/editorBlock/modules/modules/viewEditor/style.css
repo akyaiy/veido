@@ -4,6 +4,7 @@
 
 /* Содержимое и iframe визуального редактора */
 #viewEditorContent {
+    position: relative;
     display: block;
     box-sizing: border-box;
     overflow: visible;
@@ -11,6 +12,8 @@
 }
 
 #viewEditorIframe {
+    position: relative;
+    z-index: 2;
     display: block;
     width: stretch;
     height: stretch;
@@ -18,5 +21,55 @@
     border: 0;
     box-sizing: border-box;
     overflow: hidden;
+    background: #ffffff;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+#viewEditorPreview {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 0;
+    display: none;
+    box-sizing: border-box;
+    pointer-events: none;
+    overflow: visible;
+    background: #ffffff;
+}
+
+#viewEditorPreview .viewEditorPreviewContent {
+    position: absolute;
+    left: 0;
+    top: 0;
+    box-sizing: border-box;
+    pointer-events: none;
+    overflow: visible;
+}
+
+#viewEditorPreview .viewEditorPreviewContent > * {
+    box-sizing: border-box;
+}
+
+#viewEditorPreview .viewEditorPreviewOverlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 0;
+    box-sizing: border-box;
+    pointer-events: none;
+    background: #ffffff;
+}
+
+#viewEditorPreview .viewEditorPreviewContent {
+    z-index: 1;
+}
+
+#viewEditorPreview .viewEditorPreviewShade {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 2;
+    box-sizing: border-box;
+    pointer-events: none;
+    background: rgba(255, 255, 255, 0.75);
 }

@@ -808,6 +808,7 @@ function initLoadedViewEditor(blockId, htmlContent, cssContent, jsContent) {
 
     iframe.addEventListener('load', () => {
         initViewEditorIframe(blockId, iframe, jsContent);
+        window.editorBlock.initViewEditorPreview(iframe);
     });
 
     viewEditorContent.appendChild(iframe);
