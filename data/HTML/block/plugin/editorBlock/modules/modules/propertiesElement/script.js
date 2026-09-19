@@ -3321,6 +3321,16 @@ function updatePropertiesPanel(element) {
 
     // фильтрация видимости контейнеров
     targets.forEach(container => {
+        // Для ID / группы показываем только CSS-свойства
+        if (isSelectorTarget) {
+            const control = container.querySelector('[data-prop]');
+            const prop = control ? control.getAttribute('data-prop') : '';
+            const config = propertyMap[prop];
+
+            container.style.display = config && config.type === 'style' ? '' : 'none';
+            return;
+        }
+
         const targetValue = container.getAttribute('data-target');
 
         if (targetValue === 'all') {
@@ -4574,9 +4584,11 @@ function refreshPropertiesElementTabs() {
         activePropertiesElementTab = '';
     }
 
+    const isElement = getPropertiesSelectorTypeName() === 'element';
+
     propertiesElementTabsMain.forEach(tab => {
         const tabName = tab.dataset.propertiesTab;
-        const isAvailable = !!availability[tabName];
+        const isAvailable = isElement ? !!availability[tabName] : tabName !== 'text';
 
         tab.style.display = activePropertiesElementTab ? 'none' : (isAvailable ? '' : 'none');
         tab.classList.toggle('active', tabName === activePropertiesElementTab);
@@ -5013,6 +5025,27 @@ function handlePropertiesSelectorTypeChange() {
     const isElement = getPropertiesSelectorTypeName() === 'element';
     const selectedElement = window.editorBlock ? window.editorBlock.selectedElement : null;
 
+    activePropertiesElementTab = '';
+
+    propertiesElementTabContents.forEach(content => {
+        content.style.display = 'none';
+        content.classList.remove('active');
+    });
+
+    if (isElement) {
+        const availability = getPropertiesElementMainAvailability();
+
+        propertiesElementTabsMain.forEach(tab => {
+            const tabName = tab.dataset.propertiesTab;
+
+            tab.style.display = availability[tabName] ? '' : 'none';
+        });
+    } else {
+        propertiesElementTabsMain.forEach(tab => {
+            tab.style.display = tab.dataset.propertiesTab === 'text' ? 'none' : '';
+        });
+    }
+
     propertiesSelectorName.style.display = isElement ? 'none' : '';
     propertiesSelectorExisting.style.display = isElement ? 'none' : '';
 
@@ -5026,13 +5059,10 @@ function handlePropertiesSelectorTypeChange() {
         if (selectedElement) {
             updatePropertiesPanel(selectedElement);
         }
-    } else {
-        propertiesSelectorName.value = '';
-        propertiesSelectorExisting.innerHTML = '';
 
-        if (selectedElement) {
-            updatePropertiesPanel(selectedElement);
-        }
+        propertiesElementTabsMain.forEach(tab => {
+            tab.style.display = tab.dataset.propertiesTab === 'text' ? 'none' : '';
+        });
     }
 }
 
@@ -5068,9 +5098,12 @@ handlePropertiesSelectorTypeChange();
 function handlePropertiesElementTabClick(event) {
     const tab = event.currentTarget;
     const tabName = tab.dataset.propertiesTab;
+    const isElement = getPropertiesSelectorTypeName() === 'element';
     const availability = getPropertiesElementMainAvailability();
 
-    if (!tabName || !availability[tabName]) return;
+    if (!tabName) return;
+    if (isElement && !availability[tabName]) return;
+    if (!isElement && tabName === 'text') return;
 
     activePropertiesElementTab = tabName;
     refreshPropertiesElementTabs();
