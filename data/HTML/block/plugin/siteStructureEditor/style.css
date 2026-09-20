@@ -1,0 +1,386 @@
+/* Основной контейнер */
+#siteStructureEditor {
+    display: flex;
+    flex-direction: column;
+    width: 90vw;
+    height: 80vh;
+    min-height: 0;
+}
+
+
+
+/* Верхняя панель */
+#topPanel {
+    display: flex;
+    align-items: center;
+    height: 39px;
+    border-bottom: 1px solid #ccc;
+    padding: 0px 5px;
+    gap: 5px;
+    box-sizing: border-box;
+}
+
+#fileList {
+    flex: 1;
+}
+
+#siteHistory {
+    margin-left: auto;
+}
+
+
+
+/* Основная панель */
+#mainPanel {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+}
+
+
+
+/* Левая панель */
+#leftPanel {
+    width: 60px;
+    flex-shrink: 0;
+    border-right: 1px solid #ccc;
+    overflow: auto;
+}
+
+#pageTools,
+#pagesList {
+    display: flex;
+    flex-direction: column;
+}
+
+
+
+/* Центральная панель */
+#centerPanel {
+    flex: 1;
+    min-width: 0;
+    overflow: auto;
+}
+
+#siteMap {
+    width: 100%;
+    height: 100%;
+}
+
+
+
+/* Правая панель */
+#rightPanel {
+    width: 18%;
+    flex-shrink: 0;
+    border-left: 1px solid #ccc;
+    overflow: auto;
+}
+
+#pageProperties {
+    padding: 7px;
+    box-sizing: border-box;
+}
+
+
+
+/* SVG-иконки */
+.svgIcon {
+    width: 20px;
+    height: 20px;
+}/* Основной контейнер */
+#siteStructureEditor {
+    display: flex;
+    flex-direction: column;
+    width: 90vw;
+    height: 80vh;
+    min-height: 0;
+    box-sizing: border-box;
+}
+
+
+
+/* Верхняя панель */
+#topPanel {
+    display: flex;
+    align-items: center;
+    height: 39px;
+    border-bottom: 1px solid #ccc;
+    padding: 0px 5px;
+    gap: 5px;
+    box-sizing: border-box;
+    user-select: none;
+}
+
+#fileMenu {
+    position: relative;
+    flex: 0 0 auto;
+}
+
+#fileMenuIcon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 25px;
+    height: 25px;
+    cursor: pointer;
+}
+
+#fileMenuList {
+    display: none;
+    position: absolute;
+    top: 25px;
+    left: 0;
+    min-width: 120px;
+    border: 1px solid #ccc;
+    background: white;
+    z-index: 10;
+}
+
+#fileMenuList > div {
+    padding: 5px 7px;
+    cursor: pointer;
+}
+
+#fileMenuList > div:hover {
+    background: #eee;
+}
+
+#fileList {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 100%;
+    align-items: center;
+    gap: 5px;
+    overflow: auto;
+    scrollbar-width: thin;
+}
+
+.fileItem {
+    display: flex;
+    align-items: center;
+    height: 27px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background: #eee;
+    box-sizing: border-box;
+    cursor: pointer;
+}
+
+.fileName {
+    padding: 0px 5px;
+}
+
+.fileClose {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-right: 3px;
+    cursor: pointer;
+}
+
+#siteHistory {
+    display: flex;
+    flex: 0 0 auto;
+    margin-left: auto;
+    gap: 5px;
+}
+
+#siteHistory > div {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+
+
+/* Основная панель */
+#mainPanel {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+}
+
+
+
+/* Центральная панель */
+#centerPanel {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+    border-right: 1px solid #ccc;
+    overflow: auto;
+    box-sizing: border-box;
+}
+
+#siteMap {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    background-color: #fff;
+    background-image: radial-gradient(#ccc 1px, transparent 1px);
+    background-size: 10px 10px;
+}
+
+
+
+/* Правая панель */
+#rightPanel {
+    width: 18%;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: auto;
+    box-sizing: border-box;
+}
+
+#pageProperties {
+    display: flex;
+    flex-direction: column;
+    padding: 7px;
+    gap: 5px;
+    box-sizing: border-box;
+}
+
+#pageProperties [data-property] {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+#pageProperties label {
+    font-size: 14px;
+}
+
+#pageProperties input,
+#pageProperties select {
+    width: 100%;
+    height: 25px;
+    padding: 2px 5px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background: #fff;
+    box-sizing: border-box;
+}
+
+
+
+/* Контекстное меню */
+#contextMenu {
+    display: none;
+    position: fixed;
+    min-width: 180px;
+    padding: 3px;
+    border: 1px solid #ccc;
+    background: #fff;
+    z-index: 1000;
+}
+
+#contextMenu > div {
+    display: flex;
+    align-items: center;
+    padding: 3px 2px;
+    cursor: pointer;
+}
+
+#contextMenu > div:hover {
+    background: #eee;
+}
+
+
+
+/* SVG-иконки */
+.svgIcon {
+    width: 20px;
+    height: 20px;
+}
+
+
+
+/* Свойства блоков */
+pageBlock {
+    display: block;
+    position: absolute;
+    border: 1px solid #ccc;
+    background: #ffffff;
+    border-radius: 5px;
+    box-sizing: border-box;
+    padding: 5px;
+    user-select: none;
+    cursor: pointer;
+}
+
+pageBlock.selected {
+    border: 2px solid #b3d7ff;
+}
+
+
+pageArrow {
+    display: block;
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+pageArrow svg {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+pageArrow path {
+    fill: none;
+    stroke: #ccc;
+    stroke-width: 2px;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+pageArrow marker path {
+    fill: none;
+    stroke: #ccc;
+    stroke-width: 2px;
+}
+
+
+pagePoint {
+    display: block;
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    background: #b3d7ff;
+    box-sizing: border-box;
+    z-index: 2;
+    cursor: crosshair;
+    pointer-events: auto;
+}
+
+pagePoint[data-side="top"] {
+    top: -7px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+pagePoint[data-side="right"] {
+    top: 50%;
+    right: -7px;
+    transform: translateY(-50%);
+}
+
+pagePoint[data-side="bottom"] {
+    bottom: -7px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+pagePoint[data-side="left"] {
+    top: 50%;
+    left: -7px;
+    transform: translateY(-50%);
+}
