@@ -304,6 +304,8 @@
 pageBlock {
     display: block;
     position: absolute;
+    width: fit-content;
+    white-space: nowrap;
     border: 1px solid #ccc;
     background: #ffffff;
     border-radius: 5px;

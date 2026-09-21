@@ -13,7 +13,7 @@
         </div>
     </div>
     <div id="fileList">
-        <div class="fileItem"><div class="fileName">Главная</div><div class="fileClose"><svg class="svgIcon" use="1x1"></svg></div></div> <!-- убарть -->
+        <div class="fileItem"><div class="fileName">Главная</div><div class="fileClose"><svg class="svgIcon" use="1x1"></svg></div></div>
     </div>
     <div id="siteHistory">
         <div id="historyBack" title="Назад"><svg class="svgIcon" use="1x1"></svg></div>
@@ -28,10 +28,13 @@
 
 <div id="centerPanel">
     <div id="siteMap">
-        <pageBlock data-id="1" data-name="Главная" data-path="/" data-children="2,3,4" data-position="120,20">Главная</pageBlock>  <!-- убрать -->
-        <pageBlock data-id="2" data-name="О нас" data-path="/about" data-children="" data-position="20,70">О нас</pageBlock>  <!-- убрать -->
-        <pageBlock data-id="3" data-name="Услуги" data-path="/services" data-children="" data-position="220,70">Услуги</pageBlock>  <!-- убрать -->
-        <pageBlock data-id="4" data-name="Контакты" data-path="/contacts" data-children="" data-position="120,70">Контакты</pageBlock>  <!-- убрать -->
+        <pageBlock data-id="1" data-name="home" data-title="Главная" data-caption="" data-description="" data-types="" data-theme="" data-status="" data-access="" data-order="1" data-redirect="" data-position="120,20" data-view="expanded"><pageText>Главная</pageText></pageBlock>
+        <pageBlock data-id="2" data-name="about" data-title="О нас" data-caption="" data-description="" data-types="" data-theme="" data-status="" data-access="" data-order="1" data-redirect="" data-position="20,70" data-view="collapsed"><pageText>О нас</pageText></pageBlock>
+        <pageBlock data-id="3" data-name="services" data-title="Услуги" data-caption="" data-description="" data-types="" data-theme="" data-status="" data-access="" data-order="2" data-redirect="" data-position="220,70" data-view="collapsed"><pageText>Услуги</pageText></pageBlock>
+        <pageBlock data-id="4" data-name="contacts" data-title="Контакты" data-caption="" data-description="" data-types="" data-theme="" data-status="" data-access="" data-order="3" data-redirect="" data-position="120,70" data-view="collapsed"><pageText>Контакты</pageText></pageBlock>
+    </div>
+    <div id="pageConnections">
+        <pageConnection data-parent="1" data-child="2 3 4"></pageConnection>
     </div>
 </div>
 

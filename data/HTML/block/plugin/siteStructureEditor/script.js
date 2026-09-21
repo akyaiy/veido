@@ -31,6 +31,74 @@ function getPageId() {
 }
 
 /* ***
+ * getPagePosition - получение положения страницы на карте
+ * - принимает страницу
+ * - возвращает координаты страницы
+*** */
+function getPagePosition(page) {
+    const siteMap = document.getElementById('siteMap');
+    const mapRect = siteMap.getBoundingClientRect();
+    const pageRect = page.getBoundingClientRect();
+
+    return {
+        x: pageRect.left - mapRect.left + siteMap.scrollLeft,
+        y: pageRect.top - mapRect.top + siteMap.scrollTop
+    };
+}
+
+/* ***
+ * setPagePosition - установка положения страницы
+ * - принимает страницу и координаты
+ * - сохраняет положение на карте
+*** */
+function setPagePosition(page, x, y) {
+    page.style.left = x + 'px';
+    page.style.top = y + 'px';
+
+    page.dataset.position = x + ',' + y;
+}
+
+/* ***
+ * movePageToParent - добавление связи между страницами
+ * - удаляет старого родителя дочерней страницы
+ * - добавляет страницу к новому родителю
+*** */
+function movePageToParent(parent, child) {
+    const pageConnections = document.getElementById('pageConnections');
+    const parentId = parent.dataset.id;
+    const childId = child.dataset.id;
+
+    // Удаление старой связи страницы
+    pageConnections.querySelectorAll('pageConnection').forEach(connection => {
+        const children = connection.dataset.child.split(' ').filter(id => id && id !== childId);
+
+        if (children.length) {
+            connection.dataset.child = children.join(' ');
+        } else {
+            connection.remove();
+        }
+    });
+
+    // Получение связи родителя
+    let connection = pageConnections.querySelector('pageConnection[data-parent="' + parentId + '"]');
+
+    if (!connection) {
+        connection = document.createElement('pageConnection');
+        connection.dataset.parent = parentId;
+        connection.dataset.child = '';
+        pageConnections.appendChild(connection);
+    }
+
+    // Добавление дочерней страницы
+    const children = connection.dataset.child.split(' ').filter(Boolean);
+
+    if (!children.includes(childId)) {
+        children.push(childId);
+        connection.dataset.child = children.join(' ');
+    }
+}
+
+/* ***
  * updatePagePoints - обновление точек страницы
  * - удаляет старые точки
  * - добавляет точки выбранной странице
@@ -179,7 +247,6 @@ function handleLinkMove(event) {
     // Обновление точек страницы
     if (targetPage !== pageState.targetPage) {
         pageState.targetPage = targetPage;
-        console.log('targetPage', targetPage);
         updatePagePoints(targetPage);
     }
 
@@ -214,13 +281,7 @@ function handleLinkUp() {
 
     // Добавление связи
     if (targetPage && targetPage !== pageState.linkedPage) {
-        const childId = targetPage.dataset.id;
-        const children = pageState.linkedPage.dataset.children.split(',').filter(Boolean);
-
-        if (!children.includes(childId)) {
-            children.push(childId);
-            pageState.linkedPage.dataset.children = children.join(',');
-        }
+        movePageToParent(pageState.linkedPage, targetPage);
     }
 
     // Удаление временной стрелки
@@ -228,7 +289,7 @@ function handleLinkUp() {
     pageState.tempArrow = null;
 
     // Обновление стрелок и точек
-    updatePageArrows(pageState.linkedPage);
+    updatePageArrows();
     selectPage(pageState.linkedPage);
 
     pageState.linkedPage = null;
@@ -300,8 +361,7 @@ function handlePageMove(event) {
     const pageX = event.clientX - mapRect.left + siteMap.scrollLeft - pageState.offsetX;
     const pageY = event.clientY - mapRect.top + siteMap.scrollTop - pageState.offsetY;
 
-    pageState.draggedPage.style.left = pageX + 'px';
-    pageState.draggedPage.style.top = pageY + 'px';
+    setPagePosition(pageState.draggedPage, pageX, pageY);
 
     updatePageArrows(pageState.draggedPage);
 }
@@ -455,8 +515,7 @@ async function cutPage() {
         await copyPage();
 
         // Удаление страницы
-        pageState.selectedPage.remove();
-        pageState.selectedPage = null;
+        deletePage();
     } catch (error) {
         return;
     }
@@ -477,6 +536,9 @@ async function pastePage() {
         // Установка нового id
         page.dataset.id = getPageId();
 
+        // Удаление старых служебных элементов
+        page.querySelectorAll('pagePoint').forEach(point => point.remove());
+
         // Получение карты сайта
         const siteMap = document.getElementById('siteMap');
         const mapRect = siteMap.getBoundingClientRect();
@@ -488,10 +550,12 @@ async function pastePage() {
         // Установка положения страницы
         page.style.left = pageX + 'px';
         page.style.top = pageY + 'px';
+        page.dataset.position = pageX + ',' + pageY;
 
         // Добавление страницы
         siteMap.appendChild(page);
         selectPage(page);
+        updatePageArrows();
     } catch (error) {
         return;
     }
@@ -500,13 +564,37 @@ async function pastePage() {
 /* ***
  * deletePage - удаление страницы
  * - удаляет выбранную страницу
+ * - удаляет связи страницы
  * - очищает выбранный элемент
 *** */
 function deletePage() {
     if (!pageState.selectedPage) return;
 
+    // Получение страницы и связей
+    const pageConnections = document.getElementById('pageConnections');
+    const pageId = pageState.selectedPage.dataset.id;
+
+    // Удаление страницы из дочерних связей
+    pageConnections.querySelectorAll('pageConnection').forEach(connection => {
+        if (connection.dataset.parent === pageId) {
+            connection.remove();
+            return;
+        }
+
+        const children = connection.dataset.child.split(' ').filter(id => id && id !== pageId);
+
+        if (children.length) {
+            connection.dataset.child = children.join(' ');
+        } else {
+            connection.remove();
+        }
+    });
+
+    // Удаление страницы
     pageState.selectedPage.remove();
     pageState.selectedPage = null;
+
+    updatePageArrows();
 }
 
 /* ***
@@ -525,15 +613,26 @@ function createPage() {
 
     // Создание страницы
     const page = document.createElement('pageBlock');
+    const pageText = document.createElement('pageText');
 
     page.dataset.id = getPageId();
-    page.dataset.name = 'Новая страница';
-    page.dataset.path = '/newPage';
-    page.dataset.children = '';
+    page.dataset.name = 'newPage';
+    page.dataset.title = 'Новая страница';
+    page.dataset.caption = '';
+    page.dataset.description = '';
+    page.dataset.types = '';
+    page.dataset.theme = '';
+    page.dataset.status = '';
+    page.dataset.access = '';
+    page.dataset.order = '';
+    page.dataset.redirect = '';
     page.dataset.position = pageX + ',' + pageY;
-    page.textContent = page.dataset.name;
+    page.dataset.view = 'collapsed';
+    pageText.textContent = page.dataset.title;
     page.style.left = pageX + 'px';
     page.style.top = pageY + 'px';
+
+    page.appendChild(pageText);
 
     // Добавление страницы
     siteMap.appendChild(page);
@@ -602,24 +701,28 @@ document.addEventListener('mousedown', handleMenuClose);
 /* ***
  * updatePageArrows - обновление стрелок страниц
  * - принимает страницу или null
- * - выбирает ближайшие стороны страниц
+ * - получает связи из pageConnections
  * - строит стрелки со скругленными поворотами
 *** */
 function updatePageArrows(page = null) {
-    // Получение карты и страниц
+    // Получение карты и связей
     const siteMap = document.getElementById('siteMap');
-    const pages = siteMap.querySelectorAll('pageBlock');
-
-    // Получение связей для обновления
+    const pageConnections = document.getElementById('pageConnections');
     const connections = [];
 
-    pages.forEach(parent => {
-        const children = parent.dataset.children.split(',').filter(Boolean);
+    // Получение связей страниц
+    pageConnections.querySelectorAll('pageConnection').forEach(connection => {
+        const parent = siteMap.querySelector('pageBlock[data-id="' + connection.dataset.parent + '"]');
 
-        children.forEach(id => {
-            const child = Array.from(pages).find(item => item.dataset.id === id);
+        if (!parent) return;
 
-            if (!child || page && parent !== page && child !== page) return;
+        const children = connection.dataset.child.split(' ').filter(Boolean);
+
+        children.forEach(childId => {
+            const child = siteMap.querySelector('pageBlock[data-id="' + childId + '"]');
+
+            if (!child) return;
+            if (page && parent !== page && child !== page) return;
 
             connections.push({ parent, child });
         });
@@ -627,7 +730,11 @@ function updatePageArrows(page = null) {
 
     // Удаление обновляемых стрелок
     siteMap.querySelectorAll('pageArrow').forEach(arrow => {
-        if (!page || connections.some(connection => arrow.dataset.parent === connection.parent.dataset.id && arrow.dataset.child === connection.child.dataset.id)) {
+        if (
+            !page ||
+            arrow.dataset.parent === page.dataset.id ||
+            arrow.dataset.child === page.dataset.id
+        ) {
             arrow.remove();
         }
     });
@@ -637,11 +744,15 @@ function updatePageArrows(page = null) {
         const parent = connection.parent;
         const child = connection.child;
 
+        // Получение положения страниц
+        const parentPosition = getPagePosition(parent);
+        const childPosition = getPagePosition(child);
+
         // Получение центров страниц
-        const parentX = parent.offsetLeft + parent.offsetWidth / 2;
-        const parentY = parent.offsetTop + parent.offsetHeight / 2;
-        const childX = child.offsetLeft + child.offsetWidth / 2;
-        const childY = child.offsetTop + child.offsetHeight / 2;
+        const parentX = parentPosition.x + parent.offsetWidth / 2;
+        const parentY = parentPosition.y + parent.offsetHeight / 2;
+        const childX = childPosition.x + child.offsetWidth / 2;
+        const childY = childPosition.y + child.offsetHeight / 2;
 
         // Определение ближайших сторон
         const distanceX = childX - parentX;
@@ -656,15 +767,15 @@ function updatePageArrows(page = null) {
         // Страница снизу
         if (distanceY > 0) {
             // Проверка возможности выхода вниз
-            const parentBottom = parent.offsetTop + parent.offsetHeight;
-            const spaceY = child.offsetTop - parentBottom;
+            const parentBottom = parentPosition.y + parent.offsetHeight;
+            const spaceY = childPosition.y - parentBottom;
 
             if (spaceY >= 10) {
                 // Выход снизу
                 startX = parentX;
                 startY = parentBottom;
                 endX = childX;
-                endY = child.offsetTop;
+                endY = childPosition.y;
 
                 const middleY = (startY + endY) / 2;
 
@@ -678,9 +789,9 @@ function updatePageArrows(page = null) {
                 // Выход сбоку родителя
                 const isRight = childX > parentX;
 
-                startX = isRight ? parent.offsetLeft + parent.offsetWidth : parent.offsetLeft;
+                startX = isRight ? parentPosition.x + parent.offsetWidth : parentPosition.x;
                 startY = parentY;
-                endX = isRight ? child.offsetLeft : child.offsetLeft + child.offsetWidth;
+                endX = isRight ? childPosition.x : childPosition.x + child.offsetWidth;
                 endY = childY;
 
                 const middleX = (startX + endX) / 2;
@@ -694,9 +805,9 @@ function updatePageArrows(page = null) {
             }
         } else if (Math.abs(distanceY) > Math.abs(distanceX)) {
             startX = parentX;
-            startY = parent.offsetTop;
+            startY = parentPosition.y;
             endX = childX;
-            endY = child.offsetTop + child.offsetHeight;
+            endY = childPosition.y + child.offsetHeight;
 
             const middleY = (startY + endY) / 2;
 
@@ -708,9 +819,9 @@ function updatePageArrows(page = null) {
             ];
         // Страница сбоку
         } else {
-            startX = distanceX > 0 ? parent.offsetLeft + parent.offsetWidth : parent.offsetLeft;
+            startX = distanceX > 0 ? parentPosition.x + parent.offsetWidth : parentPosition.x;
             startY = parentY;
-            endX = distanceX > 0 ? child.offsetLeft : child.offsetLeft + child.offsetWidth;
+            endX = distanceX > 0 ? childPosition.x : childPosition.x + child.offsetWidth;
             endY = childY;
 
             const middleX = (startX + endX) / 2;
@@ -729,7 +840,7 @@ function updatePageArrows(page = null) {
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
         const markerPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        
+
         marker.setAttribute('id', 'pageArrowHead');
         marker.setAttribute('markerUnits', 'userSpaceOnUse');
         marker.setAttribute('markerWidth', '11');
@@ -790,7 +901,7 @@ function updatePageArrows(page = null) {
         // Добавление стрелки
         svg.appendChild(path);
         arrow.appendChild(svg);
-        siteMap.insertBefore(arrow, parent);
+        siteMap.appendChild(arrow);
     });
 }
 
@@ -810,9 +921,15 @@ function loadPage() {
         const [x, y] = page.dataset.position.split(',');
 
         // Загрузка данных страницы
-        page.textContent = page.dataset.name;
-        page.style.left = x + 'px';
-        page.style.top = y + 'px';
+        let pageText = page.querySelector(':scope > pageText');
+
+        if (!pageText) {
+            pageText = document.createElement('pageText');
+            page.prepend(pageText);
+        }
+
+        pageText.textContent = page.dataset.title;
+        setPagePosition(page, Number(x), Number(y));
     });
 
     // Создание стрелок
@@ -856,46 +973,100 @@ document.addEventListener('mousedown', handleFileMenuClose);
 
 /* ***
  * saveFile - сохранение структуры сайта
- * - получает данные страниц
- * - сохраняет структуру в JSON
+ * - получает структуру страниц и связей
+ * - сохраняет структуру в XML
 *** */
 function saveFile() {
-    // Получение страниц
-    const pages = document.querySelectorAll('#siteMap pageBlock');
+    // Получение карты сайта и связей
+    const siteMap = document.getElementById('siteMap');
+    const pageConnections = document.getElementById('pageConnections');
 
-    // Создание данных
-    const data = Array.from(pages).map(page => ({
-        id: page.dataset.id,
-        name: page.dataset.name,
-        path: page.dataset.path,
-        children: page.dataset.children,
-        position: page.style.left.replace('px', '') + ',' + page.style.top.replace('px', '')
-    }));
+    // Создание XML
+    const xmlDocument = document.implementation.createDocument('', 'siteMap');
+    const xmlSiteMap = xmlDocument.documentElement;
+
+    // Получение дочерних страниц
+    const childIds = new Set();
+
+    pageConnections.querySelectorAll('pageConnection').forEach(connection => {
+        connection.dataset.child.split(' ').filter(Boolean).forEach(childId => {
+            childIds.add(childId);
+        });
+    });
+
+    // Создание корневых страниц
+    siteMap.querySelectorAll(':scope > pageBlock').forEach(page => {
+        if (!childIds.has(page.dataset.id)) {
+            xmlSiteMap.appendChild(createPageXml(xmlDocument, page));
+        }
+    });
 
     // Создание файла
-    const blob = new Blob([JSON.stringify(data, null, 4)], { type: 'application/json' });
+    const serializer = new XMLSerializer();
+    const xml = serializer.serializeToString(xmlDocument);
+    const blob = new Blob([xml], { type: 'application/xml' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
 
     link.href = url;
-    link.download = 'siteStructureEditor.json';
+    link.download = 'siteStructureEditor.xml';
     link.click();
 
     URL.revokeObjectURL(url);
 }
 
 /* ***
+ * createPageXml - создание XML страницы
+ * - сохраняет данные страницы
+ * - получает дочерние страницы из pageConnections
+ * - возвращает XML элемент
+*** */
+function createPageXml(xmlDocument, page) {
+    // Получение карты и связей
+    const siteMap = document.getElementById('siteMap');
+    const pageConnections = document.getElementById('pageConnections');
+
+    // Создание страницы
+    const xmlPage = xmlDocument.createElement('pageBlock');
+
+    // Сохранение данных страницы
+    Object.entries(page.dataset).forEach(([name, value]) => {
+        xmlPage.setAttribute(name, value);
+    });
+
+    // Получение связи страницы
+    const connection = pageConnections.querySelector(
+        'pageConnection[data-parent="' + page.dataset.id + '"]'
+    );
+
+    if (connection) {
+        // Создание дочерних страниц
+        connection.dataset.child.split(' ').filter(Boolean).forEach(childId => {
+            const child = siteMap.querySelector(
+                ':scope > pageBlock[data-id="' + childId + '"]'
+            );
+
+            if (child) {
+                xmlPage.appendChild(createPageXml(xmlDocument, child));
+            }
+        });
+    }
+
+    return xmlPage;
+}
+
+/* ***
  * openFile - открытие структуры сайта
- * - открывает JSON через выбор файла
+ * - открывает XML через выбор файла
  * - удаляет текущую структуру
- * - создает страницы и стрелки заново
+ * - создает страницы и связи заново
 *** */
 function openFile() {
     // Создание выбора файла
     const input = document.createElement('input');
 
     input.type = 'file';
-    input.accept = '.json';
+    input.accept = '.xml';
 
     input.addEventListener('change', handleFileOpen);
     input.click();
@@ -903,7 +1074,7 @@ function openFile() {
 
 /* ***
  * handleFileOpen - обработка открытия файла
- * - читает выбранный JSON
+ * - читает выбранный XML
  * - создает страницы
 *** */
 function handleFileOpen(event) {
@@ -919,39 +1090,95 @@ function handleFileOpen(event) {
 }
 
 /* ***
- * handleFileLoad - загрузка структуры из JSON
+ * createPageFromXml - создание страницы из XML
+ * - создает страницу на одном уровне
+ * - создает связи с дочерними страницами
+*** */
+function createPageFromXml(xmlPage, parentId = null) {
+    // Получение карты и связей
+    const siteMap = document.getElementById('siteMap');
+    const pageConnections = document.getElementById('pageConnections');
+
+    // Создание страницы
+    const page = document.createElement('pageBlock');
+    const pageText = document.createElement('pageText');
+
+    // Загрузка данных
+    Array.from(xmlPage.attributes).forEach(attribute => {
+        page.dataset[attribute.name] = attribute.value;
+    });
+
+    // Получение координат
+    const [x, y] = page.dataset.position.split(',');
+
+    pageText.textContent = page.dataset.title;
+    page.style.left = x + 'px';
+    page.style.top = y + 'px';
+
+    page.appendChild(pageText);
+    siteMap.appendChild(page);
+
+    // Добавление связи с родителем
+    if (parentId) {
+        let connection = pageConnections.querySelector(
+            'pageConnection[data-parent="' + parentId + '"]'
+        );
+
+        if (!connection) {
+            connection = document.createElement('pageConnection');
+            connection.dataset.parent = parentId;
+            connection.dataset.child = '';
+            pageConnections.appendChild(connection);
+        }
+
+        const children = connection.dataset.child.split(' ').filter(Boolean);
+
+        if (!children.includes(page.dataset.id)) {
+            children.push(page.dataset.id);
+            connection.dataset.child = children.join(' ');
+        }
+    }
+
+    // Создание дочерних страниц
+    Array.from(xmlPage.children).forEach(child => {
+        if (child.tagName.toLowerCase() === 'pageblock') {
+            createPageFromXml(child, page.dataset.id);
+        }
+    });
+}
+
+/* ***
+ * handleFileLoad - загрузка структуры из XML
  * - удаляет текущую структуру
- * - создает страницы из данных
+ * - размещает все страницы на одном уровне
+ * - восстанавливает связи
 *** */
 function handleFileLoad(event) {
     try {
-        // Получение данных
-        const data = JSON.parse(event.target.result);
+        // Получение XML
+        const parser = new DOMParser();
+        const xmlDocument = parser.parseFromString(event.target.result, 'application/xml');
+        const xmlSiteMap = xmlDocument.documentElement;
         const siteMap = document.getElementById('siteMap');
+        const pageConnections = document.getElementById('pageConnections');
 
-        // Очистка карты
+        // Проверка XML
+        if (xmlDocument.querySelector('parsererror')) return;
+
+        // Очистка карты и связей
         siteMap.innerHTML = '';
+        pageConnections.innerHTML = '';
         pageState.selectedPage = null;
 
         // Создание страниц
-        data.forEach(item => {
-            const page = document.createElement('pageBlock');
-            const [x, y] = item.position.split(',');
-
-            page.dataset.id = item.id;
-            page.dataset.name = item.name;
-            page.dataset.path = item.path;
-            page.dataset.children = item.children;
-            page.dataset.position = item.position;
-            page.textContent = item.name;
-            page.style.left = x + 'px';
-            page.style.top = y + 'px';
-
-            siteMap.appendChild(page);
+        Array.from(xmlSiteMap.children).forEach(xmlPage => {
+            if (xmlPage.tagName.toLowerCase() === 'pageblock') {
+                createPageFromXml(xmlPage);
+            }
         });
 
-        // Создание стрелок
-        updatePageArrows();
+        // Загрузка страниц
+        loadPage();
     } catch (error) {
         return;
     }
