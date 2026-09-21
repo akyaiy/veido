@@ -46,7 +46,7 @@ ACL проверяется каждый раз, когда исполнител�
 - Субъект описывает того, кто выполняет действие: `user:*`, `group:*`, `guest`, `all`, `service:*`.
 - Действие использует маленький набор прав, похожий на Unix: `r`, `w`, `x`.
 - URI ресурса удобен для людей, API и логов.
-- `ResourceRef` является стабильной идентичностью для БД, индексов и ACL.
+- Канонический URI из `ResourceRef` является системной идентичностью ACL.
 - `resource_acl` хранит явные правила доступа.
 - Распознаватель провайдера строит список ресурса и его родителей, а также может вернуть владельца.
 - Правило владельца дает владельцу неявный доступ, если нет явного запрета.
@@ -102,29 +102,63 @@ Can(service:executor, r, functions@system:///resize-image/source.go)
 
 ACL остается маленьким и одинаковым для разных провайдеров. Бизнес-смысл команды живет в слое провайдера или сервиса, а не в пространстве имен прав.
 
-### ADR-002: `ResourceRef` как идентичность ACL
+### ADR-002: Канонический URI как идентичность ACL
 
 #### Контекст
 
-Пути могут переименовываться, псевдонимы точек монтирования могут отличаться между областями ресурсов, а внешние провайдеры часто имеют собственные стабильные ID.
+Пути могут переименовываться, псевдонимы точек монтирования могут отличаться
+между областями ресурсов, а провайдеры используют несовместимые внутренние модели.
 
 #### Проблема
 
-ACL-правила на сырые URI или пути монтирования ломаются при переименовании, перемещении и смене псевдонима.
+ACL нужен единый системный ключ, который не заставляет все провайдеры поддерживать
+глобальную ID-модель. При этом правила должны сохранять согласованность после
+rename, move, delete и повторного create.
 
 #### Варианты
 
-- хранить права на исходную строку URI;
 - хранить права на путь монтирования;
-- хранить права на нормализованный `ResourceRef`.
+- ввести глобальный `resource_id` и реестр ресурсов;
+- хранить права на канонический VFS URI и согласовывать его lifecycle.
 
 #### Решение
 
-Хранить ACL по распознанной идентичности ресурса: провайдер, подключение, область ресурсов и стабильный ID или нормализованный путь.
+Хранить ACL по каноническому VFS URI. Provider-local ID допускается внутри
+адаптера, но не входит в ACL и универсальный системный контракт. Изменения URI
+согласовываются механизмом из ADR-003.
 
 #### Последствия
 
-Правила ACL становятся пригодными для индексов, долгоживущих ссылок, переименования, перемещения и разных моделей провайдеров.
+ACL остаётся одинаковым для файловых, внешних и виртуальных провайдеров. Цена
+решения — необходимость durable lifecycle для переименования, перемещения,
+удаления и повторного использования URI.
+
+### ADR-003: ACL lifecycle, журнал изменений и overlay
+
+#### Контекст
+
+Канонический URI является системной идентичностью ACL, но может измениться при
+rename или move. Большое поддерево нельзя обязательно переписать в основном
+ACL-хранилище на критическом пути пользовательской операции.
+
+#### Решение
+
+Lifecycle-события сохраняются в durable journal. Незавершённые изменения
+немедленно отражаются через авторитетный overlay, после чего фоновый materializer
+переносит правила и выполняет compaction. Повторное использование URI защищается
+ACL generation и tombstone. При четырёх переходах mapping запускается
+приоритетная compaction; шесть переходов являются жёстким пределом request path.
+
+Провайдеры с внешними изменениями могут поставлять change feed с устойчивым
+cursor. Они сообщают факты namespace, но не изменяют ACL напрямую.
+
+#### Последствия
+
+Глобальный `resource_id` не требуется, а большие move могут завершаться до
+полного rewrite ACL. Цена решения — обязательные journal, overlay, materializer,
+reconciler, prefix locking и fail-closed поведение при неоднозначном состоянии.
+Полное решение, состояния и критерии готовности описаны в
+[отдельном ADR](adr/ACL_LIFECYCLE_ARCHITECTURE_RU.md).
 
 ## Словарь технических имен
 
@@ -246,19 +280,18 @@ local@default[scope:1]:///docs/a.txt
 gdrive@work[scope:1]:///doc123?export=pdf
 ```
 
-Но в БД ACL лучше хранить не сырой URI, а нормализованную распознанную идентичность.
+В БД ACL хранится нормализованный канонический URI, а не пользовательский путь
+монтирования или display name.
 
 Причина:
 
 ```text
-URI удобен для людей, API и логов.
-Распознанный `ResourceRef` удобен для БД, индексов, стабильных ссылок и ACL.
+Путь монтирования удобен для людей и навигации.
+Канонический URI удобен для API, БД, индексов, логов и ACL.
 ```
 
-Для `local`/внутреннего VFS лучше использовать стабильный `metadata.id`, а не
-путь. Для Google Drive лучше использовать внешний file ID. Для S3 object key
-может быть стабильной идентичностью. Для провайдеров-проекций можно использовать
-доменные id или нормализованный путь.
+Внутренний ID провайдера может помогать адаптеру выполнять операции и распознавать
+внешний rename, но не становится системной идентичностью ACL.
 
 ### 4. ResourceRef
 
@@ -266,58 +299,45 @@ URI удобен для людей, API и логов.
 
 ```go
 type ResourceRef struct {
-    Provider     string // local, users, functions, html, acl, gdrive, s3
+    ProviderKey   string // local, users, functions, html, acl, gdrive, s3
     ConnectionKey string // system, default, conn:8842
-
-    AreaType string // user, system, org, project, service
-    AreaID   string // 42, acme, empty for system
-
-    IdentityKind string // id or путь
-    ResourceID   string // metadata:105, file-id:abc123, func:12
-    Path         string // /docs/a.txt, /resize-image/source.go
+    ScopeKey      string // user:42, system, org:acme
+    Path          string // /docs/a.txt, /resize-image/source.go
 }
 ```
 
 Правило:
 
 ```text
-Если провайдер умеет стабильный ID, ACL использует id.
-Если стабильный ID нет или он не нужен, ACL использует нормализованный путь.
+ResourceRef -> canonical URI -> ACL lookup.
+Provider-local ID остаётся внутри адаптера.
 ```
 
 Примеры распознанной идентичности:
 
 ```text
-local@default:///docs/a.txt
+local@default[user:42]:///docs/a.txt
   provider=local
-  connection_id=conn:local-user-42-default
+  connection=default
   scope=user:42
-  identity_kind=id
-  resource_id=metadata:105
   path=/docs/a.txt
 
-gdrive@work:///My Drive/report.docx
+gdrive@work[user:42]:///My Drive/report.docx
   provider=gdrive
-  connection_id=conn:8842
+  connection=work
   scope=user:42
-  identity_kind=id
-  resource_id=file-id:abc123
   path=/My Drive/report.docx
 
-s3@assets:///images/logo.png
+s3@assets[user:42]:///images/logo.png
   provider=s3
-  connection_id=conn:9001
+  connection=assets
   scope=user:42
-  identity_kind=path
-  resource_id=
   path=/images/logo.png
 
 functions@system:///resize-image
   provider=functions
-  connection_id=system
+  connection=system
   scope=system
-  identity_kind=path
-  resource_id=
   path=/resize-image
 ```
 
@@ -334,14 +354,8 @@ CREATE TABLE resource_acl (
     effect TEXT NOT NULL DEFAULT 'allow', -- allow или deny
     recursive BOOLEAN NOT NULL DEFAULT 0,
 
-    resource_provider TEXT NOT NULL,
-    resource_connection_id TEXT NOT NULL,
-    resource_scope_type TEXT NOT NULL DEFAULT '',
-    resource_scope_id TEXT NOT NULL DEFAULT '',
-
-    resource_identity_kind TEXT NOT NULL DEFAULT 'path', -- id или path
-    resource_id TEXT NOT NULL DEFAULT '',
-    resource_path TEXT NOT NULL DEFAULT '/',
+    canonical_uri TEXT NOT NULL,
+    acl_generation INTEGER NOT NULL,
 
     created_by TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -349,13 +363,8 @@ CREATE TABLE resource_acl (
     UNIQUE (
         subject_key,
         action,
-        resource_provider,
-        resource_connection_id,
-        resource_scope_type,
-        resource_scope_id,
-        resource_identity_kind,
-        resource_id,
-        resource_path
+        canonical_uri,
+        acl_generation
     )
 );
 ```
@@ -368,31 +377,22 @@ ON resource_acl(subject_key);
 
 CREATE INDEX idx_resource_acl_lookup
 ON resource_acl(
-    resource_provider,
-    resource_connection_id,
-    resource_scope_type,
-    resource_scope_id,
-    resource_identity_kind,
-    resource_id,
-    resource_path,
+    canonical_uri,
+    acl_generation,
     action,
     subject_key
 );
 
 CREATE INDEX idx_resource_acl_resource
 ON resource_acl(
-    resource_provider,
-    resource_connection_id,
-    resource_scope_type,
-    resource_scope_id,
-    resource_identity_kind,
-    resource_id,
-    resource_path
+    canonical_uri,
+    acl_generation
 );
 ```
 
-В SQLite лучше использовать пустую строку вместо `NULL` в полях уникальности,
-потому что `NULL` усложняет `UNIQUE`.
+`acl_generation` является служебной версией ACL lifecycle для конкретного URI,
+а не глобальным идентификатором ресурса. Полная схема journal и overlay описана
+в ADR-003.
 
 ### 6. Значение r/w/x
 
@@ -577,73 +577,42 @@ group:editor w html@system:///home recursive allow
 
 ### 11. Local/VFS
 
-Для `local` лучше использовать стабильный ID, а не путь.
-
-Плохо для долгоживущих ACL:
+Для `local` ACL использует канонический URI:
 
 ```text
-local@default:///docs/a.txt
+local@default[user:42]:///docs/a.txt
 ```
 
-Потому что rename/move меняют путь.
-
-Лучше:
-
-```text
-provider=local
-connection_id=conn:local-user-42-default
-scope=user:42
-identity_kind=id
-resource_id=metadata:105
-```
-
-При этом путь все равно можно хранить как вспомогательное поле для UI, логов и
-debug:
-
-```text
-resource_path=/docs/a.txt
-```
-
-Рекурсивность для local считается через `metadata.parent_id`:
-
-```text
-metadata:220
-metadata:105
-metadata:10
-metadata:1
-```
-
-Если правило стоит на `metadata:105` с `recursive=true`, оно применяется ко
-всему поддереву.
+Внутренний `metadata.id` может использоваться local-провайдером для выполнения
+операций, но не входит в правило ACL. Rename и move согласуются через ADR-003.
+Рекурсивность вычисляется по сегментам канонического URI; при незавершённом move
+прямые правила поддерева читаются через lifecycle overlay, а внешние предки — по
+новому расположению.
 
 ### 12. Remote провайдеры
 
-Для внешние провайдеры идентичность зависит от их модели.
+Для внешних провайдеров ACL также использует канонический URI.
 
 Google Drive:
 
 ```text
-identity_kind=id
-resource_id=file-id:abc123
-path=/My Drive/report.docx
+gdrive@work[user:42]:///My Drive/report.docx
 ```
 
 S3:
 
 ```text
-identity_kind=path
-resource_path=/images/logo.png
+s3@assets[user:42]:///images/logo.png
 ```
 
 GitHub:
 
 ```text
-identity_kind=path
-resource_path=/repo/main/internal/vfs/vfs.go
+github@work[user:42]:///repo/main/internal/vfs/vfs.go
 ```
 
-Если провайдер умеет стабильный внешний ID, лучше использовать его для ACL. Если нет,
-используется нормализованный путь/object key.
+Стабильный внешний ID может использоваться только внутри адаптера для change
+feed, обнаружения rename и reconciliation. Он не хранится как identity ACL.
 
 Внешний провайдер может иметь собственные права. Тогда доступ разрешается только
 если прошли обе проверки:
@@ -665,11 +634,10 @@ AND
 ```text
 /cloud/google/work/report.docx
   -> gdrive@work:///My Drive/report.docx
-  -> распознанный ResourceRef
+  -> канонический URI
 ```
 
-ACL должен проверяться после распознавания путь монтирования в канонический URI и затем в
-распознанный ResourceRef.
+ACL должен проверяться после преобразования пути монтирования в канонический URI.
 
 Не нужно хранить права на путь монтирования как на стабильную идентичность, потому что
 точка монтирования может быть переименована, перенесена или иметь разный смысл в разных
@@ -816,7 +784,7 @@ acl@system:///resources/...
 соответствующего ресурса:
 
 ```text
-Can(user:7, w, acl@system:///resources/local/metadata:105)
+Can(user:7, w, acl@system:///resources/local/default/user:7/docs/report.md)
 ```
 
 Практический вариант для первого этапа:
@@ -829,42 +797,37 @@ group:admin w acl@system:/// recursive allow
 А сам share создает правила:
 
 ```text
-user:8 r local metadata:105 recursive allow
-user:8 w local metadata:105 recursive deny
+user:8 r local@default[user:7]:///docs/report.md recursive allow
+user:8 w local@default[user:7]:///docs/report.md recursive deny
 ```
 
 ### 18. Провайдер parent resolution
 
-Для рекурсивного ACL каждый провайдер должен уметь строить ancestors/кандидаты.
+Для рекурсивного ACL VFS строит ancestors по сегментам канонического URI.
 
 Примеры:
 
 ```text
-local:
-  metadata.parent_id
-
-gdrive:
-  внешние ID родителей, если доступны
-
-s3:
-  путь prefixes
+local@default[user:7]:///docs/report.md
+local@default[user:7]:///docs
+local@default[user:7]:///
 
 functions:
   /resize-image/source.go
   /resize-image
   /
 
-users:
-  /"admin - 1"/userdata.json
-  /"admin - 1"
-  /
+users@system[system]:///"admin - 1"/userdata.json
+users@system[system]:///"admin - 1"
+users@system[system]:///
 ```
 
-Это лучше оформить как возможность провайдера или распознавателя:
+При активном move lifecycle overlay разделяет переносимые правила внутри
+поддерева и наследование от внешних родителей нового расположения. Владелец
+может по-прежнему поступать из доверенных метаданных провайдера:
 
 ```go
 type ACLResourceResolver interface {
-    ACLCandidates(ctx context.Context, ref ResourceRef) ([]ResourceRef, error)
     Owner(ctx context.Context, ref ResourceRef) (string, error)
 }
 ```
@@ -878,9 +841,9 @@ type ACLResourceResolver interface {
 2. Разобрать URI или путь монтирования
 3. Распознать итоговую область ресурсов
 4. Найти подключение провайдера
-5. Распознать путь в стабильную идентичность провайдера, если провайдер это умеет
-6. Построить ResourceRef
-7. Проверить Can(исполнитель, r/w/x, ResourceRef)
+5. Построить канонический URI и ResourceRef
+6. Применить lifecycle generation, fence и overlay
+7. Проверить Can(исполнитель, r/w/x, canonical URI)
 8. Вызвать метод провайдера
 ```
 
@@ -917,14 +880,14 @@ html.представления.*
 Финальная ACL-модель:
 
 ```text
-subject_key + r/w/x + resolved resource identity + effect + recursive
+subject_key + r/w/x + canonical URI + ACL generation + effect + recursive
 ```
 
 Где:
 
 ```text
 subject_key = user, group, guest, all, service
-resource identity = provider + connection + scope + id/path
+resource identity = canonical provider + connection + scope + path
 effect = allow или deny
 recursive = применять к потомкам
 ```
@@ -932,8 +895,8 @@ recursive = применять к потомкам
 Главное разделение:
 
 ```text
-URI для людей, клиентов и навигации.
-Распознанный `ResourceRef` для ACL, БД и стабильных ссылок.
+Канонический URI для ACL, API, БД, индексов и логов.
+`ResourceRef` переносит составные части канонического URI внутри VFS.
 Путь монтирования только псевдоним.
 Control и *.action проверяются через x.
 Обычные изменения проверяются через w.
