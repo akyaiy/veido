@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 )
 
 // VFSFrontend is the main interface for the VFS core.
@@ -90,24 +91,26 @@ func (c *VFSCore) getProvider(ctx context.Context, connection ProviderConnection
 	return c.providerPool.Get(ctx, connection)
 }
 
-// canActorAccessScope checks if the actor has access to the given scope.
-// Actor must have the "r" and "w" action on the scope to access it.
+// canActorAccessScope checks whether the actor may enter the scope namespace.
+// This gate is deliberately separate from authorization of the target resource.
 func (c *VFSCore) canActorAccessScope(ctx context.Context, actor Actor, scope Scope) (bool, error) {
-	ref := common.ResourceRef{
-		ProviderKey:   "scopes",
-		ConnectionKey: "scopes",
-		ScopeKey:      "system",
-		Path:          fmt.Sprintf("/%s", scope.Key),
-	}
-	ok, err := c.authorizer.Can(ctx, actor, common.ActionRead, ref)
+	ref, err := scopeAccessRef(scope.Key)
 	if err != nil {
 		return false, err
 	}
-	if !ok {
-		return false, nil
+	return c.authorizer.Can(ctx, actor, common.ActionExec, ref)
+}
+
+func scopeAccessRef(scopeKey string) (common.ResourceRef, error) {
+	if scopeKey == "" || scopeKey == "." || scopeKey == ".." || strings.Contains(scopeKey, "/") {
+		return common.ResourceRef{}, fmt.Errorf("%w: scope key must be one path segment", ErrInvalidScope)
 	}
-	ok, err = c.authorizer.Can(ctx, actor, common.ActionWrite, ref)
-	return ok, err
+	return common.ResourceRef{
+		ProviderKey:   "scopes",
+		ConnectionKey: "scopes",
+		ScopeKey:      "system",
+		Path:          fmt.Sprintf("/scopes/%s", scopeKey),
+	}, nil
 }
 
 func (c *VFSCore) canActorAccessResource(ctx context.Context, actor Actor, action common.Action, resolvedResource *resolvedResource) (bool, error) {
@@ -122,7 +125,13 @@ func (c *VFSCore) resolveResource(ctx context.Context, actor Actor, uri common.C
 	}
 
 	address := addressContract.Payload()
-	scope, err := c.scopeResolver.ResolveScope(ctx, actor, address.ScopeKey)
+	var scope *Scope
+	var err error
+	if address.ScopeKey == "" {
+		scope, err = c.scopeResolver.ResolveDefaultScope(ctx, actor)
+	} else {
+		scope, err = c.scopeResolver.ResolveExplicitScope(ctx, address.ScopeKey)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +141,7 @@ func (c *VFSCore) resolveResource(ctx context.Context, actor Actor, uri common.C
 		return nil, err
 	}
 	if !ok {
-		return nil, fmt.Errorf("%w: actor %s does not have access to scope %s", ErrScopeResolutionFailed, actor.String(), address.ScopeKey)
+		return nil, NewError(KindPermissionDenied, OpUnknown, "scope access denied", ErrPermissionDenied)
 	}
 
 	connection, err := c.connectionResolver.ResolveConnection(ctx, *scope, address.ProviderKey, address.ConnectionKey)

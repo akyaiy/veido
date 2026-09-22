@@ -20,9 +20,13 @@ type Scope struct {
 }
 
 type ScopeResolverContract interface {
-	// ResolveScope resolves the scope for the given actor and scope key.
-	// If scopeKey is empty, the default scope for the actor is returned.
-	ResolveScope(ctx context.Context, actor Actor, scopeKey string) (*Scope, error)
+	// ResolveExplicitScope resolves the addressable scope without making an
+	// authorization decision for the caller.
+	ResolveExplicitScope(ctx context.Context, scopeKey string) (*Scope, error)
+
+	// ResolveDefaultScope selects the actor-dependent default scope. Selection
+	// does not authorize access to the returned scope.
+	ResolveDefaultScope(ctx context.Context, actor Actor) (*Scope, error)
 }
 
 type ScopeResolver struct {
@@ -43,13 +47,13 @@ func NewScopeResolver(db *sql.DB) (ScopeResolverContract, error) {
 // If scopeKey is empty, the default scope for the actor is returned.
 func (sr *ScopeResolver) ResolveScope(ctx context.Context, actor Actor, scopeKey string) (*Scope, error) {
 	if scopeKey == "" {
-		return sr.DefaultScopeForActor(ctx, actor)
+		return sr.ResolveDefaultScope(ctx, actor)
 	}
 
-	return sr.ResolveExplicitScope(ctx, actor, scopeKey)
+	return sr.ResolveExplicitScope(ctx, scopeKey)
 }
 
-func (sr *ScopeResolver) DefaultScopeForActor(ctx context.Context, actor Actor) (*Scope, error) {
+func (sr *ScopeResolver) ResolveDefaultScope(ctx context.Context, actor Actor) (*Scope, error) {
 	if actor.Kind != ActorUser || actor.ID == "" {
 		slog.Error(
 			"actor is not a user or has no ID",
@@ -108,17 +112,7 @@ func (sr *ScopeResolver) DefaultScopeForActor(ctx context.Context, actor Actor) 
 	return &scope, nil
 }
 
-func (sr *ScopeResolver) ResolveExplicitScope(ctx context.Context, actor Actor, scopeKey string) (*Scope, error) {
-	if actor.Kind != ActorUser || actor.ID == "" {
-		slog.Error(
-			"actor is not a user or has no ID",
-			"kind", actor.Kind,
-			"id", actor.ID,
-		)
-		return nil, fmt.Errorf("%w: %v", ErrScopeResolutionFailed,
-			fmt.Errorf("actor is not a user or has no ID"))
-	}
-
+func (sr *ScopeResolver) ResolveExplicitScope(ctx context.Context, scopeKey string) (*Scope, error) {
 	const query = `
 		SELECT
 			s.scope_key,
@@ -127,10 +121,6 @@ func (sr *ScopeResolver) ResolveExplicitScope(ctx context.Context, actor Actor, 
 			s.updated_at
 		FROM vfs_scopes AS s
 		WHERE s.scope_key = ?
-		  AND (
-		    s.kind = 'system'
-		    OR s.owner_subject_key = ?
-		  )
 	`
 
 	var scope Scope
@@ -139,7 +129,6 @@ func (sr *ScopeResolver) ResolveExplicitScope(ctx context.Context, actor Actor, 
 		ctx,
 		query,
 		scopeKey,
-		actor.String(),
 	).Scan(
 		&scope.Key,
 		&scope.Kind,
@@ -164,4 +153,10 @@ func (sr *ScopeResolver) ResolveExplicitScope(ctx context.Context, actor Actor, 
 	}
 
 	return &scope, nil
+}
+
+// DefaultScopeForActor is a compatibility alias for callers migrating to the
+// explicit resolver contract.
+func (sr *ScopeResolver) DefaultScopeForActor(ctx context.Context, actor Actor) (*Scope, error) {
+	return sr.ResolveDefaultScope(ctx, actor)
 }

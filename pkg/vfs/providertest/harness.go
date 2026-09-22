@@ -85,10 +85,13 @@ func (allowAll) Can(context.Context, vfs.Actor, vfs.Action, vfs.ResourceRef) (bo
 
 type staticResolver struct{ connection vfs.ProviderConnection }
 
-func (s staticResolver) ResolveScope(ctx context.Context, actor vfs.Actor, key string) (*vfs.Scope, error) {
-	if key != "" && key != s.connection.ScopeKey {
+func (s staticResolver) ResolveExplicitScope(ctx context.Context, key string) (*vfs.Scope, error) {
+	if key != s.connection.ScopeKey {
 		return nil, fmt.Errorf("%w: unknown test scope", vfs.ErrNotFound)
 	}
+	return &vfs.Scope{Key: s.connection.ScopeKey, Kind: "user"}, nil
+}
+func (s staticResolver) ResolveDefaultScope(ctx context.Context, actor vfs.Actor) (*vfs.Scope, error) {
 	return &vfs.Scope{Key: s.connection.ScopeKey, Kind: "user", OwnerSubjectKey: vfs.SubjectKey(actor.String())}, nil
 }
 func (s staticResolver) ResolveConnection(ctx context.Context, scope vfs.Scope, provider, key string) (*vfs.ProviderConnection, error) {

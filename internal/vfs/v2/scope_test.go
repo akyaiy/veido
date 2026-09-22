@@ -86,15 +86,15 @@ func TestNewScopeResolver_NilDB(t *testing.T) {
 	}
 }
 
-func TestScopeResolver_DefaultScopeForActor(t *testing.T) {
+func TestScopeResolver_ResolveDefaultScope(t *testing.T) {
 	resolver := newTestScopeResolver(t)
 
-	got, err := resolver.DefaultScopeForActor(context.Background(), Actor{
+	got, err := resolver.ResolveDefaultScope(context.Background(), Actor{
 		Kind: ActorUser,
 		ID:   "42",
 	})
 	if err != nil {
-		t.Fatalf("DefaultScopeForActor() error = %v", err)
+		t.Fatalf("ResolveDefaultScope() error = %v", err)
 	}
 
 	want := Scope{
@@ -106,37 +106,34 @@ func TestScopeResolver_DefaultScopeForActor(t *testing.T) {
 	assertScopeEqual(t, got, want)
 }
 
-func TestScopeResolver_DefaultScopeForActor_NotFound(t *testing.T) {
+func TestScopeResolver_ResolveDefaultScope_NotFound(t *testing.T) {
 	resolver := newTestScopeResolver(t)
 
-	_, err := resolver.DefaultScopeForActor(context.Background(), Actor{
+	_, err := resolver.ResolveDefaultScope(context.Background(), Actor{
 		Kind: ActorUser,
 		ID:   "404",
 	})
 	if !errors.Is(err, ErrScopeResolutionFailed) {
-		t.Fatalf("DefaultScopeForActor() error = %v, want %v", err, ErrScopeResolutionFailed)
+		t.Fatalf("ResolveDefaultScope() error = %v, want %v", err, ErrScopeResolutionFailed)
 	}
 }
 
-func TestScopeResolver_DefaultScopeForActor_InvalidActor(t *testing.T) {
+func TestScopeResolver_ResolveDefaultScope_InvalidActor(t *testing.T) {
 	resolver := newTestScopeResolver(t)
 
-	_, err := resolver.DefaultScopeForActor(context.Background(), Actor{
+	_, err := resolver.ResolveDefaultScope(context.Background(), Actor{
 		Kind: ActorGuest,
 		ID:   "guest",
 	})
 	if !errors.Is(err, ErrScopeResolutionFailed) {
-		t.Fatalf("DefaultScopeForActor() error = %v, want %v", err, ErrScopeResolutionFailed)
+		t.Fatalf("ResolveDefaultScope() error = %v, want %v", err, ErrScopeResolutionFailed)
 	}
 }
 
 func TestScopeResolver_ResolveExplicitScope(t *testing.T) {
 	resolver := newTestScopeResolver(t)
 
-	got, err := resolver.ResolveExplicitScope(context.Background(), Actor{
-		Kind: ActorUser,
-		ID:   "42",
-	}, "shared-docs")
+	got, err := resolver.ResolveExplicitScope(context.Background(), "shared-docs")
 	if err != nil {
 		t.Fatalf("ResolveExplicitScope() error = %v", err)
 	}
@@ -153,10 +150,7 @@ func TestScopeResolver_ResolveExplicitScope(t *testing.T) {
 func TestScopeResolver_ResolveExplicitSystemScopeIgnoresOwner(t *testing.T) {
 	resolver := newTestScopeResolver(t)
 
-	got, err := resolver.ResolveExplicitScope(context.Background(), Actor{
-		Kind: ActorUser,
-		ID:   "42",
-	}, "system")
+	got, err := resolver.ResolveExplicitScope(context.Background(), "system")
 	if err != nil {
 		t.Fatalf("ResolveExplicitScope(system) error = %v", err)
 	}
@@ -166,6 +160,23 @@ func TestScopeResolver_ResolveExplicitSystemScopeIgnoresOwner(t *testing.T) {
 		Kind:            "system",
 		OwnerSubjectKey: common.SubjectKey("user:1"),
 		UpdatedAt:       mustParseScopeTime(t, "2026-01-04 05:06:07"),
+	}
+	assertScopeEqual(t, got, want)
+}
+
+func TestScopeResolver_ResolveExplicitScopeIgnoresOwner(t *testing.T) {
+	resolver := newTestScopeResolver(t)
+
+	got, err := resolver.ResolveExplicitScope(context.Background(), "bob-home")
+	if err != nil {
+		t.Fatalf("ResolveExplicitScope(bob-home) error = %v", err)
+	}
+
+	want := Scope{
+		Key:             "bob-home",
+		Kind:            "user",
+		OwnerSubjectKey: common.SubjectKey("user:7"),
+		UpdatedAt:       mustParseScopeTime(t, "2026-01-05 06:07:08"),
 	}
 	assertScopeEqual(t, got, want)
 }
