@@ -28,10 +28,10 @@
 
 <div id="centerPanel">
     <div id="siteMap">
-        <pageBlock data-id="1" data-name="home" data-title="Главная" data-caption="" data-description="" data-types="" data-theme="" data-status="" data-access="" data-order="1" data-redirect="" data-position="120,20" data-view="expanded"><pageText>Главная</pageText></pageBlock>
-        <pageBlock data-id="2" data-name="about" data-title="О нас" data-caption="" data-description="" data-types="" data-theme="" data-status="" data-access="" data-order="1" data-redirect="" data-position="20,70" data-view="collapsed"><pageText>О нас</pageText></pageBlock>
-        <pageBlock data-id="3" data-name="services" data-title="Услуги" data-caption="" data-description="" data-types="" data-theme="" data-status="" data-access="" data-order="2" data-redirect="" data-position="220,70" data-view="collapsed"><pageText>Услуги</pageText></pageBlock>
-        <pageBlock data-id="4" data-name="contacts" data-title="Контакты" data-caption="" data-description="" data-types="" data-theme="" data-status="" data-access="" data-order="3" data-redirect="" data-position="120,70" data-view="collapsed"><pageText>Контакты</pageText></pageBlock>
+        <pageBlock data-id="1" data-name="home" data-title="Главная" data-caption="Главная страница" data-description="Основная страница сайта" data-types="page" data-theme="light" data-status="published" data-access="guest:read,user:edit,admin:full" data-order="1" data-redirect="" data-position="120,20" data-view="expanded"><pageText>Главная</pageText></pageBlock>
+        <pageBlock data-id="2" data-name="about" data-title="О нас" data-caption="О компании" data-description="Информация о компании и её деятельности" data-types="page,section" data-theme="dark" data-status="draft" data-access="guest:edit,user:full,admin:read" data-order="2" data-redirect="" data-position="20,70" data-view="collapsed"><pageText>О нас</pageText></pageBlock>
+        <pageBlock data-id="3" data-name="services" data-title="Услуги" data-caption="Наши услуги" data-description="Раздел со списком доступных услуг" data-types="section,dynamic" data-theme="" data-status="hidden" data-access="guest:full,user:read,admin:edit" data-order="3" data-redirect="/catalog" data-position="220,70" data-view="expanded"><pageText>Услуги</pageText></pageBlock>
+        <pageBlock data-id="4" data-name="contacts" data-title="Контакты" data-caption="" data-description="" data-types="page,external" data-theme="light" data-status="archived" data-access="guest:read,user:full,admin:edit" data-order="4" data-redirect="https://example.com" data-position="120,120" data-view="collapsed"><pageText>Контакты</pageText></pageBlock>
     </div>
     <div id="pageConnections">
         <pageConnection data-parent="1" data-child="2 3 4"></pageConnection>
@@ -42,9 +42,9 @@
 <div id="pageProperties">
 
 <div data-property="id"><label>ID</label><input type="number" min="1"></div>
-<div data-property="name"><label>Название</label><input type="text"></div>
-<div data-property="title"><label>Заголовок</label><input type="text"></div>
-<div data-property="caption"><label>Подпись</label><textarea></textarea></div>
+<div data-property="name"><label>Имя</label><input type="text"></div>
+<div data-property="title"><label>Название</label><input type="text"></div>
+<div data-property="caption"><label>Пояснение</label><textarea></textarea></div>
 <div data-property="description"><label>Описание</label><textarea></textarea></div>
 <hr>
 
@@ -55,7 +55,7 @@
 <hr>
 
 <div data-property="status"><label>Статус</label><select><option value="draft">Черновик</option><option value="published">Опубликована</option><option value="hidden">Скрыта</option><option value="archived">Архив</option></select></div>
-<div data-property="access"><label>Доступ</label><div class="multipleSelect"><div class="multipleSelectValue">Настроить доступ</div><div class="multipleSelectList"><div class="accessAdd"><input type="text" placeholder="Добавить пользователя"><select><option value="read">Чтение</option><option value="edit">Изменение</option><option value="full">Полный</option></select></div><div class="accessItem"><span>Гость</span><select><option value="read">Чтение</option><option value="edit">Изменение</option><option value="full">Полный</option></select></div><div class="accessItem"><span>Пользователь</span><select><option value="read">Чтение</option><option value="edit">Изменение</option><option value="full">Полный</option></select></div><div class="accessItem"><span>Администратор</span><select><option value="read">Чтение</option><option value="edit">Изменение</option><option value="full">Полный</option></select></div></div></div></div>
+<div data-property="access"><label>Доступ</label><div class="multipleSelect"><div class="multipleSelectValue">Настроить доступ</div><div class="multipleSelectList"><div class="accessAdd"><input type="text" placeholder="Добавить пользователя"><select><option value="read">Чтение</option><option value="edit">Изменение</option><option value="full">Полный</option></select></div><div class="accessItem" data-access="guest"><span>Гость</span><select><option value="read">Чтение</option><option value="edit">Изменение</option><option value="full">Полный</option></select></div><div class="accessItem" data-access="user"><span>Пользователь</span><select><option value="read">Чтение</option><option value="edit">Изменение</option><option value="full">Полный</option></select></div><div class="accessItem" data-access="admin"><span>Администратор</span><select><option value="read">Чтение</option><option value="edit">Изменение</option><option value="full">Полный</option></select></div></div></div></div>
 <hr>
 
 <div data-property="position"><label>Позиция</label><div><input type="number" data-position="x" placeholder="X"><input type="number" data-position="y" placeholder="Y"></div></div>

@@ -302,6 +302,7 @@ function handleLinkUp() {
  * - принимает элемент страницы
  * - снимает выделение с предыдущей страницы
  * - выделяет выбранную страницу
+ * - загружает свойства страницы
 *** */
 function selectPage(page) {
     if (pageState.selectedPage) {
@@ -312,6 +313,7 @@ function selectPage(page) {
 
     if (pageState.selectedPage) {
         pageState.selectedPage.classList.add('selected');
+        loadPageProperties(pageState.selectedPage);
     }
 
     updatePagePoints(page);
@@ -1240,6 +1242,170 @@ function handleSelectClose(event) {
 // Обработчики выпадающих списков
 document.getElementById('pageProperties').addEventListener('click', handleSelectClick);
 document.addEventListener('mousedown', handleSelectClose);
+
+/* ***
+ * loadPageProperties - загрузка свойств страницы
+ * - принимает выбранную страницу
+ * - записывает свойства страницы в поля
+*** */
+function loadPageProperties(page) {
+    if (!page) {
+        return;
+    }
+
+    // Загрузка обычных свойств
+    document.querySelectorAll('#pageProperties [data-property]').forEach(property => {
+        const name = property.dataset.property;
+
+        if (name === 'types' || name === 'access' || name === 'position') {
+            return;
+        }
+
+        const field = property.querySelector('input, textarea, select');
+
+        if (field) {
+            field.value = page.dataset[name] || '';
+        }
+    });
+
+    // Загрузка позиции
+    const position = page.dataset.position.split(',');
+    const positionX = document.querySelector('#pageProperties [data-position="x"]');
+    const positionY = document.querySelector('#pageProperties [data-position="y"]');
+
+    positionX.value = position[0] || '';
+    positionY.value = position[1] || '';
+
+    // Загрузка типов
+    const types = page.dataset.types.split(',').filter(Boolean);
+    const typesProperty = document.querySelector('#pageProperties [data-property="types"]');
+
+    typesProperty.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+        checkbox.checked = types.includes(checkbox.value);
+    });
+
+    // Отображение выбранных типов
+    const typesValue = typesProperty.querySelector('.multipleSelectValue');
+
+    typesValue.textContent = types.length ? types.join(', ') : 'Выберите типы';
+
+    // Загрузка доступа
+    const access = page.dataset.access.split(',').filter(Boolean);
+    const accessProperty = document.querySelector('#pageProperties [data-property="access"]');
+
+    accessProperty.querySelectorAll('.accessItem').forEach(item => {
+        // Получение имени и уровня доступа
+        const name = item.dataset.access;
+        const select = item.querySelector('select');
+        const accessItem = access.find(value => value.startsWith(name + ':'));
+
+        if (accessItem) {
+            select.value = accessItem.split(':')[1];
+        }
+    });
+}
+
+/* ***
+ * updatePageProperty - изменение свойства страницы
+ * - принимает измененное поле
+ * - определяет свойство
+ * - сохраняет значение в выбранную страницу
+*** */
+function updatePageProperty(field) {
+    if (!pageState.selectedPage) {
+        return;
+    }
+
+    // Получение свойства
+    const property = field.closest('[data-property]');
+
+    if (!property) {
+        return;
+    }
+
+    const name = property.dataset.property;
+
+    // Изменение типов
+    if (name === 'types') {
+        const types = [];
+
+        property.querySelectorAll('input[type="checkbox"]:checked').forEach(checkbox => {
+            types.push(checkbox.value);
+        });
+
+        pageState.selectedPage.dataset.types = types.join(',');
+
+        // Обновление названия списка
+        const value = property.querySelector('.multipleSelectValue');
+
+        value.textContent = types.length ? types.join(', ') : 'Выберите типы';
+
+        return;
+    }
+
+    // Изменение доступа
+    if (name === 'access') {
+        const access = [];
+
+        property.querySelectorAll('.accessItem').forEach(item => {
+            const accessName = item.dataset.access;
+            const accessValue = item.querySelector('select').value;
+
+            access.push(accessName + ':' + accessValue);
+        });
+
+        pageState.selectedPage.dataset.access = access.join(',');
+
+        return;
+    }
+
+    // Изменение позиции
+    if (name === 'position') {
+        const positionX = property.querySelector('[data-position="x"]').value;
+        const positionY = property.querySelector('[data-position="y"]').value;
+
+        setPagePosition(
+            pageState.selectedPage,
+            Number(positionX),
+            Number(positionY)
+        );
+
+        updatePageArrows(pageState.selectedPage);
+
+        return;
+    }
+
+    // Изменение обычного свойства
+    pageState.selectedPage.dataset[name] = field.value;
+
+    // Обновление названия страницы
+    if (name === 'title') {
+        const pageText = pageState.selectedPage.querySelector(':scope > pageText');
+
+        if (pageText) {
+            pageText.textContent = field.value;
+        }
+    }
+}
+
+/* ***
+ * handlePropertyChange - обработка изменения свойства
+ * - принимает объект события
+ * - изменяет свойство выбранной страницы
+*** */
+function handlePropertyChange(event) {
+    const field = event.target.closest('input, textarea, select');
+
+    if (!field) {
+        return;
+    }
+
+    updatePageProperty(field);
+}
+
+// Обработчик изменения свойств страницы
+document.getElementById('pageProperties').addEventListener('input', handlePropertyChange);
+document.getElementById('pageProperties').addEventListener('change', handlePropertyChange);
 
 
 
