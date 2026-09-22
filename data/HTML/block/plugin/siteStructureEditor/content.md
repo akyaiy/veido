@@ -39,10 +39,29 @@
 </div>
 
 <div id="rightPanel">
-    <div id="pageProperties">
-        <div data-property="name"><label>Название</label><input type="text"></div>
-        <div data-property="path"><label>Путь</label><input type="text"></div>
-    </div>
+<div id="pageProperties">
+
+<div data-property="id"><label>ID</label><input type="number" min="1"></div>
+<div data-property="name"><label>Название</label><input type="text"></div>
+<div data-property="title"><label>Заголовок</label><input type="text"></div>
+<div data-property="caption"><label>Подпись</label><textarea></textarea></div>
+<div data-property="description"><label>Описание</label><textarea></textarea></div>
+<hr>
+
+<div data-property="types"><label>Типы</label><div class="multipleSelect"><div class="multipleSelectValue">Выберите типы</div><div class="multipleSelectList"><input type="text" class="multipleSelectAdd" placeholder="Добавить тип"><label><input type="checkbox" value="page">Страница</label><label><input type="checkbox" value="section">Раздел</label><label><input type="checkbox" value="service">Служебная</label><label><input type="checkbox" value="dynamic">Динамическая</label><label><input type="checkbox" value="external">Внешняя</label></div></div></div>
+<div data-property="theme"><label>Тема</label><select><option value="">По умолчанию</option><option value="light">Светлая</option><option value="dark">Тёмная</option></select></div>
+<div data-property="order"><label>Порядок</label><input type="number" min="1" value="1"></div>
+<div data-property="redirect"><label>Перенаправление</label><input type="text"></div>
+<hr>
+
+<div data-property="status"><label>Статус</label><select><option value="draft">Черновик</option><option value="published">Опубликована</option><option value="hidden">Скрыта</option><option value="archived">Архив</option></select></div>
+<div data-property="access"><label>Доступ</label><div class="multipleSelect"><div class="multipleSelectValue">Настроить доступ</div><div class="multipleSelectList"><div class="accessAdd"><input type="text" placeholder="Добавить пользователя"><select><option value="read">Чтение</option><option value="edit">Изменение</option><option value="full">Полный</option></select></div><div class="accessItem"><span>Гость</span><select><option value="read">Чтение</option><option value="edit">Изменение</option><option value="full">Полный</option></select></div><div class="accessItem"><span>Пользователь</span><select><option value="read">Чтение</option><option value="edit">Изменение</option><option value="full">Полный</option></select></div><div class="accessItem"><span>Администратор</span><select><option value="read">Чтение</option><option value="edit">Изменение</option><option value="full">Полный</option></select></div></div></div></div>
+<hr>
+
+<div data-property="position"><label>Позиция</label><div><input type="number" data-position="x" placeholder="X"><input type="number" data-position="y" placeholder="Y"></div></div>
+<div data-property="view"><label>Вид</label><select><option value="expanded">Развёрнутый</option><option value="collapsed">Свёрнутый</option></select></div>
+
+</div>
 </div>
 
 </div>

@@ -1191,6 +1191,59 @@ document.getElementById('openFile').addEventListener('click', openFile);
 
 
 /* ===
+ * Свойства страницы
+=== */
+
+/* ***
+ * handleSelectClick - обработка нажатия на выпадающий список
+ * - принимает объект события
+ * - закрывает другие списки
+ * - открывает или закрывает выбранный список
+*** */
+function handleSelectClick(event) {
+    // Получение заголовка списка
+    const value = event.target.closest('.multipleSelectValue');
+
+    if (!value) {
+        return;
+    }
+
+    // Получение выбранного списка
+    const multipleSelect = value.closest('.multipleSelect');
+
+    // Закрытие других списков
+    document.querySelectorAll('.multipleSelect.open').forEach(select => {
+        if (select !== multipleSelect) {
+            select.classList.remove('open');
+        }
+    });
+
+    multipleSelect.classList.toggle('open');
+}
+
+/* ***
+ * handleSelectClose - обработка нажатия вне выпадающего списка
+ * - принимает объект события
+ * - закрывает открытые списки при нажатии снаружи
+*** */
+function handleSelectClose(event) {
+    if (event.target.closest('.multipleSelect')) {
+        return;
+    }
+
+    // Закрытие открытых списков
+    document.querySelectorAll('.multipleSelect.open').forEach(multipleSelect => {
+        multipleSelect.classList.remove('open');
+    });
+}
+
+// Обработчики выпадающих списков
+document.getElementById('pageProperties').addEventListener('click', handleSelectClick);
+document.addEventListener('mousedown', handleSelectClose);
+
+
+
+/* ===
  * Загрузка и инициализация редактора
 === */
 

@@ -241,17 +241,17 @@
     display: flex;
     flex-direction: column;
     padding: 7px;
-    gap: 5px;
+    gap: 6px;
     box-sizing: border-box;
 }
 
 #pageProperties [data-property] {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 3px;
 }
 
-#pageProperties label {
+#pageProperties * {
     font-size: 14px;
 }
 
@@ -264,6 +264,69 @@
     border-radius: 5px;
     background: #fff;
     box-sizing: border-box;
+}
+#pageProperties hr {
+    margin: 10px 0;
+    border: none;
+    border-top: 1px solid #ccc;
+}
+
+/* Элементы в правой панели */
+.multipleSelectList label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.multipleSelectList input[type="checkbox"] {
+    width: initial !important;
+    height: initial !important;
+    padding: 0;
+}
+
+.accessAdd,
+.accessItem {
+    display: grid;
+    gap: 3px;
+    grid-template-columns: 80% 20%;
+    align-items: center;
+}
+.accessAdd input,
+.accessItem select {
+    width: 100%;
+}
+
+.multipleSelect {
+    position: relative;
+}
+
+.multipleSelectValue {
+    height: 25px;
+    padding: 2px 5px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background: #fff;
+    box-sizing: border-box;
+    cursor: pointer;
+}
+
+.multipleSelectList {
+    display: none;
+    position: absolute;
+    flex-direction: column;
+    gap: 6px;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    padding: 5px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background: #fff;
+    box-sizing: border-box;
+    z-index: 10;
+}
+
+.multipleSelect.open .multipleSelectList {
+    display: flex;
 }
 
 
