@@ -1,6 +1,8 @@
 package main
 
 import (
+	"MyServer/internal/common"
+	"MyServer/internal/sqliteDB"
 	vfs "MyServer/internal/vfs/v2"
 	httpapi "MyServer/internal/vfs/v2/adapters/httpapi"
 	webdavadapter "MyServer/internal/vfs/v2/adapters/webdav"
@@ -8,8 +10,40 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
 )
+
+func TestNewVFSRegistersSharedProvider(t *testing.T) {
+	db := sqliteDB.InitDB(filepath.Join(t.TempDir(), "vfs.sqlite3"))
+	t.Cleanup(func() { _ = db.Close() })
+
+	if _, err := db.Exec(`
+		INSERT INTO vfs_scopes (scope_key, kind, owner_subject_key)
+		VALUES ('alice', 'personal', 'user:1');
+		INSERT INTO vfs_provider_connections
+			(scope_key, provider, connection_key, display_name, config_json, status, ready)
+		VALUES ('alice', 'shared', 'me', 'me', '{}', 'active', 1);
+	`); err != nil {
+		t.Fatalf("seed shared connection: %v", err)
+	}
+
+	frontend, err := newVFS(db)
+	if err != nil {
+		t.Fatalf("newVFS: %v", err)
+	}
+	uri, err := common.CastURI("shared@me[alice]:///")
+	if err != nil {
+		t.Fatalf("shared URI: %v", err)
+	}
+	node, err := frontend.Stat(context.Background(), vfs.Actor{Kind: vfs.ActorUser, ID: "1"}, uri)
+	if err != nil {
+		t.Fatalf("Stat shared root: %v", err)
+	}
+	if !node.IsDir {
+		t.Fatalf("shared root = %#v, want directory", node)
+	}
+}
 
 func TestHTTPRequestActor(t *testing.T) {
 	want := vfs.Actor{Kind: vfs.ActorUser, ID: "42"}

@@ -10,6 +10,7 @@ import (
 	webdavadapter "MyServer/internal/vfs/v2/adapters/webdav"
 	"MyServer/internal/vfs/v2/providers"
 	"MyServer/internal/vfs/v2/providers/local"
+	sharedprovider "MyServer/internal/vfs/v2/providers/shared"
 	systemscopes "MyServer/internal/vfs/v2/providers/system/scopes"
 	"MyServer/internal/vfs/v2/storage"
 	sdk "MyServer/pkg/vfs/providersdk"
@@ -376,9 +377,17 @@ func newVFS(db *sql.DB) (vfs.VFSFrontend, error) {
 	if err := local.InitDB(db); err != nil {
 		return nil, err
 	}
+	if err := sharedprovider.InitDB(db); err != nil {
+		return nil, err
+	}
+	sharedStore, err := sharedprovider.NewSQLiteStore(db)
+	if err != nil {
+		return nil, err
+	}
 
 	registry := sdk.NewCatalog()
 	registry.Register("debug", providers.FactoryDebug)
+	registry.Register("shared", sharedprovider.Factory(sharedStore))
 	accountStore, err := local.NewSQLiteAccountStore(db, nil)
 	if err != nil {
 		return nil, err
@@ -405,12 +414,16 @@ func newVFS(db *sql.DB) (vfs.VFSFrontend, error) {
 	if err != nil {
 		return nil, err
 	}
+	authorizer, err := vfs.NewOwnerScopeGateAuthorizer(scopeResolver, allowAllAuthorizer{})
+	if err != nil {
+		return nil, err
+	}
 
 	return vfs.NewVFS(
 		scopeResolver,
 		vfs.NewConnectionResolver(db),
 		pool,
-		allowAllAuthorizer{},
+		authorizer,
 		vfs.NewNoopResourceLifecycle(),
 	)
 }

@@ -66,12 +66,16 @@ func newDebugVFS(db *sql.DB) (vfs.VFSFrontend, error) {
 	if err != nil {
 		return nil, err
 	}
+	authorizer, err := vfs.NewOwnerScopeGateAuthorizer(scopeResolver, allowAllAuthorizer{})
+	if err != nil {
+		return nil, err
+	}
 
 	return vfs.NewVFS(
 		scopeResolver,
 		vfs.NewConnectionResolver(db),
 		pool,
-		allowAllAuthorizer{},
+		authorizer,
 		vfs.NewNoopResourceLifecycle(),
 	)
 }

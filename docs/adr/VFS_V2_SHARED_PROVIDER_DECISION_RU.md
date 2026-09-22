@@ -135,7 +135,9 @@ shared URI -> target URI
 ```sql
 CREATE TABLE vfs_shared_links (
     recipient_user_id   INTEGER NOT NULL,
+    recipient_name      TEXT NOT NULL,
     granted_by_user_id  INTEGER NOT NULL,
+    granted_by_name     TEXT NOT NULL,
     target_uri          TEXT NOT NULL,
     alias               TEXT NOT NULL,
     access_mode         TEXT NOT NULL,
@@ -145,7 +147,7 @@ CREATE TABLE vfs_shared_links (
     updated_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     PRIMARY KEY (recipient_user_id, target_uri),
-    UNIQUE (recipient_user_id, alias)
+    UNIQUE (recipient_user_id, granted_by_user_id, alias)
 );
 ```
 
@@ -157,7 +159,9 @@ CREATE TABLE vfs_shared_links (
 Таблица Shared не содержит foreign key на Auth-таблицу `users` и не читает её напрямую. Идентификаторы
 пользователей являются допустимыми глобальными identity-значениями, но их существование и статус
 проверяются владеющим Auth/ACL-контуром, а не Shared. Нужные для дерева имена получаются
-через VFS-ресурс владеющего домена или хранятся как локальная проекция, обновляемая событиями.
+через VFS-ресурс владеющего домена или хранятся в `recipient_name` и `granted_by_name` как локальная
+проекция, обновляемая событиями. Одинаковый alias допустим от разных grantor, так как их ссылки находятся
+в разных ветвях `/incoming/<grantor>/`.
 
 `access_mode` хранит выбранный в UI профиль и помогает восстанавливать
 рассогласованное состояние. При выполнении защищённой операции эта колонка не
