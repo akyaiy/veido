@@ -449,3 +449,11 @@ pagePoint[data-side="left"] {
     left: -7px;
     transform: translateY(-50%);
 }
+
+pagePoint[data-side="number"] {
+    top: 0;
+    left: 0;
+    transform: translate(-50%, -50%);
+    font-size: 8px;
+    text-align: center;
+}

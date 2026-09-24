@@ -59,6 +59,57 @@ function setPagePosition(page, x, y) {
 }
 
 /* ***
+ * updatePageOrder - обновление порядка страниц
+ * - сортирует страницы по текущему номеру
+ * - устанавливает номера от 1 по порядку
+*** */
+function updatePageOrder(parentId = null) {
+    // Получение связей страниц
+    const connections = Array.from(document.querySelectorAll('#pageConnections pageConnection'));
+    const connection = parentId ? connections.find(connection => connection.dataset.parent === parentId) : null;
+    const childIds = new Set(connections.flatMap(connection => connection.dataset.child.split(' ').filter(Boolean)));
+
+    // Получение соседних страниц
+    const pages = connection
+        ? connection.dataset.child.split(' ').filter(Boolean).map(id => document.querySelector('#siteMap pageBlock[data-id="' + id + '"]')).filter(Boolean)
+        : Array.from(document.querySelectorAll('#siteMap pageBlock')).filter(page => !childIds.has(page.dataset.id));
+
+    // Сортировка страниц
+    pages.sort((a, b) => Number(a.dataset.order) - Number(b.dataset.order));
+
+    // Обновление порядка
+    pages.forEach((page, index) => {
+        page.dataset.order = index + 1;
+    });
+
+    // Обновление выбранной страницы
+    if (pageState.selectedPage) {
+        updatePagePoints(pageState.selectedPage);
+        loadPageProperties(pageState.selectedPage);
+    }
+}
+
+/* ***
+ * hasPageChild - проверка дочерней страницы
+ * - проверяет наличие страницы среди всех потомков
+*** */
+function hasPageChild(parentId, childId) {
+    const connection = document.querySelector('#pageConnections pageConnection[data-parent="' + parentId + '"]');
+
+    if (!connection) return false;
+
+    const children = connection.dataset.child.split(' ').filter(Boolean);
+
+    if (children.includes(childId)) return true;
+
+    for (const id of children) {
+        if (hasPageChild(id, childId)) return true;
+    }
+
+    return false;
+}
+
+/* ***
  * movePageToParent - добавление связи между страницами
  * - удаляет старого родителя дочерней страницы
  * - добавляет страницу к новому родителю
@@ -67,6 +118,12 @@ function movePageToParent(parent, child) {
     const pageConnections = document.getElementById('pageConnections');
     const parentId = parent.dataset.id;
     const childId = child.dataset.id;
+
+    // Получение старой связи дочерней страницы
+    const oldConnection = Array.from(pageConnections.querySelectorAll('pageConnection')).find(connection =>
+        connection.dataset.child.split(' ').includes(childId)
+    );
+    const oldParentId = oldConnection ? oldConnection.dataset.parent : null;
 
     // Удаление старой связи страницы
     pageConnections.querySelectorAll('pageConnection').forEach(connection => {
@@ -96,12 +153,18 @@ function movePageToParent(parent, child) {
         children.push(childId);
         connection.dataset.child = children.join(' ');
     }
+
+    // Обновление порядка страниц
+    updatePageOrder(oldParentId);
+    child.dataset.order = children.length;
+    updatePageOrder(parentId);
 }
 
 /* ***
  * updatePagePoints - обновление точек страницы
  * - удаляет старые точки
  * - добавляет точки выбранной странице
+ * - добавляет номер страницы сверху слева
 *** */
 function updatePagePoints(page) {
     // Удаление старых точек
@@ -116,6 +179,13 @@ function updatePagePoints(page) {
         point.dataset.side = side;
         page.appendChild(point);
     });
+
+    // Создание номера страницы
+    const point = document.createElement('pagePoint');
+
+    point.dataset.side = 'number';
+    point.textContent = page.dataset.order;
+    page.appendChild(point);
 }
 
 /* ***
@@ -197,7 +267,7 @@ function updateTempArrow(clientX, clientY) {
 function handlePointDown(event) {
     const point = event.target.closest('pagePoint');
 
-    if (!point || event.button !== 0) return;
+    if (!point || point.dataset.side === 'number' || event.button !== 0) return;
 
     // Сохранение исходной страницы и точки
     pageState.linkedPage = point.closest('pageBlock');
@@ -281,6 +351,22 @@ function handleLinkUp() {
 
     // Добавление связи
     if (targetPage && targetPage !== pageState.linkedPage) {
+        if (hasPageChild(targetPage.dataset.id, pageState.linkedPage.dataset.id)) {
+            const connection = Array.from(document.querySelectorAll('#pageConnections pageConnection')).find(connection =>
+                connection.dataset.child.split(' ').includes(pageState.linkedPage.dataset.id)
+            );
+
+            if (connection) {
+                const children = connection.dataset.child.split(' ').filter(id => id !== pageState.linkedPage.dataset.id);
+
+                if (children.length) {
+                    connection.dataset.child = children.join(' ');
+                } else {
+                    connection.remove();
+                }
+            }
+        }
+
         movePageToParent(pageState.linkedPage, targetPage);
     }
 
@@ -537,6 +623,13 @@ async function pastePage() {
 
         // Установка нового id
         page.dataset.id = getPageId();
+        
+        // Установка порядка страницы
+        page.dataset.order = Array.from(document.querySelectorAll('#siteMap pageBlock')).filter(page => {
+            return !Array.from(document.querySelectorAll('#pageConnections pageConnection')).some(connection =>
+                connection.dataset.child.split(' ').includes(page.dataset.id)
+            );
+        }).length + 1;
 
         // Удаление старых служебных элементов
         page.querySelectorAll('pagePoint').forEach(point => point.remove());
@@ -556,6 +649,7 @@ async function pastePage() {
 
         // Добавление страницы
         siteMap.appendChild(page);
+        updatePageOrder();
         selectPage(page);
         updatePageArrows();
     } catch (error) {
@@ -575,6 +669,12 @@ function deletePage() {
     // Получение страницы и связей
     const pageConnections = document.getElementById('pageConnections');
     const pageId = pageState.selectedPage.dataset.id;
+
+    // Получение родительской связи страницы
+    const parentConnection = Array.from(pageConnections.querySelectorAll('pageConnection')).find(connection =>
+        connection.dataset.child.split(' ').includes(pageId)
+    );
+    const parentId = parentConnection ? parentConnection.dataset.parent : null;
 
     // Удаление страницы из дочерних связей
     pageConnections.querySelectorAll('pageConnection').forEach(connection => {
@@ -596,6 +696,10 @@ function deletePage() {
     pageState.selectedPage.remove();
     pageState.selectedPage = null;
 
+    // Обновление порядка и стрелок страниц
+    updatePageOrder(parentId);
+
+    // Обновление стрелок страниц
     updatePageArrows();
 }
 
@@ -626,7 +730,11 @@ function createPage() {
     page.dataset.theme = '';
     page.dataset.status = '';
     page.dataset.access = '';
-    page.dataset.order = '';
+    page.dataset.order = Array.from(document.querySelectorAll('#siteMap pageBlock')).filter(page => {
+        return !Array.from(document.querySelectorAll('#pageConnections pageConnection')).some(connection =>
+            connection.dataset.child.split(' ').includes(page.dataset.id)
+        );
+    }).length + 1;
     page.dataset.redirect = '';
     page.dataset.position = pageX + ',' + pageY;
     page.dataset.view = 'collapsed';
@@ -638,6 +746,7 @@ function createPage() {
 
     // Добавление страницы
     siteMap.appendChild(page);
+    updatePageOrder();
     selectPage(page);
 }
 
@@ -1253,6 +1362,27 @@ function loadPageProperties(page) {
         return;
     }
 
+    // Загрузка порядка
+    const orderField = document.querySelector('#pageProperties [data-property="order"] select');
+    const connection = Array.from(document.querySelectorAll('#pageConnections pageConnection')).find(connection =>
+        connection.dataset.child.split(' ').includes(page.dataset.id)
+    );
+    const pages = connection ? connection.dataset.child.split(' ').filter(Boolean) : Array.from(document.querySelectorAll('#siteMap pageBlock')).filter(page => {
+        return !Array.from(document.querySelectorAll('#pageConnections pageConnection')).some(connection =>
+            connection.dataset.child.split(' ').includes(page.dataset.id)
+        );
+    });
+
+    orderField.innerHTML = '';
+
+    pages.forEach((page, index) => {
+        const option = document.createElement('option');
+
+        option.value = index + 1;
+        option.textContent = index + 1;
+        orderField.appendChild(option);
+    });
+
     // Загрузка обычных свойств
     document.querySelectorAll('#pageProperties [data-property]').forEach(property => {
         const name = property.dataset.property;
@@ -1371,6 +1501,41 @@ function updatePageProperty(field) {
         );
 
         updatePageArrows(pageState.selectedPage);
+
+        return;
+    }
+
+    // Изменение порядка
+    if (name === 'order') {
+        // Получение связи и списка страниц
+        const connection = Array.from(document.querySelectorAll('#pageConnections pageConnection')).find(connection =>
+            connection.dataset.child.split(' ').includes(pageState.selectedPage.dataset.id)
+        );
+        const childIds = new Set(Array.from(document.querySelectorAll('#pageConnections pageConnection')).flatMap(connection =>
+            connection.dataset.child.split(' ').filter(Boolean)
+        ));
+        const pages = connection
+            ? connection.dataset.child.split(' ').filter(Boolean).map(id => document.querySelector('#siteMap pageBlock[data-id="' + id + '"]')).filter(Boolean)
+            : Array.from(document.querySelectorAll('#siteMap pageBlock')).filter(page => !childIds.has(page.dataset.id));
+
+        const oldOrder = Number(pageState.selectedPage.dataset.order);
+        const newOrder = Math.max(1, Math.min(Number(field.value), pages.length));
+
+        pages.forEach(page => {
+            if (page === pageState.selectedPage) return;
+
+            const order = Number(page.dataset.order);
+
+            if (newOrder < oldOrder && order >= newOrder && order < oldOrder) {
+                page.dataset.order = order + 1;
+            } else if (newOrder > oldOrder && order > oldOrder && order <= newOrder) {
+                page.dataset.order = order - 1;
+            }
+        });
+
+        pageState.selectedPage.dataset.order = newOrder;
+        updatePagePoints(pageState.selectedPage);
+        loadPageProperties(pageState.selectedPage);
 
         return;
     }
