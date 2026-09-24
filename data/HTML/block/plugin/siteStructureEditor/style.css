@@ -220,8 +220,34 @@
     height: 100%;
     position: relative;
     background-color: #fff;
-    background-image: radial-gradient(#ccc 1px, transparent 1px);
+    background-image: radial-gradient(circle at 0 0, #ccc 1px, transparent 1px);
     background-size: 10px 10px;
+    background-position: 0 0;
+}
+
+/* Настройки сетки */
+#gridSettings {
+    display: flex;
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    align-items: center;
+    gap: 5px;
+    z-index: 5;
+}
+
+#gridSizeValue {
+    padding: 2px 5px;
+    width: 50px;
+}
+
+#gridSize {
+    width: 100px;
+    height: 25px;
+    padding: 2px 5px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-sizing: border-box;
 }
 
 

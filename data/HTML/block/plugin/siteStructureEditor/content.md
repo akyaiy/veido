@@ -27,6 +27,10 @@
 <div id="mainPanel">
 
 <div id="centerPanel">
+    <div id="gridSettings">
+        <input id="gridSizeValue" type="number" min="1" max="100" value="10">
+        <input id="gridSize" type="range" min="1" max="100" value="10">
+    </div>
     <div id="siteMap">
         <pageblock data-id="1" data-name="home" data-title="Главная" data-caption="Главная страница" data-description="Основная страница сайта" data-types="page" data-theme="light" data-status="published" data-access="guest:read,user:edit,admin:full" data-order="1" data-redirect="" data-position="120,20" data-view="expanded" style="left: 120px; top: 20px;"><pagetext>Главная</pagetext></pageblock>
         <pageblock data-id="2" data-name="about" data-title="О нас" data-caption="О компании" data-description="Информация о компании" data-types="page,section" data-theme="dark" data-status="published" data-access="guest:read,user:edit,admin:full" data-order="1" data-redirect="" data-position="198,109" data-view="expanded" style="left: 198px; top: 109px;"><pagetext>О нас</pagetext></pageblock>

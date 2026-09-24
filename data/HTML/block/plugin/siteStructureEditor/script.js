@@ -446,8 +446,8 @@ function handlePageMove(event) {
     const siteMap = document.getElementById('siteMap');
     const mapRect = siteMap.getBoundingClientRect();
 
-    const pageX = event.clientX - mapRect.left + siteMap.scrollLeft - pageState.offsetX;
-    const pageY = event.clientY - mapRect.top + siteMap.scrollTop - pageState.offsetY;
+    const pageX = getGridPosition(event.clientX - mapRect.left + siteMap.scrollLeft - pageState.offsetX);
+    const pageY = getGridPosition(event.clientY - mapRect.top + siteMap.scrollTop - pageState.offsetY);
 
     setPagePosition(pageState.draggedPage, pageX, pageY);
 
@@ -639,8 +639,8 @@ async function pastePage() {
         const mapRect = siteMap.getBoundingClientRect();
 
         // Вычисление положения страницы
-        const pageX = menuState.x - mapRect.left + siteMap.scrollLeft;
-        const pageY = menuState.y - mapRect.top + siteMap.scrollTop;
+        const pageX = getGridPosition(menuState.x - mapRect.left + siteMap.scrollLeft);
+        const pageY = getGridPosition(menuState.y - mapRect.top + siteMap.scrollTop);
 
         // Установка положения страницы
         page.style.left = pageX + 'px';
@@ -714,8 +714,8 @@ function createPage() {
     const mapRect = siteMap.getBoundingClientRect();
 
     // Вычисление положения страницы
-    const pageX = Math.round((menuState.x - mapRect.left + siteMap.scrollLeft) / 10) * 10;
-    const pageY = Math.round((menuState.y - mapRect.top + siteMap.scrollTop) / 10) * 10;
+    const pageX = getGridPosition(menuState.x - mapRect.left + siteMap.scrollLeft);
+    const pageY = getGridPosition(menuState.y - mapRect.top + siteMap.scrollTop);
 
     // Создание страницы
     const page = document.createElement('pageBlock');
@@ -1571,6 +1571,54 @@ function handlePropertyChange(event) {
 // Обработчик изменения свойств страницы
 document.getElementById('pageProperties').addEventListener('input', handlePropertyChange);
 document.getElementById('pageProperties').addEventListener('change', handlePropertyChange);
+
+
+
+/* ===
+ * Настройки сетки
+=== */
+
+// Поле размера сетки
+const gridSizeValue = document.getElementById('gridSizeValue');
+
+// Ползунок размера сетки
+const gridSize = document.getElementById('gridSize');
+
+/* ***
+ * updateGridSize - обновление размера сетки
+ * - принимает размер сетки
+ * - изменяет размер и отображение фоновой сетки
+*** */
+function updateGridSize(size) {
+    const siteMap = document.getElementById('siteMap');
+
+    siteMap.style.backgroundSize = size + 'px ' + size + 'px';
+    siteMap.style.backgroundImage = Number(size) === 1 ? 'none' : 'radial-gradient(circle at 0 0, #ccc 1px, transparent 1px)';
+}
+
+/* ***
+ * getGridPosition - получение позиции по сетке
+ * - принимает координату
+ * - округляет координату по текущему размеру сетки
+ * - возвращает координату сетки
+*** */
+function getGridPosition(position) {
+    const size = Number(gridSize.value);
+
+    return Math.round(position / size) * size;
+}
+
+// Синхронизация поля с ползунком
+gridSizeValue.addEventListener('input', () => {
+    gridSize.value = gridSizeValue.value;
+    updateGridSize(gridSizeValue.value);
+});
+
+// Синхронизация ползунка с полем
+gridSize.addEventListener('input', () => {
+    gridSizeValue.value = gridSize.value;
+    updateGridSize(gridSize.value);
+});
 
 
 
