@@ -9,6 +9,7 @@ const pageState = {
     draggedPage: null,
     linkedPage: null,
     linkedPoint: null,
+    linkedSide: null,
     targetPage: null,
     tempArrow: null,
     offsetX: 0,
@@ -125,7 +126,7 @@ function hasPageChild(parentId, childId) {
  * - удаляет старого родителя дочерней страницы
  * - добавляет страницу к новому родителю
 *** */
-function movePageToParent(parent, child) {
+function movePageToParent(parent, child, fromSide, toSide) {
     const siteMap = document.getElementById('siteMap');
     const parentId = parent.dataset.id;
     const childId = child.dataset.id;
@@ -151,6 +152,8 @@ function movePageToParent(parent, child) {
     connection.dataset.kind = 'parent';
     connection.dataset.from = parentId;
     connection.dataset.to = childId;
+    connection.dataset.fromSide = fromSide;
+    connection.dataset.toSide = toSide;
     connection.dataset.order = children.length;
     siteMap.appendChild(connection);
 
@@ -272,6 +275,7 @@ function handlePointDown(event) {
     // Сохранение исходной страницы и точки
     pageState.linkedPage = point.closest('pageBlock');
     pageState.linkedPoint = point;
+    pageState.linkedSide = point.dataset.side;
 
     createTempArrow(point);
 
@@ -350,7 +354,7 @@ function handleLinkUp() {
     const targetPage = pageState.targetPage;
 
     // Добавление связи
-    if (targetPage && targetPage !== pageState.linkedPage) {
+    if (targetPage && targetPage !== pageState.linkedPage && pageState.linkedPoint) {
         if (hasPageChild(targetPage.dataset.id, pageState.linkedPage.dataset.id)) {
             const connection = Array.from(document.querySelectorAll('#siteMap > pageConnection[data-kind="parent"]')).find(connection =>
                 connection.dataset.to === pageState.linkedPage.dataset.id
@@ -359,7 +363,12 @@ function handleLinkUp() {
             if (connection) connection.remove();
         }
 
-        movePageToParent(pageState.linkedPage, targetPage);
+        movePageToParent(
+            pageState.linkedPage,
+            targetPage,
+            pageState.linkedSide,
+            pageState.linkedPoint.dataset.side
+        );
     }
 
     // Удаление временной стрелки
@@ -372,6 +381,7 @@ function handleLinkUp() {
 
     pageState.linkedPage = null;
     pageState.linkedPoint = null;
+    pageState.linkedSide = null;
     pageState.targetPage = null;
 }
 
@@ -390,6 +400,7 @@ function selectPage(page) {
     if (pageState.selectedConnection) {
         pageState.selectedConnection.classList.remove('selected');
         pageState.selectedConnection = null;
+        updatePageArrows();
     }
 
     pageState.selectedPage = page;
@@ -423,6 +434,7 @@ function selectConnection(connection) {
 
     if (pageState.selectedConnection) {
         pageState.selectedConnection.classList.add('selected');
+        updatePageArrows();
     }
 }
 
@@ -677,7 +689,7 @@ async function pastePage() {
         page.dataset.position = pageX + ',' + pageY;
 
         // Добавление страницы
-        siteMap.appendChild(page);
+        siteMap.insertBefore(page, siteMap.querySelector(':scope > pageConnection'));
         updatePageOrder();
         selectPage(page);
         updatePageArrows();
@@ -778,7 +790,7 @@ function createPage() {
     page.appendChild(pageText);
 
     // Добавление страницы
-    siteMap.appendChild(page);
+    siteMap.insertBefore(page, siteMap.querySelector(':scope > pageConnection'));
     updatePageOrder();
     selectPage(page);
 }
@@ -843,12 +855,12 @@ document.addEventListener('mousedown', handleMenuClose);
  * Взаимодействие с страницами
 === */
 
-/* ***
+/***
  * updatePageArrows - обновление стрелок страниц
  * - принимает страницу или null
  * - получает связи из pageConnections
  * - строит стрелки со скругленными поворотами
-*** */
+ ***/
 function updatePageArrows(page = null) {
     // Получение карты и связей
     const siteMap = document.getElementById('siteMap');
@@ -861,14 +873,12 @@ function updatePageArrows(page = null) {
 
         const svg = connection.querySelector(':scope > svg');
 
+        connection.querySelectorAll(':scope > connectionPoint').forEach(point => point.remove());
+
         if (svg) svg.remove();
 
-        const parent = Array.from(siteMap.querySelectorAll(':scope > pageBlock')).find(
-            page => page.dataset.id === connection.dataset.from
-        );
-        const child = Array.from(siteMap.querySelectorAll(':scope > pageBlock')).find(
-            page => page.dataset.id === connection.dataset.to
-        );
+        const parent = Array.from(siteMap.querySelectorAll(':scope > pageBlock')).find(page => page.dataset.id === connection.dataset.from);
+        const child = Array.from(siteMap.querySelectorAll(':scope > pageBlock')).find(page => page.dataset.id === connection.dataset.to);
 
         if (parent && child) {
             connections.push({ connection, parent, child });
@@ -901,8 +911,37 @@ function updatePageArrows(page = null) {
         let endY;
         let points;
 
+        const sides = ['top', 'right', 'bottom', 'left'];
+        const fromSide = connection.connection.dataset.fromSide;
+        const toSide = connection.connection.dataset.toSide;
+
+        if (sides.includes(fromSide) && sides.includes(toSide)) {
+            startX = fromSide === 'left' ? parentPosition.x : fromSide === 'right' ? parentPosition.x + parent.offsetWidth : parentX;
+            startY = fromSide === 'top' ? parentPosition.y : fromSide === 'bottom' ? parentPosition.y + parent.offsetHeight : parentY;
+            endX = toSide === 'left' ? childPosition.x : toSide === 'right' ? childPosition.x + child.offsetWidth : childX;
+            endY = toSide === 'top' ? childPosition.y : toSide === 'bottom' ? childPosition.y + child.offsetHeight : childY;
+
+            const fromVertical = fromSide === 'top' || fromSide === 'bottom';
+            const toVertical = toSide === 'top' || toSide === 'bottom';
+
+            if (fromVertical === toVertical) {
+                if (fromVertical) {
+                    const middleY = (startY + endY) / 2;
+
+                    points = [[startX, startY], [startX, middleY], [endX, middleY], [endX, endY]];
+                } else {
+                    const middleX = (startX + endX) / 2;
+
+                    points = [[startX, startY], [middleX, startY], [middleX, endY], [endX, endY]];
+                }
+            } else {
+                const pointX = fromVertical ? startX : endX;
+                const pointY = fromVertical ? endY : startY;
+
+                points = [[startX, startY], [pointX, pointY], [endX, endY]];
+            }
         // Страница снизу
-        if (distanceY > 0) {
+        } else if (distanceY > 0) {
             // Проверка возможности выхода вниз
             const parentBottom = parentPosition.y + parent.offsetHeight;
             const spaceY = childPosition.y - parentBottom;
@@ -916,12 +955,7 @@ function updatePageArrows(page = null) {
 
                 const middleY = (startY + endY) / 2;
 
-                points = [
-                    [startX, startY],
-                    [startX, middleY],
-                    [endX, middleY],
-                    [endX, endY]
-                ];
+                points = [[startX, startY], [startX, middleY], [endX, middleY], [endX, endY]];
             } else {
                 // Выход сбоку родителя
                 const isRight = childX > parentX;
@@ -933,12 +967,7 @@ function updatePageArrows(page = null) {
 
                 const middleX = (startX + endX) / 2;
 
-                points = [
-                    [startX, startY],
-                    [middleX, startY],
-                    [middleX, endY],
-                    [endX, endY]
-                ];
+                points = [[startX, startY], [middleX, startY], [middleX, endY], [endX, endY]];
             }
         } else if (Math.abs(distanceY) > Math.abs(distanceX)) {
             startX = parentX;
@@ -948,12 +977,7 @@ function updatePageArrows(page = null) {
 
             const middleY = (startY + endY) / 2;
 
-            points = [
-                [startX, startY],
-                [startX, middleY],
-                [endX, middleY],
-                [endX, endY]
-            ];
+            points = [[startX, startY], [startX, middleY], [endX, middleY], [endX, endY]];
         // Страница сбоку
         } else {
             startX = distanceX > 0 ? parentPosition.x + parent.offsetWidth : parentPosition.x;
@@ -963,12 +987,19 @@ function updatePageArrows(page = null) {
 
             const middleX = (startX + endX) / 2;
 
-            points = [
-                [startX, startY],
-                [middleX, startY],
-                [middleX, endY],
-                [endX, endY]
-            ];
+            points = [[startX, startY], [middleX, startY], [middleX, endY], [endX, endY]];
+        }
+
+        // Создание точек изгиба выбранной связи
+        if (arrow === pageState.selectedConnection) {
+            points.slice(1, -1).forEach(point => {
+                const connectionPoint = document.createElement('connectionPoint');
+
+                connectionPoint.style.left = point[0] + 'px';
+                connectionPoint.style.top = point[1] + 'px';
+
+                arrow.appendChild(connectionPoint);
+            });
         }
 
         // Создание стрелки
@@ -993,7 +1024,7 @@ function updatePageArrows(page = null) {
         path.setAttribute('marker-end', 'url(#' + marker.id + ')');
 
         // Создание скругленного пути
-        const radius = 10;
+        const radius = 2;
         let pathData = 'M ' + points[0][0] + ' ' + points[0][1];
 
         for (let i = 1; i < points.length - 1; i++) {
@@ -1243,7 +1274,7 @@ function createPageFromXml(xmlPage, parentId = null) {
     page.style.top = y + 'px';
 
     page.appendChild(pageText);
-    siteMap.appendChild(page);
+    siteMap.insertBefore(page, siteMap.querySelector(':scope > pageConnection'));
 
     // Добавление связи с родителем
     if (parentId) {
