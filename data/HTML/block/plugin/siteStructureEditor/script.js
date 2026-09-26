@@ -12,6 +12,11 @@ const pageState = {
     linkedSide: null,
     targetPage: null,
     tempArrow: null,
+    draggedConnectionPoint: null,
+    draggedConnection: null,
+    connectionPoints: null,
+    connectionPointAdded: false,
+    connectionPointIndex: -1,
     offsetX: 0,
     offsetY: 0
 };
@@ -446,6 +451,7 @@ function selectConnection(connection) {
  * - начинает перемещение страницы
 *** */
 function handlePageDown(event) {
+    if (event.target.closest('connectionPoint')) return;
     if (event.target.closest('pagePoint')) return;
 
     const connection = event.target.closest('pageConnection');
@@ -990,16 +996,50 @@ function updatePageArrows(page = null) {
             points = [[startX, startY], [middleX, startY], [middleX, endY], [endX, endY]];
         }
 
+        // Получение сохраненных точек стрелки
+        const savedPoints = arrow.dataset.points ? JSON.parse(arrow.dataset.points) : null;
+
+        // Изменение начальной и конечной точек стрелки
+        if (savedPoints && savedPoints.length >= 2) {
+            points = savedPoints;
+            points[0] = [startX, startY];
+            points[points.length - 1] = [endX, endY];
+
+            if (points.length > 2) {
+                if (fromSide === 'top' || fromSide === 'bottom') {
+                    points[1][0] = startX;
+                } else {
+                    points[1][1] = startY;
+                }
+
+                if (toSide === 'top' || toSide === 'bottom') {
+                    points[points.length - 2][0] = endX;
+                } else {
+                    points[points.length - 2][1] = endY;
+                }
+            }
+
+            arrow.dataset.points = JSON.stringify(points);
+        }
+
+        // Сохранение точек стрелки
+        if (!savedPoints) {
+            arrow.dataset.points = JSON.stringify(points);
+        }
+
         // Создание точек изгиба выбранной связи
         if (arrow === pageState.selectedConnection) {
-            points.slice(1, -1).forEach(point => {
+            for (let i = 0; i < points.length - 1; i++) {
                 const connectionPoint = document.createElement('connectionPoint');
+                connectionPoint.dataset.index = i;
+                const pointX = (points[i][0] + points[i + 1][0]) / 2;
+                const pointY = (points[i][1] + points[i + 1][1]) / 2;
 
-                connectionPoint.style.left = point[0] + 'px';
-                connectionPoint.style.top = point[1] + 'px';
+                connectionPoint.style.left = pointX + 'px';
+                connectionPoint.style.top = pointY + 'px';
 
                 arrow.appendChild(connectionPoint);
-            });
+            }
         }
 
         // Создание стрелки
@@ -1105,6 +1145,182 @@ document.addEventListener('siteStructureEditor:loaded', loadPage);
 
 
 /* ===
+ * Редактирование связей
+=== */
+
+/***
+ * handleConnectionPointDown - начало перемещения ребра связи
+ * - получает выбранную точку ребра
+ * - сохраняет точки и индекс ребра
+ ***/
+function handleConnectionPointDown(event) {
+    const point = event.target.closest('connectionPoint');
+
+    if (!point || event.button !== 0) return;
+
+    const connection = point.closest('pageConnection');
+
+    if (!connection) return;
+
+    const points = JSON.parse(connection.dataset.points || '[]');
+    const index = Number(point.dataset.index);
+
+    if (points.length < 2 || index < 0 || index >= points.length - 1) return;
+
+    pageState.draggedConnection = connection;
+    pageState.connectionPoints = points;
+    pageState.connectionPointIndex = index;
+    pageState.connectionPointAdded = false;
+
+    event.preventDefault();
+    event.stopPropagation();
+}
+
+/***
+ * handleConnectionPointMove - перемещение ребра связи
+ * - перемещает горизонтальное ребро по Y
+ * - перемещает вертикальное ребро по X
+ * - добавляет дополнительные ребра при перемещении крайних
+ * - удаляет дополнительные ребра при возврате к исходному положению
+ ***/
+function handleConnectionPointMove(event) {
+    if (!pageState.draggedConnection) return;
+
+    const siteMap = document.getElementById('siteMap');
+    const mapRect = siteMap.getBoundingClientRect();
+    const points = pageState.connectionPoints;
+    let index = pageState.connectionPointIndex;
+
+    const x = event.clientX - mapRect.left + siteMap.scrollLeft;
+    const y = event.clientY - mapRect.top + siteMap.scrollTop;
+    const distance = 10;
+
+    // Добавление ребер в начале связи
+    if (index === 0) {
+        const start = points[0];
+        const end = points[1];
+
+        if (start[1] === end[1]) {
+            points.splice(1, 0, [start[0], start[1]], [start[0], end[1]]);
+        } else {
+            points.splice(1, 0, [start[0], start[1]], [end[0], start[1]]);
+        }
+
+        index = 2;
+        pageState.connectionPointIndex = index;
+        pageState.connectionPointAdded = true;
+    }
+
+    // Добавление ребер в конце связи
+    if (index === points.length - 2) {
+        const start = points[index];
+        const end = points[index + 1];
+
+        if (start[1] === end[1]) {
+            points.splice(index + 1, 0, [end[0], start[1]], [end[0], end[1]]);
+        } else {
+            points.splice(index + 1, 0, [start[0], end[1]], [end[0], end[1]]);
+        }
+
+        pageState.connectionPointAdded = true;
+    }
+
+    const start = points[index];
+    const end = points[index + 1];
+
+    // Перемещение горизонтального ребра
+    if (start[1] === end[1]) {
+        start[1] = y;
+        end[1] = y;
+    // Перемещение вертикального ребра
+    } else if (start[0] === end[0]) {
+        start[0] = x;
+        end[0] = x;
+    }
+
+    // Удаление дополнительных ребер в начале связи
+    if (!pageState.connectionPointAdded && index === 2 && points.length > 4) {
+        const first = points[0];
+        const current = points[2];
+
+        if (Math.abs(first[0] - current[0]) <= distance && Math.abs(first[1] - current[1]) > distance ||
+            Math.abs(first[1] - current[1]) <= distance && Math.abs(first[0] - current[0]) > distance) {
+            points.splice(1, 2);
+            index = 0;
+            pageState.connectionPointIndex = index;
+        }
+    }
+
+    // Удаление дополнительных ребер в конце связи
+    if (!pageState.connectionPointAdded && index === points.length - 4 && points.length > 4) {
+        const last = points[points.length - 1];
+        const current = points[points.length - 3];
+
+        if (Math.abs(last[0] - current[0]) <= distance && Math.abs(last[1] - current[1]) > distance ||
+            Math.abs(last[1] - current[1]) <= distance && Math.abs(last[0] - current[0]) > distance) {
+            points.splice(points.length - 3, 2);
+            pageState.connectionPointIndex = points.length - 2;
+        }
+    }
+
+    pageState.draggedConnection.dataset.points = JSON.stringify(points);
+
+    updatePageArrows();
+}
+
+/***
+ * handleConnectionPointUp - завершение перемещения ребра связи
+ * - удаляет лишние ребра, если они почти совпадают
+ * - очищает состояние редактирования
+ ***/
+function handleConnectionPointUp() {
+    if (!pageState.draggedConnection) return;
+
+    const connection = pageState.draggedConnection;
+    const points = pageState.connectionPoints;
+    const distance = 10;
+
+    // Удаление совпадающих ребер
+    for (let i = 0; i < points.length - 3; i++) {
+        const firstStart = points[i];
+        const firstEnd = points[i + 1];
+        const secondStart = points[i + 2];
+        const secondEnd = points[i + 3];
+
+        const firstVertical = firstStart[0] === firstEnd[0];
+        const secondVertical = secondStart[0] === secondEnd[0];
+        const firstHorizontal = firstStart[1] === firstEnd[1];
+        const secondHorizontal = secondStart[1] === secondEnd[1];
+
+        if (firstVertical && secondVertical && Math.abs(firstStart[0] - secondStart[0]) <= distance) {
+            points.splice(i + 1, 2);
+            break;
+        }
+
+        if (firstHorizontal && secondHorizontal && Math.abs(firstStart[1] - secondStart[1]) <= distance) {
+            points.splice(i + 1, 2);
+            break;
+        }
+    }
+
+    connection.dataset.points = JSON.stringify(points);
+
+    pageState.draggedConnection = null;
+    pageState.connectionPoints = null;
+    pageState.connectionPointIndex = -1;
+    pageState.connectionPointAdded = false;
+
+    updatePageArrows();
+}
+
+// Редактирование связей
+document.addEventListener('mousedown', handleConnectionPointDown);
+document.addEventListener('mousemove', handleConnectionPointMove);
+document.addEventListener('mouseup', handleConnectionPointUp);
+
+
+
+/* ===
  * Файловое меню
 === */
 
@@ -1136,29 +1352,31 @@ document.addEventListener('mousedown', handleFileMenuClose);
 
 /* ***
  * saveFile - сохранение структуры сайта
- * - получает структуру страниц и связей
+ * - получает страницы и связи
  * - сохраняет структуру в XML
 *** */
 function saveFile() {
-    // Получение карты сайта и связей
+    // Получение карты сайта
     const siteMap = document.getElementById('siteMap');
 
     // Создание XML
     const xmlDocument = document.implementation.createDocument('', 'siteMap');
     const xmlSiteMap = xmlDocument.documentElement;
 
-    // Получение дочерних страниц
-    const childIds = new Set();
-
-    siteMap.querySelectorAll(':scope > pageConnection[data-kind="parent"]').forEach(connection => {
-        childIds.add(connection.dataset.to);
+    // Сохранение страниц
+    siteMap.querySelectorAll(':scope > pageBlock').forEach(page => {
+        xmlSiteMap.appendChild(createPageXml(xmlDocument, page));
     });
 
-    // Создание корневых страниц
-    siteMap.querySelectorAll(':scope > pageBlock').forEach(page => {
-        if (!childIds.has(page.dataset.id)) {
-            xmlSiteMap.appendChild(createPageXml(xmlDocument, page));
-        }
+    // Сохранение связей
+    siteMap.querySelectorAll(':scope > pageConnection[data-kind="parent"]').forEach(connection => {
+        const xmlConnection = xmlDocument.createElement('pageConnection');
+
+        Object.entries(connection.dataset).forEach(([name, value]) => {
+            xmlConnection.setAttribute(name, value);
+        });
+
+        xmlSiteMap.appendChild(xmlConnection);
     });
 
     // Создание файла
@@ -1178,13 +1396,9 @@ function saveFile() {
 /* ***
  * createPageXml - создание XML страницы
  * - сохраняет данные страницы
- * - получает дочерние страницы из pageConnections
  * - возвращает XML элемент
 *** */
 function createPageXml(xmlDocument, page) {
-    // Получение карты и связей
-    const siteMap = document.getElementById('siteMap');
-
     // Создание страницы
     const xmlPage = xmlDocument.createElement('pageBlock');
 
@@ -1192,24 +1406,6 @@ function createPageXml(xmlDocument, page) {
     Object.entries(page.dataset).forEach(([name, value]) => {
         xmlPage.setAttribute(name, value);
     });
-
-    // Получение связи страницы
-    const connections = Array.from(siteMap.querySelectorAll(':scope > pageConnection[data-kind="parent"]'))
-        .filter(connection => connection.dataset.from === page.dataset.id)
-        .sort((a, b) => Number(a.dataset.order) - Number(b.dataset.order));
-
-    if (connections.length) {
-        // Создание дочерних страниц
-        connections.forEach(connection => {
-            const child = Array.from(siteMap.querySelectorAll(':scope > pageBlock')).find(
-                page => page.dataset.id === connection.dataset.to
-            );
-
-            if (child) {
-                xmlPage.appendChild(createPageXml(xmlDocument, child));
-            }
-        });
-    }
 
     return xmlPage;
 }
@@ -1250,11 +1446,10 @@ function handleFileOpen(event) {
 
 /* ***
  * createPageFromXml - создание страницы из XML
- * - создает страницу на одном уровне
- * - создает связи с дочерними страницами
+ * - создает страницу на карте
 *** */
-function createPageFromXml(xmlPage, parentId = null) {
-    // Получение карты и связей
+function createPageFromXml(xmlPage) {
+    // Получение карты
     const siteMap = document.getElementById('siteMap');
 
     // Создание страницы
@@ -1274,33 +1469,13 @@ function createPageFromXml(xmlPage, parentId = null) {
     page.style.top = y + 'px';
 
     page.appendChild(pageText);
-    siteMap.insertBefore(page, siteMap.querySelector(':scope > pageConnection'));
-
-    // Добавление связи с родителем
-    if (parentId) {
-        const children = Array.from(siteMap.querySelectorAll(':scope > pageConnection[data-kind="parent"]'))
-            .filter(connection => connection.dataset.from === parentId);
-        const connection = document.createElement('pageConnection');
-
-        connection.dataset.kind = 'parent';
-        connection.dataset.from = parentId;
-        connection.dataset.to = page.dataset.id;
-        connection.dataset.order = children.length;
-        siteMap.appendChild(connection);
-    }
-
-    // Создание дочерних страниц
-    Array.from(xmlPage.children).forEach(child => {
-        if (child.tagName.toLowerCase() === 'pageblock') {
-            createPageFromXml(child, page.dataset.id);
-        }
-    });
+    siteMap.appendChild(page);
 }
 
 /* ***
  * handleFileLoad - загрузка структуры из XML
  * - удаляет текущую структуру
- * - размещает все страницы на одном уровне
+ * - создает страницы
  * - восстанавливает связи
 *** */
 function handleFileLoad(event) {
@@ -1314,7 +1489,7 @@ function handleFileLoad(event) {
         // Проверка XML
         if (xmlDocument.querySelector('parsererror')) return;
 
-        // Очистка карты и связей
+        // Очистка карты
         siteMap.innerHTML = '';
         pageState.selectedPage = null;
 
@@ -1322,6 +1497,19 @@ function handleFileLoad(event) {
         Array.from(xmlSiteMap.children).forEach(xmlPage => {
             if (xmlPage.tagName.toLowerCase() === 'pageblock') {
                 createPageFromXml(xmlPage);
+            }
+        });
+
+        // Создание связей
+        Array.from(xmlSiteMap.children).forEach(xmlConnection => {
+            if (xmlConnection.tagName.toLowerCase() === 'pageconnection') {
+                const connection = document.createElement('pageConnection');
+
+                Array.from(xmlConnection.attributes).forEach(attribute => {
+                    connection.dataset[attribute.name] = attribute.value;
+                });
+
+                siteMap.appendChild(connection);
             }
         });
 
