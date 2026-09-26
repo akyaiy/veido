@@ -5,6 +5,7 @@
 // Состояние перемещения страницы
 const pageState = {
     selectedPage: null,
+    selectedConnection: null,
     draggedPage: null,
     linkedPage: null,
     linkedPoint: null,
@@ -374,16 +375,21 @@ function handleLinkUp() {
     pageState.targetPage = null;
 }
 
-/* ***
+/**
  * selectPage - выбор страницы
  * - принимает элемент страницы
- * - снимает выделение с предыдущей страницы
+ * - снимает выделение с предыдущей страницы и связи
  * - выделяет выбранную страницу
  * - загружает свойства страницы
-*** */
+ */
 function selectPage(page) {
     if (pageState.selectedPage) {
         pageState.selectedPage.classList.remove('selected');
+    }
+
+    if (pageState.selectedConnection) {
+        pageState.selectedConnection.classList.remove('selected');
+        pageState.selectedConnection = null;
     }
 
     pageState.selectedPage = page;
@@ -396,6 +402,30 @@ function selectPage(page) {
     updatePagePoints(page);
 }
 
+/** 
+ * selectConnection - выбор связи
+ * - принимает элемент связи
+ * - снимает выделение с предыдущей связи и страницы
+ * - выделяет выбранную связь
+ */
+function selectConnection(connection) {
+    if (pageState.selectedConnection) {
+        pageState.selectedConnection.classList.remove('selected');
+    }
+
+    if (pageState.selectedPage) {
+        pageState.selectedPage.classList.remove('selected');
+        pageState.selectedPage = null;
+        updatePagePoints(null);
+    }
+
+    pageState.selectedConnection = connection;
+
+    if (pageState.selectedConnection) {
+        pageState.selectedConnection.classList.add('selected');
+    }
+}
+
 /* ***
  * handlePageDown - обработка нажатия на страницу
  * - принимает объект события
@@ -405,6 +435,14 @@ function selectPage(page) {
 *** */
 function handlePageDown(event) {
     if (event.target.closest('pagePoint')) return;
+
+    const connection = event.target.closest('pageConnection');
+
+    if (connection && event.button === 0) {
+        selectConnection(connection);
+        event.preventDefault();
+        return;
+    }
 
     const page = event.target.closest('pageBlock');
 
@@ -517,7 +555,7 @@ async function updateContextMenu(target) {
 
     // Отображение доступных действий
     actions.forEach(action => {
-        action.style.display = action.dataset.target === target ? '' : 'none';
+        action.style.display = action.dataset.target === target && (target !== 'page' || action.dataset.action === 'delete') ? '' : 'none';
     });
 
     if (target !== 'empty') return;
@@ -648,13 +686,26 @@ async function pastePage() {
     }
 }
 
-/* ***
- * deletePage - удаление страницы
- * - удаляет выбранную страницу
- * - удаляет связи страницы
+/***
+ * deletePage - удаление выбранного элемента
+ * - удаляет выбранную страницу и ее связи
+ * - удаляет выбранную связь
  * - очищает выбранный элемент
-*** */
+ ***/
 function deletePage() {
+    // Удаление выбранной связи
+    if (pageState.selectedConnection) {
+        const connection = pageState.selectedConnection;
+        const parentId = connection.dataset.from;
+
+        connection.remove();
+        pageState.selectedConnection = null;
+
+        updatePageOrder(parentId);
+        updatePageArrows();
+        return;
+    }
+
     if (!pageState.selectedPage) return;
 
     // Получение страницы и связей
@@ -732,22 +783,23 @@ function createPage() {
     selectPage(page);
 }
 
-/* ***
+/***
  * handleContextMenu - обработка правой кнопки мыши
- * - определяет страницу или пустую область
- * - выбирает страницу
+ * - определяет страницу, связь или пустую область
  * - открывает контекстное меню
-*** */
+ ***/
 function handleContextMenu(event) {
-    // Получение страницы под курсором
+    // Получение элемента под курсором
     const page = event.target.closest('pageBlock');
+    const connection = event.target.closest('pageConnection');
 
     event.preventDefault();
 
-    if (page) selectPage(page);
+    if (page && page !== pageState.selectedPage) return;
+    if (connection && connection !== pageState.selectedConnection) return;
 
     // Открытие контекстного меню
-    openContextMenu(event.clientX, event.clientY, page ? 'page' : 'empty');
+    openContextMenu(event.clientX, event.clientY, page || connection ? 'page' : 'empty');
 }
 
 /* ***
@@ -925,7 +977,7 @@ function updatePageArrows(page = null) {
         const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
         const markerPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
 
-        marker.setAttribute('id', 'pageArrowHead');
+        marker.setAttribute('id', 'pageArrowHead-' + connection.connection.dataset.from + '-' + connection.connection.dataset.to);
         marker.setAttribute('markerUnits', 'userSpaceOnUse');
         marker.setAttribute('markerWidth', '11');
         marker.setAttribute('markerHeight', '10');
@@ -938,7 +990,7 @@ function updatePageArrows(page = null) {
         marker.appendChild(markerPath);
         svg.appendChild(marker);
 
-        path.setAttribute('marker-end', 'url(#pageArrowHead)');
+        path.setAttribute('marker-end', 'url(#' + marker.id + ')');
 
         // Создание скругленного пути
         const radius = 10;
