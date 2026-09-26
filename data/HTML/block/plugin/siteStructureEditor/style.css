@@ -409,21 +409,21 @@ pageBlock.selected {
 }
 
 
-pageArrow {
+pageConnection {
     display: block;
     position: absolute;
     inset: 0;
     pointer-events: none;
 }
 
-pageArrow svg {
+pageConnection svg {
     position: absolute;
     width: 100%;
     height: 100%;
     overflow: visible;
 }
 
-pageArrow path {
+pageConnection path {
     fill: none;
     stroke: #ccc;
     stroke-width: 2px;
@@ -431,7 +431,7 @@ pageArrow path {
     stroke-linejoin: round;
 }
 
-pageArrow marker path {
+pageConnection marker path {
     fill: none;
     stroke: #ccc;
     stroke-width: 2px;

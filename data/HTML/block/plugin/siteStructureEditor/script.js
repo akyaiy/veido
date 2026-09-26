@@ -65,14 +65,18 @@ function setPagePosition(page, x, y) {
 *** */
 function updatePageOrder(parentId = null) {
     // Получение связей страниц
-    const connections = Array.from(document.querySelectorAll('#pageConnections pageConnection'));
-    const connection = parentId ? connections.find(connection => connection.dataset.parent === parentId) : null;
-    const childIds = new Set(connections.flatMap(connection => connection.dataset.child.split(' ').filter(Boolean)));
+    const siteMap = document.getElementById('siteMap');
+    const connections = Array.from(siteMap.querySelectorAll(':scope > pageConnection[data-kind="parent"]'));
+    const parentConnections = parentId ? connections.filter(connection => connection.dataset.from === parentId) : [];
+    const connection = parentConnections.length ? parentConnections : null;
+    const childIds = new Set(connections.map(connection => connection.dataset.to));
 
     // Получение соседних страниц
+    const allPages = Array.from(siteMap.querySelectorAll(':scope > pageBlock'));
     const pages = connection
-        ? connection.dataset.child.split(' ').filter(Boolean).map(id => document.querySelector('#siteMap pageBlock[data-id="' + id + '"]')).filter(Boolean)
-        : Array.from(document.querySelectorAll('#siteMap pageBlock')).filter(page => !childIds.has(page.dataset.id));
+        ? connection.sort((a, b) => Number(a.dataset.order) - Number(b.dataset.order))
+            .map(connection => allPages.find(page => page.dataset.id === connection.dataset.to)).filter(Boolean)
+        : allPages.filter(page => !childIds.has(page.dataset.id));
 
     // Сортировка страниц
     pages.sort((a, b) => Number(a.dataset.order) - Number(b.dataset.order));
@@ -80,6 +84,14 @@ function updatePageOrder(parentId = null) {
     // Обновление порядка
     pages.forEach((page, index) => {
         page.dataset.order = index + 1;
+
+        const pageConnection = connections.find(connection =>
+            connection.dataset.from === parentId && connection.dataset.to === page.dataset.id
+        );
+
+        if (pageConnection) {
+            pageConnection.dataset.order = index;
+        }
     });
 
     // Обновление выбранной страницы
@@ -94,16 +106,14 @@ function updatePageOrder(parentId = null) {
  * - проверяет наличие страницы среди всех потомков
 *** */
 function hasPageChild(parentId, childId) {
-    const connection = document.querySelector('#pageConnections pageConnection[data-parent="' + parentId + '"]');
+    const siteMap = document.getElementById('siteMap');
+    const connections = Array.from(siteMap.querySelectorAll(':scope > pageConnection[data-kind="parent"]'))
+        .filter(connection => connection.dataset.from === parentId);
 
-    if (!connection) return false;
+    for (const connection of connections) {
+        if (connection.dataset.to === childId) return true;
 
-    const children = connection.dataset.child.split(' ').filter(Boolean);
-
-    if (children.includes(childId)) return true;
-
-    for (const id of children) {
-        if (hasPageChild(id, childId)) return true;
+        if (hasPageChild(connection.dataset.to, childId)) return true;
     }
 
     return false;
@@ -115,48 +125,37 @@ function hasPageChild(parentId, childId) {
  * - добавляет страницу к новому родителю
 *** */
 function movePageToParent(parent, child) {
-    const pageConnections = document.getElementById('pageConnections');
+    const siteMap = document.getElementById('siteMap');
     const parentId = parent.dataset.id;
     const childId = child.dataset.id;
 
     // Получение старой связи дочерней страницы
-    const oldConnection = Array.from(pageConnections.querySelectorAll('pageConnection')).find(connection =>
-        connection.dataset.child.split(' ').includes(childId)
+    const oldConnection = Array.from(siteMap.querySelectorAll(':scope > pageConnection[data-kind="parent"]')).find(connection =>
+        connection.dataset.to === childId
     );
-    const oldParentId = oldConnection ? oldConnection.dataset.parent : null;
+    const oldParentId = oldConnection ? oldConnection.dataset.from : null;
 
     // Удаление старой связи страницы
-    pageConnections.querySelectorAll('pageConnection').forEach(connection => {
-        const children = connection.dataset.child.split(' ').filter(id => id && id !== childId);
-
-        if (children.length) {
-            connection.dataset.child = children.join(' ');
-        } else {
+    siteMap.querySelectorAll(':scope > pageConnection[data-kind="parent"]').forEach(connection => {
+        if (connection.dataset.to === childId) {
             connection.remove();
         }
     });
 
     // Получение связи родителя
-    let connection = pageConnections.querySelector('pageConnection[data-parent="' + parentId + '"]');
+    const children = Array.from(siteMap.querySelectorAll(':scope > pageConnection[data-kind="parent"]'))
+        .filter(connection => connection.dataset.from === parentId);
+    const connection = document.createElement('pageConnection');
 
-    if (!connection) {
-        connection = document.createElement('pageConnection');
-        connection.dataset.parent = parentId;
-        connection.dataset.child = '';
-        pageConnections.appendChild(connection);
-    }
-
-    // Добавление дочерней страницы
-    const children = connection.dataset.child.split(' ').filter(Boolean);
-
-    if (!children.includes(childId)) {
-        children.push(childId);
-        connection.dataset.child = children.join(' ');
-    }
+    connection.dataset.kind = 'parent';
+    connection.dataset.from = parentId;
+    connection.dataset.to = childId;
+    connection.dataset.order = children.length;
+    siteMap.appendChild(connection);
 
     // Обновление порядка страниц
     updatePageOrder(oldParentId);
-    child.dataset.order = children.length;
+    child.dataset.order = children.length + 1;
     updatePageOrder(parentId);
 }
 
@@ -203,7 +202,7 @@ function createTempArrow(point) {
     const startY = pointRect.top + pointRect.height / 2 - mapRect.top + siteMap.scrollTop;
 
     // Создание стрелки
-    const arrow = document.createElement('pageArrow');
+    const arrow = document.createElement('pageConnection');
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
@@ -352,19 +351,11 @@ function handleLinkUp() {
     // Добавление связи
     if (targetPage && targetPage !== pageState.linkedPage) {
         if (hasPageChild(targetPage.dataset.id, pageState.linkedPage.dataset.id)) {
-            const connection = Array.from(document.querySelectorAll('#pageConnections pageConnection')).find(connection =>
-                connection.dataset.child.split(' ').includes(pageState.linkedPage.dataset.id)
+            const connection = Array.from(document.querySelectorAll('#siteMap > pageConnection[data-kind="parent"]')).find(connection =>
+                connection.dataset.to === pageState.linkedPage.dataset.id
             );
 
-            if (connection) {
-                const children = connection.dataset.child.split(' ').filter(id => id !== pageState.linkedPage.dataset.id);
-
-                if (children.length) {
-                    connection.dataset.child = children.join(' ');
-                } else {
-                    connection.remove();
-                }
-            }
+            if (connection) connection.remove();
         }
 
         movePageToParent(pageState.linkedPage, targetPage);
@@ -626,8 +617,8 @@ async function pastePage() {
         
         // Установка порядка страницы
         page.dataset.order = Array.from(document.querySelectorAll('#siteMap pageBlock')).filter(page => {
-            return !Array.from(document.querySelectorAll('#pageConnections pageConnection')).some(connection =>
-                connection.dataset.child.split(' ').includes(page.dataset.id)
+            return !Array.from(document.querySelectorAll('#siteMap > pageConnection[data-kind="parent"]')).some(connection =>
+                connection.dataset.to === page.dataset.id
             );
         }).length + 1;
 
@@ -667,27 +658,18 @@ function deletePage() {
     if (!pageState.selectedPage) return;
 
     // Получение страницы и связей
-    const pageConnections = document.getElementById('pageConnections');
+    const siteMap = document.getElementById('siteMap');
     const pageId = pageState.selectedPage.dataset.id;
 
     // Получение родительской связи страницы
-    const parentConnection = Array.from(pageConnections.querySelectorAll('pageConnection')).find(connection =>
-        connection.dataset.child.split(' ').includes(pageId)
+    const parentConnection = Array.from(siteMap.querySelectorAll(':scope > pageConnection[data-kind="parent"]')).find(connection =>
+        connection.dataset.to === pageId
     );
-    const parentId = parentConnection ? parentConnection.dataset.parent : null;
+    const parentId = parentConnection ? parentConnection.dataset.from : null;
 
     // Удаление страницы из дочерних связей
-    pageConnections.querySelectorAll('pageConnection').forEach(connection => {
-        if (connection.dataset.parent === pageId) {
-            connection.remove();
-            return;
-        }
-
-        const children = connection.dataset.child.split(' ').filter(id => id && id !== pageId);
-
-        if (children.length) {
-            connection.dataset.child = children.join(' ');
-        } else {
+    siteMap.querySelectorAll(':scope > pageConnection[data-kind="parent"]').forEach(connection => {
+        if (connection.dataset.from === pageId || connection.dataset.to === pageId) {
             connection.remove();
         }
     });
@@ -731,8 +713,8 @@ function createPage() {
     page.dataset.status = '';
     page.dataset.access = '';
     page.dataset.order = Array.from(document.querySelectorAll('#siteMap pageBlock')).filter(page => {
-        return !Array.from(document.querySelectorAll('#pageConnections pageConnection')).some(connection =>
-            connection.dataset.child.split(' ').includes(page.dataset.id)
+        return !Array.from(document.querySelectorAll('#siteMap > pageConnection[data-kind="parent"]')).some(connection =>
+            connection.dataset.to === page.dataset.id
         );
     }).length + 1;
     page.dataset.redirect = '';
@@ -818,40 +800,32 @@ document.addEventListener('mousedown', handleMenuClose);
 function updatePageArrows(page = null) {
     // Получение карты и связей
     const siteMap = document.getElementById('siteMap');
-    const pageConnections = document.getElementById('pageConnections');
+    const pageConnections = Array.from(siteMap.querySelectorAll(':scope > pageConnection[data-kind="parent"]'));
     const connections = [];
 
     // Получение связей страниц
-    pageConnections.querySelectorAll('pageConnection').forEach(connection => {
-        const parent = siteMap.querySelector('pageBlock[data-id="' + connection.dataset.parent + '"]');
+    pageConnections.forEach(connection => {
+        if (page && connection.dataset.from !== page.dataset.id && connection.dataset.to !== page.dataset.id) return;
 
-        if (!parent) return;
+        const svg = connection.querySelector(':scope > svg');
 
-        const children = connection.dataset.child.split(' ').filter(Boolean);
+        if (svg) svg.remove();
 
-        children.forEach(childId => {
-            const child = siteMap.querySelector('pageBlock[data-id="' + childId + '"]');
+        const parent = Array.from(siteMap.querySelectorAll(':scope > pageBlock')).find(
+            page => page.dataset.id === connection.dataset.from
+        );
+        const child = Array.from(siteMap.querySelectorAll(':scope > pageBlock')).find(
+            page => page.dataset.id === connection.dataset.to
+        );
 
-            if (!child) return;
-            if (page && parent !== page && child !== page) return;
-
-            connections.push({ parent, child });
-        });
-    });
-
-    // Удаление обновляемых стрелок
-    siteMap.querySelectorAll('pageArrow').forEach(arrow => {
-        if (
-            !page ||
-            arrow.dataset.parent === page.dataset.id ||
-            arrow.dataset.child === page.dataset.id
-        ) {
-            arrow.remove();
+        if (parent && child) {
+            connections.push({ connection, parent, child });
         }
     });
 
     // Создание стрелок
     connections.forEach(connection => {
+        const arrow = connection.connection;
         const parent = connection.parent;
         const child = connection.child;
 
@@ -946,7 +920,6 @@ function updatePageArrows(page = null) {
         }
 
         // Создание стрелки
-        const arrow = document.createElement('pageArrow');
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
@@ -966,9 +939,6 @@ function updatePageArrows(page = null) {
         svg.appendChild(marker);
 
         path.setAttribute('marker-end', 'url(#pageArrowHead)');
-
-        arrow.dataset.parent = parent.dataset.id;
-        arrow.dataset.child = child.dataset.id;
 
         // Создание скругленного пути
         const radius = 10;
@@ -1012,7 +982,6 @@ function updatePageArrows(page = null) {
         // Добавление стрелки
         svg.appendChild(path);
         arrow.appendChild(svg);
-        siteMap.appendChild(arrow);
     });
 }
 
@@ -1090,7 +1059,6 @@ document.addEventListener('mousedown', handleFileMenuClose);
 function saveFile() {
     // Получение карты сайта и связей
     const siteMap = document.getElementById('siteMap');
-    const pageConnections = document.getElementById('pageConnections');
 
     // Создание XML
     const xmlDocument = document.implementation.createDocument('', 'siteMap');
@@ -1099,10 +1067,8 @@ function saveFile() {
     // Получение дочерних страниц
     const childIds = new Set();
 
-    pageConnections.querySelectorAll('pageConnection').forEach(connection => {
-        connection.dataset.child.split(' ').filter(Boolean).forEach(childId => {
-            childIds.add(childId);
-        });
+    siteMap.querySelectorAll(':scope > pageConnection[data-kind="parent"]').forEach(connection => {
+        childIds.add(connection.dataset.to);
     });
 
     // Создание корневых страниц
@@ -1135,7 +1101,6 @@ function saveFile() {
 function createPageXml(xmlDocument, page) {
     // Получение карты и связей
     const siteMap = document.getElementById('siteMap');
-    const pageConnections = document.getElementById('pageConnections');
 
     // Создание страницы
     const xmlPage = xmlDocument.createElement('pageBlock');
@@ -1146,15 +1111,15 @@ function createPageXml(xmlDocument, page) {
     });
 
     // Получение связи страницы
-    const connection = pageConnections.querySelector(
-        'pageConnection[data-parent="' + page.dataset.id + '"]'
-    );
+    const connections = Array.from(siteMap.querySelectorAll(':scope > pageConnection[data-kind="parent"]'))
+        .filter(connection => connection.dataset.from === page.dataset.id)
+        .sort((a, b) => Number(a.dataset.order) - Number(b.dataset.order));
 
-    if (connection) {
+    if (connections.length) {
         // Создание дочерних страниц
-        connection.dataset.child.split(' ').filter(Boolean).forEach(childId => {
-            const child = siteMap.querySelector(
-                ':scope > pageBlock[data-id="' + childId + '"]'
+        connections.forEach(connection => {
+            const child = Array.from(siteMap.querySelectorAll(':scope > pageBlock')).find(
+                page => page.dataset.id === connection.dataset.to
             );
 
             if (child) {
@@ -1208,7 +1173,6 @@ function handleFileOpen(event) {
 function createPageFromXml(xmlPage, parentId = null) {
     // Получение карты и связей
     const siteMap = document.getElementById('siteMap');
-    const pageConnections = document.getElementById('pageConnections');
 
     // Создание страницы
     const page = document.createElement('pageBlock');
@@ -1231,23 +1195,15 @@ function createPageFromXml(xmlPage, parentId = null) {
 
     // Добавление связи с родителем
     if (parentId) {
-        let connection = pageConnections.querySelector(
-            'pageConnection[data-parent="' + parentId + '"]'
-        );
+        const children = Array.from(siteMap.querySelectorAll(':scope > pageConnection[data-kind="parent"]'))
+            .filter(connection => connection.dataset.from === parentId);
+        const connection = document.createElement('pageConnection');
 
-        if (!connection) {
-            connection = document.createElement('pageConnection');
-            connection.dataset.parent = parentId;
-            connection.dataset.child = '';
-            pageConnections.appendChild(connection);
-        }
-
-        const children = connection.dataset.child.split(' ').filter(Boolean);
-
-        if (!children.includes(page.dataset.id)) {
-            children.push(page.dataset.id);
-            connection.dataset.child = children.join(' ');
-        }
+        connection.dataset.kind = 'parent';
+        connection.dataset.from = parentId;
+        connection.dataset.to = page.dataset.id;
+        connection.dataset.order = children.length;
+        siteMap.appendChild(connection);
     }
 
     // Создание дочерних страниц
@@ -1271,14 +1227,12 @@ function handleFileLoad(event) {
         const xmlDocument = parser.parseFromString(event.target.result, 'application/xml');
         const xmlSiteMap = xmlDocument.documentElement;
         const siteMap = document.getElementById('siteMap');
-        const pageConnections = document.getElementById('pageConnections');
 
         // Проверка XML
         if (xmlDocument.querySelector('parsererror')) return;
 
         // Очистка карты и связей
         siteMap.innerHTML = '';
-        pageConnections.innerHTML = '';
         pageState.selectedPage = null;
 
         // Создание страниц
@@ -1364,14 +1318,17 @@ function loadPageProperties(page) {
 
     // Загрузка порядка
     const orderField = document.querySelector('#pageProperties [data-property="order"] select');
-    const connection = Array.from(document.querySelectorAll('#pageConnections pageConnection')).find(connection =>
-        connection.dataset.child.split(' ').includes(page.dataset.id)
+    const siteMap = document.getElementById('siteMap');
+    const connections = Array.from(siteMap.querySelectorAll(':scope > pageConnection[data-kind="parent"]'));
+    const connection = connections.find(connection =>
+        connection.dataset.to === page.dataset.id
     );
-    const pages = connection ? connection.dataset.child.split(' ').filter(Boolean) : Array.from(document.querySelectorAll('#siteMap pageBlock')).filter(page => {
-        return !Array.from(document.querySelectorAll('#pageConnections pageConnection')).some(connection =>
-            connection.dataset.child.split(' ').includes(page.dataset.id)
-        );
-    });
+    const allPages = Array.from(siteMap.querySelectorAll(':scope > pageBlock'));
+    const pages = connection
+        ? connections.filter(item => item.dataset.from === connection.dataset.from)
+            .sort((a, b) => Number(a.dataset.order) - Number(b.dataset.order))
+            .map(item => allPages.find(page => page.dataset.id === item.dataset.to)).filter(Boolean)
+        : allPages.filter(page => !connections.some(item => item.dataset.to === page.dataset.id));
 
     orderField.innerHTML = '';
 
@@ -1508,15 +1465,19 @@ function updatePageProperty(field) {
     // Изменение порядка
     if (name === 'order') {
         // Получение связи и списка страниц
-        const connection = Array.from(document.querySelectorAll('#pageConnections pageConnection')).find(connection =>
-            connection.dataset.child.split(' ').includes(pageState.selectedPage.dataset.id)
+        const siteMap = document.getElementById('siteMap');
+        const connections = Array.from(siteMap.querySelectorAll(':scope > pageConnection[data-kind="parent"]'));
+        const connection = connections.find(connection =>
+            connection.dataset.to === pageState.selectedPage.dataset.id
         );
-        const childIds = new Set(Array.from(document.querySelectorAll('#pageConnections pageConnection')).flatMap(connection =>
-            connection.dataset.child.split(' ').filter(Boolean)
-        ));
+        const parentId = connection ? connection.dataset.from : null;
+        const childIds = new Set(connections.map(connection => connection.dataset.to));
+        const allPages = Array.from(siteMap.querySelectorAll(':scope > pageBlock'));
         const pages = connection
-            ? connection.dataset.child.split(' ').filter(Boolean).map(id => document.querySelector('#siteMap pageBlock[data-id="' + id + '"]')).filter(Boolean)
-            : Array.from(document.querySelectorAll('#siteMap pageBlock')).filter(page => !childIds.has(page.dataset.id));
+            ? connections.filter(item => item.dataset.from === connection.dataset.from)
+                .sort((a, b) => Number(a.dataset.order) - Number(b.dataset.order))
+                .map(item => allPages.find(page => page.dataset.id === item.dataset.to)).filter(Boolean)
+            : allPages.filter(page => !childIds.has(page.dataset.id));
 
         const oldOrder = Number(pageState.selectedPage.dataset.order);
         const newOrder = Math.max(1, Math.min(Number(field.value), pages.length));
@@ -1534,6 +1495,18 @@ function updatePageProperty(field) {
         });
 
         pageState.selectedPage.dataset.order = newOrder;
+
+        pages.forEach(page => {
+            const pageConnection = connections.find(connection =>
+                connection.dataset.from === parentId &&
+                connection.dataset.to === page.dataset.id
+            );
+
+            if (pageConnection) {
+                pageConnection.dataset.order = Number(page.dataset.order) - 1;
+            }
+        });
+
         updatePagePoints(pageState.selectedPage);
         loadPageProperties(pageState.selectedPage);
 
