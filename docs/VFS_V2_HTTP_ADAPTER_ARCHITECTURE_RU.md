@@ -4,7 +4,7 @@
 
 ## Предлагаемая архитектура
 
-HTTP-адаптер должен быть тонким входным transport-слоем над единственным экземпляром `vfs.VFSFrontend`.
+HTTP-адаптер должен быть тонким входным transport-слоем над единственным экземпляром `vfs.VFSFrontend`. Обычные VFS endpoints сохраняют эту модель. Независимые registry, runtime и SDK многошаговых серверных сценариев определены в [ADR-008](adr/VFS_V2_SERVER_HOOKS_DECISION_RU.md). HTTP только адаптирует запрос к Hook Runtime; runtime зависит от публичного `VFSFrontend`, сохраняет исходного actor и не получает доступ к внутренностям provider-ов.
 
 ```text
 HTTP request
