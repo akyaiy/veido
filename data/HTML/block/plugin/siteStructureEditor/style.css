@@ -167,6 +167,9 @@
     box-sizing: border-box;
     cursor: pointer;
 }
+.fileItem.selected {
+    background: #ccc;
+}
 
 .fileName {
     padding: 0px 5px;
@@ -223,6 +226,10 @@
     background-image: radial-gradient(circle at 0 0, #ccc 1px, transparent 1px);
     background-size: 10px 10px;
     background-position: 0 0;
+}
+
+#openedFiles {
+    display:none
 }
 
 /* Настройки сетки */

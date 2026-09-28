@@ -1341,14 +1341,14 @@ function toggleFileMenu() {
 function handleFileMenuClose(event) {
     const fileMenu = document.getElementById('fileMenu');
 
-    if (fileMenu.contains(event.target)) return;
+    if (fileMenu.contains(event.target) && !event.target.closest('#fileMenuList > div')) return;
 
     document.getElementById('fileMenuList').style.display = 'none';
 }
 
 // Обработчики файлового меню
 document.getElementById('fileMenuIcon').addEventListener('click', toggleFileMenu);
-document.addEventListener('mousedown', handleFileMenuClose);
+document.addEventListener('click', handleFileMenuClose);
 
 /* ***
  * saveFile - сохранение структуры сайта
@@ -1440,7 +1440,7 @@ function handleFileOpen(event) {
     // Чтение файла
     const reader = new FileReader();
 
-    reader.addEventListener('load', handleFileLoad);
+    reader.addEventListener('load', event => handleFileLoad(event, file.name));
     reader.readAsText(file);
 }
 
@@ -1474,24 +1474,24 @@ function createPageFromXml(xmlPage) {
 
 /* ***
  * handleFileLoad - загрузка структуры из XML
- * - удаляет текущую структуру
+ * - создает новую вкладку
  * - создает страницы
  * - восстанавливает связи
 *** */
-function handleFileLoad(event) {
+function handleFileLoad(event, fileName) {
     try {
         // Получение XML
         const parser = new DOMParser();
         const xmlDocument = parser.parseFromString(event.target.result, 'application/xml');
         const xmlSiteMap = xmlDocument.documentElement;
-        const siteMap = document.getElementById('siteMap');
 
         // Проверка XML
         if (xmlDocument.querySelector('parsererror')) return;
 
-        // Очистка карты
-        siteMap.innerHTML = '';
-        pageState.selectedPage = null;
+        // Открытие страницы
+        openPage(fileName, '');
+
+        const siteMap = document.getElementById('siteMap');
 
         // Создание страниц
         Array.from(xmlSiteMap.children).forEach(xmlPage => {
@@ -1515,6 +1515,7 @@ function handleFileLoad(event) {
 
         // Загрузка страниц
         loadPage();
+        saveOpenedFile();
     } catch (error) {
         return;
     }
@@ -1523,6 +1524,165 @@ function handleFileLoad(event) {
 // Обработчики файлового меню
 document.getElementById('saveFile').addEventListener('click', saveFile);
 document.getElementById('openFile').addEventListener('click', openFile);
+
+/* ***
+ * saveOpenedFile - сохранение открытой страницы
+ * - сохраняет текущее содержимое карты
+*** */
+function saveOpenedFile() {
+    const file = document.querySelector('#fileList .fileItem.selected');
+
+    if (!file) return;
+
+    const openedFile = document.querySelector('#openedFiles > [data-file-id="' + file.dataset.fileId + '"]');
+
+    if (openedFile) {
+        openedFile.innerHTML = document.getElementById('siteMap').innerHTML;
+    }
+}
+
+/* ***
+ * openPage - открытие страницы
+ * - создает вкладку и контейнер
+ * - загружает содержимое страницы
+*** */
+function openPage(name, content = '') {
+    const fileList = document.getElementById('fileList');
+    const openedFiles = document.getElementById('openedFiles');
+    const siteMap = document.getElementById('siteMap');
+    const fileId = getFileId();
+
+    saveOpenedFile();
+
+    fileList.querySelectorAll('.fileItem').forEach(file => file.classList.remove('selected'));
+
+    const file = document.createElement('div');
+    const fileName = document.createElement('div');
+    const fileClose = document.createElement('div');
+    const icon = document.createElement('svg');
+    const openedFile = document.createElement('div');
+
+    file.className = 'fileItem selected';
+    file.dataset.fileId = fileId;
+    fileName.className = 'fileName';
+    fileName.textContent = name;
+    fileClose.className = 'fileClose';
+    fileClose.innerHTML = '<svg class="svgIcon" use="1x1" style="color: rgb(0, 0, 0);"><use href="./static/img/icons.svg#1x1"></use></svg>';
+
+    fileClose.appendChild(icon);
+    file.appendChild(fileName);
+    file.appendChild(fileClose);
+    fileList.appendChild(file);
+
+    openedFile.dataset.fileId = fileId;
+    openedFile.innerHTML = content;
+    openedFiles.appendChild(openedFile);
+
+    siteMap.innerHTML = content;
+    pageState.selectedPage = null;
+    pageState.selectedConnection = null;
+
+    updatePageArrows();
+}
+
+/* ***
+ * getFileId - получение свободного id файла
+ * - проверяет существующие открытые файлы
+ * - возвращает первый свободный номер
+*** */
+function getFileId() {
+    const files = document.querySelectorAll('#fileList .fileItem');
+    let id = 1;
+
+    while (Array.from(files).some(file => file.dataset.fileId === String(id))) {
+        id++;
+    }
+
+    return id;
+}
+
+/* ***
+ * selectFile - переключение открытой страницы
+ * - сохраняет текущую страницу
+ * - загружает выбранную страницу
+*** */
+function selectFile(file) {
+    if (file.classList.contains('selected')) return;
+
+    saveOpenedFile();
+
+    const openedFile = document.querySelector('#openedFiles > [data-file-id="' + file.dataset.fileId + '"]');
+
+    document.querySelectorAll('#fileList .fileItem').forEach(item => item.classList.remove('selected'));
+    file.classList.add('selected');
+
+    document.getElementById('siteMap').innerHTML = openedFile ? openedFile.innerHTML : '';
+
+    pageState.selectedPage = null;
+    pageState.selectedConnection = null;
+
+    updatePageArrows();
+}
+
+/* ***
+ * closeFile - закрытие открытой страницы
+ * - удаляет вкладку и контейнер
+ * - переключает на соседнюю страницу
+*** */
+function closeFile(file) {
+    const isSelected = file.classList.contains('selected');
+    const fileId = file.dataset.fileId;
+    const nextFile = file.nextElementSibling || file.previousElementSibling;
+    const openedFile = document.querySelector('#openedFiles > [data-file-id="' + fileId + '"]');
+
+    if (isSelected) {
+        saveOpenedFile();
+    }
+
+    file.remove();
+
+    if (openedFile) {
+        openedFile.remove();
+    }
+
+    if (isSelected) {
+        if (nextFile) {
+            selectFile(nextFile);
+        } else {
+            document.getElementById('siteMap').innerHTML = '';
+            pageState.selectedPage = null;
+            pageState.selectedConnection = null;
+        }
+    }
+}
+
+/* ***
+ * handleFileListClick - обработка вкладок
+ * - закрывает или переключает страницу
+*** */
+function handleFileListClick(event) {
+    const file = event.target.closest('.fileItem');
+
+    if (!file) return;
+
+    if (event.target.closest('.fileClose')) {
+        closeFile(file);
+        return;
+    }
+
+    selectFile(file);
+}
+
+/* ***
+ * newFile - создание новой страницы
+ * - открывает пустую страницу
+*** */
+function newFile() {
+    openPage('Новый', '');
+}
+
+document.getElementById('fileList').addEventListener('click', handleFileListClick);
+document.getElementById('newFile').addEventListener('click', newFile);
 
 
 
