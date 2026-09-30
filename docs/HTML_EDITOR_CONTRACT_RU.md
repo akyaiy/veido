@@ -3,6 +3,7 @@
 > Статус: целевой контракт для реализации MVP.  
 > Дата: 24 сентября 2026 года.  
 > Уточнено 26 сентября 2026 года: добавлены режимы удаления поддерева, позиционные anchors, сохранение локального draft при конфликте и необязательный путь через VFS hooks.  
+> Уточнено 29 сентября 2026 года: связи model/layout переведены на page ID; описаны application template, корневой entrypoint и manifest-разрешённая статика.
 > Архитектурное решение: [ADR-007: HTML Provider](adr/VFS_V2_HTML_PROVIDER_DECISION_RU.md).  
 > Составные сценарии: [ADR-008: серверные хуки VFSv2](adr/VFS_V2_SERVER_HOOKS_DECISION_RU.md).  
 > Транспорт: [HTTP API VFSv2](VFS_V2_HTTP_ENDPOINT_MAP_RU.md).
@@ -104,8 +105,8 @@ URI html@site[site-acme]:///editor/model.xml
   <connections>
     <connection
       kind="parent"
-      from="home"
-      to="catalog"
+      from-id="142"
+      to-id="157"
       order="0"
     />
   </connections>
@@ -120,12 +121,15 @@ URI html@site[site-acme]:///editor/model.xml
 | `key` | Неизменяемый ключ страницы внутри сайта |
 | `title` | Название для блока редактора |
 | `description` | Описание для блока или подсказки |
-| `from/to` | Ключи parent и child |
+| `from-id/to-id` | Provider-local IDs parent и child |
 | `order` | Порядок child среди детей parent |
 | `tree-revision` | Версия структуры дерева |
 | `model-revision` | Версия всего содержимого этого model.xml |
 
 ID не является ACL-идентичностью. ACL работает с полным каноническим URI.
+Связи не используют title, slug, name или key. Поэтому переименование страницы
+не требует перестраивать connections. ID действителен только внутри текущего
+сайта и переписывается при импорте или клонировании сайта.
 
 Запись `model.xml` не поддерживается:
 
@@ -146,13 +150,13 @@ URI html@site[site-acme]:///editor/layout.xml
 ```xml
 <site-layout schema-version="1" layout-revision="12">
   <nodes>
-    <node ref="home" x="120" y="80" width="240" height="120"
+    <node page-id="142" x="120" y="80" width="240" height="120"
           view="expanded" />
-    <node ref="catalog" x="420" y="80" width="240" height="120"
+    <node page-id="157" x="420" y="80" width="240" height="120"
           view="collapsed" />
   </nodes>
   <connections>
-    <connection ref="parent:home:catalog" bend-x="360" bend-y="140" />
+    <connection from-id="142" to-id="157" bend-x="360" bend-y="140" />
   </connections>
 </site-layout>
 ```
@@ -162,12 +166,12 @@ Layout содержит только визуальные данные. Изме
 
 ### 4.3. Объединить документы
 
-Редактор связывает документы по `key/ref`:
+Редактор связывает документы по provider-local page ID:
 
 ```text
-model page key="home"
+model page id="142"
         +
-layout node ref="home"
+layout node page-id="142"
         =
 визуальный блок страницы home
 ```
@@ -191,7 +195,7 @@ URI html@site[site-acme]:///pages/home/info.json
   "id": 142,
   "key": "home",
   "revision": 18,
-  "parent": null,
+  "parentId": null,
   "position": 0,
   "slug": "home",
   "title": "Главная",
@@ -265,7 +269,7 @@ Payload:
 ```json
 {
   "key": "contacts",
-  "parent": "home",
+  "parentId": 142,
   "last": true,
   "slug": "contacts",
   "title": "Контакты",
@@ -344,8 +348,8 @@ Command move
 
 ```json
 {
-  "parent": "company",
-  "after": "about",
+  "parentId": 210,
+  "afterId": 205,
   "expectedTreeRevision": 46
 }
 ```
@@ -359,7 +363,7 @@ Command move
 }
 ```
 
-Вместо `after` допустимы `before`, `first` или `last`. Сервер проверяет parent,
+Вместо `afterId` допустимы `beforeId`, `first` или `last`. Сервер проверяет parent,
 отсутствие цикла и sibling slug, затем сам вычисляет и нормализует числовые
 позиции. Одновременная передача нескольких position anchors отклоняется.
 
@@ -492,9 +496,9 @@ URI html@site[site-acme]:///editor/layout.xml
 ```xml
 <site-layout schema-version="1" layout-revision="12">
   <nodes>
-    <node ref="home" x="120" y="80" width="240" height="120"
+    <node page-id="142" x="120" y="80" width="240" height="120"
           view="expanded" />
-    <node ref="contacts" x="480" y="200" width="240" height="120"
+    <node page-id="166" x="480" y="200" width="240" height="120"
           view="collapsed" />
   </nodes>
 </site-layout>
@@ -506,7 +510,7 @@ HTML Provider проверяет:
 - отсутствие DTD, external entities и XInclude;
 - `layout-revision`;
 - координаты, размеры и view;
-- существование PageKey.
+- существование Page ID.
 
 Текущий HTTP PUT возвращает `204 No Content`. После успеха клиент считает
 revision увеличенной на один либо перечитывает `layout.xml`.
@@ -574,7 +578,7 @@ Layout не может изменить parent, position, title, status, theme �
 | `cycle_detected` | Move создаёт цикл | Отменить соединение |
 | `resource_in_use` | Выбран `delete mode=reject` для страницы с детьми либо используется блок | Показать зависимости или предложить другой режим |
 | `invalid_delete_mode` | Неизвестный режим удаления | Не выполнять удаление |
-| `invalid_position_anchor` | Некорректные before/after/first/last | Вернуть блок в прежнее положение |
+| `invalid_position_anchor` | Некорректные beforeId/afterId/first/last | Вернуть блок в прежнее положение |
 | `invalid_editor_layout` | Layout XML не прошёл валидацию | Не заменять локальный layout молча |
 | `unsupported` | Операция не поддерживается, например запись model.xml | Не повторять операцию |
 | `broken_binding` | Физический файл перемещён, удалён или недоступен | Предложить новый binding |
@@ -636,7 +640,7 @@ idempotency key.
 Открыть редактор
     -> GET model.xml
     -> GET layout.xml
-    -> объединить по key/ref
+    -> объединить по page ID
 
 Выбрать страницу
     -> GET pages/<key>/info.json
@@ -692,6 +696,9 @@ idempotency key.
 5. Чтения и полной замены `source.html`.
 6. `treeRevision`, `pageRevision` и `layoutRevision`.
 7. Обработки `permission_denied`, `not_found`, `conflict`, `unsupported`.
+8. Read-only application template manifest и entrypoint.
+9. Выдачи разрешённой template static из `/templates` connection сайта через
+   browser route `/_static`.
 
 Hook Runtime не является обязательной зависимостью первого HTML MVP. После
 реализации ADR-008 hooks добавляют удобные составные сценарии, не меняя прямой
@@ -699,3 +706,102 @@ Hook Runtime не является обязательной зависимост
 
 Types, search tags, themes, публикацию и автоматическое обновление редактора можно
 подключать после первого сквозного сценария без изменения базовой схемы.
+
+## 23. Application template и публичная статика
+
+HTML Provider предоставляет установленный application template один раз внутри
+connection конкретного сайта:
+
+```text
+html@site[site-acme]:///templates/default-spa/1/manifest.json
+html@site[site-acme]:///templates/default-spa/1/files/index.html
+html@site[site-acme]:///templates/default-spa/1/files/js/app.js
+```
+
+Template package и его manifest загружает actor с правом изменять templates
+сайта. Для первого сайта это делает bootstrap, для следующих версий — создатель
+сайта или назначенный администратор. HTML Provider валидирует manifest и
+устанавливает versioned package целиком. Существующая версия не редактируется:
+для изменений устанавливается новая версия.
+
+Установка выполняется доменной командой `install` на
+`html@site[site-acme]:///templates`. Источник package может быть встроенным
+bootstrap-пакетом или URI файлового provider, но после установки клиент всегда
+видит его через site-local `/templates/<key>/<version>` и не обращается к
+источнику напрямую.
+
+Пример manifest:
+
+```json
+{
+  "key": "default-spa",
+  "version": "1",
+  "entrypoint": "index.html",
+  "assets": [
+    {"path": "js/app.js", "contentType": "text/javascript; charset=utf-8"},
+    {"path": "js/vfsv2.js", "contentType": "text/javascript; charset=utf-8"},
+    {"path": "vendor/markdown-it.min.js", "contentType": "text/javascript; charset=utf-8"},
+    {"path": "css/style.css", "contentType": "text/css; charset=utf-8"},
+    {"path": "img/favicon.png", "contentType": "image/png"},
+    {"path": "img/icons.svg", "contentType": "image/svg+xml"}
+  ]
+}
+```
+
+Site publication manifest фиксирует site-local manifest URI и digest:
+
+```json
+{
+  "applicationTemplate": {
+    "key": "default-spa",
+    "version": "1",
+    "manifestUri": "html@site[site-acme]:///templates/default-spa/1/manifest.json",
+    "digest": "sha256:..."
+  }
+}
+```
+
+Site HTTP Adapter читает active publication manifest и преобразует browser URL
+прямо в site-local template URI:
+
+```text
+GET /
+  -> html@site[site-acme]:///templates/default-spa/1/files/index.html
+
+GET /_static/default-spa/1/js/app.js
+  -> html@site[site-acme]:///templates/default-spa/1/files/js/app.js
+
+GET /_static/default-spa/1/css/style.css
+  -> html@site[site-acme]:///templates/default-spa/1/files/css/style.css
+```
+
+`/_static` здесь является только внешним HTTP namespace. Каталога
+`/public/_static` в site connection нет: адаптер читает тот же файл прямо из
+`/templates`, поэтому второй VFS-ресурс и вторая копия байтов не возникают.
+
+Текущий каталог `data/HTML/frontend` используется только как исходный материал
+первого template package. В публичный manifest входят необходимые `index.html`,
+`app.js`, `vfsv2.js`, `style.css`, `markdown-it`, icons и fonts. Наличие файла в
+этом каталоге само по себе не делает его доступным.
+
+В частности, generator binary, `generate_sprite.go`, zip-архив, swap-файл и
+неиспользуемые копии SVG не выдаются. Каталоги `data/HTML/block/pages` и
+`data/HTML/block/plugin` также не становятся статикой шаблона автоматически:
+это содержимое или библиотека блоков с отдельным жизненным циклом.
+
+Правила выдачи:
+
+1. Template entrypoint из active publication возвращается для `/` и
+   существующего SPA-маршрута.
+2. Запрос `/_static/...` никогда не получает fallback `index.html`.
+   Key/version в URL должны совпадать с template активной публикации.
+3. Asset отсутствует в manifest — возвращается `404`.
+4. Path traversal и обращение к filesystem path запрещены.
+5. Content-Type берётся из manifest либо безопасной таблицы MIME.
+6. Versioned static получает ETag и долгий immutable cache.
+7. Entrypoint ревалидируется после смены template или публикации.
+8. Theme и пользовательские assets продолжают храниться в connections
+   публикаторов и не смешиваются с application runtime.
+9. Изменение draft template не меняет `/public` до новой публикации.
+10. Пока active publication отсутствует, публичный root не выдаёт draft
+    entrypoint как опубликованный сайт.

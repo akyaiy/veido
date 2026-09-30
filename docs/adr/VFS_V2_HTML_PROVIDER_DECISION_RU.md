@@ -3,7 +3,8 @@
 > Статус: предложенное целевое архитектурное решение, не описание готовой реализации.  
 > Дата решения: 24 сентября 2026 года.  
 > Уточнено 26 сентября 2026 года: прямой VFS-контракт отделён от общих VFS hooks; добавлены режимы удаления поддерева, позиционные anchors и стратегия конфликтов редактора.  
-> Связанные документы: [контракт HTML-редактора](../HTML_EDITOR_CONTRACT_RU.md), [серверные хуки VFSv2](VFS_V2_SERVER_HOOKS_DECISION_RU.md), [Shared Provider](VFS_V2_SHARED_PROVIDER_DECISION_RU.md), [scope resolution](VFS_V2_SCOPE_RESOLUTION_DECISION_RU.md), [ACL lifecycle](ACL_LIFECYCLE_ARCHITECTURE_RU.md), [текущая реализация VFSv2](../VFS_V2_IMPLEMENTATION_RU.md), [концепция ACLv2](../ACL_V2_CONCEPT_RU.md).
+> Уточнено 29 сентября 2026 года: editor connections переведены на provider-local page IDs; добавлены versioned application templates, manifest-разрешённая статика и правила выдачи корня сайта.
+> Связанные документы: [практический план реализации](../VFS_V2_HTML_PROVIDER_IMPLEMENTATION_PLAN_RU.md), [контракт HTML-редактора](../HTML_EDITOR_CONTRACT_RU.md), [серверные хуки VFSv2](VFS_V2_SERVER_HOOKS_DECISION_RU.md), [Shared Provider](VFS_V2_SHARED_PROVIDER_DECISION_RU.md), [scope resolution](VFS_V2_SCOPE_RESOLUTION_DECISION_RU.md), [ACL lifecycle](ACL_LIFECYCLE_ARCHITECTURE_RU.md), [текущая реализация VFSv2](../VFS_V2_IMPLEMENTATION_RU.md), [концепция ACLv2](../ACL_V2_CONCEPT_RU.md).
 
 ## 1. Контекст
 
@@ -156,6 +157,8 @@ type Site struct {
     Name                string
     OwnerSubjectKey     string
     BaseURL             string
+    ApplicationTemplateKey     string
+    ApplicationTemplateVersion string
     DefaultThemeID      *int64
     ActivePublicationID *int64
     TreeRevision        int64
@@ -165,7 +168,8 @@ type Site struct {
 
 `ID` является внутренним ключом HTML Store. `OwnerSubjectKey` — доменные
 метаданные владения и не заменяет ACL-проверку. `BaseURL` используется при
-построении публичных URL и `sitemap.xml`.
+построении публичных URL и `sitemap.xml`. Выбранный application template
+описывается отдельно и определяет корневой HTML shell и его статический runtime.
 
 ### 5.2. PublisherRoot
 
@@ -238,6 +242,23 @@ type Page struct {
 | `Status` | Редакционное состояние страницы |
 | `Position` | Порядок среди детей одного parent |
 | `ThemeID` | Выбранная тема либо default theme сайта |
+
+Отношения между страницами используют `Page.ID`, а не `Title`, `Name`, `Slug`
+или `PageKey`. В Store parent хранится как `ParentID`; в editor model и layout
+связи также ссылаются на provider-local page ID. Переименование страницы,
+изменение key-подобного отображаемого имени или slug не должно перепривязывать
+connections.
+
+`PageKey` остаётся частью логического VFS URI `/pages/<page-key>` и удобным
+стабильным именем ресурса. `Page.ID` остаётся локальным значением HTML Provider,
+не становится ACL identity и не используется за пределами scope сайта без
+явного контекста этого сайта.
+
+Page ID не переиспользуется после удаления в пределах одного site. Экспорт,
+импорт или клонирование сайта может назначить новые IDs; такая операция обязана
+переписать `ParentID` и все layout-ссылки по таблице соответствия. Поэтому ID
+является устойчивой ссылкой внутри работающего сайта, но не переносимым
+межсайтовым идентификатором.
 
 Типы страницы и поисковые теги являются множествами и хранятся отдельно:
 
@@ -335,7 +356,72 @@ CSS и шаблоны физически остаются в connections пуб�
 проверяет и читает их по каноническим URI через `BoundVFS`. Если `Page.ThemeID`
 не задан, применяется `Site.DefaultThemeID`.
 
-### 5.7. EditorLayout
+### 5.7. ApplicationTemplate и статический runtime
+
+`ApplicationTemplate` описывает корневой HTML shell приложения сайта и
+разрешённый набор его статических файлов. Это не `Theme`: тема оформляет
+страницы сайта, а application template запускает клиентское приложение,
+подключает основной CSS/JavaScript и общие библиотеки.
+
+Логическое определение template содержит:
+
+```text
+template key
+version
+entrypoint, обычно index.html
+asset manifest
+MIME type каждого asset
+cache policy
+optional compatibility aliases
+```
+
+Для MVP template устанавливается как доверенный versioned package в connection
+конкретного сайта. После установки его manifest и файлы доступны в этом же
+connection под `/templates/<template-key>/<version>/`. HTML Provider выдаёт
+только assets из allowlist manifest и не публикует произвольный каталог
+процесса.
+
+Пакет устанавливает actor, имеющий право изменять templates этого сайта:
+обычно создатель сайта или назначенный администратор. Начальный системный
+template устанавливается тем же способом во время bootstrap сайта. Manifest
+приходит вместе с package, HTML Provider валидирует его и регистрирует версию.
+Установленная версия immutable: изменение файлов требует новой версии, а выбор
+версии для публичного сайта вступает в силу только через публикацию.
+
+Site хранит выбранные `ApplicationTemplateKey` и
+`ApplicationTemplateVersion`. Версия фиксируется явно, чтобы обновление
+серверного package не меняло работающий сайт без управляемого переключения.
+При публикации key/version сохраняются в publication manifest. Публичный
+entrypoint и runtime берутся из активного manifest, поэтому изменение draft
+настроек Site не меняет работающий сайт до следующей публикации.
+
+Текущий проект фактически содержит начальный template package:
+
+```text
+entrypoint
+  index.html
+
+runtime
+  js/app.js
+  js/vfsv2.js
+  css/style.css
+
+vendor libraries
+  js/markdown-it.min.js
+
+assets
+  img/favicon.png
+  img/icons.svg
+  SVG sprites
+  foundation-icons CSS и font files
+```
+
+В `data/HTML/frontend` одновременно присутствуют служебные файлы: generator
+source, generator binary, zip-архив, копии SVG и swap-файл. Они не должны
+попадать в публичную статику. Доступ определяется manifest allowlist, а не
+фактом нахождения файла рядом с `index.html`.
+
+### 5.8. EditorLayout
 
 Визуальное состояние редактора дерева хранится как отдельный версионированный
 XML-документ:
@@ -360,7 +446,7 @@ Layout XML является источником истины только дл�
 Provider, которые внутри сходятся в одном доменном сервисе страниц. Прямые
 клиенты и VFS hooks используют один контракт и одинаковые инварианты.
 
-### 5.8. SiteSEO
+### 5.9. SiteSEO
 
 ```go
 type SiteSEO struct {
@@ -397,7 +483,7 @@ html_operations
 
 | Таблица | Содержимое |
 | --- | --- |
-| `html_sites` | Название, владелец и активная публикация |
+| `html_sites` | Название, владелец, выбранный application template и активная публикация |
 | `html_publisher_roots` | Публикатор и зарегистрированные канонические root URI |
 | `html_pages` | Дерево, page metadata и physical source URI |
 | `html_page_types` | Семантические классы страниц |
@@ -414,6 +500,12 @@ html_operations
 подготовку и активацию публикации. Состояния выполнения универсальных VFS hooks
 принадлежат Hook Runtime и его Execution Store; HTML Provider не читает и не
 изменяет это хранилище.
+
+Байты application templates не сохраняются в metadata-таблицах. Установленный
+пакет принадлежит connection сайта и проецируется HTML Provider под
+`/templates/<key>/<version>`. Реализация может держать package bytes в своём
+blob-хранилище либо делегировать чтение на зарегистрированный source URI, но
+это внутренняя деталь provider: его канонический VFS-адрес остаётся site-local.
 
 Таблицы HTML Provider не содержат байты HTML, CSS, JavaScript, изображений и
 других assets. Они не имеют foreign key на таблицы Auth, ACL, Scopes или
@@ -434,7 +526,7 @@ html_operations
 
 ## 7. VFS-проекция
 
-Начальная проекция HTML connection:
+Site connection содержит только данные конкретного сайта:
 
 ```text
 html@site[site-acme]:///
@@ -445,6 +537,12 @@ html@site[site-acme]:///
 ├── editor/
 │   ├── model.xml
 │   └── layout.xml
+├── templates/
+│   └── <template-key>/
+│       └── <version>/
+│           ├── manifest.json
+│           └── files/
+│               └── ...
 ├── themes/
 │   └── <theme-key>/
 │       └── info.json
@@ -479,6 +577,8 @@ html@site[site-acme]:///
 - `editor/model.xml` формируется из актуальной доменной модели и не хранится как
   параллельный источник истины;
 - `editor/layout.xml` хранит нормализованное визуальное состояние редактора;
+- `templates` содержит единственную site-local проекцию установленных пакетов
+  шаблонов; отдельная копия в `public` не создаётся;
 - `config/robots.txt` является редактируемой SEO-конфигурацией сайта;
 - `info.json` и `meta.json` формируются из metadata;
 - `source.html` делегирует операцию на физический `SourceURI`;
@@ -501,6 +601,7 @@ Control(/pages/<page-key>, "move", payload)
 Control(/pages/<page-key>, "delete", payload)
 Control(/blocks, "create", payload)
 Control(/blocks/<block-key>, "update", payload)
+Control(/templates, "install", payload)
 Control(/, "publish", payload)
 ```
 
@@ -508,6 +609,117 @@ Control(/, "publish", payload)
 metadata HTML Provider. Для страницы с детьми он должен требовать явно
 выбранную доменную семантику либо возвращать `resource_in_use`. Удаление
 физического source является отдельной явной операцией над его URI.
+
+### 7.1. Выдача корня сайта и статики шаблона
+
+Template package имеет один канонический VFS-адрес в connection конкретного
+сайта:
+
+```text
+html@site[site-acme]:///templates/
+└── <template-key>/
+    └── <version>/
+        ├── manifest.json
+        └── files/
+            └── ...
+```
+
+Копия `public/_static` не создаётся. Publication manifest хранит site-local
+`template_manifest_uri` и digest. Поэтому manifest, entrypoint и assets
+существуют в VFS один раз — под `/templates` этого сайта.
+
+VFS root site connection остаётся каталогом доменных ресурсов. Его нельзя
+одновременно трактовать как байты `index.html`. Преобразование браузерного URL
+в канонический template URI выполняет внешний Site HTTP Adapter:
+
+```text
+GET https://example.com/
+  -> Read html@site[site-acme]:///public/manifest.json
+  -> template_manifest_uri
+  -> Read html@site[site-acme]:///templates/default-spa/1/files/index.html
+
+GET https://example.com/_static/default-spa/1/js/app.js
+  -> Read html@site[site-acme]:///templates/default-spa/1/files/js/app.js
+```
+
+Для `/` адаптер использует только application template, зафиксированный в
+активном publication manifest. В entrypoint ссылки на собственный runtime
+используют prefix `/_static/<template-key>/<template-version>/`. Такой namespace отделяет системный SPA runtime
+от пользовательских маршрутов `/about`, `/catalog` и assets публикаторов.
+
+Текущая реализация проекта ведёт себя как SPA:
+
+```text
+extensionless path или *.html -> data/HTML/frontend/index.html
+/js/app.js                    -> data/HTML/frontend/js/app.js
+/css/style.css                -> data/HTML/frontend/css/style.css
+/img/...                      -> data/HTML/frontend/img/...
+/static/...                   -> тот же frontend-каталог через FileServer
+```
+
+Целевой provider не должен сохранять два неявных способа доступа ко всему
+каталогу. Template manifest явно сопоставляет старые необходимые файлы новому
+публичному namespace:
+
+```text
+/_static/default-spa/1/js/app.js
+/_static/default-spa/1/js/vfsv2.js
+/_static/default-spa/1/vendor/markdown-it.min.js
+/_static/default-spa/1/css/style.css
+/_static/default-spa/1/img/favicon.png
+/_static/default-spa/1/img/icons.svg
+/_static/default-spa/1/fonts/...
+```
+
+При миграции можно временно объявить aliases `/js`, `/css`, `/img` и `/static`
+в manifest конкретного template. Они не являются универсальной частью HTML
+Provider и не дают доступ к файлам, отсутствующим в allowlist.
+
+Перед первой упаковкой текущий frontend нужно привести к одному base path:
+`index.html` сейчас использует `/js`, `/css` и `/img`, `app.js` содержит
+`./static/img/icons.svg`, а загрузчик Markdown использует
+`/js/markdown-it.min.js`. Template build либо меняет эти ссылки на
+`/_static/<template-key>/<version>/...`, либо manifest временно объявляет точные aliases для
+них. Общий fallback на весь каталог для совместимости запрещён.
+
+Правила разрешения публичного HTTP-запроса:
+
+1. API и служебные server routes обрабатываются до Site HTTP Adapter.
+2. Зарезервированный `/_static/` разрешается только через template manifest
+   активной публикации; key/version в URL должны совпасть с ней, а отсутствующий
+   asset возвращает `404`, а не SPA entrypoint.
+3. Явный опубликованный asset разрешается через active publication manifest.
+4. `/` и существующий публичный маршрут страницы возвращают template entrypoint
+   в SPA-режиме либо готовый page artifact в server-rendered режиме.
+5. Неизвестный маршрут возвращает `404`; наличие точки или расширения не должно
+   само по себе открывать файл server filesystem.
+
+Если active publication отсутствует, публичный HTTP-root возвращает состояние
+`not_found`/«site is not published». Draft template можно читать прямо по его
+site-local URI `/templates/...` в авторизованном preview, но он не становится
+публичным автоматически.
+
+Provider возвращает корректный MIME type из manifest или безопасной таблицы по
+расширению. `index.html` получает короткий cache policy либо `no-cache`, потому
+что выбор template или активной публикации может измениться. Версионированные
+assets могут получать долгий `Cache-Control: public, immutable` и ETag по
+содержимому.
+
+Runtime template, vendor libraries и пользовательская статика имеют разные
+владельцы:
+
+| Вид | Где находится | Как публикуется |
+| --- | --- | --- |
+| Application runtime | `/templates` в connection сайта | Site HTTP Adapter читает site-local template URI |
+| Vendor library runtime | Внутри того же versioned template package | Через его manifest |
+| Theme CSS/template | В connection публикатора | URI в HTML metadata и publication manifest |
+| Site assets | В connection публикатора | URI в publication manifest |
+| Block/plugin content | В файловом provider либо будущем library provider | Только через явную регистрацию и VFS |
+
+Каталоги `data/HTML/block/plugin` и `data/HTML/block/pages` текущего проекта не
+должны автоматически становиться публичной статикой. Их script/style/content
+являются библиотекой блоков или содержимым и должны получить собственные
+логические ресурсы и manifest, а не открытый file-server prefix.
 
 ## 8. Создание scope и подключений
 
@@ -679,8 +891,8 @@ Position
 ```
 
 Они хранятся в нормализованной доменной модели HTML Provider. Редакторский XML
-может ссылаться на страницу по `PageKey`, но не является самостоятельным
-источником Title, Description, Theme или SourceURI.
+ссылается на страницу по provider-local `Page.ID`, но не является
+самостоятельным источником Title, Description, Theme или SourceURI.
 
 ### 11.2. Два XML-документа редактора
 
@@ -706,7 +918,7 @@ editor/layout.xml = сохраняемое визуальное состояни
           description="Каталог продукции" />
   </nodes>
   <connections>
-    <connection kind="parent" from="home" to="catalog" order="0" />
+    <connection kind="parent" from-id="142" to-id="157" order="0" />
   </connections>
 </site-model>
 ```
@@ -716,7 +928,7 @@ editor/layout.xml = сохраняемое визуальное состояни
 - provider-local ID страницы;
 - неизменяемый `PageKey`;
 - title и description;
-- parent connections и порядок;
+- parent connections по provider-local ID и порядок;
 - tree revision и model revision.
 
 ID в документе не становится глобальной идентичностью и не используется ACL
@@ -732,19 +944,20 @@ URI, ACL, connection config и секреты в `model.xml` не входят.
 ```xml
 <site-layout schema-version="1" layout-revision="12">
   <nodes>
-    <node ref="home" x="120" y="80" width="240" height="120"
+    <node page-id="142" x="120" y="80" width="240" height="120"
           view="expanded" />
-    <node ref="catalog" x="420" y="80" width="240" height="120"
+    <node page-id="157" x="420" y="80" width="240" height="120"
           view="collapsed" />
   </nodes>
   <connections>
-    <connection ref="parent:home:catalog" bend-x="360" bend-y="140" />
+    <connection from-id="142" to-id="157" bend-x="360" bend-y="140" />
   </connections>
 </site-layout>
 ```
 
 Layout хранит только координаты, размеры, visual mode и геометрию существующих
-connections. Запись connection в layout не создаёт отношение parent/child.
+connections. `page-id`, `from-id` и `to-id` ссылаются на IDs из того же
+`model.xml`. Запись connection в layout не создаёт отношение parent/child.
 После изменения дерева устаревшая геометрия игнорируется и удаляется при
 нормализации.
 
@@ -822,13 +1035,14 @@ PageService из HTTP adapter, hook runtime или другого provider-а з
 Для перемещения клиент задаёт логическое положение относительно соседей:
 
 ```text
-parent = company
-after  = about
+parentId = 210
+afterId  = 205
 ```
 
-Также допустимы `before`, `first` и `last`. HTML Provider самостоятельно
+Также допустимы `beforeId`, `first` и `last`. Все ID должны принадлежать тому же
+site. HTML Provider самостоятельно
 вычисляет числовой `Position` и нормализует siblings одной локальной
-транзакцией. Переданный одновременно `before` и `after` отклоняется.
+транзакцией. Переданный одновременно `beforeId` и `afterId` отклоняется.
 
 ### 11.5. Revisions
 
@@ -889,9 +1103,9 @@ Control(
     /pages/catalog,
     "move",
     {
-        "parent": "home",
+        "parentId": 142,
         "first": true,
-        "expected_tree_revision": 45
+        "expectedTreeRevision": 45
     }
 )
 ```
@@ -907,7 +1121,7 @@ PUT /editor/layout.xml
 ```
 
 HTML Provider проверяет XML security, schema version, layout revision,
-координаты и ссылки на существующие PageKey. Неудача сохранения layout не
+координаты и ссылки на существующие Page IDs. Неудача сохранения layout не
 откатывает уже выполненную функциональную команду.
 
 Для MVP предпочтительна модель «одно пользовательское намерение — одна
@@ -1144,6 +1358,7 @@ HTML Provider не выполняет публикацию от привилег
 - темы опубликованных страниц;
 - значения типов и поисковых тегов;
 - snapshot `robots.txt` и данные для `sitemap.xml`.
+- application template key/version и список требуемых runtime assets.
 
 Координаты, режим collapsed/expanded и revision редактора в публикацию не входят.
 
@@ -1316,6 +1531,9 @@ layout_revision_conflict
 publication_conflict
 publication_incomplete
 broken_binding
+template_not_found
+invalid_template_manifest
+static_asset_not_found
 ```
 
 ACL-ошибки остаются ошибками VFS/ACL. HTML Provider не преобразует
@@ -1340,7 +1558,7 @@ ACL-ошибки остаются ошибками VFS/ACL. HTML Provider не �
 - Проверять root через `BoundVFS.Stat`.
 - Реализовать `create/update/move/delete` страницы.
 - Добавить `reject`, `cascade` и `promote_children` для удаления.
-- Добавить позиционирование через `before`, `after`, `first` и `last`.
+- Добавить позиционирование через `beforeId`, `afterId`, `first` и `last`.
 - Реализовать построение `tree.json`.
 
 ### Этап 3. Визуальный редактор и SEO
@@ -1358,6 +1576,23 @@ ACL-ошибки остаются ошибками VFS/ACL. HTML Provider не �
 - Добавить Theme Store и `/themes`.
 - Добавить `BaseURL` и редактируемый `config/robots.txt`.
 - Реализовать генератор sitemap на тестовом publication manifest.
+
+### Этап 3.1. Application template и статический runtime
+
+- Добавить установку immutable versioned template package в connection сайта.
+- Реализовать `Control(/templates, "install", ...)`: проверить права actor,
+  manifest, целостность package и отсутствие уже существующей key/version.
+- Зафиксировать manifest entrypoint, runtime, vendor libraries, icons и fonts.
+- Не включать в manifest generator binaries, source helpers, архивы, swap-файлы
+  и случайные копии assets из текущего frontend-каталога.
+- Добавить site fields application template key/version.
+- Спроецировать package один раз в `/templates/<key>/<version>` connection
+  сайта.
+- Сохранять site-local template manifest URI и digest в publication manifest.
+- Реализовать Site HTTP Adapter: `/` читает entrypoint из site-local template
+  URI, `/_static/<key>/<version>/` читает только manifest asset активной
+  публикации, неизвестный asset возвращает `404`.
+- Возвращать MIME, ETag и разные cache policy для entrypoint и versioned assets.
 
 ### Этап 4. Делегирование содержимого
 
@@ -1458,7 +1693,7 @@ HTTP endpoint, автоматическое создание scope и полно
 3. `layout.xml` сохраняет только visual state.
 4. Изменения через API отражаются в следующем `model.xml` без записи редактором.
 5. DTD, external entities и XInclude запрещены в обоих документах.
-6. Неизвестный PageKey в layout отклоняется или удаляется при нормализации.
+6. Неизвестный Page ID в layout отклоняется или удаляется при нормализации.
 7. Повторяющийся layout node отклоняется.
 8. Устаревшая tree revision отклоняет move/order command.
 9. Устаревшая page revision отклоняет functional update.
@@ -1469,8 +1704,12 @@ HTTP endpoint, автоматическое создание scope и полно
 14. Неуспешное сохранение layout не откатывает функциональную команду.
 15. Delete `cascade` не требует отдельных клиентских команд для потомков.
 16. Delete `promote_children` сохраняет дерево без циклов и нормализует siblings.
-17. Move через `before` или `after` вычисляет Position на стороне provider-а.
+17. Move через `beforeId` или `afterId` вычисляет Position на стороне provider-а.
 18. Revision conflict не удаляет локальный draft frontend-а.
+19. Parent connections в `model.xml` используют `from-id`/`to-id`, а не title,
+    slug или key.
+20. Layout nodes используют `page-id`; переименование страницы не разрывает
+    сохранённые координаты и геометрию connections.
 
 ### Прямые операции и hooks
 
@@ -1484,6 +1723,26 @@ HTTP endpoint, автоматическое создание scope и полно
 7. Hook из нескольких VFS-вызовов не объявляется атомарным.
 8. Пакетная атомарность, если она появится, завершается одной командой и
    транзакцией HTML Provider.
+
+### Application template и публичная статика
+
+1. Запрос `/` через Site HTTP Adapter возвращает entrypoint версии template из
+   active publication manifest.
+2. `/_static/<key>/<version>/js/app.js` возвращает asset из site-local
+   `/templates/<key>/<version>` с JavaScript MIME.
+3. Vendor library возвращается только если явно перечислена в manifest.
+4. Отсутствующий static asset возвращает `404`, а не `index.html`.
+5. Попытка запросить `..`, абсолютный filesystem path или encoded traversal
+   отклоняется.
+6. Файл, существующий в package directory, но отсутствующий в manifest, не
+   читается.
+7. Generator binary, `.go`, `.zip`, swap-файл и случайная копия SVG из текущего
+   frontend-каталога недоступны.
+8. Versioned asset получает ETag и immutable cache policy; entrypoint можно
+   ревалидировать после переключения template/publication.
+9. Site assets и theme files продолжают читаться из connections публикаторов;
+   application template читается из `/templates` connection сайта.
+10. Каталоги библиотек blocks/plugins не публикуются автоматически.
 
 ### URI и границы providers
 
@@ -1576,7 +1835,10 @@ hooks.
 - замена файлового provider не требует изменения логической модели сайта;
 - прямой VFS-контракт работает без конкретного frontend и без Hook Runtime;
 - общие пользовательские сценарии можно добавлять hooks без изменения границ
-  HTML Provider.
+  HTML Provider;
+- связи editor model и layout не ломаются при изменении title, slug или key;
+- статический runtime сайта имеет versioned allowlist и не раскрывает весь
+  каталог приложения.
 
 Цена решения:
 
@@ -1590,7 +1852,10 @@ hooks.
 - bootstrap сайта требует orchestration нескольких providers;
 - hook из нескольких операций требует идемпотентности и явной обработки
   частичных результатов;
-- локальный draft редактора остаётся ответственностью frontend-а.
+- локальный draft редактора остаётся ответственностью frontend-а;
+- установка template package и Site HTTP Adapter требуют отдельного
+  версионирования и тестирования;
+- экспорт и импорт сайта обязаны переписывать provider-local page IDs в layout.
 
 ## 27. Критерий завершения MVP
 
@@ -1607,6 +1872,8 @@ MVP считается работоспособным, когда выполня
     -> применить functional изменения напрямую через VFS
     -> отдельно сохранить visual layout.xml
     -> прочитать страницу через logical HTML URI
+    -> получить корневой entrypoint по template URI активной публикации
+    -> получить app.js, CSS и разрешённые libraries через browser /_static
     -> создать manifest URI файлов публикаторов
     -> активировать публикацию
     -> получить sitemap.xml и robots.txt активной публикации
