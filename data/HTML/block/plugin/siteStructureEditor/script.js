@@ -1573,7 +1573,7 @@ function openPage(name, content = '') {
     fileName.className = 'fileName';
     fileName.textContent = name;
     fileClose.className = 'fileClose';
-    fileClose.innerHTML = '<svg class="svgIcon" use="1x1" style="color: rgb(0, 0, 0);"><use href="./static/img/icons.svg#1x1"></use></svg>';
+    fileClose.innerHTML = '<svg class="svgIcon" use="4x5" style="color: rgb(0, 0, 0);"><use href="./static/img/icons.svg#4x5"></use></svg>';
 
     fileClose.appendChild(icon);
     file.appendChild(fileName);

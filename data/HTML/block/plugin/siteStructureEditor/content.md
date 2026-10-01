@@ -5,7 +5,7 @@
 <!-- Верхняя панель -->
 <div id="topPanel">
     <div id="fileMenu">
-        <div id="fileMenuIcon"><svg class="svgIcon" use="1x1"></svg></div>
+        <div id="fileMenuIcon"><svg class="svgIcon" use="8x13"></svg></div>
         <div id="fileMenuList">
             <div id="newFile">Новый</div>
             <div id="openFile">Открыть</div>
@@ -13,11 +13,11 @@
         </div>
     </div>
     <div id="fileList">
-        <div class="fileItem selected" data-file-id="1"><div class="fileName">Главная</div><div class="fileClose"><svg class="svgIcon" use="1x1"></svg></div></div>
+        <div class="fileItem selected" data-file-id="1"><div class="fileName">Главная</div><div class="fileClose"><svg class="svgIcon" use="4x5"></svg></div></div>
     </div>
     <div id="siteHistory">
-        <div id="historyBack" title="Назад"><svg class="svgIcon" use="1x1"></svg></div>
-        <div id="historyForward" title="Вперёд"><svg class="svgIcon" use="1x1"></svg></div>
+        <div id="historyBack" title="Назад"><svg class="svgIcon" use="3x13"></svg></div>
+        <div id="historyForward" title="Вперёд"><svg class="svgIcon" use="3x14"></svg></div>
     </div>
 </div>
 
