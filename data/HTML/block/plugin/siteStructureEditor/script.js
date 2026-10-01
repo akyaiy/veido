@@ -2078,3 +2078,330 @@ document.addEventListener('siteStructureEditor:loaded', initSvgIcons);
 
 // Событие загрузки редактора
 document.dispatchEvent(new CustomEvent('siteStructureEditor:loaded'));
+
+
+
+/* ===
+ * История изменений
+=== */
+
+// Состояние истории
+const historyState = {
+    items: [],
+    index: -1,
+    content: new Map(),
+    keys: new Set(),
+    observer: null,
+    timer: null,
+    isApplying: false,
+    maxItems: 100
+};
+
+/* ***
+ * getHistoryKey - получение ключа элемента
+ * - принимает элемент карты
+ * - возвращает уникальный ключ
+*** */
+function getHistoryKey(element) {
+    if (element.matches('pageBlock')) {
+        return 'page:' + element.dataset.id;
+    }
+
+    if (element.matches('pageConnection')) {
+        return 'connection:' + element.dataset.from + ':' + element.dataset.to;
+    }
+
+    return null;
+}
+
+/* ***
+ * getHistoryElement - получение элемента изменения
+ * - принимает измененный узел
+ * - возвращает страницу или связь
+*** */
+function getHistoryElement(node) {
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+        node = node.parentElement;
+    }
+
+    if (!node) {
+        return null;
+    }
+
+    return node.closest('pageBlock, pageConnection');
+}
+
+/* ***
+ * getHistoryContent - получение состояния элемента
+ * - удаляет служебные элементы
+ * - возвращает HTML элемента
+*** */
+function getHistoryContent(element) {
+    if (!element) {
+        return null;
+    }
+
+    const clone = element.cloneNode(true);
+
+    clone.classList.remove('selected');
+    clone.querySelectorAll('pagePoint, connectionPoint, svg').forEach(item => {
+        item.remove();
+    });
+
+    return clone.outerHTML;
+}
+
+/* ***
+ * saveHistoryState - сохранение текущего состояния
+ * - сохраняет страницы и связи
+*** */
+function saveHistoryState() {
+    historyState.content.clear();
+
+    document.querySelectorAll('#siteMap > pageBlock, #siteMap > pageConnection').forEach(element => {
+        const key = getHistoryKey(element);
+
+        if (key) {
+            historyState.content.set(key, getHistoryContent(element));
+        }
+    });
+}
+
+/* ***
+ * addHistoryAction - добавление изменения
+ * - принимает массив изменений
+ * - не сохраняет пустые изменения
+ * - сохраняет максимум 100 действий
+*** */
+function addHistoryAction(changes) {
+    if (historyState.isApplying || changes.length === 0) {
+        return;
+    }
+
+    historyState.items.splice(historyState.index + 1);
+    historyState.items.push({
+        changes: changes
+    });
+
+    if (historyState.items.length > historyState.maxItems) {
+        historyState.items.shift();
+    }
+
+    historyState.index = historyState.items.length - 1;
+}
+/* ***
+ * applyHistoryElement - применение состояния элемента
+ * - создает, изменяет или удаляет элемент
+*** */
+function applyHistoryElement(key, value) {
+    const siteMap = document.getElementById('siteMap');
+    const parts = key.split(':');
+    let element = null;
+
+    if (parts[0] === 'page') {
+        element = siteMap.querySelector(':scope > pageBlock[data-id="' + parts[1] + '"]');
+    }
+
+    if (parts[0] === 'connection') {
+        element = siteMap.querySelector(
+            ':scope > pageConnection[data-from="' + parts[1] + '"][data-to="' + parts[2] + '"]'
+        );
+    }
+
+    if (!value) {
+        if (element) {
+            element.remove();
+        }
+
+        return;
+    }
+
+    const template = document.createElement('template');
+
+    template.innerHTML = value;
+
+    const newElement = template.content.firstElementChild;
+
+    if (element) {
+        element.replaceWith(newElement);
+    } else {
+        siteMap.appendChild(newElement);
+    }
+}
+
+/* ***
+ * applyHistory - применение истории
+ * - применяет все изменения одного действия
+ * - восстанавливает старое или новое состояние
+*** */
+function applyHistory(item, isBack) {
+    historyState.isApplying = true;
+    historyState.observer.disconnect();
+
+    item.changes.forEach(change => {
+        applyHistoryElement(
+            change.key,
+            isBack ? change.oldValue : change.newValue
+        );
+    });
+
+    pageState.selectedPage = null;
+    pageState.selectedConnection = null;
+
+    updatePageArrows();
+    saveOpenedFile();
+    saveHistoryState();
+
+    historyState.observer.observe(document.getElementById('siteMap'), {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        characterData: true
+    });
+
+    historyState.isApplying = false;
+}
+
+/* ***
+ * handleHistoryChange - обработка изменений карты
+ * - получает измененные страницы и связи
+ * - объединяет их в одно действие истории
+ * - сохраняет только реальные изменения
+*** */
+function handleHistoryChange(mutations) {
+    if (historyState.isApplying) {
+        return;
+    }
+
+    mutations.forEach(mutation => {
+        const element = getHistoryElement(mutation.target);
+
+        if (element) {
+            const key = getHistoryKey(element);
+
+            if (key) {
+                historyState.keys.add(key);
+            }
+        }
+
+        mutation.addedNodes.forEach(node => {
+            const element = getHistoryElement(node);
+
+            if (element) {
+                const key = getHistoryKey(element);
+
+                if (key) {
+                    historyState.keys.add(key);
+                }
+            }
+        });
+
+        mutation.removedNodes.forEach(node => {
+            if (node.nodeType !== Node.ELEMENT_NODE) {
+                return;
+            }
+
+            const key = getHistoryKey(node);
+
+            if (key) {
+                historyState.keys.add(key);
+            }
+        });
+    });
+
+    clearTimeout(historyState.timer);
+
+    historyState.timer = setTimeout(() => {
+        const changes = [];
+
+        historyState.keys.forEach(key => {
+            const parts = key.split(':');
+            let element = null;
+
+            if (parts[0] === 'page') {
+                element = document.querySelector(
+                    '#siteMap > pageBlock[data-id="' + parts[1] + '"]'
+                );
+            }
+
+            if (parts[0] === 'connection') {
+                element = document.querySelector(
+                    '#siteMap > pageConnection[data-from="' + parts[1] + '"][data-to="' + parts[2] + '"]'
+                );
+            }
+
+            const oldValue = historyState.content.get(key) || null;
+            const newValue = getHistoryContent(element);
+
+            if (oldValue === newValue) {
+                return;
+            }
+
+            changes.push({
+                key: key,
+                oldValue: oldValue,
+                newValue: newValue
+            });
+
+            if (newValue) {
+                historyState.content.set(key, newValue);
+            } else {
+                historyState.content.delete(key);
+            }
+        });
+
+        historyState.keys.clear();
+
+        addHistoryAction(changes);
+    }, 100);
+}
+
+/* ***
+ * handleHistoryBack - отмена изменения
+ * - восстанавливает предыдущее состояние
+*** */
+function handleHistoryBack() {
+    if (historyState.index < 0) {
+        return;
+    }
+
+    applyHistory(historyState.items[historyState.index], true);
+    historyState.index--;
+}
+
+/* ***
+ * handleHistoryForward - повтор изменения
+ * - восстанавливает следующее состояние
+*** */
+function handleHistoryForward() {
+    if (historyState.index >= historyState.items.length - 1) {
+        return;
+    }
+
+    historyState.index++;
+    applyHistory(historyState.items[historyState.index], false);
+}
+
+/* ***
+ * initHistory - инициализация истории
+ * - сохраняет начальное состояние
+ * - запускает наблюдение за картой
+*** */
+function initHistory() {
+    saveHistoryState();
+
+    historyState.observer = new MutationObserver(handleHistoryChange);
+
+    historyState.observer.observe(document.getElementById('siteMap'), {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        characterData: true
+    });
+}
+
+// Обработчики истории
+document.getElementById('historyBack').addEventListener('click', handleHistoryBack);
+document.getElementById('historyForward').addEventListener('click', handleHistoryForward);
+
+initHistory();
