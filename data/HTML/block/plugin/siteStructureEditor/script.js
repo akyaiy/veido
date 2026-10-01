@@ -2405,3 +2405,77 @@ document.getElementById('historyBack').addEventListener('click', handleHistoryBa
 document.getElementById('historyForward').addEventListener('click', handleHistoryForward);
 
 initHistory();
+
+
+
+/* ===
+ * Перемещение вкладок
+=== */
+
+// Состояние перемещения вкладки
+const fileDragState = {
+    file: null
+};
+
+/* ***
+ * handleFileDragStart - начало перемещения вкладки
+ * - получает выбранную вкладку
+ * - сохраняет перемещаемую вкладку
+*** */
+function handleFileDragStart(event) {
+    const file = event.target.closest('.fileItem');
+
+    if (!file || event.target.closest('.fileClose')) {
+        return;
+    }
+
+    fileDragState.file = file;
+    file.setAttribute('draggable', 'true');
+}
+
+/* ***
+ * handleFileDragOver - перемещение вкладки
+ * - получает вкладку под курсором
+ * - меняет порядок вкладок
+*** */
+function handleFileDragOver(event) {
+    if (!fileDragState.file) {
+        return;
+    }
+
+    const file = event.target.closest('.fileItem');
+
+    if (!file || file === fileDragState.file) {
+        return;
+    }
+
+    event.preventDefault();
+
+    const rect = file.getBoundingClientRect();
+    const middle = rect.left + rect.width / 2;
+
+    if (event.clientX < middle) {
+        file.parentElement.insertBefore(fileDragState.file, file);
+    } else {
+        file.parentElement.insertBefore(fileDragState.file, file.nextElementSibling);
+    }
+}
+
+/* ***
+ * handleFileDragEnd - завершение перемещения вкладки
+ * - отключает перемещение
+ * - очищает состояние
+*** */
+function handleFileDragEnd() {
+    if (!fileDragState.file) {
+        return;
+    }
+
+    fileDragState.file.removeAttribute('draggable');
+    fileDragState.file = null;
+}
+
+// Обработчики перемещения вкладок
+document.getElementById('fileList').addEventListener('mousedown', handleFileDragStart);
+document.getElementById('fileList').addEventListener('dragover', handleFileDragOver);
+document.getElementById('fileList').addEventListener('dragend', handleFileDragEnd);
