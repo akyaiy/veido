@@ -1191,8 +1191,14 @@ function handleConnectionPointMove(event) {
     const points = pageState.connectionPoints;
     let index = pageState.connectionPointIndex;
 
-    const x = event.clientX - mapRect.left + siteMap.scrollLeft;
-    const y = event.clientY - mapRect.top + siteMap.scrollTop;
+    const gridSize = parseInt(document.querySelector('#gridSizeValue').value) || 1;
+    const mouseX = event.clientX - mapRect.left + siteMap.scrollLeft;
+    const mouseY = event.clientY - mapRect.top + siteMap.scrollTop;
+
+    const point = pageState.connectionPoints[pageState.connectionPointIndex];
+
+    const x = point[0] + Math.round((mouseX - point[0]) / gridSize) * gridSize;
+    const y = point[1] + Math.round((mouseY - point[1]) / gridSize) * gridSize;
     const distance = 10;
 
     // Добавление ребер в начале связи
