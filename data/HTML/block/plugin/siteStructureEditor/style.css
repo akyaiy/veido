@@ -59,12 +59,33 @@
 #centerPanel {
     flex: 1;
     min-width: 0;
-    overflow: auto;
+    position: relative;
+    border-right: 1px solid #ccc;
+    box-sizing: border-box;
 }
 
 #siteMap {
     width: 100%;
     height: 100%;
+    position: relative;
+    overflow: auto;
+    background-color: #fff;
+    background-image: radial-gradient(circle at 0 0, #ccc 1px, transparent 1px);
+    background-size: 10px 10px;
+    background-position: 0 0;
+    background-attachment: local;
+}
+
+#siteMap.treeView {
+    padding: 20px;
+    box-sizing: border-box;
+    display: flex;
+    gap: 30px;
+    justify-content: center;
+}
+
+#openedFiles {
+    display: none;
 }
 
 
@@ -107,7 +128,7 @@
     height: 39px;
     border-bottom: 1px solid #ccc;
     padding: 0px 5px;
-    gap: 5px;
+    gap: 10px;
     box-sizing: border-box;
     user-select: none;
 }
@@ -208,39 +229,33 @@
 
 
 
-/* Центральная панель */
-#centerPanel {
-    flex: 1;
-    min-width: 0;
-    position: relative;
-    border-right: 1px solid #ccc;
-    overflow: auto;
-    box-sizing: border-box;
-}
-
-#siteMap {
-    width: 100%;
-    height: 100%;
-    position: relative;
-    background-color: #fff;
-    background-image: radial-gradient(circle at 0 0, #ccc 1px, transparent 1px);
-    background-size: 10px 10px;
-    background-position: 0 0;
-}
-
-#openedFiles {
-    display:none
-}
-
-/* Настройки сетки */
-#gridSettings {
+/* Настройки карты */
+#mapSettings {
     display: flex;
+    flex-direction: column;
     position: absolute;
     top: 5px;
     right: 5px;
+    align-items: flex-end;
+    gap: 10px;
+    z-index: 20;
+    pointer-events: none;
+}
+
+#viewSettings,
+#gridSettings {
+    display: flex;
     align-items: center;
     gap: 5px;
-    z-index: 5;
+    pointer-events: auto;
+}
+
+#viewType {
+    height: 25px;
+    padding: 2px 5px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-sizing: border-box;
 }
 
 #gridSizeValue {
@@ -396,36 +411,57 @@
 
 
 
+/* Элементы */
+
 /* Свойства блоков */
 pageBlock {
     z-index: 10;
     display: block;
-    position: absolute;
-    width: 200px;
-    height: 100px;
     white-space: nowrap;
     border: 1px solid #ccc;
     background: #ffffff;
-    border-radius: 5px;
     box-sizing: border-box;
-    padding: 5px;
     user-select: none;
     cursor: pointer;
+    padding: 5px;
+    border-radius: 5px;
+}
+
+.cardsView pageBlock {
+    position: absolute;
+    width: 200px;
+    height: 100px;
+}
+
+.treeView pageBlock {
+    position: relative;
+    width: fit-content;
+    max-width: 100%;
+    height: fit-content;
+    margin: 5px 0;
 }
 
 pageBlock.selected {
     border: 2px solid #b3d7ff;
-    z-index: 10;
 }
 
 pageText {
     display: flex;
     align-items: center;
+}
+
+.cardsView pageText {
     justify-content: center;
     width: 100%;
 }
 
+.treeView pageText {
+    justify-content: flex-start;
+    width: fit-content;
+}
 
+
+/* Точки блоков */
 pagePoint {
     display: block;
     position: absolute;
@@ -473,6 +509,7 @@ pagePoint[data-side="number"] {
 }
 
 
+/* Связи */
 pageConnection {
     z-index: 1;
     display: block;
@@ -516,6 +553,7 @@ pageConnection.selected {
 }
 
 
+/* Точки связей */
 connectionPoint {
     display: block;
     position: absolute;
@@ -529,4 +567,20 @@ connectionPoint {
     cursor: crosshair;
     pointer-events: auto;
     transform: translate(-50%, -50%);
+}
+
+
+/* Блоки дерева */
+pageBlockChilds {
+    display: block;
+    width: fit-content;
+    margin-left: 30px;
+}
+
+
+/* Дерево */
+.treeView pagePoint,
+.treeView connectionPoint,
+.treeView pageConnection {
+    display: none;
 }

@@ -27,16 +27,25 @@
 <div id="mainPanel">
 
 <div id="centerPanel">
-    <div id="gridSettings">
-        <input id="gridSizeValue" type="number" min="1" max="100" value="10">
-        <input id="gridSize" type="range" min="1" max="100" value="10">
+    <div id="mapSettings">
+        <div id="viewSettings">
+            <select id="viewType">
+                <option value="cards">Карточки</option>
+                <option value="tree">Дерево</option>
+                <!-- <option value="colors">Цвета</option> -->
+            </select>
+        </div>
+        <div id="gridSettings">
+            <input id="gridSizeValue" type="number" min="1" max="100" value="10">
+            <input id="gridSize" type="range" min="1" max="100" value="10">
+        </div>
     </div>
     <div id="siteMap">
         <pageblock data-id="1" data-name="home" data-title="Главная" data-caption="Главная страница" data-description="Основная страница сайта" data-types="page" data-theme="light" data-status="published" data-access="guest:read,user:edit,admin:full" data-order="1" data-redirect="" data-position="300,20" data-view="expanded" style="left: 300px; top: 20px;"><pagetext>Главная</pagetext></pageblock>
         <pageblock data-id="2" data-name="about" data-title="О нас" data-caption="О компании" data-description="Информация о компании" data-types="page,section" data-theme="dark" data-status="published" data-access="guest:read,user:edit,admin:full" data-order="1" data-redirect="" data-position="300,180" data-view="expanded" style="left: 300px; top: 180px;" class=""><pagetext>О нас</pagetext></pageblock>
         <pageblock data-id="5" data-name="company" data-title="Компания" data-caption="О компании" data-description="Основная информация о компании" data-types="page" data-theme="light" data-status="published" data-access="guest:read,user:edit,admin:full" data-order="1" data-redirect="" data-position="20,340" data-view="collapsed" style="left: 20px; top: 340px;"><pagetext>Компания</pagetext></pageblock>
         <pageblock data-id="6" data-name="team" data-title="Команда" data-caption="Наша команда" data-description="Информация о сотрудниках" data-types="page" data-theme="light" data-status="draft" data-access="guest:read,user:edit,admin:full" data-order="2" data-redirect="" data-position="140,500" data-view="collapsed" style="left: 140px; top: 500px;" class=""><pagetext>Команда</pagetext></pageblock>
-        <pageblock data-id="7" data-name="history" data-title="История" data-caption="История компании" data-description="История развития компании" data-types="page" data-theme="light" data-status="published" data-access="guest:read,user:edit,admin:full" data-order="5" data-redirect="" data-position="10,140" data-view="collapsed" style="left: 10px; top: 140px;" class="selected"><pagetext>История</pagetext><pagepoint data-side="top"></pagepoint><pagepoint data-side="right"></pagepoint><pagepoint data-side="bottom"></pagepoint><pagepoint data-side="left"></pagepoint><pagepoint data-side="number">5</pagepoint></pageblock>
+        <pageblock data-id="7" data-name="history" data-title="История" data-caption="История компании" data-description="История развития компании" data-types="page" data-theme="light" data-status="published" data-access="guest:read,user:edit,admin:full" data-order="5" data-redirect="" data-position="10,140" data-view="collapsed" style="left: 10px; top: 140px;"><pagetext>История</pagetext></pagepoint></pageblock>
         <pageblock data-id="8" data-name="partners" data-title="Партнёры" data-caption="Наши партнёры" data-description="Партнёры компании" data-types="page" data-theme="light" data-status="published" data-access="guest:read,user:edit,admin:full" data-order="3" data-redirect="" data-position="370,500" data-view="collapsed" style="left: 370px; top: 500px;" class=""><pagetext>Партнёры</pagetext></pageblock>
         <pageblock data-id="11" data-name="vacancies" data-title="Вакансии" data-caption="Вакансии компании" data-description="Открытые вакансии компании" data-types="page" data-theme="light" data-status="published" data-access="guest:read,user:edit,admin:full" data-order="4" data-redirect="" data-position="600,500" data-view="collapsed" style="left: 600px; top: 500px;" class=""><pagetext>Вакансии</pagetext></pageblock>
         <pageblock data-id="4" data-name="contacts" data-title="Контакты" data-caption="Контакты" data-description="Контактная информация" data-types="page" data-theme="light" data-status="published" data-access="guest:read,user:edit,admin:full" data-order="2" data-redirect="" data-position="540,180" data-view="collapsed" style="left: 540px; top: 180px;" class=""><pagetext>Контакты</pagetext></pageblock>

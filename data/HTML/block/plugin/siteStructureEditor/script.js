@@ -472,6 +472,8 @@ function handlePageDown(event) {
 
     selectPage(page);
 
+    if (mapView === 'tree') return;
+
     pageState.draggedPage = page;
     pageState.offsetX = event.clientX - pageRect.left;
     pageState.offsetY = event.clientY - pageRect.top;
@@ -2479,3 +2481,173 @@ function handleFileDragEnd() {
 document.getElementById('fileList').addEventListener('mousedown', handleFileDragStart);
 document.getElementById('fileList').addEventListener('dragover', handleFileDragOver);
 document.getElementById('fileList').addEventListener('dragend', handleFileDragEnd);
+
+
+
+/* ===
+ * Вид карты
+=== */
+
+// Текущий режим карты
+let mapView = 'cards';
+
+// Элементы доступные только в режиме карточек
+const cardViewElements = [
+    document.getElementById('gridSettings'),
+    document.querySelector('#pageProperties [data-property="position"]'),
+    document.querySelector('#pageProperties [data-property="view"]')
+];
+
+/* ***
+ * updateMapView - обновление вида карты
+ * - получает выбранный режим
+ * - скрывает элементы недоступные в режиме дерева
+ * - загружает выбранный вид карты
+*** */
+function updateMapView() {
+    const viewType = document.getElementById('viewType');
+
+    mapView = viewType.value;
+
+    cardViewElements.forEach(element => {
+        element.style.display = mapView === 'cards' ? '' : 'none';
+    });
+
+    if (mapView === 'cards') {
+        loadCardsView();
+    } else {
+        loadTreeView();
+    }
+}
+
+// Обработчик изменения вида
+document.getElementById('viewType').addEventListener('change', updateMapView);
+updateMapView();
+
+/* ***
+ * loadCardsView - отображение структуры карточками
+ * - удаляет структуру дерева
+ * - включает режим карточек
+ * - обновляет стрелки
+*** */
+function loadCardsView() {
+    const siteMap = document.getElementById('siteMap');
+
+    // Восстановление положения страниц
+    siteMap.querySelectorAll('pageBlock').forEach(page => {
+        const [x, y] = page.dataset.position.split(',');
+
+        page.style.left = x + 'px';
+        page.style.top = y + 'px';
+    });
+
+    // Удаление структуры дерева
+    deleteTreeView();
+
+    // Переключение режима
+    siteMap.classList.remove('treeView');
+    siteMap.classList.add('cardsView');
+
+    // Обновление стрелок
+    updatePageArrows();
+}
+
+/* ***
+ * loadTreeView - отображение структуры деревом
+ * - включает режим дерева
+ * - создаёт иерархию страниц
+*** */
+function loadTreeView() {
+    const siteMap = document.getElementById('siteMap');
+
+    // Переключение режима
+    siteMap.classList.remove('cardsView');
+    siteMap.classList.add('treeView');
+
+    // Удаление положения страниц
+    siteMap.querySelectorAll('pageBlock').forEach(page => {
+        page.style.removeProperty('left');
+        page.style.removeProperty('top');
+    });
+
+    // Создание структуры дерева
+    createTreeView();
+}
+
+/* ***
+ * createTreeView - создание иерархии дерева
+ * - получает страницы и связи
+ * - определяет корневые страницы
+ * - создаёт pageBlockParent для каждой страницы
+ * - помещает дочерние страницы в pageBlockChilds
+*** */
+function createTreeView() {
+    // Получение карты, страниц и связей
+    const siteMap = document.getElementById('siteMap');
+    const pages = Array.from(siteMap.querySelectorAll(':scope > pageBlock'));
+    const connections = Array.from(siteMap.querySelectorAll(':scope > pageConnection[data-kind="parent"]'));
+    const childIds = new Set(connections.map(connection => connection.dataset.to));
+
+    // Создание родительского блока страницы
+    function createParent(page) {
+        const parent = document.createElement('pageBlockParent');
+        const childs = document.createElement('pageBlockChilds');
+
+        // Добавление текущей страницы
+        parent.appendChild(page);
+
+        // Получение и добавление дочерних страниц
+        connections
+            .filter(connection => connection.dataset.from === page.dataset.id)
+            .sort((a, b) => Number(a.dataset.order) - Number(b.dataset.order))
+            .forEach(connection => {
+                const child = pages.find(page => page.dataset.id === connection.dataset.to);
+
+                if (child) {
+                    childs.appendChild(createParent(child));
+                }
+            });
+
+        // Добавление контейнера детей
+        if (childs.children.length) {
+            parent.appendChild(childs);
+        }
+
+        return parent;
+    }
+
+    // Создание дерева от корневых страниц
+    pages
+        .filter(page => !childIds.has(page.dataset.id))
+        .sort((a, b) => Number(a.dataset.order) - Number(b.dataset.order))
+        .forEach(page => {
+            siteMap.appendChild(createParent(page));
+        });
+}
+
+/* ***
+ * deleteTreeView - удаление иерархии дерева
+ * - получает все страницы из дерева
+ * - удаляет pageBlockParent и pageBlockChilds
+ * - возвращает страницы напрямую в карту
+*** */
+function deleteTreeView() {
+    // Получение карты и корневых блоков дерева
+    const siteMap = document.getElementById('siteMap');
+    const parents = Array.from(siteMap.querySelectorAll(':scope > pageBlockParent'));
+    const pages = [];
+
+    // Получение всех страниц дерева
+    parents.forEach(parent => {
+        parent.querySelectorAll('pageBlock').forEach(page => {
+            pages.push(page);
+        });
+
+        parent.remove();
+    });
+
+    // Возвращение страниц в карту
+    pages.forEach(page => {
+        siteMap.insertBefore(page, siteMap.querySelector(':scope > pageConnection'));
+    });
+}
