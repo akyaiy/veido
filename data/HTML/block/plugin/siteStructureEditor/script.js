@@ -1001,10 +1001,23 @@ async function pastePage() {
         page.dataset.position = pageX + ',' + pageY;
 
         // Добавление страницы
-        siteMap.insertBefore(page, siteMap.querySelector(':scope > pageConnection'));
-        updatePageOrder();
+        if (mapView === 'tree') {
+            const parent = document.createElement('pageBlockParent');
+
+            page.style.removeProperty('left');
+            page.style.removeProperty('top');
+
+            parent.appendChild(page);
+            siteMap.insertBefore(parent, siteMap.querySelector(':scope > pageConnection'));
+
+            updateTreeOrders();
+        } else {
+            siteMap.insertBefore(page, siteMap.querySelector(':scope > pageConnection'));
+            updatePageOrder();
+            updatePageArrows();
+        }
+
         selectPage(page);
-        updatePageArrows();
     } catch (error) {
         return;
     }
@@ -1050,14 +1063,34 @@ function deletePage() {
     });
 
     // Удаление страницы
-    pageState.selectedPage.remove();
+    const page = pageState.selectedPage;
+
+    if (mapView === 'tree') {
+        const parent = page.parentElement;
+        const childs = parent.querySelector(':scope > pageBlockChilds');
+        const container = parent.parentElement;
+
+        // Перенос дочерних страниц на уровень удаляемой страницы
+        if (childs) {
+            Array.from(childs.children).forEach(child => {
+                container.insertBefore(child, parent);
+            });
+        }
+
+        parent.remove();
+    } else {
+        page.remove();
+    }
+
     pageState.selectedPage = null;
 
     // Обновление порядка и стрелок страниц
-    updatePageOrder(parentId);
-
-    // Обновление стрелок страниц
-    updatePageArrows();
+    if (mapView === 'tree') {
+        updateTreeOrders();
+    } else {
+        updatePageOrder(parentId);
+        updatePageArrows();
+    }
 }
 
 /* ***
@@ -1102,8 +1135,21 @@ function createPage() {
     page.appendChild(pageText);
 
     // Добавление страницы
-    siteMap.insertBefore(page, siteMap.querySelector(':scope > pageConnection'));
-    updatePageOrder();
+    if (mapView === 'tree') {
+        const parent = document.createElement('pageBlockParent');
+
+        page.style.removeProperty('left');
+        page.style.removeProperty('top');
+
+        parent.appendChild(page);
+        siteMap.insertBefore(parent, siteMap.querySelector(':scope > pageConnection'));
+
+        updateTreeOrders();
+    } else {
+        siteMap.insertBefore(page, siteMap.querySelector(':scope > pageConnection'));
+        updatePageOrder();
+    }
+
     selectPage(page);
 }
 
@@ -1676,7 +1722,7 @@ function saveFile() {
     const xmlSiteMap = xmlDocument.documentElement;
 
     // Сохранение страниц
-    siteMap.querySelectorAll(':scope > pageBlock').forEach(page => {
+    siteMap.querySelectorAll('pageBlock').forEach(page => {
         xmlSiteMap.appendChild(createPageXml(xmlDocument, page));
     });
 
