@@ -16,9 +16,16 @@ const pageState = {
     draggedConnection: null,
     connectionPoints: null,
     connectionPointAdded: false,
-    connectionPointIndex: -1,
     offsetX: 0,
-    offsetY: 0
+    offsetY: 0,
+
+    treeRoot: false,
+    treePlaceholder: null,
+    connectionPointIndex: -1,
+    startX: 0,
+    startY: 0,
+    isPageDragging: false,
+    treeNext: null
 };
 
 /* ***
@@ -79,7 +86,7 @@ function updatePageOrder(parentId = null) {
     const childIds = new Set(connections.map(connection => connection.dataset.to));
 
     // Получение соседних страниц
-    const allPages = Array.from(siteMap.querySelectorAll(':scope > pageBlock'));
+    const allPages = Array.from(siteMap.querySelectorAll('pageBlock'));
     const pages = connection
         ? connection.sort((a, b) => Number(a.dataset.order) - Number(b.dataset.order))
             .map(connection => allPages.find(page => page.dataset.id === connection.dataset.to)).filter(Boolean)
@@ -104,6 +111,44 @@ function updatePageOrder(parentId = null) {
     // Обновление выбранной страницы
     if (pageState.selectedPage) {
         updatePagePoints(pageState.selectedPage);
+        loadPageProperties(pageState.selectedPage);
+    }
+}
+
+/* ***
+ * updateTreeOrders - обновление порядка дерева
+ * - обновляет порядок всех страниц по их положению
+ * - обновляет порядок связей
+*** */
+function updateTreeOrders() {
+    const siteMap = document.getElementById('siteMap');
+    const connections = Array.from(siteMap.querySelectorAll(':scope > pageConnection[data-kind="parent"]'));
+    const containers = [
+        siteMap,
+        ...siteMap.querySelectorAll('pageBlockChilds')
+    ];
+
+    containers.forEach(container => {
+        const parents = Array.from(container.children).filter(element => {
+            return element.matches('pageBlockParent');
+        });
+
+        parents.forEach((parent, index) => {
+            const page = parent.querySelector(':scope > pageBlock');
+
+            page.dataset.order = index + 1;
+
+            const connection = connections.find(connection => {
+                return connection.dataset.to === page.dataset.id;
+            });
+
+            if (connection) {
+                connection.dataset.order = index;
+            }
+        });
+    });
+
+    if (pageState.selectedPage) {
         loadPageProperties(pageState.selectedPage);
     }
 }
@@ -445,10 +490,8 @@ function selectConnection(connection) {
 
 /* ***
  * handlePageDown - обработка нажатия на страницу
- * - принимает объект события
  * - выбирает страницу
- * - сохраняет положение курсора относительно страницы
- * - начинает перемещение страницы
+ * - начинает перемещение карточки или элемента дерева
 *** */
 function handlePageDown(event) {
     if (event.target.closest('connectionPoint')) return;
@@ -472,9 +515,26 @@ function handlePageDown(event) {
 
     selectPage(page);
 
-    if (mapView === 'tree') return;
-
     pageState.draggedPage = page;
+
+    if (mapView === 'tree') {
+        const parent = page.parentElement;
+
+        pageState.treeRoot = parent.parentElement.id === 'siteMap';
+        pageState.treeNext = pageState.treeRoot ? parent.nextElementSibling : null;
+        pageState.startX = event.clientX;
+        pageState.startY = event.clientY;
+        pageState.isPageDragging = false;
+
+        event.preventDefault();
+        return;
+    }
+
+    if (mapView === 'tree') {
+        event.preventDefault();
+        return;
+    }
+
     pageState.offsetX = event.clientX - pageRect.left;
     pageState.offsetY = event.clientY - pageRect.top;
 
@@ -488,6 +548,11 @@ function handlePageDown(event) {
  * - перемещает выбранную страницу
 *** */
 function handlePageMove(event) {
+    if (mapView === 'tree') {
+        moveTreePage(event);
+        return;
+    }
+
     if (!pageState.draggedPage) {
         return;
     }
@@ -504,11 +569,250 @@ function handlePageMove(event) {
 }
 
 /* ***
- * handlePageUp - обработка отпускания кнопки мыши
- * - завершает перемещение страницы
+ * getTreePage - получение страницы под курсором
+ * - исключает перемещаемую ветку
+ * - возвращает страницу только под курсором
 *** */
-function handlePageUp() {
+function getTreePage(event) {
+    const draggedParent = pageState.draggedPage.parentElement;
+    const pages = Array.from(document.querySelectorAll('#siteMap pageBlock'));
+
+    return pages.find(page => {
+        if (draggedParent.contains(page)) {
+            return false;
+        }
+
+        const rect = page.getBoundingClientRect();
+
+        return event.clientX >= rect.left &&
+            event.clientX <= rect.right &&
+            event.clientY >= rect.top &&
+            event.clientY <= rect.bottom;
+    }) || null;
+}
+
+/* ***
+ * setTreeParent - перенос страницы к новому родителю
+ * - создаёт контейнер детей
+ * - изменяет связь страницы
+ * - переносит страницу
+*** */
+function setTreeParent(page, targetPage) {
+    if (hasPageChild(page.dataset.id, targetPage.dataset.id)) {
+        return;
+    }
+
+    const siteMap = document.getElementById('siteMap');
+    const pageParent = page.parentElement;
+    const targetParent = targetPage.parentElement;
+    let childs = targetParent.querySelector(':scope > pageBlockChilds');
+
+    // Создание контейнера детей
+    if (!childs) {
+        childs = document.createElement('pageBlockChilds');
+        targetParent.appendChild(childs);
+    }
+
+    // Получение связи страницы
+    let connection = Array.from(siteMap.querySelectorAll(':scope > pageConnection[data-kind="parent"]')).find(connection => {
+        return connection.dataset.to === page.dataset.id;
+    });
+
+    // Создание связи
+    if (!connection) {
+        connection = document.createElement('pageConnection');
+        connection.dataset.kind = 'parent';
+        connection.dataset.to = page.dataset.id;
+        connection.dataset.fromSide = 'bottom';
+        connection.dataset.toSide = 'top';
+        siteMap.appendChild(connection);
+    }
+
+    // Изменение родителя
+    connection.dataset.from = targetPage.dataset.id;
+
+    // Перенос страницы
+    childs.appendChild(pageParent);
+}
+
+/* ***
+ * createTreePlaceholder - сохранение места корневого блока
+ * - работает только для изначально корневого блока
+ * - создаёт пустое место только на первом уровне
+*** */
+function createTreePlaceholder(page) {
+    if (!pageState.treeRoot || pageState.treePlaceholder) return;
+
+    const siteMap = document.getElementById('siteMap');
+    const parent = page.parentElement;
+    const placeholder = document.createElement('pageBlockPlaceholder');
+    const rect = parent.getBoundingClientRect();
+
+    placeholder.style.display = 'block';
+    placeholder.style.width = rect.width + 'px';
+    placeholder.style.height = rect.height + 'px';
+
+    // Пустое место создаётся только на первом уровне
+    siteMap.insertBefore(placeholder, parent);
+
+    pageState.treePlaceholder = placeholder;
+}
+
+/* ***
+ * deleteTreePlaceholder - удаление сохранённого места
+ * - удаляет место при возврате на первый уровень
+*** */
+function deleteTreePlaceholder() {
+    if (!pageState.treePlaceholder) return;
+
+    pageState.treePlaceholder.remove();
+    pageState.treePlaceholder = null;
+}
+
+/* ***
+ * moveTreePage - перемещение страницы в дереве
+ * - меняет порядок страниц
+ * - позволяет переходить между уровнями
+ * - при перемещении вправо делает страницу дочерней
+*** */
+function moveTreePage(event) {
+    const page = pageState.draggedPage;
+
+    if (!page) return;
+
+    const distanceX = Math.abs(event.clientX - pageState.startX);
+    const distanceY = Math.abs(event.clientY - pageState.startY);
+
+    // Начало перемещения только после движения мыши
+    if (!pageState.isPageDragging) {
+        if (distanceX < 5 && distanceY < 5) {
+            return;
+        }
+
+        pageState.isPageDragging = true;
+    }
+
+    const parent = page.parentElement;
+    const targetPage = getTreePage(event);
+
+    if (!targetPage) return;
+
+    const targetParent = targetPage.parentElement;
+    const targetContainer = targetParent.parentElement;
+    const targetRect = targetPage.getBoundingClientRect();
+    const childDistance = 30;
+
+    // Перенос в начало детей страницы
+    const targetChilds = targetParent.querySelector(':scope > pageBlockChilds');
+    const childX = targetRect.left + targetRect.width * 0.75;
+
+    if (targetChilds && event.clientX > childX) {
+        createTreePlaceholder(page);
+        setTreeParent(page, targetPage);
+
+        const pageParent = page.parentElement;
+        const firstChild = targetChilds.querySelector(':scope > pageBlockParent');
+
+        if (firstChild && firstChild !== pageParent) {
+            targetChilds.insertBefore(pageParent, firstChild);
+        }
+
+        return;
+    }
+
+    if (!targetChilds && event.clientX > childX) {
+        createTreePlaceholder(page);
+        setTreeParent(page, targetPage);
+        return;
+    }
+
+    if (!targetContainer.matches('pageBlockChilds, #siteMap')) {
+        return;
+    }
+
+    // Перемещение перед или после страницы
+    const middleY = targetRect.top + targetRect.height / 2;
+    const distance = 5;
+
+    if (event.clientY < middleY - distance) {
+        targetContainer.insertBefore(parent, targetParent);
+    } else if (event.clientY > middleY + distance) {
+        targetContainer.insertBefore(parent, targetParent.nextSibling);
+    }
+
+    // Возврат на первый уровень
+    if (targetContainer.id === 'siteMap') {
+        deleteTreePlaceholder();
+    }
+}
+
+/* ***
+ * handlePageUp - завершение перемещения страницы
+ * - переносит страницу на первый уровень вне других деревьев
+ * - обновляет порядок дерева
+ * - завершает перемещение
+*** */
+function handlePageUp(event) {
+    if (!pageState.draggedPage) return;
+
+    if (mapView === 'tree' && !pageState.isPageDragging) {
+        pageState.draggedPage = null;
+        pageState.treeRoot = false;
+        pageState.isPageDragging = false;
+        return;
+    }
+
+    if (mapView === 'tree') {
+        // Новый первый уровень создаётся только после отпускания мыши
+        if (isTreeOutside(event)) {
+            const siteMap = document.getElementById('siteMap');
+            const page = pageState.draggedPage;
+            const parent = page.parentElement;
+
+            const connection = Array.from(siteMap.querySelectorAll(':scope > pageConnection[data-kind="parent"]')).find(connection => {
+                return connection.dataset.to === page.dataset.id;
+            });
+
+            if (connection) {
+                connection.remove();
+            }
+
+            siteMap.insertBefore(parent, siteMap.querySelector(':scope > pageConnection'));
+        }
+
+        // Удаление сохранённого места после завершения перемещения
+        deleteTreePlaceholder();
+        updateTreeOrders();
+    }
+
+    deleteTreePlaceholder();
+
     pageState.draggedPage = null;
+    pageState.treeNext = null;
+    pageState.treeRoot = false;
+    pageState.isPageDragging = false;
+}
+
+/* ***
+ * isTreeOutside - проверка курсора вне деревьев
+ * - проверяет области корневых деревьев
+ * - возвращает true, если курсор вне всех деревьев
+*** */
+function isTreeOutside(event) {
+    const siteMap = document.getElementById('siteMap');
+    const draggedParent = pageState.draggedPage.parentElement;
+    const trees = Array.from(siteMap.children).filter(element => {
+        return element.matches('pageBlockParent') && element !== draggedParent;
+    });
+
+    return !trees.some(tree => {
+        const rect = tree.getBoundingClientRect();
+
+        return event.clientX >= rect.left &&
+            event.clientX <= rect.right &&
+            event.clientY >= rect.top &&
+            event.clientY <= rect.bottom;
+    });
 }
 
 // Обработчики выбора и перемещения страницы
@@ -1762,7 +2066,7 @@ function loadPageProperties(page) {
     const connection = connections.find(connection =>
         connection.dataset.to === page.dataset.id
     );
-    const allPages = Array.from(siteMap.querySelectorAll(':scope > pageBlock'));
+    const allPages = Array.from(siteMap.querySelectorAll('pageBlock'));
     const pages = connection
         ? connections.filter(item => item.dataset.from === connection.dataset.from)
             .sort((a, b) => Number(a.dataset.order) - Number(b.dataset.order))
@@ -1911,7 +2215,7 @@ function updatePageProperty(field) {
         );
         const parentId = connection ? connection.dataset.from : null;
         const childIds = new Set(connections.map(connection => connection.dataset.to));
-        const allPages = Array.from(siteMap.querySelectorAll(':scope > pageBlock'));
+        const allPages = Array.from(siteMap.querySelectorAll('pageBlock'));
         const pages = connection
             ? connections.filter(item => item.dataset.from === connection.dataset.from)
                 .sort((a, b) => Number(a.dataset.order) - Number(b.dataset.order))

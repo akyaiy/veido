@@ -80,8 +80,10 @@
     padding: 20px;
     box-sizing: border-box;
     display: flex;
-    gap: 30px;
     justify-content: center;
+}
+#siteMap.treeView > * {
+    padding: 0 15px;
 }
 
 #openedFiles {
@@ -184,12 +186,11 @@
     height: 27px;
     border: 1px solid #ccc;
     border-radius: 5px;
-    background: #eee;
     box-sizing: border-box;
     cursor: pointer;
 }
 .fileItem.selected {
-    background: #ccc;
+    background: #eee;
 }
 
 .fileName {
