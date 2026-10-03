@@ -26,6 +26,9 @@ const pageState = {
     isPageDragging: false
 };
 
+// Текущий режим карты
+let mapView = 'cards';
+
 /* ***
  * getPageId - получение свободного id страницы
  * - проверяет существующие страницы
@@ -114,9 +117,10 @@ function updatePageOrder(parentId = null) {
 }
 
 /* ***
- * updateTreeOrders - обновление порядка дерева
+ * updateTreeOrders - обновление структуры дерева
  * - обновляет порядок всех страниц по их положению
  * - обновляет порядок связей
+ * - синхронизирует родителя связи с деревом
 *** */
 function updateTreeOrders() {
     const siteMap = document.getElementById('siteMap');
@@ -131,17 +135,27 @@ function updateTreeOrders() {
             return element.matches('pageBlockParent');
         });
 
+        // Получение родительской страницы контейнера
+        const parentPage = container.matches('pageBlockChilds')
+            ? container.parentElement.querySelector(':scope > pageBlock')
+            : null;
+
         parents.forEach((parent, index) => {
             const page = parent.querySelector(':scope > pageBlock');
-
-            page.dataset.order = index + 1;
-
             const connection = connections.find(connection => {
                 return connection.dataset.to === page.dataset.id;
             });
 
+            // Обновление порядка страницы
+            page.dataset.order = index + 1;
+
+            // Обновление связи
             if (connection) {
                 connection.dataset.order = index;
+
+                if (parentPage) {
+                    connection.dataset.from = parentPage.dataset.id;
+                }
             }
         });
     });
@@ -664,7 +678,6 @@ function moveTreePage(event) {
     const targetParent = targetPage.parentElement;
     const targetContainer = targetParent.parentElement;
     const targetRect = targetPage.getBoundingClientRect();
-    const childDistance = 30;
 
     // Перенос в начало детей страницы
     const targetChilds = targetParent.querySelector(':scope > pageBlockChilds');
@@ -804,7 +817,8 @@ document.addEventListener('mouseup', handleLinkUp);
 const menuState = {
     x: 0,
     y: 0,
-    target: null
+    target: null,
+    treeParent: null
 };
 
 // Действия контекстного меню
@@ -933,8 +947,11 @@ async function cutPage() {
 
 /* ***
  * pastePage - вставка страницы
- * - получает и проверяет тег из системного буфера обмена
- * - вставляет страницу в месте открытия меню
+ * - получает и проверяет страницу из буфера обмена
+ * - устанавливает новый id и положение
+ * - в режиме дерева добавляет страницу к выбранному родителю
+ * - создаёт контейнер детей, если его ещё нет
+ * - создаёт связь с родительской страницей
 *** */
 async function pastePage() {
     try {
@@ -945,7 +962,7 @@ async function pastePage() {
 
         // Установка нового id
         page.dataset.id = getPageId();
-        
+
         // Установка порядка страницы
         page.dataset.order = Array.from(document.querySelectorAll('#siteMap pageBlock')).filter(page => {
             return !Array.from(document.querySelectorAll('#siteMap > pageConnection[data-kind="parent"]')).some(connection =>
@@ -972,12 +989,32 @@ async function pastePage() {
         // Добавление страницы
         if (mapView === 'tree') {
             const parent = document.createElement('pageBlockParent');
+            const container = getTreeContainer(menuState.treeParent);
 
             page.style.removeProperty('left');
             page.style.removeProperty('top');
 
             parent.appendChild(page);
-            siteMap.insertBefore(parent, siteMap.querySelector(':scope > pageConnection'));
+
+            // Добавление страницы к выбранному родителю
+            if (container) {
+                const parentPage = menuState.treeParent.querySelector(':scope > pageBlock');
+                const connection = document.createElement('pageConnection');
+
+                container.appendChild(parent);
+
+                // Создание связи с родительской страницей
+                connection.dataset.kind = 'parent';
+                connection.dataset.from = parentPage.dataset.id;
+                connection.dataset.to = page.dataset.id;
+                connection.dataset.fromSide = 'bottom';
+                connection.dataset.toSide = 'top';
+                connection.dataset.order = container.querySelectorAll(':scope > pageBlockParent').length - 1;
+
+                siteMap.appendChild(connection);
+            } else {
+                siteMap.insertBefore(parent, siteMap.querySelector(':scope > pageConnection'));
+            }
 
             updateTreeOrders();
         } else {
@@ -994,7 +1031,9 @@ async function pastePage() {
 
 /***
  * deletePage - удаление выбранного элемента
- * - удаляет выбранную страницу и ее связи
+ * - удаляет выбранную страницу и ее связь
+ * - переносит дочерние страницы на уровень удаляемой страницы
+ * - обновляет или удаляет связи дочерних страниц
  * - удаляет выбранную связь
  * - очищает выбранный элемент
  ***/
@@ -1016,24 +1055,21 @@ function deletePage() {
 
     // Получение страницы и связей
     const siteMap = document.getElementById('siteMap');
-    const pageId = pageState.selectedPage.dataset.id;
+    const page = pageState.selectedPage;
+    const pageId = page.dataset.id;
 
     // Получение родительской связи страницы
-    const parentConnection = Array.from(siteMap.querySelectorAll(':scope > pageConnection[data-kind="parent"]')).find(connection =>
-        connection.dataset.to === pageId
-    );
+    const parentConnection = Array.from(siteMap.querySelectorAll(':scope > pageConnection[data-kind="parent"]')).find(connection => {
+        return connection.dataset.to === pageId;
+    });
     const parentId = parentConnection ? parentConnection.dataset.from : null;
 
-    // Удаление страницы из дочерних связей
-    siteMap.querySelectorAll(':scope > pageConnection[data-kind="parent"]').forEach(connection => {
-        if (connection.dataset.from === pageId || connection.dataset.to === pageId) {
-            connection.remove();
-        }
-    });
+    // Удаление связи удаляемой страницы
+    if (parentConnection) {
+        parentConnection.remove();
+    }
 
     // Удаление страницы
-    const page = pageState.selectedPage;
-
     if (mapView === 'tree') {
         const parent = page.parentElement;
         const childs = parent.querySelector(':scope > pageBlockChilds');
@@ -1042,30 +1078,53 @@ function deletePage() {
         // Перенос дочерних страниц на уровень удаляемой страницы
         if (childs) {
             Array.from(childs.children).forEach(child => {
+                const childPage = child.querySelector(':scope > pageBlock');
+                const childConnection = Array.from(siteMap.querySelectorAll(':scope > pageConnection[data-kind="parent"]')).find(connection => {
+                    return connection.dataset.to === childPage.dataset.id;
+                });
+
+                // Обновление связи дочерней страницы
+                if (childConnection) {
+                    if (parentId) {
+                        childConnection.dataset.from = parentId;
+                        delete childConnection.dataset.points;
+                    } else {
+                        childConnection.remove();
+                    }
+                }
+
                 container.insertBefore(child, parent);
             });
         }
 
         parent.remove();
-    } else {
-        page.remove();
-    }
 
-    pageState.selectedPage = null;
-
-    // Обновление порядка и стрелок страниц
-    if (mapView === 'tree') {
+        // Обновление порядка дерева
         updateTreeOrders();
     } else {
+        // Удаление дочерних связей
+        siteMap.querySelectorAll(':scope > pageConnection[data-kind="parent"]').forEach(connection => {
+            if (connection.dataset.from === pageId) {
+                connection.remove();
+            }
+        });
+
+        page.remove();
+
+        // Обновление порядка и стрелок
         updatePageOrder(parentId);
         updatePageArrows();
     }
+
+    pageState.selectedPage = null;
 }
 
 /* ***
  * createPage - создание страницы
  * - создает страницу в месте открытия меню
- * - добавляет страницу на карту
+ * - в режиме дерева добавляет страницу к выбранному родителю
+ * - создаёт контейнер детей, если его ещё нет
+ * - создаёт связь с родительской страницей
 *** */
 function createPage() {
     // Получение карты сайта
@@ -1106,12 +1165,32 @@ function createPage() {
     // Добавление страницы
     if (mapView === 'tree') {
         const parent = document.createElement('pageBlockParent');
+        const container = getTreeContainer(menuState.treeParent);
 
         page.style.removeProperty('left');
         page.style.removeProperty('top');
 
         parent.appendChild(page);
-        siteMap.insertBefore(parent, siteMap.querySelector(':scope > pageConnection'));
+
+        // Добавление страницы к выбранному родителю
+        if (container) {
+            const parentPage = menuState.treeParent.querySelector(':scope > pageBlock');
+            const connection = document.createElement('pageConnection');
+
+            container.appendChild(parent);
+
+            // Создание связи с родительской страницей
+            connection.dataset.kind = 'parent';
+            connection.dataset.from = parentPage.dataset.id;
+            connection.dataset.to = page.dataset.id;
+            connection.dataset.fromSide = 'bottom';
+            connection.dataset.toSide = 'top';
+            connection.dataset.order = container.querySelectorAll(':scope > pageBlockParent').length - 1;
+
+            siteMap.appendChild(connection);
+        } else {
+            siteMap.insertBefore(parent, siteMap.querySelector(':scope > pageConnection'));
+        }
 
         updateTreeOrders();
     } else {
@@ -1122,11 +1201,12 @@ function createPage() {
     selectPage(page);
 }
 
-/***
+/* ***
  * handleContextMenu - обработка правой кнопки мыши
  * - определяет страницу, связь или пустую область
+ * - сохраняет выбранного родителя дерева
  * - открывает контекстное меню
- ***/
+*** */
 function handleContextMenu(event) {
     // Получение элемента под курсором
     const page = event.target.closest('pageBlock');
@@ -1137,8 +1217,40 @@ function handleContextMenu(event) {
     if (page && page !== pageState.selectedPage) return;
     if (connection && connection !== pageState.selectedConnection) return;
 
+    // Очистка выбранного родителя
+    menuState.treeParent = null;
+
+    // Получение выбранного родителя дерева
+    if (mapView === 'tree') {
+        menuState.treeParent = event.target.closest('pageBlockParent');
+    }
+
     // Открытие контекстного меню
     openContextMenu(event.clientX, event.clientY, page || connection ? 'page' : 'empty');
+}
+
+/* ***
+ * getTreeContainer - получение контейнера детей страницы
+ * - принимает родительский pageBlockParent
+ * - получает существующий pageBlockChilds
+ * - создаёт pageBlockChilds, если его ещё нет
+ * - возвращает контейнер детей
+*** */
+function getTreeContainer(parent) {
+    if (!parent) {
+        return null;
+    }
+
+    // Получение контейнера детей
+    let container = parent.querySelector(':scope > pageBlockChilds');
+
+    // Создание контейнера детей
+    if (!container) {
+        container = document.createElement('pageBlockChilds');
+        parent.appendChild(container);
+    }
+
+    return container;
 }
 
 /* ***
@@ -1456,8 +1568,12 @@ function loadPage() {
         setPagePosition(page, Number(x), Number(y));
     });
 
-    // Создание стрелок
-    updatePageArrows();
+    // Обновление текущего вида
+    if (mapView === 'tree') {
+        loadTreeView();
+    } else {
+        updatePageArrows();
+    }
 }
 
 // Обработчик загрузки страниц
@@ -2806,9 +2922,6 @@ document.getElementById('fileList').addEventListener('dragend', handleFileDragEn
 /* ===
  * Вид карты
 === */
-
-// Текущий режим карты
-let mapView = 'cards';
 
 // Элементы доступные только в режиме карточек
 const cardViewElements = [
