@@ -70,7 +70,7 @@
     position: relative;
     overflow: auto;
     background-color: #fff;
-    background-image: radial-gradient(circle at 0 0, #ccc 1px, transparent 1px);
+    background-image: radial-gradient(circle at 1px 1px, #ccc 1px, transparent 1px);
     background-size: 10px 10px;
     background-position: 0 0;
     background-attachment: local;
@@ -420,7 +420,7 @@ pageBlock {
     z-index: 10;
     display: block;
     white-space: nowrap;
-    border: 1px solid #ccc;
+    border: 1px solid #b5d3f3;
     background: #ffffff;
     box-sizing: border-box;
     user-select: none;
@@ -443,8 +443,13 @@ pageBlock {
     margin: 5px 0;
 }
 
+.cardsView > pageBlock.firstLevel,
+.treeView > pageBlockParent > pageBlock {
+    border: 1px solid #f3c1c1;
+}
+
 pageBlock.selected {
-    border: 2px solid #b3d7ff;
+    border: 2px solid #88bfff;
 }
 
 pageText {
@@ -530,7 +535,7 @@ pageConnection svg {
 
 pageConnection path {
     fill: none;
-    stroke: #ccc;
+    stroke: #b5d3f3;
     stroke-width: 2px;
     stroke-linecap: round;
     stroke-linejoin: round;
@@ -540,7 +545,7 @@ pageConnection path {
 
 pageConnection marker path {
     fill: none;
-    stroke: #ccc;
+    stroke: #b5d3f3;
     stroke-width: 2px;
     pointer-events: none;
 }

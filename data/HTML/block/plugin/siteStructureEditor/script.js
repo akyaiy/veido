@@ -114,6 +114,26 @@ function updatePageOrder(parentId = null) {
         updatePagePoints(pageState.selectedPage);
         loadPageProperties(pageState.selectedPage);
     }
+
+    updatePageLevels();
+}
+
+/* ***
+ * updatePageLevels - обновление уровня страниц
+ * - удаляет старый класс первого уровня
+ * - добавляет firstLevel страницам без родителя
+*** */
+function updatePageLevels() {
+    // Получение страниц и связей
+    const siteMap = document.getElementById('siteMap');
+    const pages = Array.from(siteMap.querySelectorAll('pageBlock'));
+    const connections = Array.from(siteMap.querySelectorAll(':scope > pageConnection[data-kind="parent"]'));
+    const childIds = new Set(connections.map(connection => connection.dataset.to));
+
+    // Обновление первого уровня
+    pages.forEach(page => {
+        page.classList.toggle('firstLevel', !childIds.has(page.dataset.id));
+    });
 }
 
 /* ***
@@ -163,6 +183,8 @@ function updateTreeOrders() {
     if (pageState.selectedPage) {
         loadPageProperties(pageState.selectedPage);
     }
+
+    updatePageLevels();
 }
 
 /* ***
@@ -1574,6 +1596,9 @@ function loadPage() {
     } else {
         updatePageArrows();
     }
+
+    // Обновление уровней страниц
+    updatePageLevels();
 }
 
 // Обработчик загрузки страниц
