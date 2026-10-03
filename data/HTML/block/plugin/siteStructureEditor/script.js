@@ -884,7 +884,7 @@ async function updateContextMenu(target) {
 
     // Отображение доступных действий
     actions.forEach(action => {
-        action.style.display = action.dataset.target === target && (target !== 'page' || action.dataset.action === 'delete') ? '' : 'none';
+        action.style.display = action.dataset.target === target ? '' : 'none';
     });
 
     if (target !== 'empty') return;
@@ -1236,8 +1236,12 @@ function handleContextMenu(event) {
 
     event.preventDefault();
 
-    if (page && page !== pageState.selectedPage) return;
-    if (connection && connection !== pageState.selectedConnection) return;
+    // Выбор элемента
+    if (page) {
+        selectPage(page);
+    } else if (connection) {
+        selectConnection(connection);
+    }
 
     // Очистка выбранного родителя
     menuState.treeParent = null;
@@ -1803,6 +1807,23 @@ document.addEventListener('mouseup', handleConnectionPointUp);
 === */
 
 /* ***
+ * updateEditorState - обновление состояния редактора
+ * - проверяет наличие открытой вкладки
+ * - блокирует карту, если вкладок нет
+*** */
+function updateEditorState() {
+    // Получение карты и выбранной вкладки
+    const siteMap = document.getElementById('siteMap');
+    const file = document.querySelector('#fileList .fileItem.selected');
+
+    // Блокировка карты
+    siteMap.classList.toggle('disabled', !file);
+}
+
+// Обновление состояния редактора
+updateEditorState();
+
+/* ***
  * toggleFileMenu - переключение файлового меню
  * - показывает или скрывает список действий
 *** */
@@ -2061,6 +2082,9 @@ function openPage(name, content = '') {
     pageState.selectedConnection = null;
 
     updatePageArrows();
+    
+    // Обновление состояния редактора
+    updateEditorState();
 }
 
 /* ***
@@ -2132,6 +2156,9 @@ function closeFile(file) {
             pageState.selectedConnection = null;
         }
     }
+
+    // Обновление состояния редактора
+    updateEditorState();
 }
 
 /* ***
