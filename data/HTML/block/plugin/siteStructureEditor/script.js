@@ -20,12 +20,10 @@ const pageState = {
     offsetY: 0,
 
     treeRoot: false,
-    treePlaceholder: null,
     connectionPointIndex: -1,
     startX: 0,
     startY: 0,
-    isPageDragging: false,
-    treeNext: null
+    isPageDragging: false
 };
 
 /* ***
@@ -521,7 +519,6 @@ function handlePageDown(event) {
         const parent = page.parentElement;
 
         pageState.treeRoot = parent.parentElement.id === 'siteMap';
-        pageState.treeNext = pageState.treeRoot ? parent.nextElementSibling : null;
         pageState.startX = event.clientX;
         pageState.startY = event.clientY;
         pageState.isPageDragging = false;
@@ -636,44 +633,11 @@ function setTreeParent(page, targetPage) {
 }
 
 /* ***
- * createTreePlaceholder - сохранение места корневого блока
- * - работает только для изначально корневого блока
- * - создаёт пустое место только на первом уровне
-*** */
-function createTreePlaceholder(page) {
-    if (!pageState.treeRoot || pageState.treePlaceholder) return;
-
-    const siteMap = document.getElementById('siteMap');
-    const parent = page.parentElement;
-    const placeholder = document.createElement('pageBlockPlaceholder');
-    const rect = parent.getBoundingClientRect();
-
-    placeholder.style.display = 'block';
-    placeholder.style.width = rect.width + 'px';
-    placeholder.style.height = rect.height + 'px';
-
-    // Пустое место создаётся только на первом уровне
-    siteMap.insertBefore(placeholder, parent);
-
-    pageState.treePlaceholder = placeholder;
-}
-
-/* ***
- * deleteTreePlaceholder - удаление сохранённого места
- * - удаляет место при возврате на первый уровень
-*** */
-function deleteTreePlaceholder() {
-    if (!pageState.treePlaceholder) return;
-
-    pageState.treePlaceholder.remove();
-    pageState.treePlaceholder = null;
-}
-
-/* ***
  * moveTreePage - перемещение страницы в дереве
  * - меняет порядок страниц
  * - позволяет переходить между уровнями
- * - при перемещении вправо делает страницу дочерней
+ * - для первого уровня сразу позволяет перенос к детям
+ * - для остальных уровней переносит к детям после 75% ширины
 *** */
 function moveTreePage(event) {
     const page = pageState.draggedPage;
@@ -705,24 +669,38 @@ function moveTreePage(event) {
     // Перенос в начало детей страницы
     const targetChilds = targetParent.querySelector(':scope > pageBlockChilds');
     const childX = targetRect.left + targetRect.width * 0.75;
+    const isTargetRoot = targetContainer.id === 'siteMap';
+    const isChildArea = isTargetRoot || event.clientX > childX;
 
-    if (targetChilds && event.clientX > childX) {
-        createTreePlaceholder(page);
+    if (targetChilds && isChildArea) {
         setTreeParent(page, targetPage);
 
         const pageParent = page.parentElement;
-        const firstChild = targetChilds.querySelector(':scope > pageBlockParent');
+        const childs = Array.from(targetChilds.querySelectorAll(':scope > pageBlockParent'))
+            .filter(child => child !== pageParent);
 
-        if (firstChild && firstChild !== pageParent) {
-            targetChilds.insertBefore(pageParent, firstChild);
+        // Если курсор правее всех существующих блоков - перенос в начало
+        if (childs.length && childs.every(child => {
+            return event.clientX > child.getBoundingClientRect().right;
+        })) {
+            targetChilds.insertBefore(pageParent, childs[0]);
+        // Если курсор левее всех существующих блоков - перенос в конец
+        } else if (childs.length && childs.every(child => {
+            return event.clientX < child.getBoundingClientRect().left;
+        })) {
+            targetChilds.appendChild(pageParent);
         }
 
         return;
     }
 
-    if (!targetChilds && event.clientX > childX) {
-        createTreePlaceholder(page);
+    if (!targetChilds && isChildArea) {
         setTreeParent(page, targetPage);
+        return;
+    }
+
+    // Первый уровень доступен только для страницы, которая уже была на первом уровне
+    if (targetContainer.id === 'siteMap' && !pageState.treeRoot) {
         return;
     }
 
@@ -738,11 +716,6 @@ function moveTreePage(event) {
         targetContainer.insertBefore(parent, targetParent);
     } else if (event.clientY > middleY + distance) {
         targetContainer.insertBefore(parent, targetParent.nextSibling);
-    }
-
-    // Возврат на первый уровень
-    if (targetContainer.id === 'siteMap') {
-        deleteTreePlaceholder();
     }
 }
 
@@ -781,14 +754,10 @@ function handlePageUp(event) {
         }
 
         // Удаление сохранённого места после завершения перемещения
-        deleteTreePlaceholder();
         updateTreeOrders();
     }
 
-    deleteTreePlaceholder();
-
     pageState.draggedPage = null;
-    pageState.treeNext = null;
     pageState.treeRoot = false;
     pageState.isPageDragging = false;
 }
