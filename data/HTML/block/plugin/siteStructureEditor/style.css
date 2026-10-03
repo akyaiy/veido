@@ -432,7 +432,7 @@ pageBlock {
 .cardsView pageBlock {
     position: absolute;
     width: 200px;
-    height: 100px;
+    height: 300px;
 }
 
 .treeView pageBlock {
@@ -464,13 +464,34 @@ pageText {
 }
 
 .cardsView pageText {
-    justify-content: center;
+    display: block;
     width: 100%;
+    height: 100%;
+    white-space: normal;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    overflow-wrap: anywhere;
 }
 
 .treeView pageText {
     justify-content: flex-start;
     width: fit-content;
+}
+
+pageTitle,
+pageCaption {
+    display: block;
+}
+
+pageTitle {
+    font-weight: 600;
+}
+
+pageCaption {
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px solid #ccc;
 }
 
 

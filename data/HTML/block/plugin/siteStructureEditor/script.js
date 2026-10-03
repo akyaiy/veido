@@ -1586,7 +1586,17 @@ function loadPage() {
             page.prepend(pageText);
         }
 
-        pageText.textContent = page.dataset.title;
+        pageText.innerHTML = '';
+
+        const title = document.createElement('pageTitle');
+        const caption = document.createElement('pageCaption');
+
+        title.textContent = page.dataset.title;
+        caption.textContent = page.dataset.caption;
+
+        pageText.appendChild(title);
+        pageText.appendChild(caption);
+
         setPagePosition(page, Number(x), Number(y));
     });
 
