@@ -1,0 +1,13 @@
+<siteMap>
+    <pageBlock id="1" name="a" title="A" caption="" description="" types="page" theme="light" status="published" access="guest:read" order="1" redirect="" position="280,130" view="expanded"/>
+    <pageBlock id="2" name="catalogPage" title="Каталог товаров и услуг" caption="Краткое пояснение страницы" description="Очень длинное описание страницы для проверки отображения большого количества текста в свойствах элемента и корректной работы редактора при наличии длинных значений в атрибутах страницы." types="page,section" theme="dark" status="draft" access="guest:read,user:edit,admin:full" order="1" redirect="/catalog/main/products" position="280,280" view="collapsed"/>
+    <pageBlock id="3" name="x" title="Я" caption="1" description="К" types="" theme="" status="hidden" access="" order="1" redirect="/" position="280,430" view="expanded"/>
+    <pageBlock id="4" name="serviceInformationPageWithVeryLongName" title="Очень длинное название страницы для проверки отображения текста внутри блока" caption="Длинное пояснение с разными символами: 1234567890 ! @ # $ % ^ &amp; * ( ) _ + - = [ ] { }" description="ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789 АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ абвгдеёжзийклмнопрстуфхцчшщъыьэюя" types="service,dynamic,external" theme="light" status="archived" access="guest:read,user:read,admin:full,testUser:edit" order="2" redirect="/very/long/redirect/path/to/another/page/index.html?test=123&amp;value=abc" position="560,140" view="collapsed"/>
+    <pageBlock id="5" name="empty" title="" caption="" description="" types="" theme="" status="" access="" order="2" redirect="" position="690,440" view="collapsed"/>
+    <pageBlock id="6" name="symbols123" title="1234567890" caption="!@#$%^&amp;*()" description="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" types="page,dynamic" theme="dark" status="published" access="guest:read,user:edit,admin:full,editor:edit,viewer:read" order="1" redirect="/a" position="700,270" view="expanded"/>
+
+    <pageConnection kind="parent" from="1" to="2" fromSide="bottom" toSide="top" order="0" points="[[380,230],[380,255],[380,255],[380,280]]"/>
+    <pageConnection kind="parent" from="2" to="3" fromSide="bottom" toSide="top" order="0" points="[[380,380],[380,405],[380,405],[380,430]]"/>
+    <pageConnection kind="parent" from="2" to="5" fromSide="right" toSide="top" order="1" points="[[480,330],[570,330],[570,410],[790,410],[790,440]]"/>
+    <pageConnection kind="parent" from="4" to="6" fromSide="bottom" toSide="top" order="0" points="[[660,240],[660,255],[800,255],[800,270]]"/>
+</siteMap>

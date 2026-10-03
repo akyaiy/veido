@@ -448,8 +448,14 @@ pageBlock {
     border: 1px solid #f3c1c1;
 }
 
-pageBlock.selected {
+.cardsView pageBlock.selected,
+.treeView pageBlock.selected {
     border: 2px solid #88bfff;
+}
+
+.cardsView > pageBlock.firstLevel.selected,
+.treeView > pageBlockParent > pageBlock.selected {
+    border: 2px solid #f08f8f;
 }
 
 pageText {
@@ -481,6 +487,10 @@ pagePoint {
     z-index: 2;
     cursor: crosshair;
     pointer-events: auto;
+}
+
+pageBlock.firstLevel pagePoint {
+    background: #f3c1c1;
 }
 
 pagePoint[data-side="top"] {
