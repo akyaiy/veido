@@ -611,7 +611,7 @@ function handlePageMove(event) {
 
     setPagePosition(pageState.draggedPage, pageX, pageY);
 
-    updatePageArrows(pageState.draggedPage);
+    updatePageArrows();
 }
 
 /* ***
@@ -1469,192 +1469,299 @@ document.getElementById('siteMap').addEventListener('input', handlePageTextInput
 
 /***
  * updatePageArrows - обновление стрелок страниц
- * - принимает страницу или null
- * - получает связи из pageConnections
- * - строит стрелки со скругленными поворотами
+ * - сохраняет отступ 10px от карточек
+ * - объединяет выходящие связи в один узел
+ * - перестраивает изгибы при перемещении страниц
+ * - сохраняет ручное редактирование
  ***/
 function updatePageArrows(page = null) {
-    // Получение карты и связей
     const siteMap = document.getElementById('siteMap');
-    const pageConnections = Array.from(siteMap.querySelectorAll(':scope > pageConnection[data-kind="parent"]'));
-    const connections = [];
+    const arrows = Array.from(siteMap.querySelectorAll(':scope > pageConnection[data-kind="parent"]'));
+    const pages = Array.from(siteMap.querySelectorAll('pageBlock'));
+    const distance = 10;
+    const sides = ['top', 'right', 'bottom', 'left'];
+    const vectors = { top: [0, -1], right: [1, 0], bottom: [0, 1], left: [-1, 0] };
 
-    // Получение связей страниц
-    pageConnections.forEach(connection => {
-        if (page && connection.dataset.from !== page.dataset.id && connection.dataset.to !== page.dataset.id) return;
-
-        const svg = connection.querySelector(':scope > svg');
-
-        connection.querySelectorAll(':scope > connectionPoint').forEach(point => point.remove());
-
-        if (svg) svg.remove();
-
-        const parent = Array.from(siteMap.querySelectorAll(':scope > pageBlock')).find(page => page.dataset.id === connection.dataset.from);
-        const child = Array.from(siteMap.querySelectorAll(':scope > pageBlock')).find(page => page.dataset.id === connection.dataset.to);
-
-        if (parent && child) {
-            connections.push({ connection, parent, child });
-        }
+    // Получение положения страниц
+    const boxes = pages.map(page => {
+        const position = getPagePosition(page);
+        return {
+            page,
+            left: position.x,
+            top: position.y,
+            right: position.x + page.offsetWidth,
+            bottom: position.y + page.offsetHeight
+        };
     });
 
-    // Создание стрелок
-    connections.forEach(connection => {
-        const arrow = connection.connection;
-        const parent = connection.parent;
-        const child = connection.child;
+    const boxById = new Map(boxes.map(box => [box.page.dataset.id, box]));
 
-        // Получение положения страниц
-        const parentPosition = getPagePosition(parent);
-        const childPosition = getPagePosition(child);
+    // Группировка связей по родителю и стороне выхода
+    const groups = new Map();
 
-        // Получение центров страниц
-        const parentX = parentPosition.x + parent.offsetWidth / 2;
-        const parentY = parentPosition.y + parent.offsetHeight / 2;
-        const childX = childPosition.x + child.offsetWidth / 2;
-        const childY = childPosition.y + child.offsetHeight / 2;
+    arrows.forEach(arrow => {
+        const key = arrow.dataset.from + ':' + (arrow.dataset.fromSide || 'auto');
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(arrow);
+    });
 
-        // Определение ближайших сторон
-        const distanceX = childX - parentX;
-        const distanceY = childY - parentY;
+    // Проверка совпадения точек
+    const equal = (a, b) => a[0] === b[0] && a[1] === b[1];
 
-        let startX;
-        let startY;
-        let endX;
-        let endY;
-        let points;
+    // Удаление лишних точек
+    function simplify(points) {
+        const result = [];
 
-        const sides = ['top', 'right', 'bottom', 'left'];
-        const fromSide = connection.connection.dataset.fromSide;
-        const toSide = connection.connection.dataset.toSide;
+        points.forEach(point => {
+            if (!result.length || !equal(result[result.length - 1], point)) result.push([...point]);
+        });
 
-        if (sides.includes(fromSide) && sides.includes(toSide)) {
-            startX = fromSide === 'left' ? parentPosition.x : fromSide === 'right' ? parentPosition.x + parent.offsetWidth : parentX;
-            startY = fromSide === 'top' ? parentPosition.y : fromSide === 'bottom' ? parentPosition.y + parent.offsetHeight : parentY;
-            endX = toSide === 'left' ? childPosition.x : toSide === 'right' ? childPosition.x + child.offsetWidth : childX;
-            endY = toSide === 'top' ? childPosition.y : toSide === 'bottom' ? childPosition.y + child.offsetHeight : childY;
+        for (let i = 1; i < result.length - 1;) {
+            const a = result[i - 1];
+            const b = result[i];
+            const c = result[i + 1];
 
-            const fromVertical = fromSide === 'top' || fromSide === 'bottom';
-            const toVertical = toSide === 'top' || toSide === 'bottom';
-
-            if (fromVertical === toVertical) {
-                if (fromVertical) {
-                    const middleY = (startY + endY) / 2;
-
-                    points = [[startX, startY], [startX, middleY], [endX, middleY], [endX, endY]];
-                } else {
-                    const middleX = (startX + endX) / 2;
-
-                    points = [[startX, startY], [middleX, startY], [middleX, endY], [endX, endY]];
-                }
+            if ((a[0] === b[0] && b[0] === c[0]) || (a[1] === b[1] && b[1] === c[1])) {
+                result.splice(i, 1);
             } else {
-                const pointX = fromVertical ? startX : endX;
-                const pointY = fromVertical ? endY : startY;
-
-                points = [[startX, startY], [pointX, pointY], [endX, endY]];
+                i++;
             }
-        // Страница снизу
-        } else if (distanceY > 0) {
-            // Проверка возможности выхода вниз
-            const parentBottom = parentPosition.y + parent.offsetHeight;
-            const spaceY = childPosition.y - parentBottom;
+        }
 
-            if (spaceY >= 10) {
-                // Выход снизу
-                startX = parentX;
-                startY = parentBottom;
-                endX = childX;
-                endY = childPosition.y;
+        return result;
+    }
 
-                const middleY = (startY + endY) / 2;
+    // Проверка пересечения отрезка с карточками
+    function clearSegment(a, b) {
+        if (a[0] !== b[0] && a[1] !== b[1]) return false;
 
-                points = [[startX, startY], [startX, middleY], [endX, middleY], [endX, endY]];
+        return boxes.every(box => {
+            if (a[0] === b[0]) {
+                return a[0] <= box.left || a[0] >= box.right || Math.max(a[1], b[1]) <= box.top || Math.min(a[1], b[1]) >= box.bottom;
+            }
+
+            return a[1] <= box.top || a[1] >= box.bottom || Math.max(a[0], b[0]) <= box.left || Math.min(a[0], b[0]) >= box.right;
+        });
+    }
+
+    // Проверка всего маршрута
+    function clearRoute(points) {
+        return points.every((point, index) => index === 0 || clearSegment(points[index - 1], point));
+    }
+
+    // Поиск маршрута вокруг карточек
+    function findRoute(start, end) {
+        if (equal(start, end)) return [start];
+
+        const xs = new Set([start[0], end[0]]);
+        const ys = new Set([start[1], end[1]]);
+
+        boxes.forEach(box => {
+            xs.add(box.left - distance);
+            xs.add(box.right + distance);
+            ys.add(box.top - distance);
+            ys.add(box.bottom + distance);
+        });
+
+        const xx = [...xs].sort((a, b) => a - b);
+        const yy = [...ys].sort((a, b) => a - b);
+        const width = xx.length;
+        const getId = (x, y) => y * width + x;
+
+        const source = getId(xx.indexOf(start[0]), yy.indexOf(start[1]));
+        const target = getId(xx.indexOf(end[0]), yy.indexOf(end[1]));
+        const queue = [{ id: source, direction: -1, cost: 0 }];
+        const costs = new Map([[source + ':-1', 0]]);
+        const previous = new Map();
+        let finalKey = null;
+
+        while (queue.length) {
+            queue.sort((a, b) => b.cost - a.cost);
+
+            const current = queue.pop();
+            const key = current.id + ':' + current.direction;
+
+            if (current.cost !== costs.get(key)) continue;
+
+            if (current.id === target) {
+                finalKey = key;
+                break;
+            }
+
+            const x = current.id % width;
+            const y = Math.floor(current.id / width);
+            const neighbors = [[x - 1, y, 0], [x + 1, y, 0], [x, y - 1, 1], [x, y + 1, 1]];
+
+            for (const [nx, ny, direction] of neighbors) {
+                if (nx < 0 || nx >= width || ny < 0 || ny >= yy.length) continue;
+
+                const a = [xx[x], yy[y]];
+                const b = [xx[nx], yy[ny]];
+
+                if (!clearSegment(a, b)) continue;
+
+                const id = getId(nx, ny);
+                const cost = current.cost + Math.abs(b[0] - a[0]) + Math.abs(b[1] - a[1]) + (current.direction !== -1 && current.direction !== direction ? 12 : 0);
+                const nextKey = id + ':' + direction;
+
+                if (cost >= (costs.get(nextKey) ?? Infinity)) continue;
+
+                costs.set(nextKey, cost);
+                previous.set(nextKey, key);
+                queue.push({ id, direction, cost });
+            }
+        }
+
+        if (!finalKey) return null;
+
+        const result = [];
+
+        for (let key = finalKey; key; key = previous.get(key)) {
+            const id = Number(key.split(':')[0]);
+            result.unshift([xx[id % width], yy[Math.floor(id / width)]]);
+        }
+
+        return simplify(result);
+    }
+
+    // Обновление связей
+    arrows.forEach(arrow => {
+        if (page && arrow.dataset.from !== page.dataset.id && arrow.dataset.to !== page.dataset.id) return;
+
+        arrow.querySelectorAll(':scope > svg, :scope > connectionPoint').forEach(element => element.remove());
+
+        const parent = boxById.get(arrow.dataset.from);
+        const child = boxById.get(arrow.dataset.to);
+
+        if (!parent || !child) return;
+
+        // Центры карточек
+        const parentX = (parent.left + parent.right) / 2;
+        const parentY = (parent.top + parent.bottom) / 2;
+        const childX = (child.left + child.right) / 2;
+        const childY = (child.top + child.bottom) / 2;
+
+        const horizontal = Math.abs(childX - parentX) > Math.abs(childY - parentY);
+
+        // Стороны соединения
+        const fromSide = sides.includes(arrow.dataset.fromSide) ? arrow.dataset.fromSide : horizontal ? (childX > parentX ? 'right' : 'left') : (childY > parentY ? 'bottom' : 'top');
+        const toSide = sides.includes(arrow.dataset.toSide) ? arrow.dataset.toSide : horizontal ? (childX > parentX ? 'left' : 'right') : (childY > parentY ? 'top' : 'bottom');
+
+        const start = [
+            fromSide === 'left' ? parent.left : fromSide === 'right' ? parent.right : parentX,
+            fromSide === 'top' ? parent.top : fromSide === 'bottom' ? parent.bottom : parentY
+        ];
+
+        const end = [
+            toSide === 'left' ? child.left : toSide === 'right' ? child.right : childX,
+            toSide === 'top' ? child.top : toSide === 'bottom' ? child.bottom : childY
+        ];
+
+        const fromVector = vectors[fromSide];
+        const toVector = vectors[toSide];
+
+        // Обязательные прямые участки длиной 10px
+        const first = [start[0] + fromVector[0] * distance, start[1] + fromVector[1] * distance];
+        const last = [end[0] + toVector[0] * distance, end[1] + toVector[1] * distance];
+
+        // Общий узел для связей одного родителя
+        const group = groups.get(arrow.dataset.from + ':' + (arrow.dataset.fromSide || 'auto')) || [];
+        const branch = first;
+
+        // Получение сохранённого маршрута
+        let saved = null;
+
+        try {
+            saved = JSON.parse(arrow.dataset.points || 'null');
+        } catch (error) {
+            saved = null;
+        }
+
+        let points = null;
+
+
+        // Сохранение ручных изгибов
+        if (arrow.dataset.manual === 'true' && Array.isArray(saved) && saved.length >= 4) {
+            points = saved.map(point => [...point]);
+
+            // Обновление точек подключения
+            points[0] = start;
+            points[1] = first;
+            points[points.length - 2] = last;
+            points[points.length - 1] = end;
+
+            // Сохранение направления первого изгиба
+            if (points.length > 4) {
+                if (saved[1][0] === saved[2][0]) points[2][0] = first[0];
+                else if (saved[1][1] === saved[2][1]) points[2][1] = first[1];
+
+                const index = points.length - 3;
+
+                // Сохранение направления последнего изгиба
+                if (saved[index][0] === saved[index + 1][0]) points[index][0] = last[0];
+                else if (saved[index][1] === saved[index + 1][1]) points[index][1] = last[1];
+            }
+        }
+
+        // Автоматическое построение маршрута
+        if (!points) {
+            const fromVertical = fromVector[0] === 0;
+            const toVertical = toVector[0] === 0;
+            let middle = null;
+
+            // Изгиб перемещается вместе с карточкой, сохраняя 10px
+            if (fromVertical && toVertical) {
+                const middleY = (first[1] + last[1]) / 2;
+                middle = [first, [first[0], middleY], [last[0], middleY], last];
+            } else if (!fromVertical && !toVertical) {
+                const middleX = (first[0] + last[0]) / 2;
+                middle = [first, [middleX, first[1]], [middleX, last[1]], last];
+            } else if (fromVertical) {
+                middle = [first, [first[0], last[1]], last];
             } else {
-                // Выход сбоку родителя
-                const isRight = childX > parentX;
-
-                startX = isRight ? parentPosition.x + parent.offsetWidth : parentPosition.x;
-                startY = parentY;
-                endX = isRight ? childPosition.x : childPosition.x + child.offsetWidth;
-                endY = childY;
-
-                const middleX = (startX + endX) / 2;
-
-                points = [[startX, startY], [middleX, startY], [middleX, endY], [endX, endY]];
-            }
-        } else if (Math.abs(distanceY) > Math.abs(distanceX)) {
-            startX = parentX;
-            startY = parentPosition.y;
-            endX = childX;
-            endY = childPosition.y + child.offsetHeight;
-
-            const middleY = (startY + endY) / 2;
-
-            points = [[startX, startY], [startX, middleY], [endX, middleY], [endX, endY]];
-        // Страница сбоку
-        } else {
-            startX = distanceX > 0 ? parentPosition.x + parent.offsetWidth : parentPosition.x;
-            startY = parentY;
-            endX = distanceX > 0 ? childPosition.x : childPosition.x + child.offsetWidth;
-            endY = childY;
-
-            const middleX = (startX + endX) / 2;
-
-            points = [[startX, startY], [middleX, startY], [middleX, endY], [endX, endY]];
-        }
-
-        // Получение сохраненных точек стрелки
-        const savedPoints = arrow.dataset.points ? JSON.parse(arrow.dataset.points) : null;
-
-        // Изменение начальной и конечной точек стрелки
-        if (savedPoints && savedPoints.length >= 2) {
-            points = savedPoints;
-            points[0] = [startX, startY];
-            points[points.length - 1] = [endX, endY];
-
-            if (points.length > 2) {
-                if (fromSide === 'top' || fromSide === 'bottom') {
-                    points[1][0] = startX;
-                } else {
-                    points[1][1] = startY;
-                }
-
-                if (toSide === 'top' || toSide === 'bottom') {
-                    points[points.length - 2][0] = endX;
-                } else {
-                    points[points.length - 2][1] = endY;
-                }
+                middle = [first, [last[0], first[1]], last];
             }
 
-            arrow.dataset.points = JSON.stringify(points);
+            // При пересечении карточек ищем обход
+            const route = clearRoute(middle) ? middle : findRoute(branch, last);
+
+            points = route ? [start, ...route, end] : [start, first, last, end];
+
+            // При разветвлении все линии имеют один общий выход
+            if (group.length > 1 && !equal(points[1], branch)) points.splice(1, 0, branch);
+
+            delete arrow.dataset.manual;
         }
 
-        // Сохранение точек стрелки
-        if (!savedPoints) {
-            arrow.dataset.points = JSON.stringify(points);
-        }
+        arrow.dataset.points = JSON.stringify(points);
 
-        // Создание точек изгиба выбранной связи
+        // Точки ручного редактирования
         if (arrow === pageState.selectedConnection) {
             for (let i = 0; i < points.length - 1; i++) {
-                const connectionPoint = document.createElement('connectionPoint');
-                connectionPoint.dataset.index = i;
-                const pointX = (points[i][0] + points[i + 1][0]) / 2;
-                const pointY = (points[i][1] + points[i + 1][1]) / 2;
+                const start = points[i];
+                const end = points[i + 1];
 
-                connectionPoint.style.left = pointX + 'px';
-                connectionPoint.style.top = pointY + 'px';
+                // Пропуск нулевых и диагональных отрезков
+                if (equal(start, end)) continue;
+                if (start[0] !== end[0] && start[1] !== end[1]) continue;
 
-                arrow.appendChild(connectionPoint);
+                const point = document.createElement('connectionPoint');
+
+                point.dataset.index = i;
+                point.style.left = (start[0] + end[0]) / 2 + 'px';
+                point.style.top = (start[1] + end[1]) / 2 + 'px';
+
+                arrow.appendChild(point);
             }
         }
 
-        // Создание стрелки
+        // Создание SVG
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
         const markerPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
 
-        marker.setAttribute('id', 'pageArrowHead-' + connection.connection.dataset.from + '-' + connection.connection.dataset.to);
+        marker.setAttribute('id', 'pageArrowHead-' + arrow.dataset.from + '-' + arrow.dataset.to);
         marker.setAttribute('markerUnits', 'userSpaceOnUse');
         marker.setAttribute('markerWidth', '11');
         marker.setAttribute('markerHeight', '10');
@@ -1666,10 +1773,9 @@ function updatePageArrows(page = null) {
 
         marker.appendChild(markerPath);
         svg.appendChild(marker);
-
         path.setAttribute('marker-end', 'url(#' + marker.id + ')');
 
-        // Создание скругленного пути
+        // Скругление углов
         const radius = 2;
         let pathData = 'M ' + points[0][0] + ' ' + points[0][1];
 
@@ -1678,37 +1784,28 @@ function updatePageArrows(page = null) {
             const current = points[i];
             const next = points[i + 1];
 
-            const previousX = current[0] - previous[0];
-            const previousY = current[1] - previous[1];
-            const nextX = next[0] - current[0];
-            const nextY = next[1] - current[1];
+            const dx = current[0] - previous[0];
+            const dy = current[1] - previous[1];
+            const ex = next[0] - current[0];
+            const ey = next[1] - current[1];
 
-            const previousLength = Math.hypot(previousX, previousY);
-            const nextLength = Math.hypot(nextX, nextY);
+            const previousLength = Math.hypot(dx, dy);
+            const nextLength = Math.hypot(ex, ey);
 
             if (!previousLength || !nextLength) {
                 pathData += ' L ' + current[0] + ' ' + current[1];
                 continue;
             }
 
-            const cornerRadius = Math.min(radius, previousLength / 2, nextLength / 2);
+            const r = Math.min(radius, previousLength / 2, nextLength / 2);
 
-            const beforeX = current[0] - previousX / previousLength * cornerRadius;
-            const beforeY = current[1] - previousY / previousLength * cornerRadius;
-            const afterX = current[0] + nextX / nextLength * cornerRadius;
-            const afterY = current[1] + nextY / nextLength * cornerRadius;
-
-            pathData += ' L ' + beforeX + ' ' + beforeY;
-            pathData += ' Q ' + current[0] + ' ' + current[1] + ' ' + afterX + ' ' + afterY;
+            pathData += ' L ' + (current[0] - dx / previousLength * r) + ' ' + (current[1] - dy / previousLength * r);
+            pathData += ' Q ' + current[0] + ' ' + current[1] + ' ' + (current[0] + ex / nextLength * r) + ' ' + (current[1] + ey / nextLength * r);
         }
 
-        // Завершение пути
         pathData += ' L ' + points[points.length - 1][0] + ' ' + points[points.length - 1][1];
 
-        // Установка пути
         path.setAttribute('d', pathData);
-
-        // Добавление стрелки
         svg.appendChild(path);
         arrow.appendChild(svg);
     });
@@ -1776,8 +1873,8 @@ document.addEventListener('siteStructureEditor:loaded', loadPage);
 
 /***
  * handleConnectionPointDown - начало перемещения ребра связи
- * - получает выбранную точку ребра
- * - сохраняет точки и индекс ребра
+ * - сохраняет исходные точки и индекс ребра
+ * - запоминает положение мыши
  ***/
 function handleConnectionPointDown(event) {
     const point = event.target.closest('connectionPoint');
@@ -1793,9 +1890,17 @@ function handleConnectionPointDown(event) {
 
     if (points.length < 2 || index < 0 || index >= points.length - 1) return;
 
+    const start = points[index];
+    const end = points[index + 1];
+
+    if (start[0] !== end[0] && start[1] !== end[1]) return;
+
+    // Сохранение состояния перемещения
     pageState.draggedConnection = connection;
     pageState.connectionPoints = points;
+    pageState.connectionBasePoints = points.map(point => [...point]);
     pageState.connectionPointIndex = index;
+    pageState.connectionDragStart = getMapPosition(event.clientX, event.clientY);
     pageState.connectionPointAdded = false;
 
     event.preventDefault();
@@ -1804,143 +1909,132 @@ function handleConnectionPointDown(event) {
 
 /***
  * handleConnectionPointMove - перемещение ребра связи
- * - перемещает горизонтальное ребро по Y
- * - перемещает вертикальное ребро по X
- * - добавляет дополнительные ребра при перемещении крайних
- * - удаляет дополнительные ребра при возврате к исходному положению
+ * - перемещает горизонтальные и вертикальные ребра
+ * - сохраняет отступ 10px от карточек
+ * - создаёт дополнительные изгибы для крайних ребер
  ***/
 function handleConnectionPointMove(event) {
     if (!pageState.draggedConnection) return;
 
-    const siteMap = document.getElementById('siteMap');
-    const mapRect = siteMap.getBoundingClientRect();
-    const points = pageState.connectionPoints;
-    let index = pageState.connectionPointIndex;
-
-    const gridSize = parseInt(document.querySelector('#gridSizeValue').value) || 1;
+    // Получение исходных точек
+    const original = pageState.connectionBasePoints;
+    const index = pageState.connectionPointIndex;
     const position = getMapPosition(event.clientX, event.clientY);
+    const gridSize = parseInt(document.querySelector('#gridSizeValue').value) || 1;
 
-    const mouseX = position.x;
-    const mouseY = position.y;
+    const start = original[index];
+    const end = original[index + 1];
+    const vertical = start[0] === end[0];
+    const horizontal = start[1] === end[1];
 
-    const point = pageState.connectionPoints[pageState.connectionPointIndex];
+    if (!vertical && !horizontal) return;
 
-    const x = point[0] + Math.round((mouseX - point[0]) / gridSize) * gridSize;
-    const y = point[1] + Math.round((mouseY - point[1]) / gridSize) * gridSize;
-    const distance = 10;
+    // Вычисление перемещения
+    const dx = Math.round((position.x - pageState.connectionDragStart.x) / gridSize) * gridSize;
+    const dy = Math.round((position.y - pageState.connectionDragStart.y) / gridSize) * gridSize;
+    const offset = vertical ? dx : dy;
 
-    // Добавление ребер в начале связи
-    if (index === 0) {
-        const start = points[0];
-        const end = points[1];
+    let points = original.map(point => [...point]);
 
-        if (start[1] === end[1]) {
-            points.splice(1, 0, [start[0], start[1]], [start[0], end[1]]);
+    if (offset !== 0) {
+        // Перемещение первого ребра
+        if (index === 0) {
+            const fixed = points[1];
+            const next = points[2];
+
+            // Сохранение первых 10px и создание двух соединительных ребер
+            if (vertical) {
+                points.splice(2, 0, [fixed[0] + offset, fixed[1]], [fixed[0] + offset, next[1]]);
+            } else {
+                points.splice(2, 0, [fixed[0], fixed[1] + offset], [next[0], fixed[1] + offset]);
+            }
+
+            pageState.connectionPointAdded = true;
+
+        // Перемещение последнего ребра
+        } else if (index === points.length - 2) {
+            const fixed = points[points.length - 2];
+            const previous = points[points.length - 3];
+
+            // Сохранение последних 10px и создание двух соединительных ребер
+            if (vertical) {
+                points.splice(points.length - 2, 0, [fixed[0] + offset, previous[1]], [fixed[0] + offset, fixed[1]]);
+            } else {
+                points.splice(points.length - 2, 0, [previous[0], fixed[1] + offset], [fixed[0], fixed[1] + offset]);
+            }
+
+            pageState.connectionPointAdded = true;
+
+        // Перемещение центральных ребер
         } else {
-            points.splice(1, 0, [start[0], start[1]], [end[0], start[1]]);
-        }
+            const moveX = vertical ? offset : 0;
+            const moveY = horizontal ? offset : 0;
 
-        index = 2;
-        pageState.connectionPointIndex = index;
-        pageState.connectionPointAdded = true;
-    }
+            const movedStart = [start[0] + moveX, start[1] + moveY];
+            const movedEnd = [end[0] + moveX, end[1] + moveY];
 
-    // Добавление ребер в конце связи
-    if (index === points.length - 2) {
-        const start = points[index];
-        const end = points[index + 1];
+            // Сохранение неподвижных участков у карточек
+            const firstFixed = index === 1;
+            const lastFixed = index === points.length - 3;
 
-        if (start[1] === end[1]) {
-            points.splice(index + 1, 0, [end[0], start[1]], [end[0], end[1]]);
-        } else {
-            points.splice(index + 1, 0, [start[0], end[1]], [end[0], end[1]]);
-        }
+            points = [
+                ...points.slice(0, index),
+                ...(firstFixed ? [[...start]] : []),
+                movedStart,
+                movedEnd,
+                ...(lastFixed ? [[...end]] : []),
+                ...points.slice(index + 2)
+            ];
 
-        pageState.connectionPointAdded = true;
-    }
-
-    const start = points[index];
-    const end = points[index + 1];
-
-    // Перемещение горизонтального ребра
-    if (start[1] === end[1]) {
-        start[1] = y;
-        end[1] = y;
-    // Перемещение вертикального ребра
-    } else if (start[0] === end[0]) {
-        start[0] = x;
-        end[0] = x;
-    }
-
-    // Удаление дополнительных ребер в начале связи
-    if (!pageState.connectionPointAdded && index === 2 && points.length > 4) {
-        const first = points[0];
-        const current = points[2];
-
-        if (Math.abs(first[0] - current[0]) <= distance && Math.abs(first[1] - current[1]) > distance ||
-            Math.abs(first[1] - current[1]) <= distance && Math.abs(first[0] - current[0]) > distance) {
-            points.splice(1, 2);
-            index = 0;
-            pageState.connectionPointIndex = index;
+            pageState.connectionPointAdded = firstFixed || lastFixed;
         }
     }
 
-    // Удаление дополнительных ребер в конце связи
-    if (!pageState.connectionPointAdded && index === points.length - 4 && points.length > 4) {
-        const last = points[points.length - 1];
-        const current = points[points.length - 3];
-
-        if (Math.abs(last[0] - current[0]) <= distance && Math.abs(last[1] - current[1]) > distance ||
-            Math.abs(last[1] - current[1]) <= distance && Math.abs(last[0] - current[0]) > distance) {
-            points.splice(points.length - 3, 2);
-            pageState.connectionPointIndex = points.length - 2;
-        }
-    }
-
+    // Сохранение отредактированной линии
+    pageState.connectionPoints = points;
     pageState.draggedConnection.dataset.points = JSON.stringify(points);
+    pageState.draggedConnection.dataset.manual = 'true';
 
     updatePageArrows();
 }
 
 /***
  * handleConnectionPointUp - завершение перемещения ребра связи
- * - удаляет лишние ребра, если они почти совпадают
- * - очищает состояние редактирования
+ * - удаляет лишние изгибы
+ * - сохраняет ручной маршрут
+ * - очищает состояние перемещения
  ***/
 function handleConnectionPointUp() {
     if (!pageState.draggedConnection) return;
 
     const connection = pageState.draggedConnection;
     const points = pageState.connectionPoints;
-    const distance = 10;
 
-    // Удаление совпадающих ребер
-    for (let i = 0; i < points.length - 3; i++) {
-        const firstStart = points[i];
-        const firstEnd = points[i + 1];
-        const secondStart = points[i + 2];
-        const secondEnd = points[i + 3];
+    // Удаление лишних точек без изменения отступов 10px
+    for (let i = 2; i < points.length - 2;) {
+        const previous = points[i - 1];
+        const current = points[i];
+        const next = points[i + 1];
 
-        const firstVertical = firstStart[0] === firstEnd[0];
-        const secondVertical = secondStart[0] === secondEnd[0];
-        const firstHorizontal = firstStart[1] === firstEnd[1];
-        const secondHorizontal = secondStart[1] === secondEnd[1];
+        const duplicate = current[0] === previous[0] && current[1] === previous[1] || current[0] === next[0] && current[1] === next[1];
+        const straight = previous[0] === current[0] && current[0] === next[0] || previous[1] === current[1] && current[1] === next[1];
 
-        if (firstVertical && secondVertical && Math.abs(firstStart[0] - secondStart[0]) <= distance) {
-            points.splice(i + 1, 2);
-            break;
-        }
-
-        if (firstHorizontal && secondHorizontal && Math.abs(firstStart[1] - secondStart[1]) <= distance) {
-            points.splice(i + 1, 2);
-            break;
+        if (duplicate || straight) {
+            points.splice(i, 1);
+        } else {
+            i++;
         }
     }
 
+    // Сохранение результата
     connection.dataset.points = JSON.stringify(points);
+    connection.dataset.manual = 'true';
 
+    // Очистка состояния
     pageState.draggedConnection = null;
     pageState.connectionPoints = null;
+    pageState.connectionBasePoints = null;
+    pageState.connectionDragStart = null;
     pageState.connectionPointIndex = -1;
     pageState.connectionPointAdded = false;
 
