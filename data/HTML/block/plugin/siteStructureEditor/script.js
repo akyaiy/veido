@@ -1178,7 +1178,8 @@ function createPage() {
     page.dataset.redirect = '';
     page.dataset.position = pageX + ',' + pageY;
     page.dataset.view = 'collapsed';
-    pageText.textContent = page.dataset.title;
+    pageText.innerHTML = '<pageTitle></pageTitle><pageCaption></pageCaption>';
+    pageText.querySelector('pageTitle').textContent = page.dataset.title;
     page.style.left = pageX + 'px';
     page.style.top = pageY + 'px';
 
@@ -1963,7 +1964,9 @@ function createPageFromXml(xmlPage) {
     // Получение координат
     const [x, y] = page.dataset.position.split(',');
 
-    pageText.textContent = page.dataset.title;
+    pageText.innerHTML = '<pageTitle></pageTitle><pageCaption></pageCaption>';
+    pageText.querySelector('pageTitle').textContent = page.dataset.title;
+    pageText.querySelector('pageCaption').textContent = page.dataset.caption || '';
     page.style.left = x + 'px';
     page.style.top = y + 'px';
 
