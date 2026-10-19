@@ -2446,6 +2446,19 @@ function updatePageProperty(field) {
             }
         });
 
+        // Обновление расположения страниц
+        if (mapView === 'tree') {
+            const parent = pageState.selectedPage.parentElement;
+            const container = parent.parentElement;
+
+            const siblings = Array.from(container.children)
+                .filter(element => element.matches('pageBlockParent'))
+                .sort((a, b) => Number(a.querySelector(':scope > pageBlock').dataset.order) -
+                    Number(b.querySelector(':scope > pageBlock').dataset.order));
+
+            siblings.forEach(element => container.appendChild(element));
+        }
+
         updatePagePoints(pageState.selectedPage);
         loadPageProperties(pageState.selectedPage);
 
@@ -2455,12 +2468,16 @@ function updatePageProperty(field) {
     // Изменение обычного свойства
     pageState.selectedPage.dataset[name] = field.value;
 
-    // Обновление названия страницы
-    if (name === 'title') {
+    // Обновление текста страницы
+    if (name === 'title' || name === 'caption') {
         const pageText = pageState.selectedPage.querySelector(':scope > pageText');
 
         if (pageText) {
-            pageText.textContent = field.value;
+            const element = pageText.querySelector(name === 'title' ? 'pageTitle' : 'pageCaption');
+
+            if (element) {
+                element.textContent = field.value;
+            }
         }
     }
 }

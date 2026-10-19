@@ -438,6 +438,15 @@ pageBlock {
     height: 200px;
 }
 
+.cardsView pageBlock[data-view="collapsed"] pageCaption {
+    display: none;
+}
+.cardsView pageBlock[data-view="collapsed"] pageText {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
 .treeView pageBlock {
     position: relative;
     width: fit-content;
