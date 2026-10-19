@@ -37,6 +37,10 @@
             <input id="gridSizeValue" type="number" min="1" max="100" value="10">
             <input id="gridSize" type="range" min="1" max="100" value="10">
         </div>
+        <div id="zoomSettings">
+            <input id="zoomValue" type="number" min="10" max="300" value="100">
+            <input id="zoom" type="range" min="10" max="300" value="100">
+        </div>
     </div>
     <div id="siteMap"></div>
 </div>

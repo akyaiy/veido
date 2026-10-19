@@ -54,10 +54,11 @@ function getPagePosition(page) {
     const siteMap = document.getElementById('siteMap');
     const mapRect = siteMap.getBoundingClientRect();
     const pageRect = page.getBoundingClientRect();
+    const scale = getMapZoom();
 
     return {
-        x: pageRect.left - mapRect.left + siteMap.scrollLeft,
-        y: pageRect.top - mapRect.top + siteMap.scrollTop
+        x: (pageRect.left - mapRect.left) / scale + siteMap.scrollLeft,
+        y: (pageRect.top - mapRect.top) / scale + siteMap.scrollTop
     };
 }
 
@@ -286,8 +287,13 @@ function createTempArrow(point) {
     const mapRect = siteMap.getBoundingClientRect();
     const pointRect = point.getBoundingClientRect();
 
-    const startX = pointRect.left + pointRect.width / 2 - mapRect.left + siteMap.scrollLeft;
-    const startY = pointRect.top + pointRect.height / 2 - mapRect.top + siteMap.scrollTop;
+    const position = getMapPosition(
+        pointRect.left + pointRect.width / 2,
+        pointRect.top + pointRect.height / 2
+    );
+
+    const startX = position.x;
+    const startY = position.y;
 
     // Создание стрелки
     const arrow = document.createElement('pageConnection');
@@ -336,8 +342,10 @@ function updateTempArrow(clientX, clientY) {
 
     const startX = Number(pageState.tempArrow.dataset.startX);
     const startY = Number(pageState.tempArrow.dataset.startY);
-    const endX = clientX - mapRect.left + siteMap.scrollLeft;
-    const endY = clientY - mapRect.top + siteMap.scrollTop;
+    const position = getMapPosition(clientX, clientY);
+
+    const endX = position.x;
+    const endY = position.y;
 
     // Обновление стрелки
     const path = pageState.tempArrow.querySelector('svg > path');
@@ -568,8 +576,10 @@ function handlePageDown(event) {
         return;
     }
 
-    pageState.offsetX = event.clientX - pageRect.left;
-    pageState.offsetY = event.clientY - pageRect.top;
+    const scale = getMapZoom();
+
+    pageState.offsetX = (event.clientX - pageRect.left) / scale;
+    pageState.offsetY = (event.clientY - pageRect.top) / scale;
 
     event.preventDefault();
 }
@@ -593,8 +603,10 @@ function handlePageMove(event) {
     const siteMap = document.getElementById('siteMap');
     const mapRect = siteMap.getBoundingClientRect();
 
-    const pageX = getGridPosition(event.clientX - mapRect.left + siteMap.scrollLeft - pageState.offsetX);
-    const pageY = getGridPosition(event.clientY - mapRect.top + siteMap.scrollTop - pageState.offsetY);
+    const position = getMapPosition(event.clientX, event.clientY);
+
+    const pageX = getGridPosition(position.x - pageState.offsetX);
+    const pageY = getGridPosition(position.y - pageState.offsetY);
 
     setPagePosition(pageState.draggedPage, pageX, pageY);
 
@@ -829,6 +841,89 @@ document.getElementById('siteMap').addEventListener('mousedown', handlePointDown
 document.addEventListener('mousemove', handleLinkMove);
 document.addEventListener('mouseup', handleLinkUp);
 
+/* ===
+ * Масштабирование карты
+=== */
+
+// Фиксированные уровни масштаба
+const zoomLevels = [10, 25, 50, 75, 100, 125, 150, 200, 250, 300];
+
+/* ***
+ * getMapZoom - получение масштаба карты
+*** */
+function getMapZoom() {
+    return parseFloat(document.getElementById('siteMap').style.zoom) || 1;
+}
+
+/* ***
+ * getMapPosition - преобразование координат мыши в координаты карты
+*** */
+function getMapPosition(clientX, clientY) {
+    const siteMap = document.getElementById('siteMap');
+    const rect = siteMap.getBoundingClientRect();
+    const scale = getMapZoom();
+
+    return {
+        x: (clientX - rect.left) / scale + siteMap.scrollLeft,
+        y: (clientY - rect.top) / scale + siteMap.scrollTop
+    };
+}
+
+/* ***
+ * setZoom - изменение масштаба карты
+ * - ограничивает масштаб от 10% до 300%
+ * - изменяет масштаб siteMap
+ * - синхронизирует элементы управления
+*** */
+function setZoom(value) {
+    const siteMap = document.getElementById('siteMap');
+    const zoom = document.getElementById('zoom');
+    const zoomValue = document.getElementById('zoomValue');
+
+    value = Math.max(10, Math.min(300, value));
+
+    siteMap.style.zoom = value / 100;
+    zoomValue.value = value;
+
+    zoom.value = zoomLevels.reduce((nearest, level, index) =>
+        Math.abs(level - value) < Math.abs(zoomLevels[nearest] - value) ? index : nearest, 0
+    );
+}
+
+/* ***
+ * handleZoomChange - обработка изменения масштаба
+ * - получает значение ползунка или числового поля
+ * - применяет масштаб карты
+*** */
+function handleZoomChange(event) {
+    if (event.target.id === 'zoom') {
+        setZoom(zoomLevels[Number(event.target.value)]);
+    } else {
+        setZoom(Number(event.target.value) || 100);
+    }
+}
+
+/* ***
+ * initZoomLevels - инициализация уровней масштаба
+ * - устанавливает фиксированные значения ползунка
+ * - подключает обработчики изменения
+*** */
+function initZoomLevels() {
+    const zoom = document.getElementById('zoom');
+    const zoomValue = document.getElementById('zoomValue');
+
+    zoom.min = 0;
+    zoom.max = zoomLevels.length - 1;
+    zoom.step = 1;
+
+    zoom.addEventListener('input', handleZoomChange);
+    zoomValue.addEventListener('change', handleZoomChange);
+
+    setZoom(100);
+}
+
+initZoomLevels();
+
 
 
 /* ===
@@ -1000,8 +1095,10 @@ async function pastePage() {
         const mapRect = siteMap.getBoundingClientRect();
 
         // Вычисление положения страницы
-        const pageX = getGridPosition(menuState.x - mapRect.left + siteMap.scrollLeft);
-        const pageY = getGridPosition(menuState.y - mapRect.top + siteMap.scrollTop);
+        const position = getMapPosition(menuState.x, menuState.y);
+
+        const pageX = getGridPosition(position.x);
+        const pageY = getGridPosition(position.y);
 
         // Установка положения страницы
         page.style.left = pageX + 'px';
@@ -1154,8 +1251,10 @@ function createPage() {
     const mapRect = siteMap.getBoundingClientRect();
 
     // Вычисление положения страницы
-    const pageX = getGridPosition(menuState.x - mapRect.left + siteMap.scrollLeft);
-    const pageY = getGridPosition(menuState.y - mapRect.top + siteMap.scrollTop);
+    const position = getMapPosition(menuState.x, menuState.y);
+
+    const pageX = getGridPosition(position.x);
+    const pageY = getGridPosition(position.y);
 
     // Создание страницы
     const page = document.createElement('pageBlock');
@@ -1669,8 +1768,10 @@ function handleConnectionPointMove(event) {
     let index = pageState.connectionPointIndex;
 
     const gridSize = parseInt(document.querySelector('#gridSizeValue').value) || 1;
-    const mouseX = event.clientX - mapRect.left + siteMap.scrollLeft;
-    const mouseY = event.clientY - mapRect.top + siteMap.scrollTop;
+    const position = getMapPosition(event.clientX, event.clientY);
+
+    const mouseX = position.x;
+    const mouseY = position.y;
 
     const point = pageState.connectionPoints[pageState.connectionPointIndex];
 

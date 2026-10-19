@@ -69,6 +69,7 @@
     height: 100%;
     position: relative;
     overflow: auto;
+    scrollbar-width: thin;
     background-color: #fafbfd;
     background-image: radial-gradient(circle at 1px 1px, #ccc 1px, transparent 1px);
     background-size: 10px 10px;
@@ -248,7 +249,8 @@
 }
 
 #viewSettings,
-#gridSettings {
+#gridSettings,
+#zoomSettings {
     display: flex;
     align-items: center;
     gap: 5px;
@@ -269,6 +271,20 @@
 }
 
 #gridSize {
+    width: 100px;
+    height: 25px;
+    padding: 2px 5px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-sizing: border-box;
+}
+
+#zoomValue {
+    padding: 2px 5px;
+    width: 50px;
+}
+
+#zoom {
     width: 100px;
     height: 25px;
     padding: 2px 5px;
