@@ -69,7 +69,7 @@
     height: 100%;
     position: relative;
     overflow: auto;
-    background-color: #fff;
+    background-color: #fafbfd;
     background-image: radial-gradient(circle at 1px 1px, #ccc 1px, transparent 1px);
     background-size: 10px 10px;
     background-position: 0 0;
