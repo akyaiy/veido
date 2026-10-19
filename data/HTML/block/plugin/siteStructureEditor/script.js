@@ -536,6 +536,7 @@ function selectConnection(connection) {
  * - начинает перемещение карточки или элемента дерева
 *** */
 function handlePageDown(event) {
+    if (event.target.closest('[contenteditable="true"]')) return;
     if (event.target.closest('connectionPoint')) return;
     if (event.target.closest('pagePoint')) return;
 
@@ -1277,7 +1278,7 @@ function createPage() {
     page.dataset.redirect = '';
     page.dataset.position = pageX + ',' + pageY;
     page.dataset.view = 'collapsed';
-    pageText.innerHTML = '<pageTitle></pageTitle><pageCaption></pageCaption>';
+    pageText.innerHTML = '<pageTitle contenteditable="true"></pageTitle><pageCaption contenteditable="true"></pageCaption>';
     pageText.querySelector('pageTitle').textContent = page.dataset.title;
     page.style.left = pageX + 'px';
     page.style.top = pageY + 'px';
@@ -1419,6 +1420,52 @@ document.addEventListener('mousedown', handleMenuClose);
 /* ===
  * Взаимодействие с страницами
 === */
+
+/* ***
+ * handlePageTextEdit - начало редактирования текста страницы
+ * - включает редактирование по двойному нажатию
+*** */
+function handlePageTextEdit(event) {
+    const element = event.target.closest('pageTitle, pageCaption');
+    if (!element) return;
+
+    const page = element.closest('pageBlock');
+    if (!page) return;
+
+    selectPage(page);
+
+    element.contentEditable = 'true';
+    element.focus();
+
+    event.stopPropagation();
+}
+
+/* ***
+ * handlePageTextInput - обновление текста страницы
+ * - сохраняет изменения при каждом вводе
+ * - синхронизирует правую панель
+*** */
+function handlePageTextInput(event) {
+    const element = event.target.closest('pageTitle, pageCaption');
+    if (!element || element.contentEditable !== 'true') return;
+
+    const page = element.closest('pageBlock');
+    if (!page) return;
+
+    const name = element.matches('pageTitle') ? 'title' : 'caption';
+    const value = element.textContent;
+
+    page.dataset[name] = value;
+
+    const field = document.querySelector(
+        `#pageProperties [data-property="${name}"] input, #pageProperties [data-property="${name}"] textarea`
+    );
+
+    if (field && pageState.selectedPage === page) {
+        field.value = value;
+    }
+}
+document.getElementById('siteMap').addEventListener('input', handlePageTextInput);
 
 /***
  * updatePageArrows - обновление стрелок страниц
@@ -1694,6 +1741,9 @@ function loadPage() {
 
         const title = document.createElement('pageTitle');
         const caption = document.createElement('pageCaption');
+
+        title.contentEditable = 'true';
+        caption.contentEditable = 'true';
 
         title.textContent = page.dataset.title;
         caption.textContent = page.dataset.caption;
@@ -2065,7 +2115,7 @@ function createPageFromXml(xmlPage) {
     // Получение координат
     const [x, y] = page.dataset.position.split(',');
 
-    pageText.innerHTML = '<pageTitle></pageTitle><pageCaption></pageCaption>';
+    pageText.innerHTML = '<pageTitle contenteditable="true"></pageTitle><pageCaption contenteditable="true"></pageCaption>';
     pageText.querySelector('pageTitle').textContent = page.dataset.title;
     pageText.querySelector('pageCaption').textContent = page.dataset.caption || '';
     page.style.left = x + 'px';

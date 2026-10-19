@@ -91,6 +91,12 @@
     padding: 0 5px;
 }
 
+#siteMap [contenteditable="true"]:focus {
+    outline: none;
+    border: 1px solid #ccc;
+    cursor: text;
+}
+
 #openedFiles {
     display: none;
 }
