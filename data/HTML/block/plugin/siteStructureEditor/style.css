@@ -635,3 +635,46 @@ pageBlockChilds {
 .treeView pageConnection {
     display: none;
 }
+
+/* Соединения дерева */
+.treeView pageBlockChilds {
+    position: relative;
+    margin-left: 15px;
+    padding-left: 15px;
+}
+
+.treeView pageBlockChilds > pageBlockParent {
+    position: relative;
+}
+
+.treeView pageBlockChilds > pageBlockParent:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    top: 16px;
+    bottom: 0;
+    left: -15px;
+    border-left: 1px solid #888;
+}
+
+.treeView pageBlockChilds > pageBlockParent > pageBlock::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: -16px;
+    width: 11px;
+    border-top: 1px solid #888;
+}
+
+.treeView pageBlockChilds > pageBlockParent:first-child > pageBlock::after {
+    top: 0;
+    height: 50%;
+}
+
+.treeView pageBlockChilds > pageBlockParent > pageBlock::after {
+    content: '';
+    position: absolute;
+    top: -6px;
+    height: calc(50% + 6px);
+    left: -16px;
+    border-left: 1px solid #888;
+}
