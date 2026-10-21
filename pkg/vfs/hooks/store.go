@@ -68,7 +68,7 @@ func (s *MemoryExecutionStore) Fail(_ context.Context, id string, runErr *RunErr
 }
 
 func executionKey(record ExecutionRecord) string {
-	return record.ActorKey + "\x00" + record.HookKey + "\x00" + fmt.Sprint(record.Version) + "\x00" + record.BindingKey + "\x00" + record.IdempotencyKey
+	return record.ActorKey + "\x00" + record.HookKey + "\x00" + fmt.Sprint(record.Version) + "\x00" + record.IdempotencyKey
 }
 
 func cloneRecord(record ExecutionRecord) ExecutionRecord {

@@ -41,6 +41,18 @@ type CachedProviderPool struct {
 	cache    map[string]cachedProvider
 }
 
+// Close releases all cached provider instances. It is deliberately optional
+// on ProviderPool, preserving the small contract used by test doubles.
+func (p *CachedProviderPool) Close() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for key, item := range p.cache {
+		delete(p.cache, key)
+		closeProvider(item.provider)
+	}
+	return nil
+}
+
 type cachedProvider struct {
 	configVersion int64
 	provider      FSProvider

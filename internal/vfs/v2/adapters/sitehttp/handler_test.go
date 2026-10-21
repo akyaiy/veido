@@ -35,18 +35,12 @@ type fakeRuntime struct {
 	err          error
 }
 
-func (f *fakeRuntime) Run(context.Context, vfs.Actor, string, json.RawMessage, hooks.RunOptions) (hooks.Result, error) {
-	return hooks.Result{}, errorsUnsupported
-}
-func (f *fakeRuntime) RunBinding(context.Context, vfs.Actor, string, json.RawMessage, hooks.RunOptions) (hooks.Result, error) {
-	return hooks.Result{}, errorsUnsupported
-}
-func (f *fakeRuntime) RunResource(_ context.Context, actor vfs.Actor, uri vfs.URI, hook string, input json.RawMessage, _ hooks.RunOptions) (hooks.Result, error) {
+func (f *fakeRuntime) Run(_ context.Context, actor vfs.Actor, hook string, input json.RawMessage, _ hooks.RunOptions) (hooks.Result, error) {
 	var decoded getstatic.Input
 	if err := json.Unmarshal(input, &decoded); err != nil {
 		return hooks.Result{}, err
 	}
-	f.calls = append(f.calls, runtimeCall{actor: actor, uri: uri, hook: hook, path: decoded.Path})
+	f.calls = append(f.calls, runtimeCall{actor: actor, uri: decoded.SiteURI, hook: hook, path: decoded.Path})
 	if f.err != nil {
 		return hooks.Result{}, f.err
 	}

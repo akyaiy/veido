@@ -19,15 +19,18 @@ func TestRunMigratesWithoutStartingServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	var users, shared bool
+	var users, profiles, shared bool
 	if err := db.QueryRow(`SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='users')`).Scan(&users); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.QueryRow(`SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='vfs_shared_links')`).Scan(&shared); err != nil {
 		t.Fatal(err)
 	}
-	if !users || shared {
-		t.Fatalf("users=%v shared=%v", users, shared)
+	if err := db.QueryRow(`SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='user_profiles')`).Scan(&profiles); err != nil {
+		t.Fatal(err)
+	}
+	if !users || !profiles || shared {
+		t.Fatalf("users=%v profiles=%v shared=%v", users, profiles, shared)
 	}
 	if err := run(context.Background(), []string{"-db", path}); err != nil {
 		t.Fatal(err)

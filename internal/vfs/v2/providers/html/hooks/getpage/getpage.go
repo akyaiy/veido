@@ -9,8 +9,6 @@ import (
 	"MyServer/pkg/vfs/hooksdk"
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -32,7 +30,9 @@ const (
 )
 
 type Input struct {
-	Path string `json:"path"`
+	SiteURI     vfs.URI `json:"site_uri"`
+	TemplateKey string  `json:"template_key"`
+	Path        string  `json:"path"`
 }
 
 type Output struct {
@@ -108,27 +108,15 @@ func Definition() hooks.Definition {
 	}, run)
 }
 
-func BindingKey(siteURI vfs.URI) string {
-	digest := sha256.Sum256([]byte(siteURI))
-	return "html.get-page." + hex.EncodeToString(digest[:8])
-}
-
-func SiteBinding(bindingKey string, siteURI vfs.URI, templateKey string) (hooks.Binding, error) {
-	if _, err := getstatic.SiteBinding("html.get-page.validation", siteURI, templateKey); err != nil {
-		return hooks.Binding{}, fmt.Errorf("%w: invalid get-page site binding", hooks.ErrInvalidDefinition)
-	}
-	return hooksdk.ResourceBinding(bindingKey, HookKey, HookVersion, siteURI, getstatic.Config{TemplateKey: templateKey})
-}
-
 func run(ctx context.Context, execution hooks.Execution, input Input) (Output, error) {
-	if execution.Binding == nil {
-		return Output{}, vfs.NewError(vfs.KindFailedPrecondition, vfs.OpRead, "get-page requires a site binding", hooks.ErrBindingNotFound)
+	if input.SiteURI.Provider() != "html" || input.SiteURI.Path() != "/" {
+		return Output{}, vfs.NewError(vfs.KindInvalidArgument, vfs.OpRead, "invalid page target", vfs.ErrInvalidArgument)
 	}
 	route, segments, err := normalizeRoute(input.Path)
 	if err != nil {
 		return Output{}, vfs.NewError(vfs.KindInvalidArgument, vfs.OpRead, "invalid page path", err)
 	}
-	treeURI, err := siteResourceURI(execution.Binding.ResourceURI, "/tree.json")
+	treeURI, err := siteResourceURI(input.SiteURI, "/tree.json")
 	if err != nil {
 		return Output{}, vfs.NewError(vfs.KindFailedPrecondition, vfs.OpRead, "invalid get-page binding URI", err)
 	}
@@ -144,11 +132,11 @@ func run(ctx context.Context, execution hooks.Execution, input Input) (Output, e
 	if !found {
 		return Output{Route: route, Found: false, Code: NotFoundCode}, nil
 	}
-	siteURI, err := siteResourceURI(execution.Binding.ResourceURI, "/site.json")
+	siteURI, err := siteResourceURI(input.SiteURI, "/site.json")
 	if err != nil {
 		return Output{}, vfs.NewError(vfs.KindFailedPrecondition, vfs.OpRead, "invalid site metadata URI", err)
 	}
-	pageURI, err := siteResourceURI(execution.Binding.ResourceURI, "/pages/"+page.PageKey+"/info.json")
+	pageURI, err := siteResourceURI(input.SiteURI, "/pages/"+page.PageKey+"/info.json")
 	if err != nil {
 		return Output{}, vfs.NewError(vfs.KindFailedPrecondition, vfs.OpRead, "invalid page metadata URI", err)
 	}
@@ -168,7 +156,7 @@ func run(ctx context.Context, execution hooks.Execution, input Input) (Output, e
 	if err := json.Unmarshal(pageBytes, &pageInfo); err != nil || pageInfo.PageKey != page.PageKey || strings.TrimSpace(pageInfo.BundleRootURI) == "" {
 		return Output{}, hooks.FailStep("decode-page-metadata", vfs.NewError(vfs.KindFailedPrecondition, vfs.OpRead, "invalid page metadata", err))
 	}
-	asset, err := getstatic.Resolve(ctx, execution, getstatic.Input{Path: "index.html"})
+	asset, err := getstatic.Resolve(ctx, execution, getstatic.Input{SiteURI: input.SiteURI, TemplateKey: input.TemplateKey, Path: "index.html"})
 	if err != nil {
 		return Output{}, err
 	}

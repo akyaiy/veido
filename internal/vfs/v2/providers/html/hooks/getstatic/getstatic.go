@@ -1,5 +1,5 @@
-// Package getstatic reads an allowlisted application-template asset for a
-// trusted site binding and returns its bytes together with HTTP metadata.
+// Package getstatic reads an allowlisted application-template asset through
+// actor-bound VFS and returns its bytes together with HTTP metadata.
 package getstatic
 
 import (
@@ -36,11 +36,9 @@ var (
 )
 
 type Input struct {
-	Path string `json:"path"`
-}
-
-type Config struct {
-	TemplateKey string `json:"template_key"`
+	SiteURI     vfs.URI `json:"site_uri"`
+	TemplateKey string  `json:"template_key"`
+	Path        string  `json:"path"`
 }
 
 type Output struct {
@@ -91,18 +89,6 @@ func Register(registry *hooks.Registry) error {
 	return registry.Register(Definition())
 }
 
-func BindingKey(siteURI vfs.URI) string {
-	digest := sha256.Sum256([]byte(siteURI))
-	return "html.get-static." + hex.EncodeToString(digest[:8])
-}
-
-func SiteBinding(bindingKey string, siteURI vfs.URI, templateKey string) (hooks.Binding, error) {
-	if !templateKeyPattern.MatchString(templateKey) || siteURI.Provider() != "html" || siteURI.Path() != "/" {
-		return hooks.Binding{}, fmt.Errorf("%w: invalid get-static site binding", hooks.ErrInvalidDefinition)
-	}
-	return hooksdk.ResourceBinding(bindingKey, HookKey, HookVersion, siteURI, Config{TemplateKey: templateKey})
-}
-
 func run(ctx context.Context, execution hooks.Execution, input Input) (Output, error) {
 	return Resolve(ctx, execution, input)
 }
@@ -111,18 +97,14 @@ func run(ctx context.Context, execution hooks.Execution, input Input) (Output, e
 // by site hooks that need to return the application entrypoint after resolving
 // their own domain resource.
 func Resolve(ctx context.Context, execution hooks.Execution, input Input) (Output, error) {
-	if execution.Binding == nil {
-		return Output{}, vfs.NewError(vfs.KindFailedPrecondition, vfs.OpRead, "get-static requires a site binding", hooks.ErrBindingNotFound)
-	}
 	assetPath, err := normalizeAssetPath(input.Path)
 	if err != nil {
 		return Output{}, vfs.NewError(vfs.KindInvalidArgument, vfs.OpRead, "invalid static asset path", err)
 	}
-	config, err := decodeConfig(execution.Binding.Config)
-	if err != nil {
-		return Output{}, vfs.NewError(vfs.KindFailedPrecondition, vfs.OpRead, "invalid get-static binding", err)
+	if input.SiteURI.Provider() != "html" || input.SiteURI.Path() != "/" || !templateKeyPattern.MatchString(input.TemplateKey) {
+		return Output{}, vfs.NewError(vfs.KindInvalidArgument, vfs.OpRead, "invalid static target", vfs.ErrInvalidArgument)
 	}
-	versionsURI, err := siteResourceURI(execution.Binding.ResourceURI, path.Join("/templates", config.TemplateKey))
+	versionsURI, err := siteResourceURI(input.SiteURI, path.Join("/templates", input.TemplateKey))
 	if err != nil {
 		return Output{}, vfs.NewError(vfs.KindFailedPrecondition, vfs.OpRead, "invalid get-static binding URI", err)
 	}
@@ -134,7 +116,7 @@ func Resolve(ctx context.Context, execution hooks.Execution, input Input) (Outpu
 	if err != nil {
 		return Output{}, hooks.FailStep("resolve-latest-template", vfs.NewError(vfs.KindNotFound, vfs.OpRead, "application template not found", err))
 	}
-	manifestURI, err := siteResourceURI(execution.Binding.ResourceURI, path.Join("/templates", config.TemplateKey, version, "manifest.json"))
+	manifestURI, err := siteResourceURI(input.SiteURI, path.Join("/templates", input.TemplateKey, version, "manifest.json"))
 	if err != nil {
 		return Output{}, vfs.NewError(vfs.KindFailedPrecondition, vfs.OpRead, "invalid get-static binding URI", err)
 	}
@@ -142,7 +124,7 @@ func Resolve(ctx context.Context, execution hooks.Execution, input Input) (Outpu
 	if err != nil {
 		return Output{}, hooks.FailStep("read-template-manifest", err)
 	}
-	manifest, err := decodeManifest(manifestBytes, config.TemplateKey, version)
+	manifest, err := decodeManifest(manifestBytes, input.TemplateKey, version)
 	if err != nil {
 		return Output{}, hooks.FailStep("validate-template-manifest", vfs.NewError(vfs.KindFailedPrecondition, vfs.OpRead, "invalid template manifest", err))
 	}
@@ -150,7 +132,7 @@ func Resolve(ctx context.Context, execution hooks.Execution, input Input) (Outpu
 	if !found {
 		return Output{}, hooks.FailStep("resolve-template-asset", vfs.NewError(vfs.KindNotFound, vfs.OpRead, "static asset not found", vfs.ErrNotFound))
 	}
-	resourceURI, err := siteResourceURI(execution.Binding.ResourceURI, path.Join("/templates", config.TemplateKey, version, "files", asset.Path))
+	resourceURI, err := siteResourceURI(input.SiteURI, path.Join("/templates", input.TemplateKey, version, "files", asset.Path))
 	if err != nil {
 		return Output{}, hooks.FailStep("resolve-template-asset", vfs.NewError(vfs.KindFailedPrecondition, vfs.OpRead, "invalid template asset URI", err))
 	}
@@ -167,19 +149,8 @@ func Resolve(ctx context.Context, execution hooks.Execution, input Input) (Outpu
 	return Output{
 		Content: content, ContentType: asset.ContentType, Digest: asset.Digest,
 		Size: asset.Size, ETag: `"sha256-` + asset.Digest + `"`, CacheControl: cacheControl, Entrypoint: entrypoint,
-		TemplateKey: config.TemplateKey, Version: version,
+		TemplateKey: input.TemplateKey, Version: version,
 	}, nil
-}
-
-func decodeConfig(data []byte) (Config, error) {
-	var config Config
-	if err := decodeStrict(data, &config); err != nil {
-		return config, err
-	}
-	if !templateKeyPattern.MatchString(config.TemplateKey) {
-		return config, fmt.Errorf("invalid template identity")
-	}
-	return config, nil
 }
 
 func decodeManifest(data []byte, templateKey, version string) (templateManifest, error) {

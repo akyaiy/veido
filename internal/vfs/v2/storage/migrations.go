@@ -14,8 +14,29 @@ func MigrationGroup() migrate.Group {
 		Migrations: []migrate.Migration{
 			{Version: 1, Name: "scopes_and_connections", Up: migrateVFSCoreV1},
 			{Version: 2, Name: "connection_runtime_fields", Up: migrateVFSCoreV2},
+			{Version: 3, Name: "system_scope", Up: migrateVFSCoreV3},
+			{Version: 4, Name: "system_scopes_connection", Up: migrateVFSCoreV4},
 		},
 	}
+}
+
+func migrateVFSCoreV3(ctx context.Context, tx *sql.Tx) error {
+	_, err := tx.ExecContext(ctx, `
+		INSERT INTO vfs_scopes(scope_key, kind, owner_subject_key)
+		VALUES ('system', 'system', 'service:system')
+		ON CONFLICT(scope_key) DO NOTHING
+	`)
+	return err
+}
+
+func migrateVFSCoreV4(ctx context.Context, tx *sql.Tx) error {
+	_, err := tx.ExecContext(ctx, `
+		INSERT INTO vfs_provider_connections(
+			scope_key, provider, connection_key, display_name, config_json, status, ready
+		) VALUES ('system', 'scopes', 'scopes', 'Scopes', '{}', 'active', 1)
+		ON CONFLICT(scope_key, connection_key) DO NOTHING
+	`)
+	return err
 }
 
 func migrateVFSCoreV1(ctx context.Context, tx *sql.Tx) error {

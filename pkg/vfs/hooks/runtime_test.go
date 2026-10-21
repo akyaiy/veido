@@ -125,29 +125,10 @@ func TestRuntimeUsesSameActorForEveryVFSOperationAndCachesIdempotentResult(t *te
 	}
 }
 
-type bindingConfig struct {
-	TemplateRoot string `json:"template_root"`
-}
-type bindingInput struct {
-	Path string `json:"path"`
-}
-type bindingOutput struct {
-	SiteURI      string `json:"site_uri"`
-	TemplateRoot string `json:"template_root"`
-	Path         string `json:"path"`
-}
-
-func TestRuntimeKeepsTrustedBindingSeparateFromCallerInput(t *testing.T) {
+func TestRuntimePreservesSafeVFSFailureMessage(t *testing.T) {
 	registry := hooks.NewRegistry(hooks.DefaultEngines())
-	definition := hooksdk.Native("resolve-static", 2, hooksdk.NativeOptions{Enabled: true, Active: true}, func(_ context.Context, execution hooks.Execution, input bindingInput) (bindingOutput, error) {
-		if execution.Binding == nil {
-			return bindingOutput{}, errors.New("missing binding")
-		}
-		var config bindingConfig
-		if err := json.Unmarshal(execution.Binding.Config, &config); err != nil {
-			return bindingOutput{}, err
-		}
-		return bindingOutput{SiteURI: string(execution.Binding.ResourceURI), TemplateRoot: config.TemplateRoot, Path: input.Path}, nil
+	definition := hooksdk.Native("safe-failure", 1, hooksdk.NativeOptions{Enabled: true, Active: true}, func(context.Context, hooks.Execution, struct{}) (struct{}, error) {
+		return struct{}{}, vfs.NewError(vfs.KindConflict, vfs.OpControl, "user already exists", errors.New("sqlite constraint detail"))
 	})
 	if err := registry.Register(definition); err != nil {
 		t.Fatal(err)
@@ -159,29 +140,10 @@ func TestRuntimeKeepsTrustedBindingSeparateFromCallerInput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	siteURI := mustURI(t, "html@site[site-acme]:///")
-	binding, err := hooksdk.ResourceBinding("site-acme.static", "resolve-static", 2, siteURI, bindingConfig{TemplateRoot: "/templates/default-spa/1"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := registry.RegisterBinding(binding); err != nil {
-		t.Fatal(err)
-	}
-	result, err := runtime.RunResource(context.Background(), vfs.Actor{Kind: vfs.ActorGuest}, siteURI, "resolve-static", json.RawMessage(`{"path":"index.html"}`), hooks.RunOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	var output bindingOutput
-	if err := json.Unmarshal(result.Output, &output); err != nil {
-		t.Fatal(err)
-	}
-	if result.BindingKey != "site-acme.static" || output.SiteURI != "html@site[site-acme]:///" || output.TemplateRoot != "/templates/default-spa/1" || output.Path != "index.html" {
-		t.Fatalf("binding result = %+v output=%+v", result, output)
-	}
-	_, err = runtime.RunResource(context.Background(), vfs.Actor{Kind: vfs.ActorGuest}, siteURI, "resolve-static", json.RawMessage(`{"path":"index.html","template_root":"/attacker"}`), hooks.RunOptions{})
+	_, err = runtime.Run(context.Background(), vfs.Actor{Kind: vfs.ActorGuest}, "safe-failure", json.RawMessage(`{}`), hooks.RunOptions{})
 	var runErr *hooks.RunError
-	if !errors.As(err, &runErr) || runErr.Code != "invalid_input" {
-		t.Fatalf("binding override error = %#v, %v", runErr, err)
+	if !errors.As(err, &runErr) || runErr.Cause != "conflict" || runErr.Message != "user already exists" {
+		t.Fatalf("run error = %#v, %v", runErr, err)
 	}
 }
 

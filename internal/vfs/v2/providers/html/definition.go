@@ -1,7 +1,6 @@
 package html
 
 import (
-	"MyServer/internal/common"
 	vfs "MyServer/internal/vfs/v2"
 	"MyServer/internal/vfs/v2/providers/html/hooks/getpage"
 	"MyServer/internal/vfs/v2/providers/html/hooks/getstatic"
@@ -33,23 +32,5 @@ func Module(store *SQLiteStore) sdk.Module[Config] {
 	return sdk.Module[Config]{
 		Provider: Definition(store),
 		Hooks:    []hooks.Definition{getstatic.Definition(), getpage.Definition()},
-		Bindings: func(_ context.Context, connection vfs.ProviderConnection, config Config) ([]hooks.Binding, error) {
-			siteURI, err := (common.ResourceAddress{
-				ProviderKey: ProviderKey, ConnectionKey: connection.ConnectionKey,
-				ScopeKey: connection.ScopeKey, Path: "/",
-			}).URI()
-			if err != nil {
-				return nil, err
-			}
-			staticBinding, err := getstatic.SiteBinding(getstatic.BindingKey(siteURI), siteURI, config.StaticTemplateKey)
-			if err != nil {
-				return nil, err
-			}
-			pageBinding, err := getpage.SiteBinding(getpage.BindingKey(siteURI), siteURI, config.StaticTemplateKey)
-			if err != nil {
-				return nil, err
-			}
-			return []hooks.Binding{staticBinding, pageBinding}, nil
-		},
 	}
 }

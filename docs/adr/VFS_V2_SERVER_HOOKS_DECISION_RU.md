@@ -4,27 +4,31 @@
 > Статус реализации на 20 октября 2026 года: в процессе. Реализован
 > transport-neutral фундамент `pkg/vfs/hooks`: versioned definitions, engine
 > contract и доверенный native engine, immutable после compile/freeze definitions,
-> typed Hook SDK, canonical resource bindings, Runtime с actor-bound VFS,
+> typed Hook SDK и Runtime с actor-bound VFS,
 > timeout/input/output/step limits, structured errors и in-memory
 > idempotency store для коротких синхронных запусков. Контракт и тесты не
 > зависят от HTTP или provider internals. Реализован прикладной read-only
-> `get-static`: trusted site binding выбирает template key, а hook — последнюю
+> `get-static` получает site URI и template key в typed input, а hook выбирает последнюю
 > установленную immutable версию package,
 > manifest и asset читаются через actor-bound VFS, фактические size/SHA-256
 > сверяются с manifest, а результат содержит asset bytes и HTTP metadata.
-> Site-bound `get-page` читает actor-filtered `tree.json`, разрешает точную
+> `get-page` читает actor-filtered `tree.json`, разрешает точную
 > цепочку page slug для одно- или многосегментного browser path и возвращает
 > тот же проверенный application entrypoint только для существующего маршрута.
 > Размер одного ответа ограничен размером template asset (4 MiB), JSON output
 > допускает Base64 overhead и сохраняется в Hook Store при идемпотентном запуске.
 > Provider SDK поддерживает `Module`: hook definitions регистрируются вместе с
-> типом provider, а thread-safe connection bindings создаются/обновляются после
-> успешного открытия connection. HTML module объявляет `get-static`, `get-page`
-> и их bindings `site root` → `default-spa` (latest installed); adapter вызывает их через
-> `RunResource(actor, siteURI, hookKey, input, options)` без знания binding key.
+> типом provider. HTML module объявляет `get-static` и `get-page`; site adapter
+> передаёт site URI и template key в typed input и вызывает обычный `Run`.
+> Auth-композиция также регистрирует native hooks `auth.register`,
+> `auth.login`, `auth.refresh`, `auth.logout`, `auth.change-password` и
+> `auth.revoke-sessions` как глобальные команды без target resource.
+> HTTP adapter поддерживает типизированный transport bridge: refresh credential
+> передаётся Auth handlers через приватный trusted context и не попадает в
+> пользовательский input/output или provider context.
 > Реализован HTTP adapter `POST /api/v2/vfs/hooks/{hook-key}/run`: он принимает
-> optional canonical `resource_uri`, strict `input`, version и `Idempotency-Key`,
-> получает actor только из trusted resolver и вызывает `Run` либо `RunResource`.
+> strict `input`, version и `Idempotency-Key`, получает actor только из trusted
+> resolver и вызывает `Run`.
 > Ещё отсутствуют durable Execution Store, step journal/resume/compensation, sandboxed script
 > engine, hook-level policy и metrics/tracing.
 > Дата решения: 26 сентября 2026 года.  
@@ -199,13 +203,12 @@ registry. Разработчик задаёт:
   -> providersdk.RegisterModule(provider catalog, hook registry, module)
   -> зарегистрировать provider factory и hook definitions модуля
   -> проверить и заморозить hook definitions
-  -> при открытии provider connection создать или обновить resource bindings
   -> создать runtime из registry, VFSFrontend, engines и execution store
   -> передать runtime нужным adapters
 ```
 
-Каждый provider-модуль экспортирует provider definition, hook definitions и
-фабрику connection bindings через Provider SDK. Модулю не
+Каждый provider-модуль экспортирует provider definition и hook definitions
+через Provider SDK. Модулю не
 передаются HTTP router или handler, и он не создаёт собственный runtime. SDK
 скрывает служебную сборку definition, но не скрывает ключ, версию, схемы и
 лимиты публичного контракта.
@@ -218,9 +221,8 @@ registry. Разработчик задаёт:
 - script не загружается или не компилируется;
 - активными объявлены несколько несовместимых версий.
 
-Production hook definitions после сборки замораживаются. Trusted resource
-bindings остаются динамическими: Provider SDK создаёт или обновляет их при
-открытии connection. Удалённое добавление definitions для MVP не поддерживается.
+Production hook definitions после сборки замораживаются. Удалённое добавление
+definitions для MVP не поддерживается.
 
 ## 8. Контракт Hook Runtime
 
@@ -228,12 +230,7 @@ Runtime предоставляет transport-neutral операцию:
 
 ```text
 Run(context, actor, hook key, input, options) -> result или typed error
-RunResource(context, actor, resource URI, hook key, input, options)
-  -> result или typed error
 ```
-
-`RunResource` разрешает trusted binding по точной паре canonical resource URI и
-hook key. Внутренний binding key не является частью контракта adapter-а.
 
 `options` содержит только независимые от транспорта параметры: запрошенную
 версию, idempotency key и политику deadline. HTTP headers и status codes в
@@ -263,8 +260,9 @@ Content-Type: application/json
 Idempotency-Key: 8d47a220-3c2d-47fd-b3e5-f85c0f8672b1
 
 {
-	"resource_uri": "html@site[site-acme]:///",
   "input": {
+	"site_uri": "html@site[site-acme]:///",
+	"template_key": "default-spa",
 	"path": "index.html"
   }
 }
@@ -273,14 +271,15 @@ Idempotency-Key: 8d47a220-3c2d-47fd-b3e5-f85c0f8672b1
 HTTP-адаптер выполняет только транспортную работу:
 
 1. получает actor из доверенного auth context;
-2. читает `hook-key`, optional canonical `resource_uri`, input, version и `Idempotency-Key`;
-3. без `resource_uri` вызывает `Run`, а с ним — `RunResource`;
+2. читает `hook-key`, input, version и `Idempotency-Key`;
+3. вызывает `Run`;
 4. преобразует result или типизированную ошибку runtime в HTTP-ответ.
 
 Actor не передаётся в path, query, headers сценария или JSON. HTTP-адаптер не
 разрешает definition, не запускает script engine и не выполняет VFS-шаги сам.
-`resource_uri` идентифицирует target resource, но не предоставляет доступа:
-каждый шаг hook повторно проходит VFS Core и ACL с тем же actor.
+Все URI находятся в typed input конкретного hook; каждый VFS-шаг повторно
+проходит VFS Core и ACL с тем же actor. Hook не прикреплён к одному ресурсу и
+может обращаться к ресурсам разных provider-ов.
 
 Успешный результат:
 

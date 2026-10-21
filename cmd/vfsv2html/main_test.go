@@ -85,7 +85,7 @@ func TestDemoSeedsHTMLPageAndApplicationTemplateIdempotently(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := hookRuntime.RunResource(context.Background(), demoActor, mustURI(htmlURI("/")), getstatic.HookKey, json.RawMessage(`{"path":"index.html"}`), hooks.RunOptions{IdempotencyKey: "demo-index"})
+	result, err := hookRuntime.Run(context.Background(), demoActor, getstatic.HookKey, json.RawMessage(`{"site_uri":"`+htmlURI("/")+`","template_key":"default-spa","path":"index.html"}`), hooks.RunOptions{IdempotencyKey: "demo-index"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,20 +182,20 @@ func TestDemoHandlerServesUIAssetsAndVFSAPI(t *testing.T) {
 		t.Fatalf("GET draft /home: status=%d body=%q", draftPage.Code, draftPage.Body.String())
 	}
 
-	hookRequest := httptest.NewRequest(http.MethodPost, "/api/v2/vfs/hooks/get-static/run", strings.NewReader(`{"resource_uri":"`+htmlURI("/")+`","input":{"path":"index.html"}}`))
+	hookRequest := httptest.NewRequest(http.MethodPost, "/api/v2/vfs/hooks/get-static/run", strings.NewReader(`{"input":{"site_uri":"`+htmlURI("/")+`","template_key":"default-spa","path":"index.html"}}`))
 	hookRequest.Header.Set("Idempotency-Key", "http-index")
 	hookResponse := httptest.NewRecorder()
 	handler.ServeHTTP(hookResponse, hookRequest)
 	if hookResponse.Code != http.StatusOK || !strings.Contains(hookResponse.Body.String(), `"hook":"get-static"`) || !strings.Contains(hookResponse.Body.String(), `"content":"`) {
 		t.Fatalf("POST hook: status=%d body=%q", hookResponse.Code, hookResponse.Body.String())
 	}
-	pageHookRequest := httptest.NewRequest(http.MethodPost, "/api/v2/vfs/hooks/get-page/run", strings.NewReader(`{"resource_uri":"`+htmlURI("/")+`","input":{"path":"/demo"}}`))
+	pageHookRequest := httptest.NewRequest(http.MethodPost, "/api/v2/vfs/hooks/get-page/run", strings.NewReader(`{"input":{"site_uri":"`+htmlURI("/")+`","template_key":"default-spa","path":"/demo"}}`))
 	pageHookResponse := httptest.NewRecorder()
 	handler.ServeHTTP(pageHookResponse, pageHookRequest)
 	if pageHookResponse.Code != http.StatusOK || !strings.Contains(pageHookResponse.Body.String(), `"hook":"get-page"`) || !strings.Contains(pageHookResponse.Body.String(), `"found":true`) || !strings.Contains(pageHookResponse.Body.String(), `"page_key":"demo"`) {
 		t.Fatalf("POST page hook: status=%d body=%q", pageHookResponse.Code, pageHookResponse.Body.String())
 	}
-	missingPageHookRequest := httptest.NewRequest(http.MethodPost, "/api/v2/vfs/hooks/get-page/run", strings.NewReader(`{"resource_uri":"`+htmlURI("/")+`","input":{"path":"/missing"}}`))
+	missingPageHookRequest := httptest.NewRequest(http.MethodPost, "/api/v2/vfs/hooks/get-page/run", strings.NewReader(`{"input":{"site_uri":"`+htmlURI("/")+`","template_key":"default-spa","path":"/missing"}}`))
 	missingPageHookResponse := httptest.NewRecorder()
 	handler.ServeHTTP(missingPageHookResponse, missingPageHookRequest)
 	if missingPageHookResponse.Code != http.StatusOK || !strings.Contains(missingPageHookResponse.Body.String(), `"status":"completed"`) || !strings.Contains(missingPageHookResponse.Body.String(), `"route":"/missing"`) || !strings.Contains(missingPageHookResponse.Body.String(), `"found":false`) || !strings.Contains(missingPageHookResponse.Body.String(), `"code":"not_found"`) || strings.Contains(missingPageHookResponse.Body.String(), `"content"`) {

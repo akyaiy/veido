@@ -508,12 +508,12 @@ Reconciliation повторяет только безопасные шаги и 
 ### Инкремент 10. `/public` и Site HTTP Adapter (R2)
 
 > Статус на 20 октября 2026 года: реализован ограниченный demo Site HTTP slice
-> поверх site-bound `get-static`. Точный `GET /` возвращает template entrypoint,
+> поверх `get-static`. Точный `GET /` возвращает template entrypoint,
 > `GET /_static/*` выбирает последнюю установленную версию template key из
-> trusted site binding и проверяет manifest allowlist,
+> typed `site_uri` и `template_key` site adapter-а и проверяет manifest allowlist,
 > выставляет MIME, Content-Length, ETag, Cache-Control и `nosniff`; неизвестный
 > static получает 404 без fallback. Любой другой browser path, включая
-> многосегментный, передаётся site-bound `get-page`: hook читает actor-filtered
+> многосегментный, передаётся `get-page`: hook читает actor-filtered
 > `tree.json`, разрешает точную цепочку slug и возвращает template entrypoint
 > только для существующего маршрута; вместе с entrypoint hook возвращает
 > actor-filtered bootstrap страницы, который adapter безопасно встраивает в
@@ -548,7 +548,7 @@ HTML Provider проецирует active publication:
 
 Site HTTP Adapter находится вне provider-а и принимает Hook Runtime, site URI
 resolver и actor policy. Он не получает HTML Store, VFSFrontend или filesystem;
-чтение выполняет site-bound hook с исходным actor через VFS Core.
+чтение выполняет hook с исходным actor через VFS Core.
 
 Порядок маршрутов production server-а:
 
@@ -559,7 +559,7 @@ resolver и actor policy. Он не получает HTML Store, VFSFrontend и�
 5. обычный 404.
 
 `/_static` выбирает последнюю установленную версию template key из trusted
-site binding и проверяет asset allowlist. Неизвестный static asset никогда не
+typed input site adapter-а и проверяет asset allowlist. Неизвестный static asset никогда не
 получает `index.html`. Поскольку публичный URL не versioned, entrypoint и static
 получают digest ETag и revalidation cache policy без `immutable`.
 
@@ -586,16 +586,15 @@ server использует allow-all/noop или legacy обход для за�
 ### Инкремент 12. Необязательные hooks ADR-008
 
 > Статус на 20 октября 2026 года: общий transport-neutral Hook SDK, frozen
-> definitions, trusted native Engine, dynamic trusted resource bindings, actor-bound Runtime и
+> definitions, trusted native Engine, actor-bound Runtime и
 > in-memory idempotency уже реализованы независимо от HTML Provider. Read-only
-> site-bound `get-static` объявлен самим HTML `providersdk.Module`; Provider SDK
-> регистрирует definition вместе с provider factory и создаёт binding site root →
-> `default-spa` (latest installed) при открытии connection. Adapter вызывает его через
-> `RunResource(actor, siteURI, "get-static", ...)`. Hook разрешает только asset из проверенного
+> `get-static` объявлен самим HTML `providersdk.Module`; Provider SDK
+> регистрирует definition вместе с provider factory. Adapter передаёт
+> `Run(actor, "get-static", {site_uri, template_key, ...})`. Hook разрешает только asset из проверенного
 > manifest, сохраняет actor на всех VFS-шагах, читает asset внутри hook, сверяет
 > фактические size/SHA-256 и возвращает bytes вместе с HTTP metadata. Asset
 > ограничен 4 MiB, а JSON output учитывает Base64 overhead. Универсальный Hook
-> HTTP adapter реализует ADR route и вызывает direct/resource-bound hooks.
+> HTTP adapter реализует ADR route и вызывает hooks по key и typed input.
 > Остальные прикладные HTML hooks и durable execution journal ещё отсутствуют.
 
 После появления Hook Runtime зарегистрировать через его публичный SDK:
@@ -604,8 +603,8 @@ server использует allow-all/noop или legacy обход для за�
 - `create-page-with-content`;
 - `delete-page-and-bundle`;
 - `publish-site`.
-- `get-static` как read-only reader разрешённого template resource для
-  конкретного site binding; hook возвращает bytes и HTTP metadata одним результатом.
+- `get-static` как read-only reader разрешённого template resource; hook
+  получает target URI в typed input и возвращает bytes и HTTP metadata одним результатом.
 
 Hooks вызывают только actor-bound VFS. Они не получают `html.Store`,
 `PageService` или прямой ACL management service. Тест частичного сбоя должен

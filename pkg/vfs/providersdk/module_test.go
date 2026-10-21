@@ -10,13 +10,8 @@ import (
 	"testing"
 )
 
-type moduleConfig struct {
-	Template string `json:"template"`
-}
-
 type moduleOutput struct {
-	Resource string `json:"resource"`
-	Template string `json:"template"`
+	Registered bool `json:"registered"`
 }
 
 type unusedFrontend struct{}
@@ -43,33 +38,21 @@ func (unusedFrontend) Control(context.Context, vfs.Actor, vfs.URI, string, []byt
 	return nil, vfs.ErrUnsupported
 }
 
-func TestModuleRegistersHookDefinitionAndBindingWhenProviderOpens(t *testing.T) {
+func TestModuleRegistersHookDefinition(t *testing.T) {
 	hookRegistry := hooks.NewRegistry(hooks.DefaultEngines())
 	catalog := sdk.NewCatalog()
-	definition := hooksdk.Native("module-static", 1, hooksdk.NativeOptions{Enabled: true, Active: true}, func(_ context.Context, execution hooks.Execution, _ struct{}) (moduleOutput, error) {
-		var config moduleConfig
-		if err := json.Unmarshal(execution.Binding.Config, &config); err != nil {
-			return moduleOutput{}, err
-		}
-		return moduleOutput{Resource: string(execution.Binding.ResourceURI), Template: config.Template}, nil
+	definition := hooksdk.Native("module-static", 1, hooksdk.NativeOptions{Enabled: true, Active: true}, func(_ context.Context, _ hooks.Execution, _ struct{}) (moduleOutput, error) {
+		return moduleOutput{Registered: true}, nil
 	})
-	module := sdk.Module[moduleConfig]{
-		Provider: sdk.Definition[moduleConfig]{
+	module := sdk.Module[struct{}]{
+		Provider: sdk.Definition[struct{}]{
 			Key:      "module-provider",
-			Defaults: func() moduleConfig { return moduleConfig{Template: "default-spa/1"} },
-			Open: func(context.Context, vfs.ProviderConnection, moduleConfig) (vfs.FSProvider, error) {
+			Defaults: func() struct{} { return struct{}{} },
+			Open: func(context.Context, vfs.ProviderConnection, struct{}) (vfs.FSProvider, error) {
 				return sdk.New().Build()
 			},
 		},
 		Hooks: []hooks.Definition{definition},
-		Bindings: func(_ context.Context, connection vfs.ProviderConnection, config moduleConfig) ([]hooks.Binding, error) {
-			resource, err := (vfs.ResourceAddress{ProviderKey: connection.ProviderKey, ConnectionKey: connection.ConnectionKey, ScopeKey: connection.ScopeKey, Path: "/"}).URI()
-			if err != nil {
-				return nil, err
-			}
-			binding, err := hooksdk.ResourceBinding("module-provider.static", "module-static", 1, resource, config)
-			return []hooks.Binding{binding}, err
-		},
 	}
 	if err := sdk.RegisterModule(catalog, hookRegistry, module); err != nil {
 		t.Fatal(err)
@@ -93,11 +76,7 @@ func TestModuleRegistersHookDefinitionAndBindingWhenProviderOpens(t *testing.T) 
 	if provider == nil {
 		t.Fatal("provider factory returned nil")
 	}
-	resource, err := (vfs.ResourceAddress{ProviderKey: connection.ProviderKey, ConnectionKey: connection.ConnectionKey, ScopeKey: connection.ScopeKey, Path: "/"}).URI()
-	if err != nil {
-		t.Fatal(err)
-	}
-	result, err := runtime.RunResource(context.Background(), vfs.Actor{Kind: vfs.ActorGuest}, resource, "module-static", json.RawMessage(`{}`), hooks.RunOptions{})
+	result, err := runtime.Run(context.Background(), vfs.Actor{Kind: vfs.ActorGuest}, "module-static", json.RawMessage(`{}`), hooks.RunOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,22 +84,7 @@ func TestModuleRegistersHookDefinitionAndBindingWhenProviderOpens(t *testing.T) 
 	if err := json.Unmarshal(result.Output, &output); err != nil {
 		t.Fatal(err)
 	}
-	if output.Resource != string(resource) || output.Template != "default-spa/1" {
+	if !output.Registered {
 		t.Fatalf("module hook output = %+v", output)
-	}
-	connection.ConfigVersion = 2
-	connection.Config = json.RawMessage(`{"template":"custom/2"}`)
-	if _, err := factory(context.Background(), connection); err != nil {
-		t.Fatal(err)
-	}
-	result, err = runtime.RunResource(context.Background(), vfs.Actor{Kind: vfs.ActorGuest}, resource, "module-static", json.RawMessage(`{}`), hooks.RunOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := json.Unmarshal(result.Output, &output); err != nil {
-		t.Fatal(err)
-	}
-	if output.Template != "custom/2" {
-		t.Fatalf("updated module hook output = %+v", output)
 	}
 }

@@ -117,3 +117,46 @@ func TestOwnerScopeGateAuthorizerRejectsMalformedScopeResource(t *testing.T) {
 		t.Fatalf("delegate calls = %d, want 0", delegate.calls)
 	}
 }
+
+func TestSystemAndOwnerScopeAuthorizerAllowsSystemAndOwnScope(t *testing.T) {
+	resolver := &scopeGateTestResolver{scope: Scope{Key: "alice", OwnerSubjectKey: "user:1"}}
+	authorizer, err := NewSystemAndOwnerScopeAuthorizer(resolver)
+	if err != nil {
+		t.Fatal(err)
+	}
+	guest := Actor{Kind: ActorGuest, ID: "guest-id"}
+
+	allowed, err := authorizer.Can(context.Background(), guest, common.ActionRead, common.ResourceRef{ProviderKey: "users", ConnectionKey: "account", ScopeKey: "system", Path: "/actor.json"})
+	if err != nil || !allowed {
+		t.Fatalf("system resource = %v, %v; want true, nil", allowed, err)
+	}
+	allowed, err = authorizer.Can(context.Background(), guest, common.ActionRead, common.ResourceRef{ProviderKey: "users", ConnectionKey: "account", ScopeKey: "other", Path: "/actor.json"})
+	if err != nil || allowed {
+		t.Fatalf("foreign resource = %v, %v; want false, nil", allowed, err)
+	}
+	allowed, err = authorizer.Can(context.Background(), guest, common.ActionExec, scopeGateRef("system"))
+	if err != nil || !allowed {
+		t.Fatalf("system scope gate = %v, %v; want true, nil", allowed, err)
+	}
+	allowed, err = authorizer.Can(context.Background(), Actor{Kind: ActorUser, ID: "1"}, common.ActionRead, common.ResourceRef{ScopeKey: "alice"})
+	if err != nil || !allowed {
+		t.Fatalf("owner scope = %v, %v; want true, nil", allowed, err)
+	}
+}
+
+func TestSystemOwnerAndPublicScopeAuthorizerAllowsConfiguredPublicScope(t *testing.T) {
+	resolver := &scopeGateTestResolver{scope: Scope{Key: "site-acme", OwnerSubjectKey: "user:1"}}
+	authorizer, err := NewSystemOwnerAndPublicScopeAuthorizer(resolver, []string{"site-acme"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	guest := Actor{Kind: ActorGuest, ID: "guest-id"}
+	allowed, err := authorizer.Can(context.Background(), guest, common.ActionRead, common.ResourceRef{ProviderKey: "html", ConnectionKey: "site", ScopeKey: "site-acme", Path: "/tree.json"})
+	if err != nil || !allowed {
+		t.Fatalf("public site resource = %v, %v; want true, nil", allowed, err)
+	}
+	allowed, err = authorizer.Can(context.Background(), guest, common.ActionRead, common.ResourceRef{ProviderKey: "html", ConnectionKey: "site", ScopeKey: "private", Path: "/tree.json"})
+	if err != nil || allowed {
+		t.Fatalf("private resource = %v, %v; want false, nil", allowed, err)
+	}
+}

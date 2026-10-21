@@ -1,6 +1,6 @@
 # Карта HTTP API для VFSv2
 
-> Статус: согласованная базовая карта для проектирования HTTP-адаптера. Детали реализации описаны в `VFS_V2_HTTP_ADAPTER_ARCHITECTURE_RU.md`.
+> Статус: реализованный базовый контракт HTTP-адаптера. Детали реализации описаны в `VFS_V2_HTTP_ADAPTER_ARCHITECTURE_RU.md`.
 
 ## Назначение
 
@@ -30,7 +30,7 @@ HTTP-адаптер не проверяет ACL самостоятельно, н
 /api/v2/vfs/{operation}?uri={url-encoded canonical URI}
 ```
 
-В текущей Wiki указан концептуальный маршрут `/api/acc2fs/{operation}`, а legacy-реализация использует `/api/files/acc2fs/*`. Новый VFSv2 API использует отдельный версионированный prefix и не меняет legacy API.
+В текущей Wiki указан концептуальный маршрут `/api/acc2fs/{operation}`, а legacy-реализация использует `/api/files/acc2fs/*`. Новый VFSv2 API использует отдельный версионированный prefix. Auth-команды основной pre-prod сборки уже переведены на hooks; legacy `/api/auth` в router больше не регистрируется.
 
 Канонический URI передается полностью URL-encoded, потому что сам URI может содержать собственные query-параметры.
 
@@ -49,6 +49,25 @@ HTTP-адаптер не проверяет ACL самостоятельно, н
 | `POST /control` | Выполнить команду provider-а | `uri`, `command`; тело — opaque bytes | `Control(actor, uri, command, body)` | `200` + opaque bytes |
 
 `PATCH /file` не входит в MVP: сначала нужно определить контракт частичной записи, offset, допустимость расширения файла и поведение при конфликте версий.
+
+## Auth hooks
+
+Auth-команды используют тот же prefix и общий hook endpoint:
+
+```http
+POST /api/v2/vfs/hooks/{hook-key}/run
+Content-Type: application/json
+
+{
+  "input": {"username":"alice","password":"..."}
+}
+```
+
+Доступные пары hook/resource перечислены в
+[ADR-012](adr/USERS_PROVIDER_AUTH_HOOKS_DECISION_RU.md). Access token находится
+в JSON output login/refresh. Refresh token передаётся только через HttpOnly
+cookie и не может быть задан в `input`. Auth hooks используют явный общий
+scope `system`, поэтому тот же URI применяется до и после login.
 
 ## Контракты запросов
 

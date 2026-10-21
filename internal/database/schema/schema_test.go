@@ -51,8 +51,8 @@ func TestMigrateCleanDatabaseAndRepeat(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(applied) != 12 {
-		t.Fatalf("applied migrations = %d, want 12", len(applied))
+	if len(applied) != 14 {
+		t.Fatalf("applied migrations = %d, want 14", len(applied))
 	}
 	if err := migratePreprod(ctx, db); err != nil {
 		t.Fatalf("second migration: %v", err)
@@ -71,14 +71,26 @@ func TestMigrateCleanDatabaseAndRepeat(t *testing.T) {
 	if sharedExists {
 		t.Fatal("optional shared migration ran by default")
 	}
-	for _, table := range []string{"users", "vfs_scopes", "vfs_provider_connections"} {
-		var rows int
-		if err := db.QueryRow(`SELECT COUNT(*) FROM ` + table).Scan(&rows); err != nil {
-			t.Fatal(err)
-		}
-		if rows != 0 {
-			t.Fatalf("migration seeded %s with %d rows", table, rows)
-		}
+	var users int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&users); err != nil {
+		t.Fatal(err)
+	}
+	if users != 0 {
+		t.Fatalf("migration seeded users with %d rows", users)
+	}
+	var systemScopeCount int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM vfs_scopes WHERE scope_key = 'system' AND kind = 'system'`).Scan(&systemScopeCount); err != nil {
+		t.Fatal(err)
+	}
+	if systemScopeCount != 1 {
+		t.Fatalf("system scope rows = %d, want 1", systemScopeCount)
+	}
+	var scopesConnectionCount int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM vfs_provider_connections WHERE scope_key = 'system' AND provider = 'scopes' AND connection_key = 'scopes'`).Scan(&scopesConnectionCount); err != nil {
+		t.Fatal(err)
+	}
+	if scopesConnectionCount != 1 {
+		t.Fatalf("system scopes connection rows = %d, want 1", scopesConnectionCount)
 	}
 }
 

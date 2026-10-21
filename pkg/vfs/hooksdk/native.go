@@ -2,7 +2,6 @@
 package hooksdk
 
 import (
-	"MyServer/pkg/vfs"
 	"MyServer/pkg/vfs/hooks"
 	sdk "MyServer/pkg/vfs/providersdk"
 	"bytes"
@@ -51,16 +50,6 @@ func Native[In, Out any](key string, version int, options NativeOptions, handler
 		ValidateInput: validateInput, ValidateOutput: validateOutput,
 		Limits: options.Limits, Enabled: options.Enabled, Active: options.Active,
 	}
-}
-
-// ResourceBinding attaches a hook to one canonical resource URI. Config is
-// trusted server data and remains separate from caller input.
-func ResourceBinding[C any](key, hookKey string, version int, resourceURI vfs.URI, config C) (hooks.Binding, error) {
-	data, err := json.Marshal(config)
-	if err != nil {
-		return hooks.Binding{}, err
-	}
-	return hooks.Binding{Key: key, HookKey: hookKey, Version: version, ResourceURI: resourceURI, Config: data, Enabled: true}, nil
 }
 
 func decodeStrict[T any](data []byte) (T, error) {

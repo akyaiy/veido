@@ -34,44 +34,10 @@ func NewRuntime(registry *Registry, frontend vfs.Frontend, store ExecutionStore)
 }
 
 func (r *HookRuntime) Run(ctx context.Context, actor vfs.Actor, key string, input json.RawMessage, options RunOptions) (Result, error) {
-	return r.run(ctx, actor, key, "", nil, input, options)
+	return r.run(ctx, actor, key, input, options)
 }
 
-func (r *HookRuntime) RunBinding(ctx context.Context, actor vfs.Actor, bindingKey string, input json.RawMessage, options RunOptions) (Result, error) {
-	if ctx == nil || !validActor(actor) {
-		return Result{}, newRunError("invalid_invocation", "invalid hook invocation", "invalid_argument", false, "", ErrInvalidDefinition)
-	}
-	binding, err := r.registry.binding(bindingKey)
-	if err != nil {
-		return Result{}, newRunError("binding_not_found", "hook binding not found", "not_found", false, "", err)
-	}
-	return r.runResolvedBinding(ctx, actor, binding, input, options)
-}
-
-func (r *HookRuntime) RunResource(ctx context.Context, actor vfs.Actor, resourceURI vfs.URI, hookKey string, input json.RawMessage, options RunOptions) (Result, error) {
-	if ctx == nil || !validActor(actor) || resourceURI == "" || !hookKeyPattern.MatchString(hookKey) {
-		return Result{}, newRunError("invalid_invocation", "invalid hook invocation", "invalid_argument", false, "", ErrInvalidDefinition)
-	}
-	binding, err := r.registry.bindingFor(resourceURI, hookKey)
-	if err != nil {
-		return Result{}, newRunError("binding_not_found", "resource hook binding not found", "not_found", false, "", err)
-	}
-	return r.runResolvedBinding(ctx, actor, binding, input, options)
-}
-
-func (r *HookRuntime) runResolvedBinding(ctx context.Context, actor vfs.Actor, binding Binding, input json.RawMessage, options RunOptions) (Result, error) {
-	version := binding.Version
-	if options.Version != 0 {
-		if version != 0 && version != options.Version {
-			return Result{}, newRunError("binding_version_conflict", "requested hook version conflicts with binding", "conflict", false, "", ErrIdempotencyConflict)
-		}
-		version = options.Version
-	}
-	options.Version = version
-	return r.run(ctx, actor, binding.HookKey, binding.Key, &binding, input, options)
-}
-
-func (r *HookRuntime) run(ctx context.Context, actor vfs.Actor, key, bindingKey string, binding *Binding, input json.RawMessage, options RunOptions) (Result, error) {
+func (r *HookRuntime) run(ctx context.Context, actor vfs.Actor, key string, input json.RawMessage, options RunOptions) (Result, error) {
 	if ctx == nil || !validActor(actor) {
 		return Result{}, newRunError("invalid_invocation", "invalid hook invocation", "invalid_argument", false, "", ErrInvalidDefinition)
 	}
@@ -94,7 +60,7 @@ func (r *HookRuntime) run(ctx context.Context, actor vfs.Actor, key, bindingKey 
 	executionID := uuid.NewString()
 	record := ExecutionRecord{
 		ID: executionID, ActorKey: actor.String(), HookKey: key, Version: definition.Version,
-		BindingKey: bindingKey, IdempotencyKey: strings.TrimSpace(options.IdempotencyKey), InputHash: hashBytes(normalizedInput),
+		IdempotencyKey: strings.TrimSpace(options.IdempotencyKey), InputHash: hashBytes(normalizedInput),
 	}
 	stored, disposition, err := r.store.Begin(ctx, record)
 	if err != nil {
@@ -123,7 +89,7 @@ func (r *HookRuntime) run(ctx context.Context, actor vfs.Actor, key, bindingKey 
 	execCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	bound := &actorVFS{frontend: r.frontend, actor: actor, maxSteps: int64(definition.Limits.MaxSteps)}
-	output, execErr := compiled.program.Execute(execCtx, Execution{ID: executionID, Actor: actor, VFS: bound, Input: cloneRaw(normalizedInput), Binding: cloneBinding(binding)})
+	output, execErr := compiled.program.Execute(execCtx, Execution{ID: executionID, Actor: actor, VFS: bound, Input: cloneRaw(normalizedInput)})
 	if execErr == nil && execCtx.Err() != nil {
 		execErr = execCtx.Err()
 	}
@@ -140,7 +106,7 @@ func (r *HookRuntime) run(ctx context.Context, actor vfs.Actor, key, bindingKey 
 		}
 		return Result{}, runErr
 	}
-	result := Result{Hook: key, Version: definition.Version, BindingKey: bindingKey, ExecutionID: executionID, Status: "completed", Output: cloneRaw(output)}
+	result := Result{Hook: key, Version: definition.Version, ExecutionID: executionID, Status: "completed", Output: cloneRaw(output)}
 	if err := r.store.Complete(context.WithoutCancel(ctx), executionID, result); err != nil {
 		return Result{}, newRunError("execution_store_failed", "cannot persist hook result", "internal", true, executionID, err)
 	}
@@ -225,14 +191,6 @@ func hashBytes(input []byte) string {
 	digest := sha256.Sum256(input)
 	return hex.EncodeToString(digest[:])
 }
-func cloneBinding(binding *Binding) *Binding {
-	if binding == nil {
-		return nil
-	}
-	copy := *binding
-	copy.Config = cloneRaw(binding.Config)
-	return &copy
-}
 func executionFailure(id string, err error) *RunError {
 	step := ""
 	var stepErr *StepError
@@ -240,10 +198,18 @@ func executionFailure(id string, err error) *RunError {
 		step = stepErr.Step
 	}
 	cause := "internal"
+	message := "hook execution failed"
 	retryable := false
 	if kind, ok := vfs.KindOf(err); ok {
 		cause = string(kind)
 		retryable = kind == vfs.KindUnavailable
+	}
+	// Only VFS Error.Message is an explicitly safe transport message. Keep it
+	// so a hook's typed/domain classification is useful to clients; never use
+	// err.Error(), which may contain provider or infrastructure details.
+	var public *vfs.Error
+	if errors.As(err, &public) && public != nil && public.Message != "" {
+		message = public.Message
 	}
 	if errors.Is(err, context.Canceled) {
 		cause = "canceled"
@@ -256,7 +222,7 @@ func executionFailure(id string, err error) *RunError {
 	if errors.Is(err, ErrStepLimit) {
 		cause = "resource_exhausted"
 	}
-	return &RunError{Code: "hook_step_failed", Message: "hook execution failed", ExecutionID: id, FailedStep: step, Cause: cause, Retryable: retryable, err: err}
+	return &RunError{Code: "hook_step_failed", Message: message, ExecutionID: id, FailedStep: step, Cause: cause, Retryable: retryable, err: err}
 }
 func newRunError(code, message, cause string, retryable bool, executionID string, err error) *RunError {
 	return &RunError{Code: code, Message: message, Cause: cause, Retryable: retryable, ExecutionID: executionID, err: err}

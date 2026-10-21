@@ -5,6 +5,7 @@ import (
 	"MyServer/pkg/vfs"
 	"MyServer/pkg/vfs/hooks"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -22,17 +23,30 @@ var ErrInvalidConfiguration = errors.New("invalid hook HTTP adapter configuratio
 
 type ActorResolver func(*http.Request) (vfs.Actor, error)
 
+// Invocation identifies the already validated hook request at the HTTP
+// boundary. A bridge may attach transport-only credentials to a private
+// context and apply response mutations; the Hook Runtime remains independent
+// from headers and cookies.
+type Invocation struct {
+	HookKey string
+}
+
+type TransportBridge interface {
+	Prepare(*http.Request, Invocation) (context.Context, error)
+	Complete(http.ResponseWriter, context.Context)
+}
+
 type Handler struct {
 	runtime      hooks.Runtime
 	resolveActor ActorResolver
 	maxBodyBytes int64
 	logger       *slog.Logger
+	bridge       TransportBridge
 }
 
 type runRequest struct {
-	ResourceURI string          `json:"resource_uri,omitempty"`
-	Version     int             `json:"version,omitempty"`
-	Input       json.RawMessage `json:"input"`
+	Version int             `json:"version,omitempty"`
+	Input   json.RawMessage `json:"input"`
 }
 
 type problemResponse struct {
@@ -49,6 +63,10 @@ type problemBody struct {
 }
 
 func NewHandler(runtime hooks.Runtime, resolveActor ActorResolver, maxBodyBytes int64, logger *slog.Logger) (*Handler, error) {
+	return NewHandlerWithBridge(runtime, resolveActor, maxBodyBytes, logger, nil)
+}
+
+func NewHandlerWithBridge(runtime hooks.Runtime, resolveActor ActorResolver, maxBodyBytes int64, logger *slog.Logger, bridge TransportBridge) (*Handler, error) {
 	if maxBodyBytes == 0 {
 		maxBodyBytes = defaultMaxBodyBytes
 	}
@@ -58,7 +76,7 @@ func NewHandler(runtime hooks.Runtime, resolveActor ActorResolver, maxBodyBytes 
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Handler{runtime: runtime, resolveActor: resolveActor, maxBodyBytes: maxBodyBytes, logger: logger}, nil
+	return &Handler{runtime: runtime, resolveActor: resolveActor, maxBodyBytes: maxBodyBytes, logger: logger, bridge: bridge}, nil
 }
 
 func RegisterRoutes(router chi.Router, handler *Handler) {
@@ -82,17 +100,19 @@ func (h *Handler) handleRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	hookKey := chi.URLParam(r, "hookKey")
-	options := hooks.RunOptions{Version: request.Version, IdempotencyKey: idempotencyKey}
-	var result hooks.Result
-	if request.ResourceURI == "" {
-		result, err = h.runtime.Run(r.Context(), actor, hookKey, request.Input, options)
-	} else {
-		resourceURI, parseErr := vfs.ParseURI(request.ResourceURI)
-		if parseErr != nil {
-			h.writeProblem(w, r, http.StatusBadRequest, &problemBody{Code: "invalid_argument", Message: "resource_uri is not a canonical VFS URI"}, parseErr)
+	if h.bridge != nil {
+		ctx, prepareErr := h.bridge.Prepare(r, Invocation{HookKey: hookKey})
+		if prepareErr != nil {
+			h.writeProblem(w, r, http.StatusBadRequest, &problemBody{Code: "invalid_transport_credential", Message: "invalid authentication transport state"}, prepareErr)
 			return
 		}
-		result, err = h.runtime.RunResource(r.Context(), actor, resourceURI, hookKey, request.Input, options)
+		r = r.WithContext(ctx)
+	}
+	options := hooks.RunOptions{Version: request.Version, IdempotencyKey: idempotencyKey}
+	var result hooks.Result
+	result, err = h.runtime.Run(r.Context(), actor, hookKey, request.Input, options)
+	if h.bridge != nil {
+		h.bridge.Complete(w, r.Context())
 	}
 	if err != nil {
 		status, body := runProblem(err)

@@ -355,7 +355,6 @@ func (p *Provider) setDefaultScope(ctx context.Context, rawKey string) error {
 	if !scopeKeyRe.MatchString(scopeKey) {
 		return fmt.Errorf("%w: scope_key may contain only letters, digits, '-' and '_'", vfs.ErrInvalidScope)
 	}
-
 	if err := p.validateScopeViaInfoJSON(ctx, scopeKey); err != nil {
 		return err
 	}
@@ -365,6 +364,13 @@ func (p *Provider) setDefaultScope(ctx context.Context, rawKey string) error {
 		return vfs.ErrRequestContextNotFound
 	}
 	principal := common.SubjectKey(rctx.ActorKey.String())
+	scope, err := p.scopes.Get(ctx, scopeKey)
+	if err != nil {
+		return err
+	}
+	if scope.OwnerSubjectKey != principal {
+		return os.ErrPermission
+	}
 	return p.scopes.SetDefault(ctx, principal, scopeKey)
 }
 

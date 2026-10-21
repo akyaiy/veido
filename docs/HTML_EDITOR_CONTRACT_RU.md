@@ -850,7 +850,7 @@ Site publication manifest фиксирует site-local manifest URI и digest:
 ```
 
 Целевой Site HTTP Adapter читает active publication manifest. Текущий demo slice
-использует trusted site binding `get-static`; browser URL преобразуется во input
+передаёт `site_uri` и `template_key` в typed input `get-static`; browser URL преобразуется во input
 hook, который читает тот же site-local template resource через actor-bound VFS:
 
 ```text

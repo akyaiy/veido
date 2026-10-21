@@ -37,15 +37,8 @@ func (r *recordingRuntime) Run(_ context.Context, _ vfs.Actor, hook string, inpu
 	r.calls = append(r.calls, runtimeCall{hook: hook, input: input, options: options})
 	return r.result(hook)
 }
-func (r *recordingRuntime) RunBinding(context.Context, vfs.Actor, string, json.RawMessage, hooks.RunOptions) (hooks.Result, error) {
-	return hooks.Result{}, nil
-}
-func (r *recordingRuntime) RunResource(_ context.Context, _ vfs.Actor, resource vfs.URI, hook string, input json.RawMessage, options hooks.RunOptions) (hooks.Result, error) {
-	r.calls = append(r.calls, runtimeCall{resource: resource, hook: hook, input: input, options: options})
-	return r.result(hook)
-}
 
-func TestHookEndpointRunsResourceBindingAndReturnsResult(t *testing.T) {
+func TestHookEndpointRunsGlobalHookAndReturnsResult(t *testing.T) {
 	runtime := &recordingRuntime{}
 	handler, err := NewHandler(runtime, func(*http.Request) (vfs.Actor, error) {
 		return vfs.Actor{Kind: vfs.ActorUser, ID: "alice"}, nil
@@ -55,14 +48,14 @@ func TestHookEndpointRunsResourceBindingAndReturnsResult(t *testing.T) {
 	}
 	router := chi.NewRouter()
 	RegisterRoutes(router, handler)
-	request := httptest.NewRequest(http.MethodPost, "/hooks/get-static/run", strings.NewReader(`{"resource_uri":"html@site[acme]:///","input":{"path":"index.html"}}`))
+	request := httptest.NewRequest(http.MethodPost, "/hooks/get-static/run", strings.NewReader(`{"input":{"path":"index.html"}}`))
 	request.Header.Set("Idempotency-Key", "request-1")
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, request)
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"execution_id":"exec-1"`) || !strings.Contains(response.Body.String(), `"ok":true`) {
 		t.Fatalf("response: status=%d body=%q", response.Code, response.Body.String())
 	}
-	if len(runtime.calls) != 1 || runtime.calls[0].resource != vfs.URI("html@site[acme]:///") || runtime.calls[0].hook != "get-static" || runtime.calls[0].options.IdempotencyKey != "request-1" || string(runtime.calls[0].input) != `{"path":"index.html"}` {
+	if len(runtime.calls) != 1 || runtime.calls[0].resource != "" || runtime.calls[0].hook != "get-static" || runtime.calls[0].options.IdempotencyKey != "request-1" || string(runtime.calls[0].input) != `{"path":"index.html"}` {
 		t.Fatalf("runtime calls = %+v", runtime.calls)
 	}
 }
@@ -78,7 +71,7 @@ func TestHookEndpointMapsStructuredRuntimeError(t *testing.T) {
 	router := chi.NewRouter()
 	RegisterRoutes(router, handler)
 	response := httptest.NewRecorder()
-	router.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/hooks/get-static/run", strings.NewReader(`{"resource_uri":"html@site[acme]:///","input":{}}`)))
+	router.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/hooks/get-static/run", strings.NewReader(`{"input":{}}`)))
 	if response.Code != http.StatusForbidden || !strings.Contains(response.Body.String(), `"failed_step":"read-template-asset"`) || !strings.Contains(response.Body.String(), `"cause":"permission_denied"`) {
 		t.Fatalf("response: status=%d body=%q", response.Code, response.Body.String())
 	}
@@ -93,8 +86,8 @@ func TestHookEndpointRejectsUnknownFieldsAndInvalidURI(t *testing.T) {
 	router := chi.NewRouter()
 	RegisterRoutes(router, handler)
 	for _, body := range []string{
-		`{"resource_uri":"not-a-uri","input":{}}`,
-		`{"resource_uri":"html@site[acme]:///","input":{},"actor":"admin"}`,
+		`{"resource_uri":"html@site[acme]:///","input":{}}`,
+		`{"input":{},"actor":"admin"}`,
 	} {
 		response := httptest.NewRecorder()
 		router.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/hooks/get-static/run", strings.NewReader(body)))

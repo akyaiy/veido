@@ -29,8 +29,9 @@ var ErrInvalidConfiguration = errors.New("invalid site HTTP adapter configuratio
 type ActorResolver func(*http.Request) (vfs.Actor, error)
 
 type Config struct {
-	SiteURI    vfs.URI
-	Entrypoint string
+	SiteURI     vfs.URI
+	Entrypoint  string
+	TemplateKey string
 }
 
 type Handler struct {
@@ -41,6 +42,9 @@ type Handler struct {
 }
 
 func NewHandler(runtime hooks.Runtime, resolveActor ActorResolver, config Config, logger *slog.Logger) (*Handler, error) {
+	if config.TemplateKey == "" {
+		config.TemplateKey = "default-spa"
+	}
 	if runtime == nil || resolveActor == nil || config.SiteURI == "" || config.Entrypoint == "" || path.Clean(config.Entrypoint) != config.Entrypoint || strings.HasPrefix(config.Entrypoint, "/") {
 		return nil, ErrInvalidConfiguration
 	}
@@ -80,12 +84,12 @@ func (h *Handler) serveStatic(w http.ResponseWriter, r *http.Request, assetPath 
 		h.writeProblem(w, r, http.StatusUnauthorized, "unauthenticated", "authentication is required", err)
 		return
 	}
-	input, err := json.Marshal(getstatic.Input{Path: assetPath})
+	input, err := json.Marshal(getstatic.Input{SiteURI: h.config.SiteURI, TemplateKey: h.config.TemplateKey, Path: assetPath})
 	if err != nil {
 		h.writeProblem(w, r, http.StatusInternalServerError, "internal", "internal site error", err)
 		return
 	}
-	result, err := h.runtime.RunResource(r.Context(), actor, h.config.SiteURI, getstatic.HookKey, input, hooks.RunOptions{})
+	result, err := h.runtime.Run(r.Context(), actor, getstatic.HookKey, input, hooks.RunOptions{})
 	if err != nil {
 		status, code, message := hookProblem(err)
 		h.writeProblem(w, r, status, code, message, err)
@@ -105,12 +109,12 @@ func (h *Handler) handlePage(w http.ResponseWriter, r *http.Request) {
 		h.writeProblem(w, r, http.StatusUnauthorized, "unauthenticated", "authentication is required", err)
 		return
 	}
-	input, err := json.Marshal(getpage.Input{Path: r.URL.Path})
+	input, err := json.Marshal(getpage.Input{SiteURI: h.config.SiteURI, TemplateKey: h.config.TemplateKey, Path: r.URL.Path})
 	if err != nil {
 		h.writeProblem(w, r, http.StatusInternalServerError, "internal", "internal site error", err)
 		return
 	}
-	result, err := h.runtime.RunResource(r.Context(), actor, h.config.SiteURI, getpage.HookKey, input, hooks.RunOptions{})
+	result, err := h.runtime.Run(r.Context(), actor, getpage.HookKey, input, hooks.RunOptions{})
 	if err != nil {
 		status, code, message := hookProblem(err)
 		h.writeProblem(w, r, status, code, message, err)

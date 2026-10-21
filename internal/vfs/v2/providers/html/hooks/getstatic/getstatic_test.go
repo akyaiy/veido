@@ -94,7 +94,7 @@ func TestGetStaticResolvesOnlyManifestAssetWithOriginalActor(t *testing.T) {
 	frontend := &staticFrontend{manifest: manifest, asset: index}
 	runtime := testRuntime(t, frontend)
 	actor := vfs.Actor{Kind: vfs.ActorGuest}
-	result, err := runtime.RunBinding(context.Background(), actor, "site-acme.static", json.RawMessage(`{"path":"index.html"}`), hooks.RunOptions{IdempotencyKey: "root-1"})
+	result, err := runtime.Run(context.Background(), actor, HookKey, staticInput(t, "index.html"), hooks.RunOptions{IdempotencyKey: "root-1"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func TestGetStaticResolvesOnlyManifestAssetWithOriginalActor(t *testing.T) {
 			t.Fatalf("VFS actor = %+v, want %+v", call.actor, actor)
 		}
 	}
-	if _, err := runtime.RunBinding(context.Background(), actor, "site-acme.static", json.RawMessage(`{ "path" : "index.html" }`), hooks.RunOptions{IdempotencyKey: "root-1"}); err != nil {
+	if _, err := runtime.Run(context.Background(), actor, HookKey, staticInput(t, "index.html"), hooks.RunOptions{IdempotencyKey: "root-1"}); err != nil {
 		t.Fatal(err)
 	}
 	if len(frontend.snapshot()) != 3 {
@@ -130,7 +130,7 @@ func TestGetStaticRejectsMissingTraversalAndACLDenial(t *testing.T) {
 
 	t.Run("missing is not entrypoint fallback", func(t *testing.T) {
 		frontend := &staticFrontend{manifest: manifest, asset: index}
-		_, err := testRuntime(t, frontend).RunBinding(context.Background(), actor, "site-acme.static", json.RawMessage(`{"path":"js/missing.js"}`), hooks.RunOptions{})
+		_, err := testRuntime(t, frontend).Run(context.Background(), actor, HookKey, staticInput(t, "js/missing.js"), hooks.RunOptions{})
 		assertRunCause(t, err, "not_found", "resolve-template-asset")
 		if calls := frontend.snapshot(); len(calls) != 2 || calls[0].op != "read_dir" || calls[1].op != "open" {
 			t.Fatalf("missing asset calls = %+v", calls)
@@ -139,7 +139,7 @@ func TestGetStaticRejectsMissingTraversalAndACLDenial(t *testing.T) {
 
 	t.Run("traversal", func(t *testing.T) {
 		frontend := &staticFrontend{manifest: manifest, asset: index}
-		_, err := testRuntime(t, frontend).RunBinding(context.Background(), actor, "site-acme.static", json.RawMessage(`{"path":"../secret"}`), hooks.RunOptions{})
+		_, err := testRuntime(t, frontend).Run(context.Background(), actor, HookKey, staticInput(t, "../secret"), hooks.RunOptions{})
 		assertRunCause(t, err, "invalid_argument", "")
 		if len(frontend.snapshot()) != 0 {
 			t.Fatal("traversal reached VFS")
@@ -148,13 +148,13 @@ func TestGetStaticRejectsMissingTraversalAndACLDenial(t *testing.T) {
 
 	t.Run("ACL denial", func(t *testing.T) {
 		frontend := &staticFrontend{manifest: manifest, manifestErr: vfs.ErrPermissionDenied, asset: index}
-		_, err := testRuntime(t, frontend).RunBinding(context.Background(), actor, "site-acme.static", json.RawMessage(`{"path":"index.html"}`), hooks.RunOptions{})
+		_, err := testRuntime(t, frontend).Run(context.Background(), actor, HookKey, staticInput(t, "index.html"), hooks.RunOptions{})
 		assertRunCause(t, err, "permission_denied", "read-template-manifest")
 	})
 
 	t.Run("asset ACL denial", func(t *testing.T) {
 		frontend := &staticFrontend{manifest: manifest, assetErr: vfs.ErrPermissionDenied}
-		_, err := testRuntime(t, frontend).RunBinding(context.Background(), actor, "site-acme.static", json.RawMessage(`{"path":"index.html"}`), hooks.RunOptions{})
+		_, err := testRuntime(t, frontend).Run(context.Background(), actor, HookKey, staticInput(t, "index.html"), hooks.RunOptions{})
 		assertRunCause(t, err, "permission_denied", "read-template-asset")
 	})
 }
@@ -164,7 +164,7 @@ func TestGetStaticRejectsManifestIdentityAndUnknownFields(t *testing.T) {
 	manifest := testManifest(t, []manifestAsset{testAsset("index.html", "text/html", index)})
 	manifest = bytes.Replace(manifest, []byte(`"version": "1"`), []byte(`"version": "2"`), 1)
 	frontend := &staticFrontend{manifest: manifest, asset: index}
-	_, err := testRuntime(t, frontend).RunBinding(context.Background(), vfs.Actor{Kind: vfs.ActorUser, ID: "alice"}, "site-acme.static", json.RawMessage(`{"path":"index.html"}`), hooks.RunOptions{})
+	_, err := testRuntime(t, frontend).Run(context.Background(), vfs.Actor{Kind: vfs.ActorUser, ID: "alice"}, HookKey, staticInput(t, "index.html"), hooks.RunOptions{})
 	assertRunCause(t, err, "failed_precondition", "validate-template-manifest")
 }
 
@@ -172,7 +172,7 @@ func TestGetStaticRejectsAssetContentThatDoesNotMatchManifest(t *testing.T) {
 	expected := []byte("expected")
 	manifest := testManifest(t, []manifestAsset{testAsset("index.html", "text/html", expected)})
 	frontend := &staticFrontend{manifest: manifest, asset: []byte("tampered")}
-	_, err := testRuntime(t, frontend).RunBinding(context.Background(), vfs.Actor{Kind: vfs.ActorUser, ID: "alice"}, "site-acme.static", json.RawMessage(`{"path":"index.html"}`), hooks.RunOptions{})
+	_, err := testRuntime(t, frontend).Run(context.Background(), vfs.Actor{Kind: vfs.ActorUser, ID: "alice"}, HookKey, staticInput(t, "index.html"), hooks.RunOptions{})
 	assertRunCause(t, err, "failed_precondition", "verify-template-asset")
 }
 
@@ -187,7 +187,7 @@ func TestGetStaticUsesLastInstalledTemplateVersion(t *testing.T) {
 		manifest: manifest,
 		asset:    index,
 	}
-	result, err := testRuntime(t, frontend).RunBinding(context.Background(), vfs.Actor{Kind: vfs.ActorGuest}, "site-acme.static", json.RawMessage(`{"path":"index.html"}`), hooks.RunOptions{})
+	result, err := testRuntime(t, frontend).Run(context.Background(), vfs.Actor{Kind: vfs.ActorGuest}, HookKey, staticInput(t, "index.html"), hooks.RunOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -210,13 +210,6 @@ func testRuntime(t *testing.T, frontend vfs.Frontend) hooks.Runtime {
 	if err := Register(registry); err != nil {
 		t.Fatal(err)
 	}
-	binding, err := SiteBinding("site-acme.static", mustURI(t, "html@site[site-acme]:///"), "default-spa")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := registry.RegisterBinding(binding); err != nil {
-		t.Fatal(err)
-	}
 	if err := registry.Freeze(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -225,6 +218,15 @@ func testRuntime(t *testing.T, frontend vfs.Frontend) hooks.Runtime {
 		t.Fatal(err)
 	}
 	return runtime
+}
+
+func staticInput(t *testing.T, assetPath string) json.RawMessage {
+	t.Helper()
+	data, err := json.Marshal(Input{SiteURI: mustURI(t, "html@site[site-acme]:///"), TemplateKey: "default-spa", Path: assetPath})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
 }
 
 func testManifest(t *testing.T, assets []manifestAsset) []byte {

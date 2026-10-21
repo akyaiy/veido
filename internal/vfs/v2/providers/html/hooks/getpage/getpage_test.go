@@ -72,9 +72,9 @@ func TestGetPageResolvesNestedSlugPathAndReturnsEntrypoint(t *testing.T) {
 		"html@site[site-acme]:///templates/default-spa/1/manifest.json":    manifest,
 		"html@site[site-acme]:///templates/default-spa/1/files/index.html": index,
 	}}
-	runtime := newRuntime(t, f, siteURI)
+	runtime := newRuntime(t, f)
 	actor := vfs.Actor{Kind: vfs.ActorUser, ID: "alice"}
-	result, err := runtime.RunResource(context.Background(), actor, siteURI, HookKey, json.RawMessage(`{"path":"/docs/install"}`), hooks.RunOptions{})
+	result, err := runtime.Run(context.Background(), actor, HookKey, pageInput(t, siteURI, "/docs/install"), hooks.RunOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,10 +100,10 @@ func TestGetPageReturnsNotFoundAndRejectsInvalidRoutes(t *testing.T) {
 	f := &frontend{files: map[string][]byte{
 		"html@site[site-acme]:///tree.json": []byte(`{"tree_revision":1,"model_revision":1,"visibility_revision":1,"pages":[]}`),
 	}}
-	runtime := newRuntime(t, f, siteURI)
+	runtime := newRuntime(t, f)
 	actor := vfs.Actor{Kind: vfs.ActorGuest}
 
-	result, err := runtime.RunResource(context.Background(), actor, siteURI, HookKey, json.RawMessage(`{"path":"/missing/child"}`), hooks.RunOptions{})
+	result, err := runtime.Run(context.Background(), actor, HookKey, pageInput(t, siteURI, "/missing/child"), hooks.RunOptions{})
 	if err != nil {
 		t.Fatalf("unknown route returned hook error: %v", err)
 	}
@@ -118,7 +118,7 @@ func TestGetPageReturnsNotFoundAndRejectsInvalidRoutes(t *testing.T) {
 		t.Fatalf("unknown route output contains irrelevant fields: %s", result.Output)
 	}
 	before := len(f.calls)
-	_, err = runtime.RunResource(context.Background(), actor, siteURI, HookKey, json.RawMessage(`{"path":"/docs/../secret"}`), hooks.RunOptions{})
+	_, err = runtime.Run(context.Background(), actor, HookKey, pageInput(t, siteURI, "/docs/../secret"), hooks.RunOptions{})
 	assertCause(t, err, "invalid_argument", "")
 	if len(f.calls) != before {
 		t.Fatal("invalid route reached VFS")
@@ -143,17 +143,10 @@ func TestResolveExposesOnlyReadyPageChains(t *testing.T) {
 	}
 }
 
-func newRuntime(t *testing.T, frontend vfs.Frontend, siteURI vfs.URI) hooks.Runtime {
+func newRuntime(t *testing.T, frontend vfs.Frontend) hooks.Runtime {
 	t.Helper()
 	registry := hooks.NewRegistry(hooks.DefaultEngines())
 	if err := registry.Register(Definition()); err != nil {
-		t.Fatal(err)
-	}
-	binding, err := SiteBinding(BindingKey(siteURI), siteURI, "default-spa")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := registry.RegisterBinding(binding); err != nil {
 		t.Fatal(err)
 	}
 	if err := registry.Freeze(context.Background()); err != nil {
@@ -164,6 +157,15 @@ func newRuntime(t *testing.T, frontend vfs.Frontend, siteURI vfs.URI) hooks.Runt
 		t.Fatal(err)
 	}
 	return runtime
+}
+
+func pageInput(t *testing.T, siteURI vfs.URI, route string) json.RawMessage {
+	t.Helper()
+	data, err := json.Marshal(Input{SiteURI: siteURI, TemplateKey: "default-spa", Path: route})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
 }
 
 func assertCause(t *testing.T, err error, cause, step string) {

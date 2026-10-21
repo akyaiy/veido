@@ -10,9 +10,8 @@ import (
 	"MyServer/api/handlers/aclH"
 	"MyServer/api/handlers/files_api"
 	"MyServer/api/handlers/functions"
-	"MyServer/api/handlers/users"
 	"MyServer/api/handlers/webdavh"
-	
+
 	authMiddleware "MyServer/api/middleware"
 
 	"MyServer/internal/acl"
@@ -29,6 +28,10 @@ import (
 )
 
 func ServerStart(db *sql.DB, aut *auth.Auth) {
+	v2api, err := newV2Runtime(db, aut)
+	if err != nil {
+		log.Fatalf("configure VFSv2 runtime: %v", err)
+	}
 
 	files.BaseDir = "."
 	// 1. Регистрация кастомных WebDAV методов в chi
@@ -76,7 +79,7 @@ func ServerStart(db *sql.DB, aut *auth.Auth) {
 	filesApiHandler := files_api.NewFileHandler(*fileManager, mountManager, &sharedManager, aut)
 
 	r.Route("/api", func(api chi.Router) {
-		api.Route("/auth", func(u chi.Router) { users.RegisterRoutes(u, db, aut) })
+		api.Route("/v2/vfs", v2api.Register)
 		api.Get("/protected", HTML.LoadProtected(aut))
 		api.Route("/HTML", func(u chi.Router) { HTML.RegisterRoutes(u, db, aut) })
 		api.Route("/functions", func(u chi.Router) { functions.RegisterRoutes(u, db, aut) })

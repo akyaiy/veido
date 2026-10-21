@@ -18,7 +18,6 @@ var (
 	ErrRegistryFrozen      = errors.New("hook registry is frozen")
 	ErrRegistryNotFrozen   = errors.New("hook registry is not frozen")
 	ErrHookNotFound        = errors.New("hook not found")
-	ErrBindingNotFound     = errors.New("hook binding not found")
 	ErrEngineNotFound      = errors.New("hook engine not found")
 	ErrIdempotencyConflict = errors.New("hook idempotency conflict")
 	ErrExecutionInProgress = errors.New("hook execution is already running")
@@ -46,18 +45,6 @@ type Definition struct {
 	Active         bool
 }
 
-// Binding is trusted server configuration. ResourceURI identifies the site or
-// other resource the hook is attached to; Config is never merged into caller
-// input, so callers cannot replace trusted binding values.
-type Binding struct {
-	Key         string
-	HookKey     string
-	Version     int
-	ResourceURI vfs.URI
-	Config      json.RawMessage
-	Enabled     bool
-}
-
 type RunOptions struct {
 	Version        int
 	IdempotencyKey string
@@ -67,7 +54,6 @@ type RunOptions struct {
 type Result struct {
 	Hook        string          `json:"hook"`
 	Version     int             `json:"version"`
-	BindingKey  string          `json:"binding_key,omitempty"`
 	ExecutionID string          `json:"execution_id"`
 	Status      string          `json:"status"`
 	Output      json.RawMessage `json:"output"`
@@ -130,11 +116,10 @@ type VFS interface {
 }
 
 type Execution struct {
-	ID      string
-	Actor   vfs.Actor
-	VFS     VFS
-	Input   json.RawMessage
-	Binding *Binding
+	ID    string
+	Actor vfs.Actor
+	VFS   VFS
+	Input json.RawMessage
 }
 
 type Program interface {
@@ -147,8 +132,6 @@ type Engine interface {
 
 type Runtime interface {
 	Run(context.Context, vfs.Actor, string, json.RawMessage, RunOptions) (Result, error)
-	RunBinding(context.Context, vfs.Actor, string, json.RawMessage, RunOptions) (Result, error)
-	RunResource(context.Context, vfs.Actor, vfs.URI, string, json.RawMessage, RunOptions) (Result, error)
 }
 
 type ExecutionRecord struct {
@@ -156,7 +139,6 @@ type ExecutionRecord struct {
 	ActorKey       string
 	HookKey        string
 	Version        int
-	BindingKey     string
 	IdempotencyKey string
 	InputHash      string
 	Status         string

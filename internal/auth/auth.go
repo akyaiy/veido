@@ -169,6 +169,27 @@ func (a *Auth) CreateUser(user *User) (userId, error) {
 	return userId(id), nil
 }
 
+// DeleteNewUser compensates a failed registration workflow before a session or
+// any user-owned resources have been made available. It is deliberately not a
+// general user-management API.
+func (a *Auth) DeleteNewUser(userID int64) error {
+	if userID <= 0 {
+		return &InvalidCredentialsError{Reason: "invalid user"}
+	}
+	result, err := a.db.Exec(`DELETE FROM users WHERE id = ?`, userID)
+	if err != nil {
+		return &DBError{Err: err}
+	}
+	count, err := result.RowsAffected()
+	if err != nil {
+		return &DBError{Err: err}
+	}
+	if count != 1 {
+		return &UserNotFoundError{UserID: &userID}
+	}
+	return nil
+}
+
 func (a *Auth) GetUserByID(userID int64) (*User, error) {
 	var user User
 	err := a.db.QueryRow("SELECT id, username, status FROM users WHERE id = ?", userID).Scan(&user.ID, &user.Name, &user.Status)

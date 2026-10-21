@@ -1,8 +1,10 @@
 # ADR-009: Основная pre-prod сборка и границы server runtime
 
 > Статус решения: принято.  
-> Статус реализации: в процессе; database open, обязательные migration groups и
-> standalone migration CLI реализованы, composition root и новый runtime ещё отсутствуют.  
+> Статус реализации: в процессе; `cmd/server` переключён на `internal/serverapp`
+> с `.env`/environment конфигурацией, allowlist VFSv2 modules, health и VFS/hooks
+> HTTP transport. Durable recovery, site transport и удаление неиспользуемого
+> legacy-кода ещё не завершены.
 > Дата решения: 21 октября 2026 года.  
 > Связанные документы: [план реализации](../PREPROD_SERVER_RUNTIME_PLAN_RU.md),
 > [scope resolution](VFS_V2_SCOPE_RESOLUTION_DECISION_RU.md),
@@ -43,7 +45,7 @@ cmd/server
     -> composition root
         -> config + secrets + DB + migrations
         -> Auth
-        -> owner-only pre-ACL authorizer
+        -> system-scope pre-ACL authorizer
         -> provider modules + hook registry
         -> VFS Core + actor-bound hook runtime
         -> transport adapters
@@ -63,7 +65,7 @@ HTTP request
 | Composition root | Создать concrete dependencies, зарегистрировать выбранные modules и собрать runtime | Содержать HTTP handlers или доменную логику |
 | Application runtime | Владеть сервером, provider pool, hook runtime, фоновой работой и упорядоченным shutdown | Разрешать URI или принимать решения доступа |
 | Transport adapters | Аутентифицировать протокол, получить actor, декодировать запрос и вызвать application/VFS contract | Обращаться к БД или provider store напрямую |
-| Provider module | Объявить provider factory, hooks и bindings своего домена | Регистрировать глобальные routes, вызывать чужой store/service или менять actor |
+| Provider module | Объявить provider factory и hooks своего домена | Регистрировать глобальные routes, вызывать чужой store/service или менять actor |
 | VFS Core | Разрешить канонический URI, применить authorizer и вызвать provider | Знать HTTP, HTML site routing или provider-specific config |
 
 Composition root зависит от concrete packages. Все остальные зависимости идут к
@@ -73,7 +75,7 @@ Composition root зависит от concrete packages. Все остальны�
 
 В основную сборку входят только:
 
-- Auth, новый тонкий session HTTP adapter (`login`, `refresh`, `logout`) и
+- Auth hooks (`login`, `refresh`, `logout`) и
   middleware, устанавливающий доверенного `vfs.Actor`;
 - VFS Core, scope/connection stores, provider pool и no-op lifecycle sink как явно
   временная реализация до ADR-003;
@@ -82,12 +84,10 @@ Composition root зависит от concrete packages. Все остальны�
 - HTML Provider;
 - только native hooks `get-static` и `get-page`, зарегистрированные HTML module;
 - VFS HTTP adapter;
-- site HTTP adapter, вызывающий hooks с actor исходного запроса;
-- WebDAV adapter при `transports.webdav.enabled: true`.
+- VFS hooks HTTP adapter.
 
-Universal hook HTTP adapter не является публичной поверхностью первого среза:
-`get-static` и `get-page` вызываются site adapter через hook runtime. WebDAV не
-использует fallback actor и по умолчанию выключен.
+Site/preview adapter можно подключить отдельным mount после готовности его
+конфигурации. WebDAV и legacy HTTP handlers не входят в production router.
 
 Не входят в сборку и не могут быть зарегистрированы косвенно:
 
@@ -106,29 +106,25 @@ Legacy user/admin/register handlers не переносятся. Создани�
 
 ### 2.4. Временная модель доступа до ACL
 
-Pre-prod использует отдельный fail-closed `OwnerScopeAuthorizer`, а не
-`allowAll`, не legacy ACL bypass и не provider-local проверку доступа.
+Pre-prod использует fail-closed policy, а не `allowAll` и не legacy ACL bypass.
+Trusted guest или user может адресовать общий scope `system`; user дополнительно
+может адресовать только свой personal scope. Все остальные scope и неизвестный
+actor запрещены. Provider после этой проверки может дополнительно сузить доступ,
+например Users Provider разрешает профиль только самому user.
 
-Для обычного resource ref операция разрешена только если:
+`system` и connection `scopes/scopes` создаются VFS migration, а `users/account`
+— migration Users Provider. `auth.register` создаёт только personal default
+scope через VFS; никаких connections или иных ресурсов в нём не инициализирует.
 
-1. actor аутентифицирован и имеет поддерживаемый тип;
-2. `ref.ScopeKey` разрешается в существующий scope;
-3. `scope.OwnerSubjectKey == SubjectKey(actor.String())`.
-
-Все действия над ресурсами принадлежащего actor scope разрешаются временной
-политикой; все обращения к чужому, неизвестному или некорректному scope и все
-ошибки lookup запрещают операцию. Для synthetic scope gate из ADR-005 проверяется
-владелец адресуемого `/scopes/<scope-key>`.
-
-`scopes` provider является узкой системной проекцией. До ACL основная сборка
-разрешает только actor-filtered чтение корня/списка и чтение метаданных scope,
-которым владеет actor; произвольные системные мутации через публичные transports
-запрещены. Сам provider может дополнительно сузить результат, но не расширить
-решение authorizer.
-
-Anonymous/fallback/system actor для пользовательских HTTP-запросов в первом
-срезе отсутствует. Поэтому site HTTP также требует Auth. Междоменная работа HTML
-hooks выполняется только через переданный `BoundVFS`, сохраняя того же actor.
+Anonymous/fallback/system actor для пользовательских HTTP-запросов отсутствует.
+Browser получает обычный trusted guest actor. Пока ACLv2 не реализован,
+composition root явно передаёт authorizer один public site scope из `SITE_URI`;
+это временно даёт guest/user вход и resource access к этому scope, чтобы Site
+HTTP adapter мог вызвать HTML hooks и physical publisher bundle через тот же
+actor. Router не принимает access-решений. При подключении ACL этот bridge
+должен быть заменён grant-ами на site scope, HTML metadata и physical URI.
+Междоменная работа HTML hooks выполняется только через переданный `BoundVFS`,
+сохраняя того же actor.
 
 Эта политика не является ACLv2 и не хранит grants. При подключении ACL она
 целиком заменяется evaluator, а ScopeResolver остаётся чистым механизмом
@@ -136,56 +132,15 @@ hooks выполняется только через переданный `Bound
 
 ### 2.5. Конфигурация и secrets
 
-Формат основной конфигурации — один versioned YAML-файл. Неизвестные поля,
-неподдерживаемая `version`, отсутствующие обязательные значения и неразрешённые
-secret references являются ошибкой запуска. Сервер не создаёт config-файл и не
-генерирует секрет при старте.
+Production-конфигурация основана на environment. При старте `godotenv.Load`
+читает только `.env` (или `APP_ENV_FILE`); process environment имеет приоритет.
+`.env` не коммитится, а `.env.example` документирует `HTTP_*`, `DB_PATH`,
+`CAS_PATH`, `JWT_*` и cookie settings. Отсутствующий файл допустим; ошибочный
+существующий файл или некорректное значение останавливают startup до listen.
 
-Целевой верхнеуровневый контракт:
-
-```yaml
-version: 1
-server:
-  listen: ":8080"
-  read_timeout: 15s
-  write_timeout: 30s
-  idle_timeout: 60s
-  shutdown_timeout: 20s
-database:
-  sqlite_path: "./data/db/server.sqlite3"
-auth:
-  jwt_signing_secret: "env:JWT_SIGNING_SECRET"
-  jwt_issuer: "jwtproject2"
-  jwt_audience: "jwtproject2"
-  access_token_ttl: 15m
-  refresh_token_ttl: 24h
-  refresh_cookie_secure: true
-providers:
-  local:
-    storage_path: "./data/cas"
-  html: {}
-site:
-  enabled: true
-  mount: "/"
-  site_uri: "html@site[site-owner]:///"
-  entrypoint: "index.html"
-transports:
-  vfs_http:
-    enabled: true
-    mount: "/api/v2/vfs"
-  webdav:
-    enabled: false
-    mount: "/webdav"
-    base_uri: "local@default[site-owner]:///"
-limits:
-  max_file_write_bytes: 33554432
-  max_control_bytes: 1048576
-  max_json_bytes: 65536
-```
-
-Секреты задаются ссылкой `env:NAME`, читаются только при старте и не выводятся в
-логи. Обязательный общий secret первого среза — `JWT_SIGNING_SECRET` (не менее 32
-случайных bytes). Дополнительно обязательны только включённые возможности:
+Secrets читаются только при старте и никогда не выводятся в лог. Обязательный
+secret — `JWT_SECRET` (не менее 32 bytes). Дополнительно обязательны только
+включённые возможности:
 
 - bootstrap password администратора — если отдельно включён одноразовый
   bootstrap пользователей;
@@ -194,9 +149,8 @@ limits:
 - TLS private key — только если TLS завершается самим binary, а не reverse proxy.
 
 SQLite password отсутствует. Provider credentials нельзя хранить открытым
-текстом в YAML или логах; composition root разрешает их через тот же secret
-resolver. Отсутствующий условный secret делает запуск соответствующего модуля
-ошибкой, а не включает небезопасный fallback.
+текстом в environment file или логах. Отсутствующий условный secret делает
+запуск соответствующего модуля ошибкой, а не включает небезопасный fallback.
 
 ### 2.6. Запуск и graceful shutdown
 
@@ -205,7 +159,7 @@ Startup выполняется fail-fast до открытия listener:
 1. разобрать и валидировать config и secret references;
 2. настроить structured logger без secret values;
 3. открыть SQLite, применить только известные migrations;
-4. создать Auth, stores и `OwnerScopeAuthorizer`;
+4. создать Auth, stores и временный system/owner/public-site authorizer;
 5. собрать allowlist provider modules и hooks;
 6. создать VFS Core, actor-bound hook runtime, Auth session adapter и остальные
    transport adapters;
@@ -224,9 +178,9 @@ defer/shutdown.
 ## 3. Последствия
 
 - Demo-команды остаются источником примеров, но не зависимостью production.
-- Первый срез не поддерживает sharing, anonymous site и cross-scope access.
-- Owner-only authorizer сознательно грубее будущего ACL, но не открывает доступ
-  шире владения scope и может быть заменён одним компонентом.
+- Первый срез не поддерживает sharing и произвольный cross-scope access.
+- Временный authorizer открывает только явно сконфигурированный public site
+  scope; это переход к ACL, а не модель grants для production.
 - No-op lifecycle допустим только потому, что ACL rules ещё отсутствуют; это не
   означает реализацию ADR-003.
 - Один HTTP server упрощает lifecycle; optional WebDAV является route adapter,
