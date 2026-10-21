@@ -1,0 +1,46 @@
+/* Окна */
+.modalWindow {
+    position: fixed;
+    z-index: 2000;
+    width: 400px;
+    padding: 15px;
+    background-color: #ffffff;
+    border: 1px solid #cccccc;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    box-sizing: border-box;
+}
+
+#modalAlert {
+    top: 15px;
+    right: 15px;
+}
+
+#modalConfirm,
+#modalPrompt {
+    top: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+
+
+/* Контент */
+.modalText {
+    margin-bottom: 15px;
+}
+
+.modalInput {
+    width: 100%;
+    margin-bottom: 15px;
+    box-sizing: border-box;
+}
+
+
+
+/* Кнопки */
+.modalActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 15px;
+}

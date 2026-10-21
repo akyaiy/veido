@@ -1,0 +1,41 @@
+/* Вкладки редакторов */
+#editorsTabs {
+    display: flex;
+    width: 100%;
+    box-sizing: border-box;
+    border-top: 1px solid #ccc;
+}
+
+.editorsTab {
+    flex: 1;
+    text-align: center;
+    padding: 5px;
+    cursor: pointer;
+    border-right: 1px solid #ccc;
+}
+.editorsTab.active {
+    background-color: #f0f0f0;
+    border-bottom: 3px solid #ccc;
+}
+.editorsTab:last-child {
+    border-right: none;
+}
+.editorsTab:hover {
+    color: rgba(0, 0, 0, 0.6);
+}
+
+
+
+/* Области редакторов */
+#viewEditor,
+#mdEditor,
+#jsEditor,
+#cssEditorText {
+    flex: 1;
+    box-sizing: border-box;
+    min-height: 0;
+    position: relative;
+    display: flex;
+    justify-content: safe center;
+    align-items: safe center;
+}

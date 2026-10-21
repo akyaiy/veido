@@ -1,0 +1,1 @@
+<div id="cssEditorContent" contenteditable="plaintext-only"></div>

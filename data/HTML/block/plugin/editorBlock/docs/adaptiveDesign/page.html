@@ -1,0 +1,4305 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Редактор раскладки</title>
+    <style>
+        /* === Базовые стили === */
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        button,
+        input,
+        select {
+            font: inherit;
+        }
+
+        /* === Рабочая область редактора === */
+        .editor {
+            height: 100vh;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 340px;
+        }
+
+        .workspace {
+            min-width: 0;
+            min-height: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            overflow: auto;
+        }
+
+        .layout {
+            width: 600px;
+            height: 400px;
+            gap: 10px;
+            padding: 10px;
+            background-color: #ffffff;
+            border: 1px solid #cccccc;
+            resize: both;
+            overflow: auto;
+        }
+
+        .layout.grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            grid-template-rows: 70px 1fr 60px;
+        }
+
+        .layout.flex {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: nowrap;
+            align-items: stretch;
+            justify-content: flex-start;
+        }
+
+        .layoutItem {
+            min-width: 0;
+            min-height: 0;
+            padding: 8px;
+            background-color: #eeeeee;
+            border: 1px solid #cccccc;
+            cursor: pointer;
+        }
+
+        .layoutItem.selected {
+            outline: 2px solid #666666;
+        }
+
+        /* === Панель свойств === */
+        .properties {
+            border-left: 1px solid #cccccc;
+            background-color: #ffffff;
+            overflow: auto;
+        }
+
+        .propertiesTitle {
+            padding: 12px;
+            font-size: 17px;
+            font-weight: bold;
+        }
+
+        .tabContent {
+            display: none;
+            padding: 10px 0 10px 5px;
+            overflow: auto;
+        }
+
+        .tabContent.active {
+            display: block;
+        }
+
+        #advanced.tabContent {
+            padding-top: 0;
+        }
+
+        .tabContent + .tabContent {
+            padding-top: 0px;
+        }
+
+        .breakpointSection {
+            margin-bottom: 14px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #dddddd;
+        }
+
+        .breakpointSection h2 {
+            margin: 0 0 8px;
+            font-size: 13px;
+        }
+
+        .breakpointTabsRow {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+
+        .breakpointTabs {
+            display: flex;
+            flex: 1 1 auto;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .breakpointAddButton {
+            width: 32px;
+            height: 32px;
+            border: 1px solid #cccccc;
+            background-color: #ffffff;
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 1;
+            color: #333333;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .breakpointRangeEditor {
+            display: none;
+        }
+
+        .breakpointRangeEditor.visible {
+            display: block;
+        }
+
+        .breakpointActions {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 5px;
+            margin-top: 6px;
+        }
+
+        .breakpointStatus {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+            margin-top: 8px;
+            font-size: 11px;
+        }
+
+        .breakpointStatus button {
+            padding: 4px 6px;
+            border: 1px solid #cccccc;
+            background-color: #ffffff;
+            cursor: pointer;
+        }
+
+        .checkResult {
+            margin-top: 6px;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .propertyState {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 5px;
+            margin: -2px 0 6px;
+            padding-left: 131px;
+            font-size: 10px;
+            color: #666666;
+        }
+
+        .propertyState button {
+            padding: 2px 5px;
+            border: 1px solid #cccccc;
+            background-color: #ffffff;
+            cursor: pointer;
+            font-size: 10px;
+        }
+.variantList {
+            display: grid;
+            gap: 5px;
+            margin-bottom: 6px;
+        }
+
+        .variantRow {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto auto;
+            gap: 5px;
+        }
+
+        .variantRow input,
+        .variantRow button,
+.variantRow button {
+            cursor: pointer;
+        }
+
+        /* === Дополнительные настройки === */
+        .advancedDetails .tabContent {
+            display: block;
+        }
+
+        .advancedDetails summary {
+            padding: 10px;
+            border-top: 1px solid #cccccc;
+            border-bottom: 1px solid #cccccc;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .section,
+        .advancedGroup {
+            margin-bottom: 14px;
+        }
+
+        .advancedGroup {
+            padding-bottom: 10px;
+        }
+
+        .section h2,
+        .advancedGroup h2 {
+            margin: 0 0 8px;
+            font-size: 13px;
+        }
+
+        .property {
+            display: grid;
+            grid-template-columns: 125px minmax(0, 1fr);
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 6px;
+        }
+
+        .property label {
+            font-size: 12px;
+        }
+
+        .property input,
+        .property select {
+            width: 100%;
+            min-width: 0;
+            padding: 5px;
+            border: 1px solid #cccccc;
+        }
+
+        .propertyCheckbox label {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .propertyCheckbox input {
+            width: auto;
+        }
+
+        .trackList {
+            display: grid;
+            gap: 5px;
+        }
+
+        .track {
+            display: grid;
+            grid-template-columns: 24px minmax(0, 1fr) 55px 26px 26px 26px;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .trackNumber {
+            font-size: 12px;
+            text-align: center;
+        }
+
+        .track input,
+        .track select,
+        .track button {
+            width: 100%;
+            min-width: 0;
+            height: 28px;
+            padding: 3px;
+            border: 1px solid #cccccc;
+            background-color: #ffffff;
+        }
+
+        .track button {
+            cursor: pointer;
+        }
+
+        .trackAdd {
+            width: 100%;
+            margin-top: 6px;
+            padding: 6px;
+            border: 1px solid #cccccc;
+            background-color: #ffffff;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .gridOnly,
+        .flexOnly {
+            display: none;
+        }
+
+        .gridOnly.active,
+        .flexOnly.active {
+            display: block;
+        }
+
+        .advancedSection {
+            margin: 0;
+            border-bottom: 1px solid #dddddd;
+        }
+
+        .advancedSection > summary {
+            padding: 9px 10px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .advancedSectionContent {
+            padding: 0 10px 6px;
+        }
+
+        .menuSelect {
+            width: 100%;
+            min-width: 0;
+            padding: 6px;
+            border: 1px solid #cccccc;
+            background-color: #ffffff;
+            font: inherit;
+        }
+
+        .breakpointTabsRow {
+            align-items: stretch;
+        }
+
+        .properties {
+            font-size: 13px;
+        }
+
+        .propertiesTitle {
+            padding: 14px 12px 8px;
+            font-size: 18px;
+        }
+
+        .propertiesElementTabs {
+            display: flex;
+            gap: 8px;
+            padding: 0 12px 8px;
+            background-color: #ffffff;
+        }
+
+        .propertiesElementTab {
+            flex: 1 1 0;
+            padding: 8px 10px;
+            border: 1px solid #cccccc;
+            background-color: #f7f7f7;
+            color: #333333;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .propertiesElementTab.active {
+            background-color: #ffffff;
+            border-bottom-color: #ffffff;
+        }
+
+        .selectedItemTab {
+            display: none;
+        }
+
+        .properties.hasSelectedItem .selectedItemTab {
+            display: block;
+        }
+
+        .breakpointSection,
+        .tabContent.active,
+        .advancedDetails {
+            background-color: #ffffff;
+        }
+
+        .breakpointSection {
+            margin-bottom: 5px;
+            padding: 10px;
+        }
+
+        .breakpointSection h2,
+        .section h2,
+        .advancedGroup h2 {
+            margin-bottom: 4px;
+        }
+
+        .section {
+            margin-bottom: 10px;
+            padding: 10px;
+            background-color: #fafafa;
+        }
+
+        .section:last-child {
+            margin-bottom: 0;
+        }
+
+        .advancedDetails {
+            margin-top: 10px;
+        }
+
+        .advancedDetails > summary {
+            padding: 10px 12px;
+            background-color: #f7f7f7;
+            border: 0;
+        }
+
+        .advancedSection {
+            border-top: 1px solid #e2e2e2;
+            border-bottom: 0;
+        }
+
+        .advancedSection > summary {
+            padding: 9px 12px;
+            background-color: #fbfbfb;
+            border: 0;
+        }
+
+        .advancedSection[open] > summary {
+            background-color: #f2f2f2;
+        }
+
+        .advancedSectionContent {
+            padding: 10px 0 10px 10px;
+        }
+
+        .properties[data-view="main"] > #basic,
+        .properties[data-view="main"] > .mainContent {
+            display: block;
+        }
+
+        .properties[data-view="main"] .advancedDetails {
+            display: none !important;
+        }
+
+        .properties[data-view="advanced"] > #basic {
+            display: none !important;
+        }
+
+        .properties[data-view="advanced"] > .mainContent {
+            display: block !important;
+        }
+
+        .properties[data-view="advanced"] > .mainContent > .selectedItemBasic,
+        .properties[data-view="advanced"] > .mainContent > .selectedItemAdvanced,
+        .properties[data-view="advanced"] > .mainContent > .section {
+            display: none !important;
+        }
+
+        .properties[data-view="advanced"] > .mainContent > .advancedDetails,
+        .properties[data-view="advanced"] .advancedDetails {
+            display: block !important;
+        }
+
+        .properties[data-view="selectedItem"] > #basic,
+        .properties[data-view="selectedItem"] > .mainContent {
+            display: none !important;
+        }
+
+        .properties[data-view="selectedItem"] > .selectedItemContent {
+            display: block !important;
+        }
+
+        .selectedItemContent.singleView > .section {
+            display: none;
+        }
+
+        .selectedItemContent.singleView > .advancedSection > summary {
+            display: none;
+        }
+
+        .selectedItemContent .selectedItemBackButton {
+            display: none;
+        }
+
+        .selectedItemContent.singleView .selectedItemBackButton {
+            display: inline-block;
+        }
+
+        .advancedDetails.singleView > summary {
+            display: none !important;
+        }
+
+        .advancedDetails.singleView > .advancedSection {
+            display: none !important;
+        }
+
+        .advancedDetails.singleView > .advancedSection.is-active {
+            display: block !important;
+        }
+
+        .advancedSection.is-active > summary {
+            display: none !important;
+        }
+
+        .advancedBackButton {
+            display: none;
+            margin: 10px 10px 0;
+            padding: 5px 10px;
+            border: 1px solid #cccccc;
+            border-radius: 3px;
+            background-color: #f7f7f7;
+            color: #333333;
+            font-size: 18px;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .advancedDetails.singleView .advancedSection.is-active > .advancedBackButton {
+            display: inline-block;
+        }
+
+        .advancedGroup {
+            margin-bottom: 10px;
+            padding: 10px;
+            background-color: #fafafa;
+        }
+
+        .gridOnly > .advancedGroup:last-child,
+        .flexOnly > .advancedGroup:last-child {
+            margin-bottom: 10px;
+        }
+
+        .property {
+            grid-template-columns: 118px minmax(0, 1fr);
+            gap: 8px;
+            margin-bottom: 7px;
+        }
+
+        .propertyCheckbox {
+            grid-template-columns: 1fr;
+        }
+
+        .property label {
+            color: #333333;
+        }
+
+        .property input,
+        .property select,
+        .menuSelect {
+            min-height: 32px;
+            padding: 6px 8px;
+            border: 1px solid #cfcfcf;
+            border-radius: 3px;
+            background-color: #ffffff;
+        }
+
+        .menuSelect {
+            font-weight: 600;
+        }
+
+        .numberField {
+            position: relative;
+        }
+
+        .numberField input {
+            padding-right: 30px;
+        }
+
+        .numberUnit {
+            position: absolute;
+            top: 50%;
+            right: 8px;
+            transform: translateY(-50%);
+            color: #777777;
+            font-size: 11px;
+            pointer-events: none;
+        }
+
+        .breakpointTabsRow {
+            gap: 5px;
+        }
+
+        #breakpointSelect {
+            border-color: #777777;
+            background-color: #f7f7f7;
+        }
+
+        .breakpointSection {
+            position: relative;
+        }
+
+        .breakpointHint,
+        .settingHint {
+            position: absolute;
+            z-index: 10;
+            max-width: 240px;
+            padding: 6px 8px;
+            border: 1px solid #cccccc;
+            border-radius: 3px;
+            background-color: #ffffff;
+            color: #555555;
+            font-size: 10px;
+            line-height: 1.3;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transform: translateY(3px);
+            transition: opacity 0.12s ease, transform 0.12s ease, visibility 0.12s ease;
+        }
+
+        .breakpointHint {
+            top: 32px;
+            left: 10px;
+        }
+
+        .breakpointSection h2:hover + .breakpointHint,
+        .section h2:hover + .settingHint {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .breakpointStatus {
+            margin-top: 6px;
+            padding-top: 7px;
+            border-top: 1px solid #e3e3e3;
+            color: #666666;
+        }
+
+        .propertyState {
+            margin-top: -3px;
+            padding-left: 126px;
+            color: #888888;
+        }
+
+        .propertyStateLabel {
+            font-size: 10px;
+        }
+
+        .propertyState button,
+        #resetBreakpoint {
+            color: #555555;
+            background-color: #fafafa;
+        }
+
+        .breakpointActions {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #e3e3e3;
+        }
+
+        .breakpointActions .trackAdd,
+        #resetBreakpoint,
+        .breakpointAddButton {
+            border-color: #aaaaaa;
+            background-color: #f7f7f7;
+        }
+
+        #removeBreakpoint {
+            border-style: dashed;
+        }
+
+        .section {
+            position: relative;
+        }
+
+        .settingHint {
+            top: 34px;
+            left: 10px;
+        }
+
+        .modeBadge {
+            display: inline-block;
+            margin-left: 5px;
+            padding: 1px 5px;
+            border: 1px solid #cccccc;
+            border-radius: 3px;
+            color: #666666;
+            font-size: 10px;
+            font-weight: normal;
+        }
+
+        .trackAdd {
+            min-height: 30px;
+            border-radius: 3px;
+        }
+
+        .propertiesTitle {
+            border-bottom: 1px solid #e5e5e5;
+        }
+
+        .breakpointSection > h2,
+        .section > h2,
+        .advancedGroup > h2 {
+            color: #222222;
+        }
+
+        .advancedDetails > summary {
+            color: #444444;
+        }
+
+        .advancedSection[open] > summary {
+            color: #222222;
+        }
+
+        /* === Состояния свойств === */
+        .propertyState {
+            opacity: 0.7;
+        }
+
+        .propertyState.stateBase,
+        .propertyState.stateInherited {
+            color: #999999;
+            opacity: 0.55;
+        }
+
+        .propertyState.stateOverride {
+            color: #333333;
+            opacity: 1;
+            font-weight: bold;
+        }
+
+        .propertyState.stateOverride .propertyStateLabel::before {
+            content: "• ";
+        }
+
+        .propertyState.stateOverride button {
+            font-weight: normal;
+        }
+
+        .section > .menuSelect {
+            font-weight: 600;
+        }
+
+        #layoutTypeSelect {
+            border-color: #aaaaaa;
+            background-color: #f7f7f7;
+        }
+
+        .advancedGroup > h2 {
+            padding-bottom: 4px;
+        }
+
+        .modeBadge {
+            opacity: 0.7;
+        }
+
+        .selectedItemBasic,
+        .selectedItemAdvanced {
+            display: none;
+        }
+
+        .properties.hasSelectedItem .selectedItemBasic,
+        .properties.hasSelectedItem .selectedItemAdvanced {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+<div class="editor">
+    <!-- Рабочая область -->
+    <div class="workspace">
+        <div class="layout grid" id="layout"></div>
+    </div>
+
+    <!-- Панель свойств -->
+    <div class="properties" data-view="main">
+        <div class="breakpointSection">
+            <h2>Размер экрана</h2>
+            <div class="breakpointHint" id="breakpointHint">
+                Общие настройки для всех размеров экрана.
+            </div>
+
+            <div class="breakpointTabsRow">
+                <div class="breakpointTabs" id="breakpointTabs">
+                    <select class="menuSelect" id="breakpointSelect">
+                        <option value="all">Все размеры</option>
+                        <option value="preset-mobile">Телефон 0-640</option>
+                        <option value="preset-tablet">Планшет 641-1024</option>
+                        <option value="preset-desktop">Компьютер 1025+</option>
+                    </select>
+                </div>
+                <button class="breakpointAddButton" id="addBreakpoint" type="button" title="Добавить диапазон">
+                    +
+                </button>
+            </div>
+
+            <div class="breakpointRangeEditor" id="breakpointRangeEditor">
+                <div class="property">
+                    <label for="breakpointStartInput">От ширины</label>
+                    <input id="breakpointStartInput" type="number" value="0" min="0">
+                </div>
+
+                <div class="property">
+                    <label for="breakpointEndInput">До ширины</label>
+                    <input id="breakpointEndInput" type="number" value="640" min="0">
+                </div>
+
+                <div class="property">
+                    <label for="breakpointNameInput">Название</label>
+                    <input id="breakpointNameInput" type="text" value="">
+                </div>
+
+                <div class="breakpointActions">
+                    <button class="trackAdd" id="duplicateBreakpoint" type="button">
+                        Дублировать
+                    </button>
+
+                    <button class="trackAdd" id="removeBreakpoint" type="button">
+                        Удалить
+                    </button>
+                </div>
+            </div>
+
+            <div class="breakpointStatus">
+                <span id="breakpointStatus">Общие настройки</span>
+                <button id="resetBreakpoint" type="button">
+                    Сбросить изменения
+                </button>
+            </div>
+        </div>
+
+        <div class="propertiesTitle">Свойства</div>
+
+        <div class="propertiesElementTabs" aria-label="Вкладки свойств">
+            <button class="propertiesElementTab active" type="button" data-tab="main">Главная</button>
+            <button class="propertiesElementTab" type="button" data-tab="advanced">Дополнительные</button>
+            <button class="propertiesElementTab selectedItemTab" type="button" data-tab="selectedItem">Выбранный элемент</button>
+        </div>
+
+        <!-- Основные настройки -->
+        <div class="tabContent active" id="basic">
+            <div class="section">
+                <h2>Тип макета</h2>
+                <div class="settingHint">Как расположить элементы внутри блока.</div>
+
+                <select class="menuSelect" id="layoutTypeSelect">
+                    <option value="grid">Grid - сетка</option>
+                    <option value="flex">Flex - ряд или столбец</option>
+                </select>
+            </div>
+
+            <div class="gridOnly active" id="basicGrid">
+                <div class="section">
+                    <h2>Готовые раскладки</h2>
+                    <div class="settingHint">Готовое расположение элементов.</div>
+
+                    <select class="menuSelect" id="gridPresetSelect">
+                        <option value="cards">Карточки с автоколонками</option>
+                        <option value="twoColumns">Две равные колонки</option>
+                        <option value="mainSidebar">Основное + панель справа</option>
+                        <option value="sidebarMain">Панель слева + основное</option>
+                        <option value="page">Верх + содержимое + низ</option>
+                        <option value="dashboard">Панель</option>
+                    </select>
+                </div>
+
+                <div class="section">
+                    <h2>Размер сетки</h2>
+
+                    <div class="property">
+                        <label for="gridColumns">Колонки</label>
+                        <input id="gridColumns" type="number" value="1" min="1" max="12">
+                    </div>
+
+                    <div class="property" id="gridRowsProperty">
+                        <label for="gridRows">Строки</label>
+                        <input id="gridRows" type="number" value="3" min="1" max="12">
+                    </div>
+
+                    <div class="property">
+                        <label for="gridGap">Отступ между элементами</label>
+                        <input id="gridGap" type="number" value="10" min="0">
+                    </div>
+                </div>
+            </div>
+
+            <div class="flexOnly" id="basicFlex">
+                <div class="section">
+                    <h2>Готовые раскладки</h2>
+                    <div class="settingHint">Готовое расположение элементов.</div>
+
+                    <select class="menuSelect" id="flexPresetSelect">
+                        <option value="row">В ряд</option>
+                        <option value="column">В столбец</option>
+                        <option value="between">По краям</option>
+                        <option value="center">По центру</option>
+                        <option value="evenly">Равные промежутки</option>
+                        <option value="wrap">С переносом</option>
+                    </select>
+                </div>
+
+                <div class="section">
+                    <h2>Направление</h2>
+
+                    <div class="property">
+                        <label for="flexDirection">Направление</label>
+                        <select id="flexDirection">
+                            <option value="row">Слева направо</option>
+                            <option value="column">Сверху вниз</option>
+                            <option value="row-reverse">Справа налево</option>
+                            <option value="column-reverse">Снизу вверх</option>
+                        </select>
+                    </div>
+
+                    <div class="property">
+                        <label for="flexGap">Отступ между элементами</label>
+                        <input id="flexGap" type="number" value="10" min="0">
+                    </div>
+
+                    <div class="property propertyCheckbox">
+                        <label>
+                            <input id="flexWrap" type="checkbox">
+                            Переносить, если не хватает места
+                        </label>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>Выравнивание</h2>
+
+                    <div class="property">
+                        <label for="flexJustify">По основной оси</label>
+                        <select id="flexJustify">
+                            <option value="flex-start">В начале</option>
+                            <option value="center">По центру</option>
+                            <option value="flex-end">В конце</option>
+                            <option value="space-between">По краям</option>
+                            <option value="space-around">Равномерно</option>
+                            <option value="space-evenly">Одинаковые промежутки</option>
+                        </select>
+                    </div>
+
+                    <div class="property">
+                        <label for="flexAlign">По поперечной оси</label>
+                        <select id="flexAlign">
+                            <option value="stretch">Растянуть</option>
+                            <option value="flex-start">В начале</option>
+                            <option value="center">По центру</option>
+                            <option value="flex-end">В конце</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tabContent selectedItemContent" id="selectedItem">
+            <div class="section">
+                <h2>Ширина элемента</h2>
+
+                <div class="property">
+                    <label for="itemMinWidth">Мин. ширина</label>
+                    <input id="itemMinWidth" type="number" value="0" min="0">
+                </div>
+
+                <div class="property">
+                    <label for="itemMaxWidth">Макс. ширина</label>
+                    <input id="itemMaxWidth" type="number" value="0" min="0">
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Видимость</h2>
+
+                <div class="property propertyCheckbox">
+                    <label>
+                        <input id="itemHidden" type="checkbox">
+                        Скрыть элемент
+                    </label>
+                </div>
+            </div>
+
+            <details class="advancedSection">
+                <summary>Дополнительно</summary>
+                <div class="advancedSectionContent">
+                    <div class="gridOnly active">
+                                            <div class="advancedGroup">
+                                                <h2>
+                                                    Размер и позиция в сетке
+                                                </h2>
+                                                <div class="property">
+                                                    <label for="gridColumnSpan">
+                                                        Занять колонок
+                                                    </label>
+                                                    <input id="gridColumnSpan" min="1" type="number" value="1"/>
+                                                </div>
+                                                <div class="property">
+                                                    <label for="gridRowSpan">
+                                                        Занять строк
+                                                    </label>
+                                                    <input id="gridRowSpan" min="1" type="number" value="1"/>
+                                                </div>
+                                                <div class="property">
+                                                    <label for="gridItemColumn">
+                                                        Начать с колонки
+                                                    </label>
+                                                    <select id="gridItemColumn">
+                                                        <option value="auto">
+                                                            Автоматически
+                                                        </option>
+                                                    </select>
+                                                </div>
+                                                <div class="property">
+                                                    <label for="gridItemRow">
+                                                        Начать со строки
+                                                    </label>
+                                                    <select id="gridItemRow">
+                                                        <option value="auto">
+                                                            Автоматически
+                                                        </option>
+                                                    </select>
+                                                </div>
+                                                <div class="property">
+                                                    <label for="gridItemColumns">
+                                                        Колонки
+                                                    </label>
+                                                    <input id="gridItemColumns" min="1" type="number" value="1"/>
+                                                </div>
+                                                <div class="property">
+                                                    <label for="gridItemRows">
+                                                        Строки
+                                                    </label>
+                                                    <input id="gridItemRows" min="1" type="number" value="1"/>
+                                                </div>
+                                            </div>
+                                        </div>
+                    <div class="flexOnly">
+                                            <div class="advancedGroup">
+                                                <h2>
+                                                    Размер элемента
+                                                </h2>
+                                                <div class="property">
+                                                    <label for="flexItemSize">
+                                                        Размер
+                                                    </label>
+                                                    <select id="flexItemSize">
+                                                        <option value="auto">
+                                                            По содержимому
+                                                        </option>
+                                                        <option value="fill">
+                                                            Занять свободное место
+                                                        </option>
+                                                        <option value="fixed">
+                                                            Заданный размер
+                                                        </option>
+                                                        <option value="equal">
+                                                            Равная доля
+                                                        </option>
+                                                    </select>
+                                                </div>
+                                                <div class="property" id="flexBasisProperty">
+                                                    <label for="flexBasis">
+                                                        Заданный размер
+                                                    </label>
+                                                    <input id="flexBasis" min="0" type="number" value="120"/>
+                                                </div>
+                                            </div>
+                                            <div class="advancedGroup">
+                                                <h2>
+                                                    Растяжение и порядок
+                                                </h2>
+                                                <div class="property">
+                                                    <label for="flexGrow">
+                                                        Расширение
+                                                    </label>
+                                                    <input id="flexGrow" min="0" type="number" value="0"/>
+                                                </div>
+                                                <div class="property" id="flexShrinkProperty">
+                                                    <label for="flexShrink">
+                                                        Сжатие
+                                                    </label>
+                                                    <input id="flexShrink" min="0" type="number" value="1"/>
+                                                </div>
+                                                <div class="property">
+                                                    <label for="flexAdvancedBasis">
+                                                        Начальный размер
+                                                    </label>
+                                                    <input id="flexAdvancedBasis" min="0" type="number" value="0"/>
+                                                </div>
+                                                <div class="property">
+                                                    <label for="flexSelf">
+                                                        Выравнивание элемента
+                                                    </label>
+                                                    <select id="flexSelf">
+                                                        <option value="auto">
+                                                            Автоматически
+                                                        </option>
+                                                        <option value="stretch">
+                                                            Растянуть
+                                                        </option>
+                                                        <option value="flex-start">
+                                                            В начале
+                                                        </option>
+                                                        <option value="center">
+                                                            По центру
+                                                        </option>
+                                                        <option value="flex-end">
+                                                            В конце
+                                                        </option>
+                                                    </select>
+                                                </div>
+                                                <div class="property">
+                                                    <label for="flexOrder">
+                                                        Порядок элемента
+                                                    </label>
+                                                    <input id="flexOrder" type="number" value="0"/>
+                                                </div>
+                                            </div>
+                                        </div>
+                    <div class="advancedGroup">
+                                            <h2>
+                                                Размер и высота
+                                            </h2>
+                                            <div class="property">
+                                                <label for="itemMinHeight">
+                                                    Мин. высота
+                                                </label>
+                                                <input id="itemMinHeight" min="0" type="number" value="0"/>
+                                            </div>
+                                            <div class="property">
+                                                <label for="itemMaxHeight">
+                                                    Макс. высота
+                                                </label>
+                                                <input id="itemMaxHeight" min="0" type="number" value="0"/>
+                                            </div>
+                                            <div class="property">
+                                                <label for="itemAspectRatio">
+                                                    Форма блока
+                                                </label>
+                                                <select id="itemAspectRatio">
+                                                    <option value="">
+                                                        Нет
+                                                    </option>
+                                                    <option value="1 / 1">
+                                                        1:1
+                                                    </option>
+                                                    <option value="4 / 3">
+                                                        4:3
+                                                    </option>
+                                                    <option value="16 / 9">
+                                                        16:9
+                                                    </option>
+                                                </select>
+                                            </div>
+                                            <div class="property">
+                                                <label for="itemOverflow">
+                                                    Если не помещается
+                                                </label>
+                                                <select id="itemOverflow">
+                                                    <option value="">
+                                                        По умолчанию
+                                                    </option>
+                                                    <option value="visible">
+                                                        Показывать
+                                                    </option>
+                                                    <option value="hidden">
+                                                        Скрыть
+                                                    </option>
+                                                    <option value="auto">
+                                                        Прокрутка
+                                                    </option>
+                                                </select>
+                                            </div>
+                                        </div>
+                    <div class="advancedGroup">
+                                            <h2>
+                                                Текст
+                                            </h2>
+                                            <div class="property">
+                                                <label for="textWrapMode">
+                                                    Перенос текста
+                                                </label>
+                                                <select id="textWrapMode">
+                                                    <option value="">
+                                                        Обычный
+                                                    </option>
+                                                    <option value="anywhere">
+                                                        Разрывать слова
+                                                    </option>
+                                                    <option value="nowrap">
+                                                        Не переносить
+                                                    </option>
+                                                </select>
+                                            </div>
+                                            <div class="property">
+                                                <label for="textOverflowMode">
+                                                    Если текст не помещается
+                                                </label>
+                                                <select id="textOverflowMode">
+                                                    <option value="">
+                                                        По умолчанию
+                                                    </option>
+                                                    <option value="ellipsis">
+                                                        Многоточие
+                                                    </option>
+                                                    <option value="hidden">
+                                                        Скрыть
+                                                    </option>
+                                                    <option value="auto">
+                                                        Прокрутка
+                                                    </option>
+                                                </select>
+                                            </div>
+                                            <div class="property">
+                                                <label for="textLineClamp">
+                                                    Макс. строк
+                                                </label>
+                                                <input id="textLineClamp" min="0" type="number" value="0"/>
+                                            </div>
+                                        </div>
+                    <div class="advancedGroup" id="responsiveMediaGroup">
+                                            <h2>
+                                                Изображение и видео
+                                            </h2>
+                                            <div class="property">
+                                                <label for="mediaSrc">
+                                                    Файл
+                                                </label>
+                                                <input id="mediaSrc" type="text" value=""/>
+                                            </div>
+                                            <div class="property">
+                                                <label for="mediaSrcset">
+                                                    Файлы для разных экранов
+                                                </label>
+                                                <input id="mediaSrcset" placeholder="480.webp 480w, 800.webp 800w" type="text"/>
+                                            </div>
+                                            <div class="property">
+                                                <label for="mediaSizes">
+                                                    Размер файла для экрана
+                                                </label>
+                                                <input id="mediaSizes" placeholder="(max-width: 700px) 100vw, 50vw" type="text"/>
+                                            </div>
+                                            <div class="property">
+                                                <label for="mediaFit">
+                                                    Заполнение
+                                                </label>
+                                                <select id="mediaFit">
+                                                    <option value="">
+                                                        По умолчанию
+                                                    </option>
+                                                    <option value="cover">
+                                                        Заполнить с обрезкой
+                                                    </option>
+                                                    <option value="contain">
+                                                        Вместить целиком
+                                                    </option>
+                                                    <option value="fill">
+                                                        Растянуть
+                                                    </option>
+                                                    <option value="none">
+                                                        Исходный размер
+                                                    </option>
+                                                </select>
+                                            </div>
+                                            <div class="property">
+                                                <label for="mediaLoading">
+                                                    Загрузка
+                                                </label>
+                                                <select id="mediaLoading">
+                                                    <option value="">
+                                                        По умолчанию
+                                                    </option>
+                                                    <option value="lazy">
+                                                        При появлении рядом с экраном
+                                                    </option>
+                                                    <option value="eager">
+                                                        Сразу
+                                                    </option>
+                                                </select>
+                                            </div>
+                                        </div>
+                    <div class="advancedGroup">
+                                            <h2>
+                                                Если родительский блок узкий
+                                            </h2>
+                                            <div class="property propertyCheckbox">
+                                                <label>
+                                                    <input id="containerRuleEnabled" type="checkbox"/>
+                                                    Изменять при ширине родителя меньше
+                                                </label>
+                                            </div>
+                                            <div id="containerRuleProperties">
+                                                <div class="property">
+                                                    <label for="containerRuleWidth">
+                                                        Ширина родителя до
+                                                    </label>
+                                                    <input id="containerRuleWidth" min="1" type="number" value="360"/>
+                                                </div>
+                                                <div class="property">
+                                                    <label for="containerRuleAction">
+                                                        Что изменить
+                                                    </label>
+                                                    <select id="containerRuleAction">
+                                                        <option value="column">
+                                                            Сделать столбцом
+                                                        </option>
+                                                        <option value="wrap">
+                                                            Разрешить перенос
+                                                        </option>
+                                                        <option value="hide">
+                                                            Скрыть элемент
+                                                        </option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+                    <div class="advancedGroup">
+                                            <h2>
+                                                Шаблоны
+                                            </h2>
+                                            <div class="variantList" id="variantList">
+                                            </div>
+                                            <button class="trackAdd" id="addVariant" type="button">
+                                                + Сохранить шаблон
+                                            </button>
+                                        </div>
+                </div>
+            </details>
+        </div>
+
+        <div class="tabContent mainContent active">
+                <!-- Дополнительные настройки -->
+        <div class="advancedDetails">
+            <div class="tabContent" id="advanced">
+                <details class="advancedSection gridOnly active">
+                    <summary>
+                        Сетка
+                        <span class="modeBadge">
+                            Grid
+                        </span>
+                    </summary>
+                    <div class="advancedSectionContent">
+                        <div class="gridOnly active" id="advancedGrid">
+                            <div class="advancedGroup">
+                                <h2>
+                                    Подбор колонок под ширину
+                                </h2>
+                                <div class="property propertyCheckbox">
+                                    <label>
+                                        <input id="gridAutoFit" type="checkbox"/>
+                                        Автоматически подбирать колонки под ширину блока
+                                    </label>
+                                </div>
+                                <div id="gridAutoFitProperties">
+                                    <div class="property">
+                                        <label for="gridMinWidth">
+                                            Мин. ширина колонки
+                                        </label>
+                                        <input id="gridMinWidth" min="1" type="number" value="220"/>
+                                    </div>
+                                    <div class="property" style="display: none;">
+                                        <input id="gridNormalWidth" min="1" type="number" value="300"/>
+                                    </div>
+                                    <div class="property">
+                                        <label for="gridMaxWidth">
+                                            Макс. ширина колонки
+                                        </label>
+                                        <input id="gridMaxWidth" min="1" type="number" value="400"/>
+                                    </div>
+                                    <div class="property">
+                                        <label for="autoFitMode">
+                                            Как заполнять свободное место
+                                        </label>
+                                        <select id="autoFitMode">
+                                            <option value="auto-fit">
+                                                Растягивать колонки
+                                            </option>
+                                            <option value="auto-fill">
+                                                Сохранять места колонок
+                                            </option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="advancedGroup">
+                                <h2>
+                                    Размеры колонок
+                                </h2>
+                                <div class="trackList" id="columnTracks">
+                                </div>
+                                <button class="trackAdd" id="addColumn" type="button">
+                                    + Добавить колонку
+                                </button>
+                            </div>
+                            <div class="advancedGroup" id="rowTracksGroup">
+                                <h2>
+                                    Размеры строк
+                                </h2>
+                                <div class="trackList" id="rowTracks">
+                                </div>
+                                <button class="trackAdd" id="addRow" type="button">
+                                    + Добавить строку
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+                <details class="advancedSection">
+                    <summary>
+                        Расположение элементов
+                        <span class="modeBadge">
+                            Grid / Flex
+                        </span>
+                    </summary>
+                    <div class="advancedSectionContent">
+                        <div class="gridOnly active">
+                            <div class="advancedGroup">
+                                <h2>
+                                    Промежутки
+                                </h2>
+                                <div class="property">
+                                    <label for="columnGap">
+                                        Между колонками
+                                    </label>
+                                    <input id="columnGap" min="0" type="number" value="10"/>
+                                </div>
+                                <div class="property">
+                                    <label for="rowGap">
+                                        Между строками
+                                    </label>
+                                    <input id="rowGap" min="0" type="number" value="10"/>
+                                </div>
+                                <div class="property">
+                                    <label for="gridPadding">
+                                        Отступ от краёв
+                                    </label>
+                                    <input id="gridPadding" min="0" type="number" value="10"/>
+                                </div>
+                            </div>
+                            <div class="advancedGroup">
+                                <h2>
+                                    Порядок заполнения
+                                </h2>
+                                <div class="property" id="gridAutoFlowProperty">
+                                    <label for="autoFlow">
+                                        Заполнять
+                                    </label>
+                                    <select id="autoFlow">
+                                        <option value="row">
+                                            По строкам
+                                        </option>
+                                        <option value="column">
+                                            По колонкам
+                                        </option>
+                                        <option value="row dense">
+                                            По строкам без пустот
+                                        </option>
+                                        <option value="column dense">
+                                            По колонкам без пустот
+                                        </option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flexOnly" id="advancedFlex">
+                            <div class="advancedGroup">
+                                <h2>
+                                    Расположение элементов
+                                </h2>
+                                <div class="property">
+                                    <label for="flexAdvancedDirection">
+                                        Направление
+                                    </label>
+                                    <select id="flexAdvancedDirection">
+                                        <option value="row">
+                                            Слева направо
+                                        </option>
+                                        <option value="column">
+                                            Сверху вниз
+                                        </option>
+                                        <option value="row-reverse">
+                                            Справа налево
+                                        </option>
+                                        <option value="column-reverse">
+                                            Снизу вверх
+                                        </option>
+                                    </select>
+                                </div>
+                                <div class="property">
+                                    <label for="flexAdvancedWrap">
+                                        Перенос элементов
+                                    </label>
+                                    <select id="flexAdvancedWrap">
+                                        <option value="nowrap">
+                                            Не переносить
+                                        </option>
+                                        <option value="wrap">
+                                            Переносить
+                                        </option>
+                                        <option value="wrap-reverse">
+                                            Перенос наоборот
+                                        </option>
+                                    </select>
+                                </div>
+                                <div class="property">
+                                    <label for="flexAdvancedGap">
+                                        Отступ между элементами
+                                    </label>
+                                    <input id="flexAdvancedGap" min="0" type="number" value="10"/>
+                                </div>
+                                <div class="property" id="flexAlignContentProperty">
+                                    <label for="flexAlignContent">
+                                        Несколько строк
+                                    </label>
+                                    <select id="flexAlignContent">
+                                        <option value="stretch">
+                                            Растянуть
+                                        </option>
+                                        <option value="flex-start">
+                                            В начале
+                                        </option>
+                                        <option value="center">
+                                            По центру
+                                        </option>
+                                        <option value="flex-end">
+                                            В конце
+                                        </option>
+                                        <option value="space-between">
+                                            По краям
+                                        </option>
+                                        <option value="space-around">
+                                            Равномерно
+                                        </option>
+                                        <option value="space-evenly">
+                                            Одинаковые промежутки
+                                        </option>
+                                    </select>
+                                </div>
+                                <div class="property">
+                                    <label for="flexAdvancedJustify">
+                                        По основной оси
+                                    </label>
+                                    <select id="flexAdvancedJustify">
+                                        <option value="flex-start">
+                                            В начале
+                                        </option>
+                                        <option value="center">
+                                            По центру
+                                        </option>
+                                        <option value="flex-end">
+                                            В конце
+                                        </option>
+                                        <option value="space-between">
+                                            По краям
+                                        </option>
+                                        <option value="space-around">
+                                            Равномерно
+                                        </option>
+                                        <option value="space-evenly">
+                                            Одинаковые промежутки
+                                        </option>
+                                    </select>
+                                </div>
+                                <div class="property">
+                                    <label for="flexAdvancedAlign">
+                                        По поперечной оси
+                                    </label>
+                                    <select id="flexAdvancedAlign">
+                                        <option value="stretch">
+                                            Растянуть
+                                        </option>
+                                        <option value="flex-start">
+                                            В начале
+                                        </option>
+                                        <option value="center">
+                                            По центру
+                                        </option>
+                                        <option value="flex-end">
+                                            В конце
+                                        </option>
+                                        <option value="baseline">
+                                            По строке текста
+                                        </option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+                <details class="advancedSection">
+                    <summary>
+                        Размер и адаптивность
+                        <span class="modeBadge">
+                            Grid / Flex
+                        </span>
+                    </summary>
+                    <div class="advancedSectionContent">
+                        <div class="advancedGroup" id="fluidGapSection">
+                            <h2>
+                                Отступ, который меняется вместе с шириной блока
+                            </h2>
+                            <div class="property propertyCheckbox">
+                                <label>
+                                    <input id="fluidGapEnabled" type="checkbox"/>
+                                    Автоматически менять отступ в зависимости от ширины блока
+                                </label>
+                            </div>
+                            <div id="fluidGapProperties">
+                                <div class="property">
+                                    <label for="fluidGapMin">
+                                        Мин. отступ
+                                    </label>
+                                    <input id="fluidGapMin" min="0" type="number" value="8"/>
+                                </div>
+                                <div class="property">
+                                    <label for="fluidGapMax">
+                                        Макс. отступ
+                                    </label>
+                                    <input id="fluidGapMax" min="0" type="number" value="24"/>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+                <details class="advancedSection">
+                    <summary>
+                        Проверка
+                    </summary>
+                    <div class="advancedSectionContent">
+                        <div class="advancedGroup">
+                            <h2>
+                                Проверка макета
+                            </h2>
+                            <button class="trackAdd" id="checkResponsive" type="button">
+                                Проверить отображение на разных ширинах
+                            </button>
+                            <button class="trackAdd" id="stressContent" type="button">
+                                Проверить длинный текст
+                            </button>
+                            <div class="checkResult" id="checkResponsiveResult">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    /* === Элементы интерфейса === */
+    const layout = document.getElementById('layout');
+
+
+    const gridOnly = document.querySelectorAll('.gridOnly');
+    const flexOnly = document.querySelectorAll('.flexOnly');
+
+
+    const gridColumns = document.getElementById('gridColumns');
+    const gridRows = document.getElementById('gridRows');
+    const gridRowsProperty = document.getElementById('gridRowsProperty');
+    const gridGap = document.getElementById('gridGap');
+
+    const gridAutoFit = document.getElementById('gridAutoFit');
+    const gridNormalWidth = document.getElementById('gridNormalWidth');
+    const gridMaxWidth = document.getElementById('gridMaxWidth');
+    const gridAutoFitProperties = document.getElementById('gridAutoFitProperties');
+    const gridAutoFlowProperty = document.getElementById('gridAutoFlowProperty');
+    const gridMinWidth = document.getElementById('gridMinWidth');
+
+    const gridColumnSpan = document.getElementById('gridColumnSpan');
+    const gridRowSpan = document.getElementById('gridRowSpan');
+
+    const columnTracks = document.getElementById('columnTracks');
+    const rowTracks = document.getElementById('rowTracks');
+    const rowTracksGroup = document.getElementById('rowTracksGroup');
+
+    const addColumn = document.getElementById('addColumn');
+    const addRow = document.getElementById('addRow');
+
+    const autoFitMode = document.getElementById('autoFitMode');
+
+    const columnGap = document.getElementById('columnGap');
+    const rowGap = document.getElementById('rowGap');
+    const gridPadding = document.getElementById('gridPadding');
+    const autoFlow = document.getElementById('autoFlow');
+
+    const gridItemColumn = document.getElementById('gridItemColumn');
+    const gridItemRow = document.getElementById('gridItemRow');
+    const gridItemColumns = document.getElementById('gridItemColumns');
+    const gridItemRows = document.getElementById('gridItemRows');
+
+    const flexDirection = document.getElementById('flexDirection');
+    const flexGap = document.getElementById('flexGap');
+    const flexWrap = document.getElementById('flexWrap');
+    const flexJustify = document.getElementById('flexJustify');
+    const flexAlign = document.getElementById('flexAlign');
+
+    const flexItemSize = document.getElementById('flexItemSize');
+    const flexBasis = document.getElementById('flexBasis');
+    const flexBasisProperty = document.getElementById('flexBasisProperty');
+
+    const flexAdvancedDirection = document.getElementById('flexAdvancedDirection');
+    const flexAdvancedWrap = document.getElementById('flexAdvancedWrap');
+    const flexAdvancedGap = document.getElementById('flexAdvancedGap');
+    const flexAdvancedJustify = document.getElementById('flexAdvancedJustify');
+    const flexAdvancedAlign = document.getElementById('flexAdvancedAlign');
+    const flexAlignContent = document.getElementById('flexAlignContent');
+    const flexAlignContentProperty = document.getElementById('flexAlignContentProperty');
+
+    const flexGrow = document.getElementById('flexGrow');
+    const flexShrink = document.getElementById('flexShrink');
+    const flexShrinkProperty = document.getElementById('flexShrinkProperty');
+    const flexAdvancedBasis = document.getElementById('flexAdvancedBasis');
+    const flexSelf = document.getElementById('flexSelf');
+    const flexOrder = document.getElementById('flexOrder');
+
+    const breakpointSelect = document.getElementById('breakpointSelect');
+    const layoutTypeSelect = document.getElementById('layoutTypeSelect');
+    const gridPresetSelect = document.getElementById('gridPresetSelect');
+    const flexPresetSelect = document.getElementById('flexPresetSelect');
+    const breakpointRangeEditor = document.getElementById('breakpointRangeEditor');
+    const breakpointStartInput = document.getElementById('breakpointStartInput');
+    const breakpointEndInput = document.getElementById('breakpointEndInput');
+    const addBreakpoint = document.getElementById('addBreakpoint');
+    const breakpointNameInput = document.getElementById('breakpointNameInput');
+    const duplicateBreakpoint = document.getElementById('duplicateBreakpoint');
+    const removeBreakpoint = document.getElementById('removeBreakpoint');
+    const resetBreakpoint = document.getElementById('resetBreakpoint');
+    const breakpointStatus = document.getElementById('breakpointStatus');
+    const breakpointHint = document.getElementById('breakpointHint');
+
+    const itemMinWidth = document.getElementById('itemMinWidth');
+    const itemMaxWidth = document.getElementById('itemMaxWidth');
+    const itemMinHeight = document.getElementById('itemMinHeight');
+    const itemMaxHeight = document.getElementById('itemMaxHeight');
+    const itemAspectRatio = document.getElementById('itemAspectRatio');
+    const itemOverflow = document.getElementById('itemOverflow');
+    const itemHidden = document.getElementById('itemHidden');
+
+    const fluidGapEnabled = document.getElementById('fluidGapEnabled');
+    const fluidGapSection = document.getElementById('fluidGapSection');
+    const fluidGapProperties = document.getElementById('fluidGapProperties');
+    const fluidGapMin = document.getElementById('fluidGapMin');
+    const fluidGapMax = document.getElementById('fluidGapMax');
+
+    const checkResponsive = document.getElementById('checkResponsive');
+    const checkResponsiveResult = document.getElementById('checkResponsiveResult');
+    const stressContent = document.getElementById('stressContent');
+
+    const variantList = document.getElementById('variantList');
+    const addVariant = document.getElementById('addVariant');
+
+    const textWrapMode = document.getElementById('textWrapMode');
+    const textOverflowMode = document.getElementById('textOverflowMode');
+    const textLineClamp = document.getElementById('textLineClamp');
+
+    const containerRuleEnabled = document.getElementById('containerRuleEnabled');
+    const containerRuleProperties = document.getElementById('containerRuleProperties');
+    const containerRuleWidth = document.getElementById('containerRuleWidth');
+    const containerRuleAction = document.getElementById('containerRuleAction');
+
+    const responsiveMediaGroup = document.getElementById('responsiveMediaGroup');
+    const mediaSrc = document.getElementById('mediaSrc');
+    const mediaSrcset = document.getElementById('mediaSrcset');
+    const mediaSizes = document.getElementById('mediaSizes');
+    const mediaFit = document.getElementById('mediaFit');
+    const mediaLoading = document.getElementById('mediaLoading');
+    const propertiesPanel = document.querySelector('.properties');
+
+    /* === Состояние редактора === */
+    let layoutType = 'grid';
+    let selectedItem = null;
+    let isAutoRows = false;
+    let activeBreakpointId = 'all';
+    let breakpointCounter = 4;
+    let baseSnapshot = null;
+    let isRestoringBreakpoint = false;
+    let variantCounter = 0;
+    let stressBackup = null;
+
+    const itemVariants = new WeakMap();
+
+    const breakpointRanges = [
+        {
+            id: 'all',
+            label: 'Все размеры',
+            name: 'Все размеры',
+            min: null,
+            max: null,
+            isBase: true,
+            overrides: null
+        },
+        {
+            id: 'bp-phone',
+            label: 'Телефон',
+            name: 'Телефон',
+            min: 0,
+            max: 480,
+            isBase: false,
+            overrides: null
+        },
+        {
+            id: 'bp-tablet',
+            label: 'Планшет',
+            name: 'Планшет',
+            min: 481,
+            max: 1024,
+            isBase: false,
+            overrides: null
+        },
+        {
+            id: 'bp-laptop',
+            label: 'Ноутбук',
+            name: 'Ноутбук',
+            min: 1025,
+            max: 1920,
+            isBase: false,
+            overrides: null
+        },
+        {
+            id: 'bp-large',
+            label: 'Большой экран',
+            name: 'Большой экран',
+            min: 1921,
+            max: 3840,
+            isBase: false,
+            overrides: null
+        }
+    ];
+
+
+    /* === Вспомогательный интерфейс === */
+    function addNumberUnit(input, unit = 'px') {
+        if (
+            !input ||
+            input.type !== 'number' ||
+            input.dataset.unitAdded === 'true'
+        ) {
+            return;
+        }
+
+        input.dataset.unitAdded = 'true';
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'numberField';
+
+        input.parentNode.insertBefore(wrapper, input);
+        wrapper.appendChild(input);
+
+        const label = document.createElement('span');
+        label.className = 'numberUnit';
+        label.textContent = unit;
+        wrapper.appendChild(label);
+    }
+
+    function initNumberUnits() {
+        const pixelInputs = [
+            'breakpointStartInput',
+            'breakpointEndInput',
+            'gridGap',
+            'flexGap',
+            'itemMinWidth',
+            'itemMaxWidth',
+            'itemMinHeight',
+            'itemMaxHeight',
+            'gridMinWidth',
+            'gridNormalWidth',
+            'gridMaxWidth',
+            'columnGap',
+            'rowGap',
+            'gridPadding',
+            'flexAdvancedGap',
+            'flexBasis',
+            'flexAdvancedBasis',
+            'fluidGapMin',
+            'fluidGapMax',
+            'containerRuleWidth'
+        ];
+
+        pixelInputs.forEach((id) => {
+            addNumberUnit(document.getElementById(id));
+        });
+    }
+
+
+    function updateBreakpointHint() {
+        if (!breakpointHint) {
+            return;
+        }
+
+        const range = getActiveBreakpoint();
+
+        breakpointHint.textContent = range.isBase
+            ? 'Базовые настройки применяются ко всем диапазонам.'
+            : `Изменения применяются только при ширине ${formatBreakpointRange(range)}px.`;
+    }
+
+    function deepClone(value) {
+        return JSON.parse(JSON.stringify(value || {}));
+    }
+
+    /* === Размеры экрана === */
+    function getActiveBreakpoint() {
+        return breakpointRanges.find((range) => range.id === activeBreakpointId) || breakpointRanges[0];
+    }
+
+    function formatBreakpointLabel(range) {
+        if (range.isBase) {
+            return 'Все размеры';
+        }
+
+        if (range.name) {
+            return range.name;
+        }
+
+        if (range.max === null) {
+            return `${range.min}+`;
+        }
+
+        return `${range.min}-${range.max}`;
+    }
+
+    function formatBreakpointRange(range) {
+        if (range.max === null) {
+            return `${range.min}+`;
+        }
+
+        return `${range.min}-${range.max}`;
+    }
+
+    function captureEditorState() {
+        const controls = {};
+
+        document.querySelectorAll('input, select').forEach((element) => {
+            if (
+                !element.id ||
+                element.id === 'breakpointStartInput' ||
+                element.id === 'breakpointEndInput'
+            ) {
+                return;
+            }
+
+            controls[element.id] = element.type === 'checkbox'
+                ? element.checked
+                : element.value;
+        });
+
+        return {
+            layoutType,
+            controls,
+            css: {
+                gridTemplateColumns: layout.style.gridTemplateColumns || '',
+                gridTemplateRows: layout.style.gridTemplateRows || '',
+                gridAutoRows: layout.style.gridAutoRows || '',
+                gridAutoFlow: layout.style.gridAutoFlow || '',
+                columnGap: layout.style.columnGap || '',
+                rowGap: layout.style.rowGap || '',
+                padding: layout.style.padding || '',
+                flexDirection: layout.style.flexDirection || '',
+                flexWrap: layout.style.flexWrap || '',
+                gap: layout.style.gap || '',
+                justifyContent: layout.style.justifyContent || '',
+                alignItems: layout.style.alignItems || '',
+                alignContent: layout.style.alignContent || ''
+            },
+            items: Array.from(layout.children).map((item) => ({
+                css: item.style.cssText || ''
+            }))
+        };
+    }
+
+    function createBreakpointOverrides(base, current) {
+        const overrides = {
+            controls: {},
+            css: {},
+            items: []
+        };
+
+        if (current.layoutType !== base.layoutType) {
+            overrides.layoutType = current.layoutType;
+        }
+
+        Object.entries(current.controls || {}).forEach(([id, value]) => {
+            if ((base.controls || {})[id] !== value) {
+                overrides.controls[id] = value;
+            }
+        });
+
+        Object.entries(current.css || {}).forEach(([property, value]) => {
+            if ((base.css || {})[property] !== value) {
+                overrides.css[property] = value;
+            }
+        });
+
+        const itemCount = Math.max(
+            (base.items || []).length,
+            (current.items || []).length
+        );
+
+        for (let index = 0; index < itemCount; index++) {
+            const baseCss = base.items?.[index]?.css || '';
+            const currentCss = current.items?.[index]?.css || '';
+
+            overrides.items[index] = currentCss !== baseCss
+                ? { css: currentCss }
+                : null;
+        }
+
+        return overrides;
+    }
+
+    function mergeBreakpointState(base, overrides) {
+        const merged = deepClone(base);
+
+        if (!overrides) {
+            return merged;
+        }
+
+        if (overrides.layoutType) {
+            merged.layoutType = overrides.layoutType;
+        }
+
+        merged.controls = {
+            ...(merged.controls || {}),
+            ...(overrides.controls || {})
+        };
+
+        merged.css = {
+            ...(merged.css || {}),
+            ...(overrides.css || {})
+        };
+
+        if (overrides.items) {
+            merged.items = merged.items || [];
+
+            overrides.items.forEach((item, index) => {
+                if (item) {
+                    merged.items[index] = deepClone(item);
+                }
+            });
+        }
+
+        return merged;
+    }
+
+    function restoreEditorState(snapshot, restoreControls = true) {
+        if (!snapshot) {
+            return;
+        }
+
+        isRestoringBreakpoint = true;
+
+        const stateType = snapshot.layoutType || 'grid';
+        setLayoutType(stateType, false);
+
+        if (restoreControls) {
+            Object.entries(snapshot.controls || {}).forEach(([id, value]) => {
+                const element = document.getElementById(id);
+
+                if (!element) {
+                    return;
+                }
+
+                if (element.type === 'checkbox') {
+                    element.checked = Boolean(value);
+                    return;
+                }
+
+                element.value = value;
+            });
+        }
+
+        layout.style.gridTemplateColumns = snapshot.css?.gridTemplateColumns || '';
+        layout.style.gridTemplateRows = snapshot.css?.gridTemplateRows || '';
+        layout.style.gridAutoRows = snapshot.css?.gridAutoRows || '';
+        layout.style.gridAutoFlow = snapshot.css?.gridAutoFlow || '';
+        layout.style.columnGap = snapshot.css?.columnGap || '';
+        layout.style.rowGap = snapshot.css?.rowGap || '';
+        layout.style.padding = snapshot.css?.padding || '';
+        layout.style.flexDirection = snapshot.css?.flexDirection || '';
+        layout.style.flexWrap = snapshot.css?.flexWrap || '';
+        layout.style.gap = snapshot.css?.gap || '';
+        layout.style.justifyContent = snapshot.css?.justifyContent || '';
+        layout.style.alignItems = snapshot.css?.alignItems || '';
+        layout.style.alignContent = snapshot.css?.alignContent || '';
+
+        (snapshot.items || []).forEach((itemState, index) => {
+            const item = layout.children[index];
+
+            if (item) {
+                item.style.cssText = itemState.css || '';
+            }
+        });
+
+        if (restoreControls) {
+            gridAutoFitProperties.style.display =
+                gridAutoFit.checked ? 'block' : 'none';
+
+            flexBasisProperty.style.display =
+                flexItemSize.value === 'fixed' ? 'grid' : 'none';
+
+            syncFlexBasicToAdvanced();
+            updateGridPositionOptions();
+        }
+
+        isRestoringBreakpoint = false;
+    }
+
+    function applyVisualState(snapshot) {
+        if (!snapshot) {
+            return;
+        }
+
+        isRestoringBreakpoint = true;
+
+        layout.classList.remove('grid', 'flex');
+        layout.classList.add(snapshot.layoutType || 'grid');
+
+        layout.style.gridTemplateColumns = snapshot.css?.gridTemplateColumns || '';
+        layout.style.gridTemplateRows = snapshot.css?.gridTemplateRows || '';
+        layout.style.gridAutoRows = snapshot.css?.gridAutoRows || '';
+        layout.style.gridAutoFlow = snapshot.css?.gridAutoFlow || '';
+        layout.style.columnGap = snapshot.css?.columnGap || '';
+        layout.style.rowGap = snapshot.css?.rowGap || '';
+        layout.style.padding = snapshot.css?.padding || '';
+        layout.style.flexDirection = snapshot.css?.flexDirection || '';
+        layout.style.flexWrap = snapshot.css?.flexWrap || '';
+        layout.style.gap = snapshot.css?.gap || '';
+        layout.style.justifyContent = snapshot.css?.justifyContent || '';
+        layout.style.alignItems = snapshot.css?.alignItems || '';
+        layout.style.alignContent = snapshot.css?.alignContent || '';
+
+        (snapshot.items || []).forEach((itemState, index) => {
+            const item = layout.children[index];
+
+            if (item) {
+                item.style.cssText = itemState.css || '';
+            }
+        });
+
+        isRestoringBreakpoint = false;
+    }
+
+    function applyStructureGuard() {
+        const isGlobal = activeBreakpointId === 'all';
+
+        document.querySelectorAll('.section').forEach((section) => {
+            if (section.querySelector('.presets')) {
+                section.style.display = isGlobal ? '' : 'none';
+            }
+        });
+
+        if (breakpointRangeEditor) {
+            breakpointRangeEditor.classList.toggle('visible', !isGlobal);
+        }
+    }
+
+    function getRangeForWidth(width) {
+        return breakpointRanges.find((range) => {
+            if (range.isBase) {
+                return false;
+            }
+
+            const matchesMin = width >= range.min;
+            const matchesMax = range.max === null || width <= range.max;
+
+            return matchesMin && matchesMax;
+        }) || null;
+    }
+
+    function getMergedStateForRange(range) {
+        const base = deepClone(baseSnapshot || captureEditorState());
+
+        if (!range || range.isBase) {
+            return base;
+        }
+
+        return mergeBreakpointState(base, range.overrides);
+    }
+
+    function getStateForWidth(width) {
+        const range = getRangeForWidth(width);
+
+        if (!range) {
+            return deepClone(baseSnapshot || captureEditorState());
+        }
+
+        return getMergedStateForRange(range);
+    }
+
+    function applyBreakpointResizeLimits() {
+        const range = getActiveBreakpoint();
+
+        if (range.isBase) {
+            layout.style.minWidth = '';
+            layout.style.maxWidth = '';
+            return;
+        }
+
+        layout.style.minWidth = `${range.min}px`;
+        layout.style.maxWidth = range.max === null
+            ? 'none'
+            : `${range.max}px`;
+
+        const currentWidth = layout.getBoundingClientRect().width;
+        let nextWidth = Math.max(range.min, currentWidth);
+
+        if (range.max !== null) {
+            nextWidth = Math.min(range.max, nextWidth);
+        }
+
+        layout.style.width = `${Math.round(nextWidth)}px`;
+    }
+
+    function applyBreakpointState() {
+        const range = getActiveBreakpoint();
+
+        if (range.isBase) {
+            restoreEditorState(baseSnapshot || captureEditorState());
+            applyStructureGuard();
+            applyBreakpointResizeLimits();
+
+            const width = layout.getBoundingClientRect().width;
+            applyVisualState(getStateForWidth(width));
+            updatePropertyStates();
+            return;
+        }
+
+        restoreEditorState(getMergedStateForRange(range));
+        applyStructureGuard();
+        applyBreakpointResizeLimits();
+    }
+
+    function saveCurrentBreakpointState() {
+        if (isRestoringBreakpoint) {
+            return;
+        }
+
+        const current = captureEditorState();
+
+        if (activeBreakpointId === 'all') {
+            baseSnapshot = current;
+
+            const width = layout.getBoundingClientRect().width;
+            applyVisualState(getStateForWidth(width));
+            return;
+        }
+
+        const range = getActiveBreakpoint();
+
+        if (!range || range.isBase) {
+            return;
+        }
+
+        range.overrides = createBreakpointOverrides(
+            baseSnapshot || current,
+            current
+        );
+
+        updateBreakpointStatus();
+        updatePropertyStates();
+    }
+
+    function getPropertyControlState(controlId) {
+        if (activeBreakpointId === 'all') {
+            return 'base';
+        }
+
+        const range = getActiveBreakpoint();
+        const controls = range?.overrides?.controls || {};
+
+        return Object.prototype.hasOwnProperty.call(controls, controlId)
+            ? 'override'
+            : 'inherited';
+    }
+
+    function resetPropertyOverride(controlId) {
+        if (activeBreakpointId === 'all') {
+            return;
+        }
+
+        const range = getActiveBreakpoint();
+
+        if (!range?.overrides?.controls) {
+            return;
+        }
+
+        delete range.overrides.controls[controlId];
+
+        const control = document.getElementById(controlId);
+        const value = baseSnapshot?.controls?.[controlId];
+
+        if (control) {
+            if (control.type === 'checkbox') {
+                control.checked = Boolean(value);
+                control.dispatchEvent(new Event('change', { bubbles: true }));
+            } else if (value !== undefined) {
+                control.value = value;
+                control.dispatchEvent(new Event('input', { bubbles: true }));
+                control.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }
+
+        updatePropertyStates();
+        updateBreakpointStatus();
+    }
+
+    function createPropertyState(control) {
+        if (
+            !control.id ||
+            control.closest('.breakpointRangeEditor') ||
+            control.closest('.variantRow')
+        ) {
+            return;
+        }
+
+        if (control.dataset.propertyStateBound === 'true') {
+            return;
+        }
+
+        const property = control.closest('.property');
+
+        if (!property) {
+            return;
+        }
+
+        control.dataset.propertyStateBound = 'true';
+
+        const state = document.createElement('div');
+        state.className = 'propertyState';
+        state.dataset.controlId = control.id;
+
+        const label = document.createElement('span');
+        label.className = 'propertyStateLabel';
+
+        const reset = document.createElement('button');
+        reset.type = 'button';
+        reset.textContent = 'Сбросить';
+
+        reset.addEventListener('click', () => {
+            resetPropertyOverride(control.id);
+        });
+
+        state.appendChild(label);
+        state.appendChild(reset);
+        property.insertAdjacentElement('afterend', state);
+    }
+
+    function updatePropertyStates() {
+        document.querySelectorAll('.propertyState').forEach((state) => {
+            const controlState = getPropertyControlState(state.dataset.controlId);
+            const label = state.querySelector('.propertyStateLabel');
+            const reset = state.querySelector('button');
+
+            state.classList.remove(
+                'stateBase',
+                'stateInherited',
+                'stateOverride'
+            );
+
+            if (controlState === 'base') {
+                state.classList.add('stateBase');
+                label.textContent = 'База';
+                reset.style.display = 'none';
+                return;
+            }
+
+            if (controlState === 'override') {
+                state.classList.add('stateOverride');
+                label.textContent = 'Изменено';
+                reset.style.display = '';
+                return;
+            }
+
+            state.classList.add('stateInherited');
+            label.textContent = 'Наследуется';
+            reset.style.display = 'none';
+        });
+    }
+
+    function initializePropertyStates() {
+        document.querySelectorAll('.property input, .property select').forEach((control) => {
+            createPropertyState(control);
+        });
+
+        updatePropertyStates();
+    }
+
+    function getSelectedItemVariants() {
+        if (!selectedItem) {
+            return [];
+        }
+
+        if (!itemVariants.has(selectedItem)) {
+            itemVariants.set(selectedItem, []);
+        }
+
+        return itemVariants.get(selectedItem);
+    }
+
+    function renderVariants() {
+        variantList.innerHTML = '';
+
+        if (!selectedItem) {
+            variantList.textContent = 'Сначала выберите элемент';
+            addVariant.disabled = true;
+            return;
+        }
+
+        addVariant.disabled = false;
+
+        const variants = getSelectedItemVariants();
+
+        if (!variants.length) {
+            variantList.textContent = 'Шаблонов нет';
+            return;
+        }
+
+        variants.forEach((variant) => {
+            const row = document.createElement('div');
+            row.className = 'variantRow';
+
+            const name = document.createElement('input');
+            name.type = 'text';
+            name.value = variant.name;
+
+            const apply = document.createElement('button');
+            apply.type = 'button';
+            apply.textContent = 'Применить';
+
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.textContent = '×';
+
+            name.addEventListener('input', () => {
+                variant.name = name.value;
+            });
+
+            apply.addEventListener('click', () => {
+                selectedItem.style.cssText = variant.css;
+                syncSelectedItemResponsiveProperties();
+                saveCurrentBreakpointState();
+            });
+
+            remove.addEventListener('click', () => {
+                const index = variants.indexOf(variant);
+
+                if (index !== -1) {
+                    variants.splice(index, 1);
+                }
+
+                renderVariants();
+            });
+
+            row.appendChild(name);
+            row.appendChild(apply);
+            row.appendChild(remove);
+            variantList.appendChild(row);
+        });
+    }
+
+    function addSelectedItemVariant() {
+        if (!selectedItem) {
+            return;
+        }
+
+        variantCounter += 1;
+
+        getSelectedItemVariants().push({
+            id: `variant-${variantCounter}`,
+            name: `Шаблон ${variantCounter}`,
+            breakpointId: activeBreakpointId,
+            css: selectedItem.style.cssText
+        });
+
+        renderVariants();
+    }
+
+    function updateTextResponsiveProperties() {
+        if (!selectedItem) {
+            return;
+        }
+
+        selectedItem.style.overflowWrap =
+            textWrapMode.value === 'anywhere' ? 'anywhere' : '';
+
+        selectedItem.style.whiteSpace =
+            textWrapMode.value === 'nowrap' ? 'nowrap' : '';
+
+        selectedItem.style.textOverflow =
+            textOverflowMode.value === 'ellipsis' ? 'ellipsis' : '';
+
+        if (textOverflowMode.value === 'ellipsis') {
+            selectedItem.style.overflow = 'hidden';
+            selectedItem.style.whiteSpace = 'nowrap';
+        } else if (textOverflowMode.value === 'hidden') {
+            selectedItem.style.overflow = 'hidden';
+        } else if (textOverflowMode.value === 'auto') {
+            selectedItem.style.overflow = 'auto';
+        }
+
+        const lines = Math.max(0, parseInt(textLineClamp.value) || 0);
+
+        if (lines > 0) {
+            selectedItem.style.display = '-webkit-box';
+            selectedItem.style.webkitBoxOrient = 'vertical';
+            selectedItem.style.webkitLineClamp = lines;
+            selectedItem.style.overflow = 'hidden';
+        } else {
+            selectedItem.style.webkitBoxOrient = '';
+            selectedItem.style.webkitLineClamp = '';
+        }
+
+        saveCurrentBreakpointState();
+    }
+
+    function syncTextResponsiveProperties() {
+        if (!selectedItem) {
+            textWrapMode.value = '';
+            textOverflowMode.value = '';
+            textLineClamp.value = 0;
+            return;
+        }
+
+        if (selectedItem.style.overflowWrap === 'anywhere') {
+            textWrapMode.value = 'anywhere';
+        } else if (selectedItem.style.whiteSpace === 'nowrap') {
+            textWrapMode.value = 'nowrap';
+        } else {
+            textWrapMode.value = '';
+        }
+
+        if (selectedItem.style.textOverflow === 'ellipsis') {
+            textOverflowMode.value = 'ellipsis';
+        } else {
+            textOverflowMode.value = selectedItem.style.overflow || '';
+        }
+
+        textLineClamp.value =
+            parseInt(selectedItem.style.webkitLineClamp) || 0;
+    }
+
+    function updateContainerRule() {
+        containerRuleProperties.style.display =
+            containerRuleEnabled.checked ? 'block' : 'none';
+
+        if (!selectedItem) {
+            return;
+        }
+
+        selectedItem.dataset.containerRule =
+            containerRuleEnabled.checked ? 'true' : '';
+
+        selectedItem.dataset.containerWidth =
+            Math.max(1, parseInt(containerRuleWidth.value) || 360);
+
+        selectedItem.dataset.containerAction =
+            containerRuleAction.value;
+
+        applyContainerRule();
+        saveCurrentBreakpointState();
+    }
+
+    function applyContainerRule() {
+        if (!selectedItem || selectedItem.dataset.containerRule !== 'true') {
+            return;
+        }
+
+        const parentWidth = selectedItem.parentElement?.getBoundingClientRect().width || 0;
+        const limit = parseInt(selectedItem.dataset.containerWidth) || 360;
+        const action = selectedItem.dataset.containerAction;
+
+        selectedItem.style.flexDirection = '';
+        selectedItem.style.flexWrap = '';
+
+        if (selectedItem.dataset.containerHidden === 'true') {
+            selectedItem.style.display = '';
+            delete selectedItem.dataset.containerHidden;
+        }
+
+        if (parentWidth > limit) {
+            return;
+        }
+
+        if (action === 'column') {
+            selectedItem.style.flexDirection = 'column';
+        }
+
+        if (action === 'wrap') {
+            selectedItem.style.flexWrap = 'wrap';
+        }
+
+        if (action === 'hide') {
+            selectedItem.style.display = 'none';
+            selectedItem.dataset.containerHidden = 'true';
+        }
+    }
+
+    function syncContainerRule() {
+        const enabled = selectedItem?.dataset.containerRule === 'true';
+
+        containerRuleEnabled.checked = enabled;
+        containerRuleProperties.style.display = enabled ? 'block' : 'none';
+
+        if (!selectedItem) {
+            return;
+        }
+
+        containerRuleWidth.value =
+            selectedItem.dataset.containerWidth || 360;
+
+        containerRuleAction.value =
+            selectedItem.dataset.containerAction || 'column';
+    }
+
+    function updateResponsiveMedia() {
+        if (!selectedItem) {
+            return;
+        }
+
+        const isImage = selectedItem.tagName === 'IMG';
+        const isVideo = selectedItem.tagName === 'VIDEO';
+
+        if (!isImage && !isVideo) {
+            return;
+        }
+
+        if (mediaSrc.value) {
+            selectedItem.src = mediaSrc.value;
+        }
+
+        if (isImage) {
+            selectedItem.srcset = mediaSrcset.value;
+            selectedItem.sizes = mediaSizes.value;
+
+            if (mediaLoading.value) {
+                selectedItem.loading = mediaLoading.value;
+            }
+        }
+
+        selectedItem.style.objectFit = mediaFit.value;
+        saveCurrentBreakpointState();
+    }
+
+    function syncResponsiveMedia() {
+        const isMedia =
+            selectedItem &&
+            (selectedItem.tagName === 'IMG' || selectedItem.tagName === 'VIDEO');
+
+        responsiveMediaGroup.style.display = isMedia ? 'block' : 'none';
+
+        if (!isMedia) {
+            return;
+        }
+
+        mediaSrc.value = selectedItem.getAttribute('src') || '';
+        mediaSrcset.value = selectedItem.getAttribute('srcset') || '';
+        mediaSizes.value = selectedItem.getAttribute('sizes') || '';
+        mediaFit.value = selectedItem.style.objectFit || '';
+        mediaLoading.value = selectedItem.getAttribute('loading') || '';
+    }
+
+    function runStressContent() {
+        const items = Array.from(layout.children);
+
+        if (!stressBackup) {
+            stressBackup = items.map((item) => item.textContent);
+
+            const samples = [
+                'Очень длинный заголовок, который должен проверить перенос текста',
+                'ОченьДлинноеСловоБезПробеловДляПроверкиПереполнения',
+                '123 456 789,99 EUR - 31 декабря 2026 года',
+                'Navigation / Настройки / Дополнительные параметры'
+            ];
+
+            items.forEach((item, index) => {
+                item.textContent = samples[index % samples.length];
+            });
+
+            stressContent.textContent = 'Вернуть текст';
+            checkResponsiveRange();
+            return;
+        }
+
+        items.forEach((item, index) => {
+            item.textContent = stressBackup[index] || '';
+        });
+
+        stressBackup = null;
+        stressContent.textContent = 'Проверить длинный текст';
+    }
+
+
+    function countBreakpointOverrides(range) {
+        if (!range || range.isBase || !range.overrides) {
+            return 0;
+        }
+
+        let count = Object.keys(range.overrides.controls || {}).length;
+        count += Object.keys(range.overrides.css || {}).length;
+        count += (range.overrides.items || []).filter(Boolean).length;
+
+        if (range.overrides.layoutType) {
+            count += 1;
+        }
+
+        return count;
+    }
+
+    function updateBreakpointStatus() {
+        const range = getActiveBreakpoint();
+
+        if (range.isBase) {
+            breakpointStatus.textContent = 'Базовые свойства';
+            resetBreakpoint.style.display = 'none';
+            return;
+        }
+
+        const count = countBreakpointOverrides(range);
+        breakpointStatus.textContent = count
+            ? `Изменено свойств: ${count}`
+            : 'Используются базовые свойства';
+
+        resetBreakpoint.style.display = count ? '' : 'none';
+    }
+
+    function renderBreakpointTabs() {
+        if (!breakpointSelect) {
+            return;
+        }
+
+        breakpointSelect.innerHTML = '';
+
+        breakpointRanges.forEach((range) => {
+            const option = document.createElement('option');
+            option.value = range.id;
+            option.textContent = formatBreakpointLabel(range);
+
+            breakpointSelect.appendChild(option);
+        });
+
+        if (breakpointRanges.length === 1) {
+            const presets = [
+                { value: 'preset-mobile', label: 'Мобильный 0-640' },
+                { value: 'preset-tablet', label: 'Планшет 641-1024' },
+                { value: 'preset-desktop', label: 'Десктоп 1025+' }
+            ];
+
+            presets.forEach((preset) => {
+                const option = document.createElement('option');
+                option.value = preset.value;
+                option.textContent = preset.label;
+                breakpointSelect.appendChild(option);
+            });
+        }
+
+        breakpointSelect.value = activeBreakpointId;
+    }
+
+    function updateBreakpointInputs() {
+        const active = getActiveBreakpoint();
+
+        if (active.isBase) {
+            breakpointRangeEditor.classList.remove('visible');
+            updateBreakpointStatus();
+            updatePropertyStates();
+            updateBreakpointHint();
+            return;
+        }
+
+        breakpointStartInput.value = active.min;
+        breakpointEndInput.value = active.max === null ? '' : active.max;
+        breakpointNameInput.value = active.name || '';
+        breakpointRangeEditor.classList.add('visible');
+        updateBreakpointStatus();
+        updatePropertyStates();
+        updateBreakpointHint();
+    }
+
+    function setActiveBreakpoint(id) {
+        if (!isRestoringBreakpoint) {
+            saveCurrentBreakpointState();
+        }
+
+        activeBreakpointId = id;
+        updateBreakpointInputs();
+        applyBreakpointState();
+        renderBreakpointTabs();
+    }
+
+    function addBreakpointRange() {
+        saveCurrentBreakpointState();
+
+        const ranges = breakpointRanges
+            .filter((range) => !range.isBase)
+            .sort((a, b) => a.min - b.min);
+
+        let min = 0;
+        let max = 640;
+
+        if (ranges.length) {
+            const last = ranges[ranges.length - 1];
+
+            if (last.max === null) {
+                min = last.min + 1;
+                max = min + 639;
+            } else {
+                min = last.max + 1;
+                max = min + 639;
+            }
+        }
+
+        breakpointCounter += 1;
+
+        const range = {
+            id: `bp-${breakpointCounter}`,
+            label: '',
+            name: '',
+            min,
+            max,
+            isBase: false,
+            overrides: null
+        };
+
+        breakpointRanges.push(range);
+        activeBreakpointId = range.id;
+
+        updateBreakpointInputs();
+        applyBreakpointState();
+        renderBreakpointTabs();
+    }
+
+    function updateSelectedRangeFromInputs() {
+        const active = getActiveBreakpoint();
+
+        if (active.isBase) {
+            return;
+        }
+
+        const min = Math.max(
+            0,
+            parseInt(breakpointStartInput.value) || 0
+        );
+
+        const maxValue = breakpointEndInput.value.trim();
+        const max = maxValue === ''
+            ? null
+            : Math.max(min, parseInt(maxValue) || min);
+
+        active.min = min;
+        active.max = max;
+        active.name = breakpointNameInput.value.trim();
+
+        applyBreakpointResizeLimits();
+        renderBreakpointTabs();
+        updateBreakpointStatus();
+    }
+
+    function duplicateActiveBreakpoint() {
+        const active = getActiveBreakpoint();
+
+        if (active.isBase) {
+            return;
+        }
+
+        breakpointCounter += 1;
+
+        const copy = deepClone(active);
+        copy.id = `bp-${breakpointCounter}`;
+        copy.name = active.name
+            ? `${active.name} копия`
+            : '';
+
+        breakpointRanges.push(copy);
+        activeBreakpointId = copy.id;
+
+        updateBreakpointInputs();
+        applyBreakpointState();
+        renderBreakpointTabs();
+    }
+
+    function removeActiveBreakpoint() {
+        const active = getActiveBreakpoint();
+
+        if (active.isBase) {
+            return;
+        }
+
+        const index = breakpointRanges.findIndex((range) => range.id === active.id);
+
+        if (index !== -1) {
+            breakpointRanges.splice(index, 1);
+        }
+
+        activeBreakpointId = 'all';
+
+        updateBreakpointInputs();
+        applyBreakpointState();
+        renderBreakpointTabs();
+    }
+
+    function resetActiveBreakpoint() {
+        const active = getActiveBreakpoint();
+
+        if (active.isBase) {
+            return;
+        }
+
+        active.overrides = null;
+
+        applyBreakpointState();
+        updateBreakpointStatus();
+    }
+
+    function handleLayoutResize() {
+        const width = layout.getBoundingClientRect().width;
+
+        if (selectedItem) {
+            applyContainerRule();
+        }
+
+        if (activeBreakpointId === 'all') {
+            applyVisualState(getStateForWidth(width));
+            return;
+        }
+
+        const range = getActiveBreakpoint();
+        let nextWidth = Math.max(range.min, width);
+
+        if (range.max !== null) {
+            nextWidth = Math.min(range.max, nextWidth);
+        }
+
+        if (Math.abs(nextWidth - width) > 1) {
+            layout.style.width = `${Math.round(nextWidth)}px`;
+        }
+    }
+
+    function initializeBreakpointSystem() {
+        baseSnapshot = captureEditorState();
+        renderBreakpointTabs();
+        updateBreakpointInputs();
+        applyStructureGuard();
+        applyBreakpointResizeLimits();
+
+        const resizeObserver = new ResizeObserver(() => {
+            handleLayoutResize();
+        });
+
+        resizeObserver.observe(layout);
+    }
+
+
+    function syncSelectedItemVisibility() {
+        if (!propertiesPanel) {
+            return;
+        }
+
+        propertiesPanel.classList.toggle('hasSelectedItem', Boolean(selectedItem));
+
+        if (!selectedItem && propertiesPanel.dataset.view === 'selectedItem') {
+            setPropertiesTab('main');
+        }
+
+        refreshRelevantControlVisibility();
+    }
+
+    function refreshRelevantControlVisibility() {
+        const gridLayout = layoutType === 'grid';
+        const flexLayout = layoutType === 'flex';
+        const hasMultipleItems = layout.children.length > 1;
+        const selectedItemExists = Boolean(selectedItem);
+
+        if (gridRowsProperty) {
+            gridRowsProperty.style.display = gridLayout && !isAutoRows ? 'grid' : 'none';
+        }
+
+        if (rowTracksGroup) {
+            rowTracksGroup.style.display = gridLayout && !isAutoRows ? 'block' : 'none';
+        }
+
+        if (gridAutoFitProperties) {
+            gridAutoFitProperties.style.display = gridLayout && gridAutoFit.checked ? 'block' : 'none';
+        }
+
+        const shouldShowGridAutoFlow = gridLayout
+            && hasMultipleItems
+            && (columnTracks.children.length > 1 || rowTracks.children.length > 1);
+
+        if (gridAutoFlowProperty) {
+            gridAutoFlowProperty.style.display = shouldShowGridAutoFlow ? '' : 'none';
+        }
+
+        if (fluidGapSection) {
+            fluidGapSection.style.display = (gridLayout || flexLayout) && hasMultipleItems ? 'block' : 'none';
+        }
+
+        if (flexAlignContentProperty) {
+            flexAlignContentProperty.style.display = flexLayout && hasMultipleItems && flexWrap.checked ? '' : 'none';
+        }
+
+        if (flexShrinkProperty) {
+            flexShrinkProperty.style.display = flexLayout && selectedItemExists && hasMultipleItems && !flexWrap.checked ? '' : 'none';
+        }
+
+        const visibleStateOwners = [
+            'gridAutoFlowProperty',
+            'flexAlignContentProperty',
+            'flexShrinkProperty'
+        ];
+
+        visibleStateOwners.forEach((id) => {
+            const control = document.getElementById(id);
+
+            if (!control) {
+                return;
+            }
+
+            const state = control.nextElementSibling;
+
+            if (state && state.classList && state.classList.contains('propertyState')) {
+                state.style.display = control.style.display === 'none' ? 'none' : '';
+            }
+        });
+    }
+
+    function setLayoutType(type, applyPreset = true) {
+        layoutType = type;
+
+        layout.classList.remove('grid', 'flex');
+        layout.classList.add(type);
+        refreshRelevantControlVisibility();
+
+        if (layoutTypeSelect) {
+            layoutTypeSelect.value = type;
+        }
+
+        gridOnly.forEach((element) => {
+            element.classList.toggle('active', type === 'grid');
+        });
+
+        flexOnly.forEach((element) => {
+            element.classList.toggle('active', type === 'flex');
+        });
+
+        if (type === 'grid' && applyPreset) {
+            clearFlexStyles();
+            applyGridPreset('page');
+        }
+
+        if (type === 'flex' && applyPreset) {
+            clearGridStyles();
+            applyFlexPreset('row');
+
+            Array.from(layout.children).forEach((item) => {
+                item.style.flex = '1 1 0';
+            });
+        }
+    }
+
+    function clearGridStyles() {
+        layout.style.gridTemplateColumns = '';
+        layout.style.gridTemplateRows = '';
+        layout.style.gridAutoRows = '';
+        layout.style.gridAutoFlow = '';
+
+        Array.from(layout.children).forEach((item) => {
+            item.style.gridColumn = '';
+            item.style.gridRow = '';
+        });
+    }
+
+    function clearFlexStyles() {
+        layout.style.flexDirection = '';
+        layout.style.flexWrap = '';
+        layout.style.justifyContent = '';
+        layout.style.alignItems = '';
+        layout.style.alignContent = '';
+
+        Array.from(layout.children).forEach((item) => {
+            item.style.flex = '';
+            item.style.flexGrow = '';
+            item.style.flexShrink = '';
+            item.style.flexBasis = '';
+            item.style.alignSelf = '';
+            item.style.order = '';
+        });
+    }
+
+    function createItem() {
+        const item = document.createElement('div');
+        item.className = 'layoutItem';
+
+        item.addEventListener('click', () => {
+            selectItem(item);
+        });
+
+        return item;
+    }
+
+    function updateItems(count) {
+        while (layout.children.length < count) {
+            layout.appendChild(createItem());
+        }
+
+        while (layout.children.length > count) {
+            if (layout.lastElementChild === selectedItem) {
+                selectedItem = null;
+            }
+
+            layout.lastElementChild.remove();
+        }
+
+        Array.from(layout.children).forEach((item, index) => {
+            item.textContent = item.dataset.label || index + 1;
+        });
+
+        refreshRelevantControlVisibility();
+    }
+
+    function clearSelection() {
+        if (!selectedItem) {
+            return;
+        }
+
+        selectedItem.classList.remove('selected');
+        selectedItem = null;
+        syncSelectedItemVisibility();
+        syncSelectedItemResponsiveProperties();
+        syncTextResponsiveProperties();
+        syncContainerRule();
+        syncResponsiveMedia();
+        renderVariants();
+    }
+
+    function selectItem(item) {
+        if (selectedItem) {
+            selectedItem.classList.remove('selected');
+        }
+
+        selectedItem = item;
+        selectedItem.classList.add('selected');
+        syncSelectedItemVisibility();
+
+        if (layoutType === 'grid') {
+            gridColumnSpan.value = parseInt(item.dataset.columnSpan) || 1;
+            gridRowSpan.value = parseInt(item.dataset.rowSpan) || 1;
+
+            gridItemColumns.value = parseInt(item.dataset.columnSpan) || 1;
+            gridItemRows.value = parseInt(item.dataset.rowSpan) || 1;
+
+            gridItemColumn.value = item.dataset.columnStart || 'auto';
+            gridItemRow.value = item.dataset.rowStart || 'auto';
+        }
+
+        if (layoutType === 'flex') {
+            flexGrow.value = parseFloat(item.style.flexGrow) || 0;
+            flexShrink.value = item.style.flexShrink === '' ? 1 : parseFloat(item.style.flexShrink);
+            flexAdvancedBasis.value = parseInt(item.style.flexBasis) || 0;
+            flexSelf.value = item.style.alignSelf || 'auto';
+            flexOrder.value = parseInt(item.style.order) || 0;
+        }
+
+        syncSelectedItemResponsiveProperties();
+        syncTextResponsiveProperties();
+        syncContainerRule();
+        syncResponsiveMedia();
+        renderVariants();
+    }
+
+    function createTrack(index, type, value = 1, unit = 'fr') {
+        const track = document.createElement('div');
+        track.className = 'track';
+
+        const number = document.createElement('div');
+        number.className = 'trackNumber';
+        number.textContent = index + 1;
+
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.min = '0';
+        input.value = value;
+
+        const unitSelect = document.createElement('select');
+
+        const units = type === 'column'
+            ? ['fr', 'px', '%', 'rem', 'vw', 'auto']
+            : ['fr', 'px', '%', 'rem', 'vh', 'auto'];
+
+        units.forEach((unitValue) => {
+            const option = document.createElement('option');
+            option.value = unitValue;
+            option.textContent = unitValue;
+            unitSelect.appendChild(option);
+        });
+
+        unitSelect.value = unit;
+
+        const moveUp = document.createElement('button');
+        moveUp.type = 'button';
+        moveUp.textContent = '↑';
+
+        const moveDown = document.createElement('button');
+        moveDown.type = 'button';
+        moveDown.textContent = '↓';
+
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.textContent = '×';
+
+        input.addEventListener('input', updateGridFromTracks);
+        unitSelect.addEventListener('change', updateGridFromTracks);
+
+        moveUp.addEventListener('click', () => {
+            moveTrack(track, -1);
+        });
+
+        moveDown.addEventListener('click', () => {
+            moveTrack(track, 1);
+        });
+
+        remove.addEventListener('click', () => {
+            removeTrack(track);
+        });
+
+        track.appendChild(number);
+        track.appendChild(input);
+        track.appendChild(unitSelect);
+        track.appendChild(moveUp);
+        track.appendChild(moveDown);
+        track.appendChild(remove);
+
+        return track;
+    }
+
+    function moveTrack(track, direction) {
+        const container = track.parentElement;
+
+        if (direction < 0 && track.previousElementSibling) {
+            container.insertBefore(track, track.previousElementSibling);
+        }
+
+        if (direction > 0 && track.nextElementSibling) {
+            container.insertBefore(track.nextElementSibling, track);
+        }
+
+        renumberTracks(container);
+        updateGridFromTracks();
+    }
+
+    function removeTrack(track) {
+        const container = track.parentElement;
+
+        if (container.children.length <= 1) {
+            return;
+        }
+
+        track.remove();
+
+        renumberTracks(container);
+        updateGridFromTracks();
+    }
+
+    function renumberTracks(container) {
+        Array.from(container.children).forEach((track, index) => {
+            track.querySelector('.trackNumber').textContent = index + 1;
+        });
+    }
+
+    function setTrackValues(container, values, type) {
+        container.innerHTML = '';
+
+        values.forEach((trackValue, index) => {
+            container.appendChild(
+                createTrack(
+                    index,
+                    type,
+                    trackValue.value,
+                    trackValue.unit
+                )
+            );
+        });
+    }
+
+    function addTrack(container, type) {
+        container.appendChild(
+            createTrack(
+                container.children.length,
+                type
+            )
+        );
+
+        updateGridFromTracks();
+    }
+
+    function updateTrackList(container, count, type) {
+        while (container.children.length < count) {
+            container.appendChild(
+                createTrack(
+                    container.children.length,
+                    type
+                )
+            );
+        }
+
+        while (container.children.length > count) {
+            container.lastElementChild.remove();
+        }
+
+        renumberTracks(container);
+    }
+
+    function getTrackListValue(container) {
+        return Array.from(container.children)
+            .map((track) => {
+                const input = track.querySelector('input');
+                const select = track.querySelector('select');
+
+                if (select.value === 'auto') {
+                    return 'auto';
+                }
+
+                return `${input.value}${select.value}`;
+            })
+            .join(' ');
+    }
+
+    function setGridItem(index, options = {}) {
+        const item = layout.children[index];
+
+        if (!item) {
+            return;
+        }
+
+        if (options.label) {
+            item.dataset.label = options.label;
+            item.textContent = options.label;
+        }
+
+        if (options.columnStart) {
+            item.style.gridColumnStart = options.columnStart;
+            item.dataset.columnStart = options.columnStart;
+        }
+
+        if (options.rowStart) {
+            item.style.gridRowStart = options.rowStart;
+            item.dataset.rowStart = options.rowStart;
+        }
+
+        if (options.columnSpan) {
+            item.style.gridColumnEnd = `span ${options.columnSpan}`;
+            item.dataset.columnSpan = options.columnSpan;
+        }
+
+        if (options.rowSpan) {
+            item.style.gridRowEnd = `span ${options.rowSpan}`;
+            item.dataset.rowSpan = options.rowSpan;
+        }
+    }
+
+    function resetItems() {
+        Array.from(layout.children).forEach((item, index) => {
+            item.removeAttribute('style');
+            item.removeAttribute('data-column-start');
+            item.removeAttribute('data-row-start');
+            item.removeAttribute('data-column-span');
+            item.removeAttribute('data-row-span');
+            item.removeAttribute('data-label');
+            item.textContent = index + 1;
+        });
+    }
+
+    /* === Настройки Grid === */
+    function applyGridPreset(preset) {
+        if (activeBreakpointId !== 'all') {
+            return;
+        }
+
+        isAutoRows = false;
+        gridAutoFit.checked = false;
+        gridRowsProperty.style.display = 'grid';
+        rowTracksGroup.style.display = 'block';
+
+        layout.style.gridAutoRows = '';
+
+        if (gridPresetSelect) {
+            gridPresetSelect.value = preset;
+        }
+
+        if (preset === 'cards') {
+            isAutoRows = true;
+
+            gridColumns.value = 3;
+            gridAutoFit.checked = true;
+            gridMinWidth.value = 220;
+            gridNormalWidth.value = 280;
+            gridMaxWidth.value = 1;
+
+            autoFitMode.value = 'auto-fit';
+
+            gridRowsProperty.style.display = 'none';
+            rowTracksGroup.style.display = 'none';
+
+            setTrackValues(columnTracks, [
+                { value: 1, unit: 'fr' },
+                { value: 1, unit: 'fr' },
+                { value: 1, unit: 'fr' }
+            ], 'column');
+
+            rowTracks.innerHTML = '';
+
+            updateItems(6);
+            resetItems();
+        }
+
+        if (preset === 'twoColumns') {
+            gridColumns.value = 2;
+            gridRows.value = 1;
+
+            setTrackValues(columnTracks, [
+                { value: 1, unit: 'fr' },
+                { value: 1, unit: 'fr' }
+            ], 'column');
+
+            setTrackValues(rowTracks, [
+                { value: 1, unit: 'fr' }
+            ], 'row');
+
+            updateItems(2);
+            resetItems();
+        }
+
+        if (preset === 'mainSidebar') {
+            gridColumns.value = 2;
+            gridRows.value = 1;
+
+            setTrackValues(columnTracks, [
+                { value: 1, unit: 'fr' },
+                { value: 320, unit: 'px' }
+            ], 'column');
+
+            setTrackValues(rowTracks, [
+                { value: 1, unit: 'fr' }
+            ], 'row');
+
+            updateItems(2);
+            resetItems();
+
+            setGridItem(0, { columnStart: 1, label: 'Основное' });
+            setGridItem(1, { columnStart: 2, label: 'Боковая панель' });
+        }
+
+        if (preset === 'sidebarMain') {
+            gridColumns.value = 2;
+            gridRows.value = 1;
+
+            setTrackValues(columnTracks, [
+                { value: 320, unit: 'px' },
+                { value: 1, unit: 'fr' }
+            ], 'column');
+
+            setTrackValues(rowTracks, [
+                { value: 1, unit: 'fr' }
+            ], 'row');
+
+            updateItems(2);
+            resetItems();
+
+            setGridItem(0, { columnStart: 1, label: 'Боковая панель' });
+            setGridItem(1, { columnStart: 2, label: 'Основное' });
+        }
+
+        if (preset === 'page') {
+            gridColumns.value = 1;
+            gridRows.value = 3;
+
+            setTrackValues(columnTracks, [
+                { value: 1, unit: 'fr' }
+            ], 'column');
+
+            setTrackValues(rowTracks, [
+                { value: 72, unit: 'px' },
+                { value: 1, unit: 'fr' },
+                { value: 64, unit: 'px' }
+            ], 'row');
+
+            updateItems(3);
+            resetItems();
+
+            setGridItem(0, { rowStart: 1, label: 'Header' });
+            setGridItem(1, { rowStart: 2, label: 'Основная область' });
+            setGridItem(2, { rowStart: 3, label: 'Footer' });
+        }
+
+        if (preset === 'dashboard') {
+            gridColumns.value = 2;
+            gridRows.value = 2;
+
+            setTrackValues(columnTracks, [
+                { value: 240, unit: 'px' },
+                { value: 1, unit: 'fr' }
+            ], 'column');
+
+            setTrackValues(rowTracks, [
+                { value: 64, unit: 'px' },
+                { value: 1, unit: 'fr' }
+            ], 'row');
+
+            updateItems(3);
+            resetItems();
+
+            setGridItem(0, {
+                columnStart: 1,
+                rowStart: 1,
+                rowSpan: 2,
+                label: 'Sidebar'
+            });
+
+            setGridItem(1, {
+                columnStart: 2,
+                rowStart: 1,
+                label: 'Header'
+            });
+
+            setGridItem(2, {
+                columnStart: 2,
+                rowStart: 2,
+                label: 'Основная область'
+            });
+        }
+
+        updateGrid();
+        saveCurrentBreakpointState();
+    }
+
+    /* === Настройки Flex === */
+    function applyFlexPreset(preset) {
+        if (activeBreakpointId !== 'all') {
+            return;
+        }
+
+        if (flexPresetSelect) {
+            flexPresetSelect.value = preset;
+        }
+
+        if (preset === 'row') {
+            flexDirection.value = 'row';
+            flexWrap.checked = false;
+            flexGap.value = 10;
+            flexJustify.value = 'flex-start';
+            flexAlign.value = 'stretch';
+
+            updateItems(4);
+
+            Array.from(layout.children).forEach((item) => {
+                item.style.flex = '1 1 0';
+            });
+        }
+
+        if (preset === 'column') {
+            flexDirection.value = 'column';
+            flexWrap.checked = false;
+            flexGap.value = 10;
+            flexJustify.value = 'flex-start';
+            flexAlign.value = 'stretch';
+
+            updateItems(4);
+
+            Array.from(layout.children).forEach((item) => {
+                item.style.flex = '1 1 0';
+            });
+        }
+
+        if (preset === 'between') {
+            flexDirection.value = 'row';
+            flexWrap.checked = false;
+            flexGap.value = 10;
+            flexJustify.value = 'space-between';
+            flexAlign.value = 'center';
+
+            updateItems(3);
+
+            Array.from(layout.children).forEach((item) => {
+                item.style.flex = '0 1 auto';
+            });
+        }
+
+        if (preset === 'center') {
+            flexDirection.value = 'row';
+            flexWrap.checked = false;
+            flexGap.value = 10;
+            flexJustify.value = 'center';
+            flexAlign.value = 'center';
+
+            updateItems(3);
+
+            Array.from(layout.children).forEach((item) => {
+                item.style.flex = '0 1 140px';
+            });
+        }
+
+        if (preset === 'evenly') {
+            flexDirection.value = 'row';
+            flexWrap.checked = false;
+            flexGap.value = 10;
+            flexJustify.value = 'space-evenly';
+            flexAlign.value = 'center';
+
+            updateItems(4);
+
+            Array.from(layout.children).forEach((item) => {
+                item.style.flex = '0 1 auto';
+            });
+        }
+
+        if (preset === 'wrap') {
+            flexDirection.value = 'row';
+            flexWrap.checked = true;
+            flexGap.value = 10;
+            flexJustify.value = 'flex-start';
+            flexAlign.value = 'stretch';
+
+            updateItems(6);
+
+            Array.from(layout.children).forEach((item) => {
+                item.style.flex = '1 1 180px';
+            });
+        }
+
+        resetFlexLabels();
+        syncFlexBasicToAdvanced();
+        updateFlex();
+        saveCurrentBreakpointState();
+    }
+
+    function resetFlexLabels() {
+        Array.from(layout.children).forEach((item, index) => {
+            item.textContent = index + 1;
+        });
+    }
+
+    function updateGridFromTracks() {
+        gridColumns.value = columnTracks.children.length;
+
+        if (!isAutoRows) {
+            gridRows.value = rowTracks.children.length;
+        }
+
+        gridAutoFit.checked = false;
+
+        updateGrid();
+        saveCurrentBreakpointState();
+    }
+
+    function updateGridBasic() {
+        updateTrackList(
+            columnTracks,
+            Math.max(1, parseInt(gridColumns.value) || 1),
+            'column'
+        );
+
+        if (!isAutoRows) {
+            updateTrackList(
+                rowTracks,
+                Math.max(1, parseInt(gridRows.value) || 1),
+                'row'
+            );
+        }
+
+        columnGap.value = gridGap.value;
+        rowGap.value = gridGap.value;
+
+
+        updateGrid();
+        saveCurrentBreakpointState();
+    }
+
+    function updateGrid() {
+        if (gridAutoFit.checked) {
+            const minWidth = Math.max(1, parseInt(gridMinWidth.value) || 1);
+            const maxWidth = Math.max(minWidth, parseInt(gridMaxWidth.value) || minWidth);
+
+            layout.style.gridTemplateColumns =
+                `repeat(${autoFitMode.value}, minmax(min(100%, ${minWidth}px), ${maxWidth}px))`;
+        } else {
+            layout.style.gridTemplateColumns =
+                getTrackListValue(columnTracks);
+        }
+
+        if (isAutoRows) {
+            layout.style.gridTemplateRows = 'none';
+            layout.style.gridAutoRows = '1fr';
+        } else {
+            layout.style.gridTemplateRows =
+                getTrackListValue(rowTracks);
+
+            layout.style.gridAutoRows = '';
+        }
+
+        layout.style.columnGap = `${Math.max(0, parseInt(columnGap.value) || 0)}px`;
+        layout.style.rowGap = `${Math.max(0, parseInt(rowGap.value) || 0)}px`;
+        layout.style.padding = `${Math.max(0, parseInt(gridPadding.value) || 0)}px`;
+        layout.style.gridAutoFlow = autoFlow.value;
+
+        gridAutoFitProperties.style.display =
+            gridAutoFit.checked ? 'block' : 'none';
+
+        updateGridPositionOptions();
+        refreshRelevantControlVisibility();
+        saveCurrentBreakpointState();
+    }
+
+    function updateGridPositionOptions() {
+        const columns = Math.max(1, columnTracks.children.length);
+        const rows = isAutoRows
+            ? Math.max(1, Math.ceil(layout.children.length / columns))
+            : Math.max(1, rowTracks.children.length);
+
+        const columnValue = gridItemColumn.value;
+        const rowValue = gridItemRow.value;
+
+        gridItemColumn.innerHTML = '<option value="auto">Автоматически</option>';
+        gridItemRow.innerHTML = '<option value="auto">Автоматически</option>';
+
+        for (let index = 1; index <= columns; index++) {
+            const option = document.createElement('option');
+            option.value = index;
+            option.textContent = index;
+            gridItemColumn.appendChild(option);
+        }
+
+        for (let index = 1; index <= rows; index++) {
+            const option = document.createElement('option');
+            option.value = index;
+            option.textContent = index;
+            gridItemRow.appendChild(option);
+        }
+
+        gridItemColumn.value = columnValue;
+        gridItemRow.value = rowValue;
+    }
+
+    function updateSelectedItemResponsiveProperties() {
+        if (!selectedItem) {
+            return;
+        }
+
+        selectedItem.style.minWidth = parseInt(itemMinWidth.value) > 0
+            ? `${itemMinWidth.value}px`
+            : '';
+
+        selectedItem.style.maxWidth = parseInt(itemMaxWidth.value) > 0
+            ? `${itemMaxWidth.value}px`
+            : '';
+
+        selectedItem.style.minHeight = parseInt(itemMinHeight.value) > 0
+            ? `${itemMinHeight.value}px`
+            : '';
+
+        selectedItem.style.maxHeight = parseInt(itemMaxHeight.value) > 0
+            ? `${itemMaxHeight.value}px`
+            : '';
+
+        selectedItem.style.aspectRatio = itemAspectRatio.value;
+        selectedItem.style.overflow = itemOverflow.value;
+        selectedItem.style.display = itemHidden.checked ? 'none' : '';
+
+        saveCurrentBreakpointState();
+    }
+
+    function syncSelectedItemResponsiveProperties() {
+        if (!selectedItem) {
+            itemMinWidth.value = 0;
+            itemMaxWidth.value = 0;
+            itemMinHeight.value = 0;
+            itemMaxHeight.value = 0;
+            itemAspectRatio.value = '';
+            itemOverflow.value = '';
+            itemHidden.checked = false;
+            return;
+        }
+
+        itemMinWidth.value = parseInt(selectedItem.style.minWidth) || 0;
+        itemMaxWidth.value = parseInt(selectedItem.style.maxWidth) || 0;
+        itemMinHeight.value = parseInt(selectedItem.style.minHeight) || 0;
+        itemMaxHeight.value = parseInt(selectedItem.style.maxHeight) || 0;
+        itemAspectRatio.value = selectedItem.style.aspectRatio || '';
+        itemOverflow.value = selectedItem.style.overflow || '';
+        itemHidden.checked = selectedItem.style.display === 'none';
+    }
+
+    function updateFluidGap() {
+        fluidGapProperties.style.display =
+            fluidGapEnabled.checked ? 'block' : 'none';
+
+        if (!fluidGapEnabled.checked) {
+            if (layoutType === 'grid') {
+                updateGrid();
+            } else {
+                updateFlex();
+            }
+
+            return;
+        }
+
+        const min = Math.max(0, parseInt(fluidGapMin.value) || 0);
+        const max = Math.max(min, parseInt(fluidGapMax.value) || min);
+        const value = `clamp(${min}px, 2vw, ${max}px)`;
+
+        layout.style.gap = value;
+        layout.style.columnGap = value;
+        layout.style.rowGap = value;
+
+        saveCurrentBreakpointState();
+    }
+
+    function checkResponsiveRange() {
+        const currentWidth = layout.getBoundingClientRect().width;
+        const activeId = activeBreakpointId;
+        const overflowWidths = [];
+        const childWidths = [];
+
+        for (let width = 320; width <= 1200; width += 20) {
+            layout.style.width = `${width}px`;
+
+            if (activeBreakpointId === 'all') {
+                applyVisualState(getStateForWidth(width));
+            }
+
+            Array.from(layout.children).forEach((item) => {
+                const rect = item.getBoundingClientRect();
+                const layoutRect = layout.getBoundingClientRect();
+
+                if (
+                    rect.left < layoutRect.left - 1 ||
+                    rect.right > layoutRect.right + 1
+                ) {
+                    childWidths.push(width);
+                }
+            });
+
+            if (
+                layout.scrollWidth > layout.clientWidth + 1 ||
+                layout.scrollHeight > layout.clientHeight + 1
+            ) {
+                overflowWidths.push(width);
+            }
+        }
+
+        layout.style.width = `${Math.round(currentWidth)}px`;
+        activeBreakpointId = activeId;
+        applyBreakpointState();
+
+        const messages = [];
+
+        if (overflowWidths.length) {
+            messages.push(
+                `Переполнение: ${[...new Set(overflowWidths)].join(', ')}px`
+            );
+        }
+
+        if (childWidths.length) {
+            messages.push(
+                `Элементы выходят за границы: ${[...new Set(childWidths)].join(', ')}px`
+            );
+        }
+
+        checkResponsiveResult.textContent = messages.length
+            ? messages.join('. ')
+            : 'Проблем адаптивности не найдено.';
+    }
+
+    function setPropertiesTab(tabName) {
+        const propertiesPanel = document.querySelector('.properties');
+        const propertyTabs = document.querySelectorAll('.propertiesElementTab');
+
+        if (!propertiesPanel) {
+            return;
+        }
+
+        if (tabName === 'selectedItem' && !selectedItem) {
+            tabName = 'main';
+        }
+
+        propertiesPanel.dataset.view = tabName;
+
+        propertyTabs.forEach((tab) => {
+            tab.classList.toggle('active', tab.dataset.tab === tabName);
+        });
+
+        const advancedDetails = document.querySelector('.advancedDetails');
+        if (advancedDetails) {
+            advancedDetails.classList.remove('singleView');
+            advancedDetails.querySelectorAll('.advancedSection').forEach((section) => {
+                section.classList.remove('is-active');
+                section.style.display = '';
+                section.open = false;
+            });
+            advancedDetails.open = tabName === 'advanced';
+        }
+    }
+
+    function setupSelectedItemNavigation() {
+        const selectedItemContent = document.getElementById('selectedItem');
+        const section = selectedItemContent?.querySelector(':scope > .advancedSection');
+        const summary = section?.querySelector(':scope > summary');
+        const content = section?.querySelector(':scope > .advancedSectionContent');
+
+        if (!selectedItemContent || !section || !summary || !content) {
+            return;
+        }
+
+        const backButton = document.createElement('button');
+        backButton.type = 'button';
+        backButton.className = 'advancedBackButton selectedItemBackButton';
+        backButton.textContent = '<';
+        backButton.setAttribute('aria-label', 'Вернуться к основным свойствам');
+
+        backButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+
+            selectedItemContent.classList.remove('singleView');
+            section.open = false;
+        });
+
+        section.insertBefore(backButton, content);
+
+        summary.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+
+            selectedItemContent.classList.add('singleView');
+            section.open = true;
+        });
+    }
+
+
+    function setupAdvancedSubsectionNavigation() {
+        const advancedDetails = document.querySelector('.advancedDetails');
+        if (!advancedDetails) {
+            return;
+        }
+
+        const sections = Array.from(advancedDetails.querySelectorAll('.advancedSection'));
+
+        sections.forEach((section) => {
+            const summary = section.querySelector(':scope > summary');
+            if (!summary) {
+                return;
+            }
+
+            if (!section.querySelector('.advancedBackButton')) {
+                const backButton = document.createElement('button');
+                backButton.type = 'button';
+                backButton.className = 'advancedBackButton';
+                backButton.textContent = '<';
+                backButton.setAttribute('aria-label', 'Вернуться к списку разделов');
+                backButton.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    advancedDetails.classList.remove('singleView');
+                    sections.forEach((item) => {
+                        item.classList.remove('is-active');
+                        item.style.display = '';
+                        item.open = false;
+                    });
+
+                    advancedDetails.open = true;
+                });
+
+                section.insertBefore(backButton, section.querySelector('.advancedSectionContent'));
+            }
+
+            summary.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+
+                advancedDetails.classList.add('singleView');
+                sections.forEach((item) => {
+                    const isSelected = item === section;
+                    item.classList.toggle('is-active', isSelected);
+                    item.style.display = isSelected ? 'block' : 'none';
+                    item.open = isSelected;
+                });
+
+                section.classList.add('is-active');
+                section.style.display = 'block';
+                section.open = true;
+                advancedDetails.open = true;
+            });
+        });
+    }
+
+    function updateGridItem() {
+        if (!selectedItem) {
+            return;
+        }
+
+        const columnStart = gridItemColumn.value;
+        const rowStart = gridItemRow.value;
+
+        const columns = Math.max(1, parseInt(gridItemColumns.value) || 1);
+        const rows = Math.max(1, parseInt(gridItemRows.value) || 1);
+
+        selectedItem.style.gridColumnStart =
+            columnStart === 'auto' ? '' : columnStart;
+
+        selectedItem.style.gridRowStart =
+            rowStart === 'auto' ? '' : rowStart;
+
+        selectedItem.style.gridColumnEnd = `span ${columns}`;
+        selectedItem.style.gridRowEnd = `span ${rows}`;
+
+        selectedItem.dataset.columnStart = columnStart;
+        selectedItem.dataset.rowStart = rowStart;
+        selectedItem.dataset.columnSpan = columns;
+        selectedItem.dataset.rowSpan = rows;
+
+        gridColumnSpan.value = columns;
+        gridRowSpan.value = rows;
+
+        saveCurrentBreakpointState();
+    }
+
+    function updateGridItemBasic() {
+        if (!selectedItem) {
+            return;
+        }
+
+        gridItemColumns.value = gridColumnSpan.value;
+        gridItemRows.value = gridRowSpan.value;
+
+        updateGridItem();
+    }
+
+    function syncFlexBasicToAdvanced() {
+        flexAdvancedDirection.value = flexDirection.value;
+        flexAdvancedWrap.value = flexWrap.checked ? 'wrap' : 'nowrap';
+        flexAdvancedGap.value = flexGap.value;
+        flexAdvancedJustify.value = flexJustify.value;
+        flexAdvancedAlign.value = flexAlign.value;
+    }
+
+    function syncFlexAdvancedToBasic() {
+        flexDirection.value = flexAdvancedDirection.value;
+        flexWrap.checked = flexAdvancedWrap.value !== 'nowrap';
+        flexGap.value = flexAdvancedGap.value;
+        flexJustify.value = flexAdvancedJustify.value;
+        flexAlign.value = flexAdvancedAlign.value;
+    }
+
+    function updateFlexBasic() {
+        syncFlexBasicToAdvanced();
+        updateFlex();
+        saveCurrentBreakpointState();
+    }
+
+    function updateFlexAdvanced() {
+        syncFlexAdvancedToBasic();
+        updateFlex();
+        saveCurrentBreakpointState();
+    }
+
+    function updateFlex() {
+        layout.style.flexDirection = flexAdvancedDirection.value;
+        layout.style.flexWrap = flexAdvancedWrap.value;
+        layout.style.gap = `${Math.max(0, parseInt(flexAdvancedGap.value) || 0)}px`;
+        layout.style.justifyContent = flexAdvancedJustify.value;
+        layout.style.alignItems = flexAdvancedAlign.value;
+        layout.style.alignContent = flexAlignContent.value;
+        refreshRelevantControlVisibility();
+        saveCurrentBreakpointState();
+    }
+
+    function updateFlexItemPreset() {
+        if (!selectedItem) {
+            return;
+        }
+
+        flexBasisProperty.style.display =
+            flexItemSize.value === 'fixed' ? 'grid' : 'none';
+
+        if (flexItemSize.value === 'auto') {
+            selectedItem.style.flex = '0 1 auto';
+        }
+
+        if (flexItemSize.value === 'fill') {
+            selectedItem.style.flex = '1 1 0';
+        }
+
+        if (flexItemSize.value === 'equal') {
+            selectedItem.style.flex = '1 1 0';
+        }
+
+        if (flexItemSize.value === 'fixed') {
+            selectedItem.style.flex =
+                `0 0 ${Math.max(0, parseInt(flexBasis.value) || 0)}px`;
+        }
+
+        saveCurrentBreakpointState();
+    }
+
+    function updateFlexItemAdvanced() {
+        if (!selectedItem) {
+            return;
+        }
+
+        selectedItem.style.flexGrow =
+            Math.max(0, parseFloat(flexGrow.value) || 0);
+
+        selectedItem.style.flexShrink =
+            Math.max(0, parseFloat(flexShrink.value) || 0);
+
+        selectedItem.style.flexBasis =
+            parseInt(flexAdvancedBasis.value) > 0
+                ? `${flexAdvancedBasis.value}px`
+                : 'auto';
+
+        selectedItem.style.alignSelf = flexSelf.value;
+        selectedItem.style.order = parseInt(flexOrder.value) || 0;
+
+        saveCurrentBreakpointState();
+    }
+
+    if (layoutTypeSelect) {
+        layoutTypeSelect.addEventListener('change', () => {
+            setLayoutType(
+                layoutTypeSelect.value,
+                activeBreakpointId === 'all'
+            );
+            saveCurrentBreakpointState();
+        });
+    }
+
+    if (gridPresetSelect) {
+        gridPresetSelect.addEventListener('change', () => {
+            applyGridPreset(gridPresetSelect.value);
+        });
+    }
+
+    if (flexPresetSelect) {
+        flexPresetSelect.addEventListener('change', () => {
+            applyFlexPreset(flexPresetSelect.value);
+        });
+    }
+
+    if (breakpointSelect) {
+        breakpointSelect.addEventListener('change', () => {
+            setActiveBreakpoint(breakpointSelect.value);
+        });
+    }
+
+    gridColumns.addEventListener('input', updateGridBasic);
+    gridRows.addEventListener('input', updateGridBasic);
+    gridGap.addEventListener('input', updateGridBasic);
+    gridAutoFit.addEventListener('change', updateGridBasic);
+    gridMinWidth.addEventListener('input', updateGridBasic);
+    gridNormalWidth.addEventListener('input', updateGridBasic);
+    gridMaxWidth.addEventListener('input', updateGridBasic);
+
+    gridColumnSpan.addEventListener('input', updateGridItemBasic);
+    gridRowSpan.addEventListener('input', updateGridItemBasic);
+
+    addColumn.addEventListener('click', () => {
+        addTrack(columnTracks, 'column');
+    });
+
+    addRow.addEventListener('click', () => {
+        addTrack(rowTracks, 'row');
+    });
+
+    autoFitMode.addEventListener('change', updateGrid);
+
+
+    columnGap.addEventListener('input', updateGrid);
+    rowGap.addEventListener('input', updateGrid);
+    gridPadding.addEventListener('input', updateGrid);
+    autoFlow.addEventListener('change', updateGrid);
+
+    gridItemColumn.addEventListener('change', updateGridItem);
+    gridItemRow.addEventListener('change', updateGridItem);
+    gridItemColumns.addEventListener('input', updateGridItem);
+    gridItemRows.addEventListener('input', updateGridItem);
+
+    flexDirection.addEventListener('change', () => {
+        updateFlexBasic();
+    });
+    flexGap.addEventListener('input', updateFlexBasic);
+    flexWrap.addEventListener('change', updateFlexBasic);
+    flexJustify.addEventListener('change', () => {
+        updateFlexBasic();
+    });
+    flexAlign.addEventListener('change', () => {
+        updateFlexBasic();
+    });
+
+    flexItemSize.addEventListener('change', updateFlexItemPreset);
+    flexBasis.addEventListener('input', updateFlexItemPreset);
+
+    flexAdvancedDirection.addEventListener('change', updateFlexAdvanced);
+    flexAdvancedWrap.addEventListener('change', updateFlexAdvanced);
+    flexAdvancedGap.addEventListener('input', updateFlexAdvanced);
+    flexAdvancedJustify.addEventListener('change', updateFlexAdvanced);
+    flexAdvancedAlign.addEventListener('change', updateFlexAdvanced);
+    flexAlignContent.addEventListener('change', updateFlex);
+
+    flexGrow.addEventListener('input', updateFlexItemAdvanced);
+    flexShrink.addEventListener('input', updateFlexItemAdvanced);
+    flexAdvancedBasis.addEventListener('input', updateFlexItemAdvanced);
+    flexSelf.addEventListener('change', updateFlexItemAdvanced);
+    flexOrder.addEventListener('input', updateFlexItemAdvanced);
+
+    breakpointStartInput.addEventListener('change', updateSelectedRangeFromInputs);
+    breakpointEndInput.addEventListener('change', updateSelectedRangeFromInputs);
+    breakpointNameInput.addEventListener('input', updateSelectedRangeFromInputs);
+    addBreakpoint.addEventListener('click', addBreakpointRange);
+    duplicateBreakpoint.addEventListener('click', duplicateActiveBreakpoint);
+    removeBreakpoint.addEventListener('click', removeActiveBreakpoint);
+    resetBreakpoint.addEventListener('click', resetActiveBreakpoint);
+
+    itemMinWidth.addEventListener('input', updateSelectedItemResponsiveProperties);
+    itemMaxWidth.addEventListener('input', updateSelectedItemResponsiveProperties);
+    itemMinHeight.addEventListener('input', updateSelectedItemResponsiveProperties);
+    itemMaxHeight.addEventListener('input', updateSelectedItemResponsiveProperties);
+    itemAspectRatio.addEventListener('change', () => {
+        updateSelectedItemResponsiveProperties();
+    });
+    itemOverflow.addEventListener('change', () => {
+        updateSelectedItemResponsiveProperties();
+    });
+    itemHidden.addEventListener('change', updateSelectedItemResponsiveProperties);
+
+    fluidGapEnabled.addEventListener('change', updateFluidGap);
+    fluidGapMin.addEventListener('input', updateFluidGap);
+    fluidGapMax.addEventListener('input', updateFluidGap);
+
+    checkResponsive.addEventListener('click', checkResponsiveRange);
+    stressContent.addEventListener('click', runStressContent);
+    addVariant.addEventListener('click', addSelectedItemVariant);
+
+    textWrapMode.addEventListener('change', updateTextResponsiveProperties);
+    textOverflowMode.addEventListener('change', updateTextResponsiveProperties);
+    textLineClamp.addEventListener('input', updateTextResponsiveProperties);
+
+    containerRuleEnabled.addEventListener('change', updateContainerRule);
+    containerRuleWidth.addEventListener('input', updateContainerRule);
+    containerRuleAction.addEventListener('change', updateContainerRule);
+
+    mediaSrc.addEventListener('input', updateResponsiveMedia);
+    mediaSrcset.addEventListener('input', updateResponsiveMedia);
+    mediaSizes.addEventListener('input', updateResponsiveMedia);
+    mediaFit.addEventListener('change', updateResponsiveMedia);
+    mediaLoading.addEventListener('change', updateResponsiveMedia);
+
+
+    /* === Инициализация === */
+    fluidGapProperties.style.display = 'none';
+    resetBreakpoint.style.display = 'none';
+
+    containerRuleProperties.style.display = 'none';
+    responsiveMediaGroup.style.display = 'none';
+
+    setLayoutType('grid');
+    initializeBreakpointSystem();
+    initializePropertyStates();
+    initNumberUnits();
+    syncSelectedItemVisibility();
+    updateBreakpointHint();
+    renderVariants();
+    setPropertiesTab('main');
+    setupAdvancedSubsectionNavigation();
+    setupSelectedItemNavigation();
+
+    document.querySelectorAll('.propertiesElementTab').forEach((tab) => {
+        tab.addEventListener('click', () => {
+            setPropertiesTab(tab.dataset.tab);
+        });
+    });
+
+    layout.addEventListener('click', (event) => {
+        if (event.target === layout) {
+            clearSelection();
+        }
+    });
+</script>
+
+</body>
+</html>

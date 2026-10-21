@@ -1,1 +1,1 @@
-loadBlock("plugin/editorBlock/plugin", "content");
+loadBlock("plugin/editorBlock", "content");

@@ -1,0 +1,32 @@
+/* Заголовок */
+#propertiesTextTitle {
+    width: 100%;
+}
+
+/* Панель форматирования текста */
+#propertiesSimpleFormats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.simpleFormatsButton > div {
+    display: inline-block;
+    cursor: pointer;
+}
+.simpleFormatsButton > div.active {
+    background-color: #f0f0f0;
+}
+
+/* Панель списков */
+#propertiesLists {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    flex-direction: column;
+}
+
+.propertiesList {
+    display: flex;
+    flex-direction: column;
+}

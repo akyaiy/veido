@@ -1,0 +1,196 @@
+/* Верхняя панель */
+#topPanel {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #ccc;
+    padding: 0px 5px;
+    gap: 5px;
+    user-select: none;
+    height: 39px;
+    overflow: auto;
+    box-sizing: border-box;
+}
+
+#fileMenu {
+    flex: 0 0 auto;
+}
+
+#blocksTabs {
+    display: flex;
+    gap: 5px;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: auto;
+    scrollbar-width: thin;
+}
+
+#editorHistory {
+    flex: 0 0 auto;
+    margin-left: auto;
+    display: flex;
+    gap: 5px;
+}
+
+#blockPreview {
+    flex: 0 0 auto;
+    margin-left: 5px;
+}
+
+
+
+/* Основная панель */
+#mainPanel {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+}
+
+
+
+/* Левая панель */
+#leftPanel {
+    flex-shrink: 0;
+    overflow: auto;
+}
+
+/* Элементы вставки */
+#insertingElements {
+    display: flex;
+    flex-direction: column;
+}
+
+
+
+/* Центральная панель */
+#centerPanel {
+    flex: 1;
+    min-width: 0;
+    border-left: 1px solid #ccc;
+    border-right: 1px solid #ccc;
+    overflow: hidden;
+    position: relative;
+}
+
+#viewBlock {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+}
+
+
+
+/* Правая панель */
+#rightPanel {
+    width: 18%;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    height: 100%; 
+}
+
+#propertiesText,
+#propertiesElement,
+#attributesElement,
+#cssEditor,
+#eventsEditor,
+#treeElements {
+    display: flex;
+    flex-direction: column;
+    padding: 7px;
+    gap: 5px;
+    box-sizing: border-box;
+    width: 100%;
+    flex: 1;
+    overflow: auto;
+    min-height: 0;
+}
+#propertiesElement, #propertiesText {
+    padding: 0px;
+}
+.propertiesElementTab,
+.tabContent,
+.breakpointSettings,
+.breakpointSettings > div {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+#propertiesElement hr {
+    margin: 30px 0px;
+}
+#propertiesElement input, #propertiesElement select, #propertiesElement button, #propertiesElement textarea {
+    padding: 2px 4px;
+}
+#propertiesText .propertiesElementTabsBack {
+    padding: 2px 4px;
+}
+
+/* Разделители панелей */
+#topPanelResizer {
+    height: 2px;
+    width: 100%;
+    cursor: row-resize;
+    background-color: #e0e0e0;
+    z-index: 100;
+    user-select: none;
+}
+
+#leftPanelResizer,
+#rightPanelResizer {
+    width: 2px;
+    height: 100%;
+    cursor: col-resize;
+    background-color: #e0e0e0;
+    z-index: 100;
+    user-select: none;
+}
+
+#topPanelResizer:hover,
+#leftPanelResizer:hover,
+#rightPanelResizer:hover {
+    background-color: #007bff;
+}
+
+
+
+/* Служебные модули */
+/* #serviceModules {
+} */
+
+#colorPicker {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 280px;
+    background: #ffffff;
+    border: 1px solid #cccccc;
+    border-radius: 8px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+    padding: 10px;
+    box-sizing: border-box;
+    position: absolute;
+    z-index: 1000;
+}
+
+#contextMenu {
+    position: absolute;
+    width: 120px;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+}
+
+#viewEditorEmptyState {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #cccccc;
+    z-index: 1;
+}

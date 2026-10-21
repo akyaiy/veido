@@ -1,0 +1,50 @@
+/* Панель выбора элемента */
+#selectorPanel {
+    display: flex;
+    gap: 5px;
+}
+
+#selectorType {
+    width: 25%;
+}
+
+#selectorName {
+    width: 70%;
+    flex: 1;
+}
+
+#selectorClass {
+    width: 5%;
+}
+
+
+/* Таблица событий */
+#eventsPanel {
+    display: grid;
+    gap: 2px;
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+}
+
+#eventsPanel td input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+
+
+/* Панель автодополнения JavaScript */
+#jsAutocompleteBox {
+    position: absolute;
+    background: #fff;
+    border: 1px solid #ccc;
+    z-index: 10000;
+    display: none;
+    max-height: 200px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-width: 300px;
+    word-break: break-word;
+    font-size: 12px;
+}

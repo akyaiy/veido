@@ -545,84 +545,120 @@ async function loadMenu() {
     });
 }
 
+
+
 /**********************************************************************************
- * loadBlock — это универсальная функция для динамического контента:
- *
- * - Находит контейнер по id.
- * - Очищает старый контент и связанные скрипты/стили.
- * - Запрашивает блок через apiProtected.
- * - Преобразует Markdown в HTML.
- * - Добавляет CSS и JS динамически.
- * - Вызывает pageInit() блока, если есть.
- * - Обрабатывает ошибки.
+ * loadBlock — универсальная функция загрузки блоков (с поддержкой iframe)
  **********************************************************************************/
-async function loadBlock(path, block_Name, itemsHowText = null) {
-    //console.log(path);
-    // Получаем контейнер блока
-    const container = document.getElementById(block_Name);
-    if (!container) {
-        return;
-    }
-    // Обработка пути
+async function loadBlock(path, target, itemsHowText = false) {
+    // Поддержка передачи как элемента DOM, так и ID
+    let container = typeof target === 'string' ? document.getElementById(target) : target;
+    if (!container) return;
+
+    // Определяем документ, которому принадлежит контейнер (основной или iframe)
+    const doc = container.ownerDocument || document;
+    const block_Name = container.id;
+
     path = path.replace(/\/$/, "");
-    if (!container) {
-        console.error(`loadBlock ERROR: element #${block_Name} not found`);
-        return;
-    }
     const blockName = path === "pages" ? "pages/home" : path;
+
     try {
-        // Очистка контейнера и старых динамических стилей/скриптов
         container.innerHTML = '';
-        document.querySelectorAll('style[data-dynamic], script[data-dynamic]').forEach(el => {
+        doc.querySelectorAll('style[data-dynamic], script[data-dynamic]').forEach(el => {
             const name = el.getAttribute('data-dynamic');
-            if (name === block_Name || !document.getElementById(name)) {
+            if (name === block_Name || !doc.getElementById(name)) {
                 el.remove();
             }
         });
-        // Получение блока с сервера
-        const response = await apiProtected(`/api/HTML/${blockName}`, {method: "GET"});
-        // Динамически подгружаем markdown-it, если он ещё не загружен
+
+        const response = await apiProtected(`/api/HTML/${blockName}`, { method: "GET" });
+
         if (!window.markdownit) {
             await loadMdScript('/js/markdown-it.min.js');
         }
         const { content: mdContent, css, js } = response;
-       // Преобразуем markdown в HTML
+        
+        // Вставка контента
         if (mdContent) {
-            const md = window.markdownit({ html: true, linkify: true, typographer: true });
-            /* container.innerHTML = itemsHowText?.includes('html') ? mdContent : md.render(mdContent); */
-            container.innerHTML = md.render(mdContent);
-            container?.id?.match(/^loadedBlock_\d+_view$/) && (document.getElementById(container.id.replace('_view', '_html')).innerHTML = mdContent);
+            if (itemsHowText) {
+                container.textContent = mdContent;
+            } else {
+                const md = window.markdownit({ html: true, linkify: true, typographer: true });
+                container.innerHTML = md.render(mdContent);
+                if (container.id?.match(/^loadedBlock_\d+_view$/)) {
+                    const htmlDiv = doc.getElementById(container.id.replace('_view', '_html'));
+                    if (htmlDiv) htmlDiv.innerHTML = mdContent;
+                }
+            }
         }
-        // Добавление CSS блока
+
+        // Вставка CSS в нужный документ
         if (css) {
-            const style = document.createElement('style');
-            style.dataset.dynamic = block_Name;
-            style.textContent = css;
-            document.head.appendChild(style);
+            if (itemsHowText) {
+                const cssDiv = doc.getElementById(block_Name.replace(/Html$/, 'Css'));
+                if (cssDiv) cssDiv.textContent = css;
+            } else {
+                const style = doc.createElement('style');
+                style.dataset.dynamic = block_Name;
+                style.textContent = css;
+                (doc.head || doc.body).appendChild(style);
+            }
         }
-        // Добавление JS блока
+
+        // Вставка JS в нужный документ
         if (js) {
-            const script = document.createElement('script');
-            if (itemsHowText?.includes('js')) script.type = 'text/plain';
-            script.dataset.dynamic = block_Name;
-            script.textContent = `
-                (() => {
-                    try {
-                        ${js}
-                        if (typeof pageInit === "function") pageInit();
-                    } catch (e) {
-                        console.error("Block script error:", e);
-                    }
-                })();
-            `;
-            document.body.appendChild(script);
+            if (itemsHowText) {
+                const jsDiv = doc.getElementById(block_Name.replace(/Html$/, 'Js'));
+                if (jsDiv) jsDiv.textContent = js;
+            } else {
+                const script = doc.createElement('script');
+                script.dataset.dynamic = block_Name;
+                script.textContent = `
+                    (() => {
+                        try {
+                            ${js}
+                            if (typeof pageInit === "function") pageInit();
+                        } catch (e) {
+                            console.error("Block script error:", e);
+                        }
+                    })();
+                `;
+                (doc.body || doc.head).appendChild(script);
+            }
         }
-    // Обработка ошибок
+
+        // Загрузка рекурсивных блоков внутри контейнера
+        loadBlockAttribute(container);
+
     } catch (err) {
         console.error(err);
         container.innerHTML = "<h2>блок не найден</h2>";
     }
 }
+
+function loadBlockAttribute(scope = document) {
+    // В случае передаваемого scope ищем и в нем самом, и среди его детей
+    const doc = scope.ownerDocument || scope;
+    const elements = scope.querySelectorAll ? scope.querySelectorAll('[data-block-src]') : [];
+
+    elements.forEach((el, index) => {
+        const path = el.getAttribute('data-block-src');
+        if (!el.id) el.id = `block_${Date.now()}_${index}`;
+        // Передаем элемент напрямую в loadBlock
+        loadBlock(path, el);
+    });
+}
+
+
+/*****************************************************************************
+ * Глобальный вызов функций блоков
+ * - Позволяет вызывать функции внутри динамических блоков
+ * - Поддерживает передачу аргументов
+ * - Возвращает результат выполнения функции блока
+ *****************************************************************************/
+window.callBlock = function(block, fn, ...args) {
+    return window.__blocks?.[block]?.[fn]?.(...args);
+};
 
 /*****************************************************************************
  * SPA-навигация

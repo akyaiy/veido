@@ -2,13 +2,16 @@ body {font-family: system-ui, sans-serif; margin: 0; display: flex; flex-directi
 #header {display: flex; align-items: center; justify-content: space-between; background: #333; color: white; padding: 10px 15px; position: relative;}
 #header .svg-icon {color: rgb(255, 255, 255);}
 footer {background: #333; color: white; text-align: center; padding: 10px;}
-main {flex: 1; padding: 20px; max-width: 1000px; margin: 0 auto;max-width: stretch;overflow-wrap: break-word;word-break: break-word;}
+main {flex: 1; padding: 20px; max-width: 90vw; margin: 0 auto;}
 button:not(.burger, .lng) {cursor:pointer; border-radius: 8px; border: 1px solid #ccc; background:#e4e4e4; padding: 10px 12px; font-size: 16px;}
 button:not(.burger, .lng):hover {background: #aa92f8;} 
 input {background: #ffffff; padding: 10px 12px; font-size: 15px; border-radius: 8px; border: 1px solid #ccc; transition: border 0.2s, box-shadow 0.2s; width:200px;}
+input[type="checkbox"] {width:auto;}
+input[type="color"] {padding: 0px;}
 input:focus {border-color: #7f57ff; box-shadow: 0 0 0 2px rgba(127, 87, 255, 0.2); outline: none;}
 select{background: #ffffff; padding: 10px 12px; font-size: 15px; border-radius: 8px; border: 1px solid #ccc; transition: border 0.2s, box-shadow 0.2s; width:225px;}
 select:focus {border-color: #7f57ff; box-shadow: 0 0 0 2px rgba(127, 87, 255, 0.2); outline: none;}
+[contenteditable="true"]:focus, [contenteditable="plaintext-only"]:focus { outline: none; }
 
 /* сетка */
 .grid-3 {display: grid; grid-template-columns: 15% 70% 15%; gap: 20px; margin-top: 20px;}

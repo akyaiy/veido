@@ -1,0 +1,1 @@
+<div id="mdEditorContent" contenteditable="plaintext-only"></div>

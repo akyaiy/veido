@@ -1,0 +1,130 @@
+/* Основыне вкладки */
+.propertiesElementTabMain {
+    padding: 7px 10px;
+    cursor: pointer;
+}
+
+.propertiesElementTabMain::before {
+    content: '▶';
+    margin-right: 6px;
+    font-size: 9px;
+}
+
+.propertiesElementTabMain:last-child {
+    border-bottom: 0;
+}
+
+
+/* Стили для блока свойств */
+#propertiesElement [data-target]:not(:has(input[type="checkbox"])),
+.propertiesElementTabContent {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.borderSettings {
+    width: fit-content;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 5px;
+}
+.borderSettings div {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Стили для вкладок */
+.propertiesTab {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 7px;
+    overflow: auto;
+    gap: 2px;
+}
+
+/* Вкладки свойств элемента */
+.propertiesElementTabs {
+    display: flex;
+}
+
+.propertiesElementTab[data-tab] {
+    flex: 1;
+    min-width: 0;
+    padding: 2px 4px;
+    border: 1px solid #ccc;
+    white-space: normal;
+    overflow-wrap: break-word;
+}
+
+.propertiesElementTab[data-tab].active {
+    background-color: #f0f0f0;
+}
+
+.tabContent {
+    display: none;
+}
+
+.tabContent.active {
+    display: flex;
+}
+
+/* Выравнивание по 4 сторонам */
+.marginGrid,
+.paddingGrid {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.marginGrid .left,
+.paddingGrid .left,
+.marginGrid .right,
+.paddingGrid .right,
+.marginGrid .center,
+.paddingGrid .center {
+    min-width: 0;
+}
+
+.marginGrid .center,
+.paddingGrid .center {
+    display: flex;
+    flex-direction: column;
+}
+
+.marginGrid input,
+.paddingGrid input {
+    width: 100%;
+    max-width: 226px;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+
+
+/* Выбранный элемент, ID и группы */
+#propertiesSelectorPanel {
+    display: flex;
+    gap: 5px;
+}
+
+#propertiesSelectorType {
+    flex: 1;
+    min-width: 0;
+}
+
+#propertiesSelectorName:not([style*="display: none"]) ~ #propertiesSelectorExisting {
+    flex: 0 0 auto;
+    width: auto;
+}
+
+#propertiesSelectorName:not([style*="display: none"]) {
+    flex: 7;
+    min-width: 0;
+}
+
+#propertiesSelectorPanel:has(#propertiesSelectorName:not([style*="display: none"])) #propertiesSelectorType {
+    flex: 3;
+    min-width: 0;
+}

@@ -19,6 +19,7 @@
         <!-- <li><a href="/userSlava/popup" data-link="true" data-target="content">Сообщения popup</a></li> -->
         <li><a href="/editorBlock" data-link="true" data-target="content">editorBlock</a></li>
         <li><a href="/svgEditor" data-link="true" data-target="content">svgEditor</a></li>
+        <li><a href="/loadBlockAttribute" data-link="true" data-target="content">loadBlockAttribute</a></li>
     </ul>
 </nav>
 <button id="lng_btn" data-loget="false">

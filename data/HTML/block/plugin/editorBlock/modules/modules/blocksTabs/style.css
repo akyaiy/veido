@@ -1,0 +1,25 @@
+/* Вкладки блоков */
+.blockTab {
+    display: flex;
+    width: fit-content;
+    align-items: center;
+    cursor: pointer;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    box-sizing: border-box;
+}
+.blockTab.active {
+    background-color: #f0f0f0;
+    border-bottom: 3px solid #ccc;
+}
+
+.tabName {
+    padding: 3px 0px 3px 3px;
+    box-sizing: border-box;
+}
+
+.tabClose {
+    cursor: pointer;
+    padding: 3px;
+    box-sizing: border-box;
+}
