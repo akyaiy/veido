@@ -2,6 +2,7 @@ package main
 
 import (
 	"MyServer/internal/common"
+	"MyServer/internal/database/schema"
 	"MyServer/internal/sqliteDB"
 	vfs "MyServer/internal/vfs/v2"
 	hookapi "MyServer/internal/vfs/v2/adapters/hookapi"
@@ -66,8 +67,14 @@ func main() {
 	templateSource := flag.String("template-source", "./data/HTML/frontend", "Reviewed default-spa source directory")
 	flag.Parse()
 
-	db := sqliteDB.InitDB(*dbPath)
+	db, err := sqliteDB.InitDB(*dbPath)
+	if err != nil {
+		log.Fatalf("open database: %v", err)
+	}
 	defer db.Close()
+	if err := schema.Migrate(context.Background(), db, localprovider.MigrationGroup(), htmlprovider.MigrationGroup()); err != nil {
+		log.Fatalf("migrate database: %v", err)
+	}
 	if err := seedConnections(db); err != nil {
 		log.Fatalf("seed VFS connections: %v", err)
 	}
@@ -141,12 +148,6 @@ func newDemoHookRuntime(frontend vfs.VFSFrontend, registry *hooks.Registry) (hoo
 }
 
 func newDemoVFS(db *sql.DB, contentPath string, hookRegistry *hooks.Registry) (vfs.VFSFrontend, error) {
-	if err := htmlprovider.InitDB(db); err != nil {
-		return nil, err
-	}
-	if err := localprovider.InitDB(db); err != nil {
-		return nil, err
-	}
 	store, err := htmlprovider.NewSQLiteStore(db)
 	if err != nil {
 		return nil, err
@@ -194,9 +195,6 @@ func newDemoVFS(db *sql.DB, contentPath string, hookRegistry *hooks.Registry) (v
 }
 
 func seedConnections(db *sql.DB) error {
-	if err := localprovider.InitDB(db); err != nil {
-		return err
-	}
 	statements := []struct {
 		query string
 		args  []any

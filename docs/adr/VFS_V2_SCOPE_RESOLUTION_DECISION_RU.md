@@ -131,21 +131,25 @@ Scope остаётся частью канонического URI, а не но
 
 ## 5. Переход от текущей реализации
 
-Текущая production-конфигурация содержит разрешающий `ACLAuthorizer`. Поэтому
-немедленное удаление owner-фильтра из resolver открыло бы все явно указанные
-чужие scope. Переход выполняется безопасно:
+Контракты explicit/default lookup уже разделены, owner-фильтр explicit lookup
+удалён, а VFS Core проверяет `x` на synthetic scope resource. Текущий
+`OwnerScopeGateAuthorizer` покрывает только эту проверку и делегирует остальные
+resource actions; demo-композиции всё ещё могут передавать разрешающий
+authorizer. Это не является безопасной production policy.
 
-1. Разделить контракты explicit lookup и default selection.
-2. Добавить тесты lookup чужого scope без утверждения, что доступ разрешён.
-3. Добавить в VFS Core отдельную проверку `x` на нормализованном scope-ресурсе.
-4. В интеграционных тестах Shared использовать явный тестовый authorizer,
+Дальнейший переход выполняется так:
+
+1. Сохранить тесты lookup чужого scope без утверждения, что доступ разрешён.
+2. В интеграционных тестах Shared использовать явный тестовый authorizer,
    разрешающий только scope и target конкретного сценария.
-5. Не включать cross-scope доступ в защищённой сборке, пока в ней используется
-   allow-all authorizer.
-6. После подключения реального ACL evaluator удалить owner-фильтр явного lookup
-   из production resolver.
-7. Удалить старую проверку `r+w` на `/<scope-key>` после миграции начальных
-   системных и пользовательских правил на `x` ресурса `/scopes/<scope-key>`.
+3. В основной pre-prod сборке реализовать fail-closed owner-only policy из
+   [ADR-009](PREPROD_SERVER_RUNTIME_DECISION_RU.md), проверяющую как scope gate,
+   так и каждое resource action; не включать туда allow-all delegate.
+4. Не включать cross-scope доступ и Shared Provider в основную сборку до
+   подключения реального ACL evaluator.
+5. После подключения ACL заменить временную owner-only policy и добавить
+   начальные системные и пользовательские правила `x` на
+   `/scopes/<scope-key>`.
 
 Разработка Shared Provider, его хранилища, дерева и маршрутизации может идти до
 завершения этого перехода. Ограничивается только реальное открытие cross-scope

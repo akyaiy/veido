@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 
+	"MyServer/internal/database/migrate"
+
 	"github.com/mattn/go-sqlite3"
 )
 
@@ -235,87 +237,142 @@ type SQLiteStore struct {
 
 var _ Store = (*SQLiteStore)(nil)
 
+func MigrationGroup() migrate.Group {
+	return migrate.Group{Name: "provider/html", Migrations: []migrate.Migration{
+		{Version: 1, Name: "site_and_page_model", Up: migrateHTMLV1},
+		{Version: 2, Name: "page_bundle_roots", Up: migrateHTMLV2},
+		{Version: 3, Name: "node_visibility", Up: migrateHTMLV3},
+		{Version: 4, Name: "application_templates", Up: migrateHTMLV4},
+	}}
+}
+
 func InitDB(db *sql.DB) error {
 	if db == nil {
 		return fmt.Errorf("html store: nil database")
 	}
-	if _, err := db.Exec(`PRAGMA foreign_keys = ON`); err != nil {
-		return fmt.Errorf("html store: enable foreign keys: %w", err)
-	}
-	if _, err := db.Exec(migrationTableSQL); err != nil {
-		return fmt.Errorf("html store: initialize migrations: %w", err)
-	}
+	return migrate.Run(context.Background(), db, MigrationGroup())
+}
 
-	tx, err := db.Begin()
-	if err != nil {
-		return fmt.Errorf("html store: begin migration: %w", err)
+func prepareHTMLMigration(ctx context.Context, tx *sql.Tx) (int, error) {
+	if _, err := tx.ExecContext(ctx, migrationTableSQL); err != nil {
+		return 0, err
 	}
-	committed := false
-	defer func() {
-		if !committed {
-			_ = tx.Rollback()
-		}
-	}()
-
 	var current int
-	if err := tx.QueryRow(`SELECT COALESCE(MAX(version), 0) FROM html_schema_migrations`).Scan(&current); err != nil {
-		return fmt.Errorf("html store: read schema version: %w", err)
+	if err := tx.QueryRowContext(ctx, `SELECT COALESCE(MAX(version), 0) FROM html_schema_migrations`).Scan(&current); err != nil {
+		return 0, err
 	}
 	if current > schemaVersion {
-		return fmt.Errorf("html store: schema version %d is newer than supported version %d", current, schemaVersion)
+		return 0, fmt.Errorf("html store: schema version %d is newer than supported version %d", current, schemaVersion)
+	}
+	return current, nil
+}
+
+func recordHTMLMigration(ctx context.Context, tx *sql.Tx, version int) error {
+	_, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO html_schema_migrations(version) VALUES (?)`, version)
+	return err
+}
+
+func migrateHTMLV1(ctx context.Context, tx *sql.Tx) error {
+	current, err := prepareHTMLMigration(ctx, tx)
+	if err != nil {
+		return err
 	}
 	if current < 1 {
-		if _, err := tx.Exec(schemaV1SQL); err != nil {
-			return fmt.Errorf("html store: apply schema v1: %w", err)
+		var exists bool
+		if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='html_sites')`).Scan(&exists); err != nil {
+			return err
 		}
-		if _, err := tx.Exec(`INSERT INTO html_schema_migrations(version) VALUES (1)`); err != nil {
-			return fmt.Errorf("html store: record schema v1: %w", err)
+		if !exists {
+			if _, err := tx.ExecContext(ctx, schemaV1SQL); err != nil {
+				return err
+			}
 		}
-		current = 1
+	}
+	return recordHTMLMigration(ctx, tx, 1)
+}
+
+func migrateHTMLV2(ctx context.Context, tx *sql.Tx) error {
+	current, err := prepareHTMLMigration(ctx, tx)
+	if err != nil {
+		return err
 	}
 	if current < 2 {
-		if _, err := tx.Exec(schemaV2SQL); err != nil {
-			return fmt.Errorf("html store: apply schema v2: %w", err)
+		hasColumn, err := htmlColumnExists(ctx, tx, "html_pages", "bundle_root_uri")
+		if err != nil {
+			return err
 		}
-		if err := backfillBundleRoots(tx); err != nil {
-			return fmt.Errorf("html store: backfill schema v2: %w", err)
+		if !hasColumn {
+			if _, err := tx.ExecContext(ctx, schemaV2SQL); err != nil {
+				return err
+			}
+			if err := backfillBundleRoots(tx); err != nil {
+				return err
+			}
 		}
-		if _, err := tx.Exec(`INSERT INTO html_schema_migrations(version) VALUES (2)`); err != nil {
-			return fmt.Errorf("html store: record schema v2: %w", err)
-		}
-		current = 2
 	}
-	if current >= 2 {
-		if _, err := tx.Exec(schemaV2ValidationSQL); err != nil {
-			return fmt.Errorf("html store: enforce schema v2 bundle root: %w", err)
-		}
+	if _, err := tx.ExecContext(ctx, schemaV2ValidationSQL); err != nil {
+		return err
+	}
+	return recordHTMLMigration(ctx, tx, 2)
+}
+
+func migrateHTMLV3(ctx context.Context, tx *sql.Tx) error {
+	current, err := prepareHTMLMigration(ctx, tx)
+	if err != nil {
+		return err
 	}
 	if current < 3 {
-		if _, err := tx.Exec(schemaV3SQL); err != nil {
-			return fmt.Errorf("html store: apply schema v3: %w", err)
+		hasColumn, err := htmlColumnExists(ctx, tx, "html_sites", "visibility_revision")
+		if err != nil {
+			return err
+		}
+		if !hasColumn {
+			if _, err := tx.ExecContext(ctx, schemaV3SQL); err != nil {
+				return err
+			}
 		}
 		if err := backfillNodeVisibility(tx); err != nil {
-			return fmt.Errorf("html store: backfill schema v3: %w", err)
+			return err
 		}
-		if _, err := tx.Exec(`INSERT INTO html_schema_migrations(version) VALUES (3)`); err != nil {
-			return fmt.Errorf("html store: record schema v3: %w", err)
-		}
-		current = 3
+	}
+	return recordHTMLMigration(ctx, tx, 3)
+}
+
+func migrateHTMLV4(ctx context.Context, tx *sql.Tx) error {
+	current, err := prepareHTMLMigration(ctx, tx)
+	if err != nil {
+		return err
 	}
 	if current < 4 {
-		if _, err := tx.Exec(schemaV4SQL); err != nil {
-			return fmt.Errorf("html store: apply schema v4: %w", err)
+		var exists bool
+		if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='html_template_packages')`).Scan(&exists); err != nil {
+			return err
 		}
-		if _, err := tx.Exec(`INSERT INTO html_schema_migrations(version) VALUES (4)`); err != nil {
-			return fmt.Errorf("html store: record schema v4: %w", err)
+		if !exists {
+			if _, err := tx.ExecContext(ctx, schemaV4SQL); err != nil {
+				return err
+			}
 		}
-		current = 4
 	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("html store: commit migration: %w", err)
+	return recordHTMLMigration(ctx, tx, 4)
+}
+
+func htmlColumnExists(ctx context.Context, tx *sql.Tx, table, column string) (bool, error) {
+	rows, err := tx.QueryContext(ctx, `SELECT name FROM pragma_table_info(?)`, table)
+	if err != nil {
+		return false, err
 	}
-	committed = true
-	return nil
+	defer rows.Close()
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return false, err
+		}
+		if name == column {
+			return true, nil
+		}
+	}
+	return false, rows.Err()
 }
 
 func backfillNodeVisibility(tx *sql.Tx) error {

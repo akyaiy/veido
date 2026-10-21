@@ -1,177 +1,117 @@
 package sqliteDB
 
 import (
+	"context"
 	"database/sql"
-	"log"
+	"errors"
+	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
+
+	"MyServer/internal/database/migrate"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
-func InitDB(path string) *sql.DB {
-	dirpath := filepath.Dir(path)
-	err := os.MkdirAll(dirpath, 0777)
-	if err != nil {
-		panic(err)
-	}
-	db, err := sql.Open("sqlite3", path)
-	if err != nil {
-		log.Fatal(err)
-	}
+const DefaultBusyTimeout = 5 * time.Second
 
-	stmt := `
-	CREATE TABLE IF NOT EXISTS users (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		username TEXT UNIQUE NOT NULL,
-		password_hash TEXT NOT NULL,
-		status TEXT NOT NULL DEFAULT 'unactive'
-	);
-	CREATE TABLE IF NOT EXISTS refresh_tokens (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		token TEXT UNIQUE NOT NULL,
-		user_id INTEGER NOT NULL,
-		expires_at INTEGER NOT NULL,
-		FOREIGN KEY(user_id) REFERENCES users(id)
-	);
-	CREATE TABLE IF NOT EXISTS sessions (
-		id TEXT PRIMARY KEY,
-		user_id INTEGER NOT NULL,
-
-		refresh_token_hash TEXT NOT NULL,
-
-		user_agent TEXT,
-		ip_address TEXT,
-
-		expires_at TIMESTAMP NOT NULL,
-		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		last_used_at TIMESTAMP,
-
-		revoked BOOLEAN NOT NULL DEFAULT FALSE,
-		FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-	);
-	CREATE TABLE IF NOT EXISTS whitelist (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		sub INTEGER NOT NULL,
-		jti TEXT NOT NULL,
-		UNIQUE(sub, jti)
-		FOREIGN KEY (sub) REFERENCES users(id) ON DELETE CASCADE
-	);
-	CREATE TABLE IF NOT EXISTS "shares" (
-		"id"	INTEGER,
-		"from_id"	INTEGER,
-		"to_id"	INTEGER,
-		"resource_id"	TEXT,
-		PRIMARY KEY("id" AUTOINCREMENT),
-		FOREIGN KEY("from_id") REFERENCES users(id) ON DELETE CASCADE,
-		FOREIGN KEY("to_id") REFERENCES users(id) ON DELETE CASCADE
-	);
-
-	CREATE TABLE IF NOT EXISTS artifacts (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		hash TEXT NOT NULL UNIQUE,
-		size INTEGER NOT NULL DEFAULT 0,
-		relations_count INTEGER DEFAULT 0
-	);
-	
-	CREATE TABLE IF NOT EXISTS garbage_queue (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		hash TEXT NOT NULL,
-		size INTEGER NOT NULL,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	);
-	
-	CREATE TABLE IF NOT EXISTS global_locks (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		path TEXT NOT NULL UNIQUE,
-		token TEXT NOT NULL UNIQUE,
-		owner_id TEXT NOT NULL,
-		client_type TEXT NOT NULL,
-		is_exclusive BOOLEAN NOT NULL,
-		expires_at DATETIME NOT NULL
-	);
-	
-	CREATE TABLE IF NOT EXISTS metadata (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		parent_id INTEGER REFERENCES metadata(id) ON DELETE CASCADE,
-		name TEXT NOT NULL,
-		is_dir BOOLEAN NOT NULL DEFAULT 0,
-		owner TEXT NOT NULL,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-		artefact_id INTEGER,
-		FOREIGN KEY (artefact_id) REFERENCES artifacts(id) ON DELETE SET NULL
-	);
-	
-	CREATE TABLE IF NOT EXISTS mounts (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		parent_metadata_id INTEGER NOT NULL UNIQUE,
-		driver_type TEXT NOT NULL,
-		config TEXT NOT NULL,
-		FOREIGN KEY (parent_metadata_id) REFERENCES metadata(id) ON DELETE CASCADE
-	);
-	
-	CREATE INDEX IF NOT EXISTS idx_locks_path ON global_locks(path);
-	
-	CREATE UNIQUE INDEX IF NOT EXISTS idx_metadata_parent_name ON metadata(parent_id, name) WHERE parent_id IS NOT NULL;
-	
-	CREATE UNIQUE INDEX IF NOT EXISTS idx_metadata_root_name ON metadata(name) WHERE parent_id IS NULL;
-
-	-- VFS v2 tables
-	CREATE TABLE IF NOT EXISTS vfs_scopes (
-	    scope_key TEXT PRIMARY KEY,
-	    kind TEXT NOT NULL,
-	    owner_subject_key TEXT NOT NULL,
-	    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-	    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-	    UNIQUE(scope_key)
-	);
-	
-	CREATE TABLE IF NOT EXISTS vfs_provider_connections (
-	    id INTEGER PRIMARY KEY AUTOINCREMENT,
-	    scope_key TEXT NOT NULL,
-	    provider TEXT NOT NULL,
-	    connection_key TEXT NOT NULL,
-	    display_name TEXT NOT NULL DEFAULT '',
-	    config_json TEXT NOT NULL DEFAULT '{}',
-	    config_version INTEGER NOT NULL DEFAULT 1,
-	    status TEXT NOT NULL DEFAULT 'active',
-	    ready INTEGER NOT NULL DEFAULT 1,
-	    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-	    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-	    FOREIGN KEY (scope_key) REFERENCES vfs_scopes(scope_key) ON DELETE CASCADE,
-	    UNIQUE(scope_key, connection_key)
-	);
-	
-	CREATE TABLE IF NOT EXISTS vfs_principal_default_scopes (
-    	principal_type TEXT NOT NULL,
-     	principal_id TEXT NOT NULL,
-        scope_key TEXT NOT NULL,
-	
-	    PRIMARY KEY (principal_type, principal_id),
-	    FOREIGN KEY (scope_key) REFERENCES vfs_scopes(scope_key) ON DELETE CASCADE
-	);
-
-	`
-	_, err = db.Exec(stmt)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if _, err := db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_vfs_provider_connections_id ON vfs_provider_connections(id)"); err != nil {
-		log.Fatal(err)
-	}
-	if _, err := db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_vfs_provider_connections_scope_connection_key ON vfs_provider_connections(scope_key, connection_key)"); err != nil {
-		log.Fatal(err)
-	}
-	if _, err := db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_vfs_provider_connections_scope_display_name ON vfs_provider_connections(scope_key, display_name) WHERE display_name != ''"); err != nil {
-		log.Fatal(err)
-	}
-	_, _ = db.Exec("UPDATE vfs_provider_connections SET ready = 1 WHERE scope_key = 'system' AND provider = 'scopes' AND connection_key = 'scopes'")
-
-	CleanRefresh(db)
-
-	return db
+type Options struct {
+	BusyTimeout  time.Duration
+	MaxOpenConns int
 }
 
-func CleanRefresh(db *sql.DB) {
-	_, _ = db.Exec("DELETE FROM refresh_tokens WHERE expires_at <= ?", time.Now().Unix())
+// Open configures SQLite before it is handed to application code. The DSN
+// options are applied by the driver to every physical connection in the pool.
+func Open(ctx context.Context, path string, options Options) (*sql.DB, error) {
+	if path == "" {
+		return nil, errors.New("sqlite: empty database path")
+	}
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return nil, fmt.Errorf("sqlite: resolve path: %w", err)
+	}
+	directory := filepath.Dir(absolute)
+	if err := os.MkdirAll(directory, 0o750); err != nil {
+		return nil, fmt.Errorf("sqlite: create directory %q: %w", directory, err)
+	}
+	file, err := os.OpenFile(absolute, os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return nil, fmt.Errorf("sqlite: create database file: %w", err)
+	}
+	if err := file.Close(); err != nil {
+		return nil, fmt.Errorf("sqlite: close created database file: %w", err)
+	}
+	if options.BusyTimeout <= 0 {
+		options.BusyTimeout = DefaultBusyTimeout
+	}
+	if options.MaxOpenConns <= 0 {
+		options.MaxOpenConns = 8
+	}
+
+	query := url.Values{}
+	query.Set("_busy_timeout", strconv.FormatInt(options.BusyTimeout.Milliseconds(), 10))
+	query.Set("_foreign_keys", "on")
+	query.Set("_journal_mode", "WAL")
+	dsn := (&url.URL{Scheme: "file", Path: absolute, RawQuery: query.Encode()}).String()
+	db, err := sql.Open("sqlite3", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("sqlite: open: %w", err)
+	}
+	db.SetMaxOpenConns(options.MaxOpenConns)
+	db.SetMaxIdleConns(options.MaxOpenConns)
+
+	closeOnError := func(openErr error) (*sql.DB, error) {
+		_ = db.Close()
+		return nil, openErr
+	}
+	if err := db.PingContext(ctx); err != nil {
+		return closeOnError(fmt.Errorf("sqlite: ping: %w", err))
+	}
+	if err := os.Chmod(absolute, 0o600); err != nil {
+		return closeOnError(fmt.Errorf("sqlite: set database permissions: %w", err))
+	}
+	var foreignKeys int
+	if err := db.QueryRowContext(ctx, `PRAGMA foreign_keys`).Scan(&foreignKeys); err != nil {
+		return closeOnError(fmt.Errorf("sqlite: verify foreign keys: %w", err))
+	}
+	if foreignKeys != 1 {
+		return closeOnError(errors.New("sqlite: foreign key enforcement is disabled"))
+	}
+	var journalMode string
+	if err := db.QueryRowContext(ctx, `PRAGMA journal_mode`).Scan(&journalMode); err != nil {
+		return closeOnError(fmt.Errorf("sqlite: verify journal mode: %w", err))
+	}
+	if journalMode != "wal" {
+		return closeOnError(fmt.Errorf("sqlite: journal mode is %q, want wal", journalMode))
+	}
+	return db, nil
+}
+
+// InitDB is retained as a compatibility name for callers while initialization
+// is moved to the composition root. It opens and verifies SQLite but creates no
+// application tables.
+func InitDB(path string) (*sql.DB, error) {
+	return Open(context.Background(), path, Options{})
+}
+
+func MigrationGroup() migrate.Group {
+	return migrate.Group{
+		Name: "core/database",
+		Migrations: []migrate.Migration{{
+			Version: 1,
+			Name:    "database_metadata",
+			Up: func(ctx context.Context, tx *sql.Tx) error {
+				_, err := tx.ExecContext(ctx, `
+					CREATE TABLE IF NOT EXISTS database_metadata (
+						key TEXT PRIMARY KEY,
+						value TEXT NOT NULL,
+						updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+					)`)
+				return err
+			},
+		}},
+	}
 }

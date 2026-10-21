@@ -1,12 +1,15 @@
 package main
 
 import (
+	"MyServer/internal/database/schema"
 	"MyServer/internal/sqliteDB"
 	vfs "MyServer/internal/vfs/v2"
 	htmlprovider "MyServer/internal/vfs/v2/providers/html"
 	"MyServer/internal/vfs/v2/providers/html/hooks/getstatic"
+	localprovider "MyServer/internal/vfs/v2/providers/local"
 	"MyServer/pkg/vfs/hooks"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"io"
@@ -21,7 +24,7 @@ import (
 )
 
 func TestDemoSeedsHTMLPageAndApplicationTemplateIdempotently(t *testing.T) {
-	db := sqliteDB.InitDB(filepath.Join(t.TempDir(), "demo.sqlite3"))
+	db := openDemoDatabase(t)
 	defer db.Close()
 	if err := seedConnections(db); err != nil {
 		t.Fatal(err)
@@ -121,7 +124,7 @@ func frontendSourceDir(t *testing.T) string {
 }
 
 func TestDemoHandlerServesUIAssetsAndVFSAPI(t *testing.T) {
-	db := sqliteDB.InitDB(filepath.Join(t.TempDir(), "demo.sqlite3"))
+	db := openDemoDatabase(t)
 	defer db.Close()
 	if err := seedConnections(db); err != nil {
 		t.Fatal(err)
@@ -265,6 +268,19 @@ func TestDemoHandlerServesUIAssetsAndVFSAPI(t *testing.T) {
 	if response.Code != http.StatusOK || response.Body.String() != "# Updated About" {
 		t.Fatalf("GET updated content: status=%d body=%q", response.Code, response.Body.String())
 	}
+}
+
+func openDemoDatabase(t *testing.T) *sql.DB {
+	t.Helper()
+	db, err := sqliteDB.InitDB(filepath.Join(t.TempDir(), "demo.sqlite3"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := schema.Migrate(context.Background(), db, localprovider.MigrationGroup(), htmlprovider.MigrationGroup()); err != nil {
+		_ = db.Close()
+		t.Fatal(err)
+	}
+	return db
 }
 
 func readDemoPage(t *testing.T, frontend vfs.VFSFrontend) htmlprovider.PageDocument {

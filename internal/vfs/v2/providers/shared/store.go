@@ -6,6 +6,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+
+	"MyServer/internal/database/migrate"
 )
 
 var ErrLinkNotFound = errors.New("shared link not found")
@@ -41,40 +43,45 @@ func InitDB(db *sql.DB) error {
 	if db == nil {
 		return fmt.Errorf("shared store: nil database")
 	}
-	exists, columns, foreignKeys, err := inspectLinksTable(db)
+	return migrate.Run(context.Background(), db, MigrationGroup())
+}
+
+func MigrationGroup() migrate.Group {
+	return migrate.Group{Name: "provider/shared", Migrations: []migrate.Migration{{
+		Version: 1,
+		Name:    "link_projection",
+		Up:      migrateSharedLinks,
+	}}}
+}
+
+func migrateSharedLinks(ctx context.Context, tx *sql.Tx) error {
+	exists, columns, foreignKeys, err := inspectLinksTableTx(ctx, tx)
 	if err != nil {
 		return err
 	}
 	if !exists {
-		_, err := db.Exec(SchemaSQL)
+		_, err := tx.ExecContext(ctx, SchemaSQL)
 		return err
 	}
 	if columns["recipient_name"] && columns["granted_by_name"] && !foreignKeys {
-		_, err := db.Exec(createLinksIndexesSQL)
+		_, err := tx.ExecContext(ctx, createLinksIndexesSQL)
 		return err
 	}
-	return migrateLegacyLinksTable(db, columns)
+	return migrateLegacyLinksTableTx(ctx, tx, columns)
 }
 
-func inspectLinksTable(db *sql.DB) (exists bool, columns map[string]bool, foreignKeys bool, err error) {
+func inspectLinksTableTx(ctx context.Context, tx *sql.Tx) (exists bool, columns map[string]bool, foreignKeys bool, err error) {
 	columns = make(map[string]bool)
-	if err = db.QueryRow(`
-		SELECT EXISTS(
-			SELECT 1 FROM sqlite_master
-			WHERE type = 'table' AND name = 'vfs_shared_links'
-		)`).Scan(&exists); err != nil || !exists {
+	if err = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='vfs_shared_links')`).Scan(&exists); err != nil || !exists {
 		return exists, columns, false, err
 	}
-
-	rows, err := db.Query(`PRAGMA table_info(vfs_shared_links)`)
+	rows, err := tx.QueryContext(ctx, `SELECT name FROM pragma_table_info('vfs_shared_links')`)
 	if err != nil {
 		return false, nil, false, err
 	}
 	for rows.Next() {
-		var cid, notNull, primaryKey int
-		var name, columnType string
-		var defaultValue any
-		if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultValue, &primaryKey); err != nil {
+		var name string
+		if err := rows.Scan(&name); err != nil {
 			_ = rows.Close()
 			return false, nil, false, err
 		}
@@ -83,11 +90,7 @@ func inspectLinksTable(db *sql.DB) (exists bool, columns map[string]bool, foreig
 	if err := rows.Close(); err != nil {
 		return false, nil, false, err
 	}
-	if err := rows.Err(); err != nil {
-		return false, nil, false, err
-	}
-
-	fkRows, err := db.Query(`PRAGMA foreign_key_list(vfs_shared_links)`)
+	fkRows, err := tx.QueryContext(ctx, `SELECT 1 FROM pragma_foreign_key_list('vfs_shared_links') LIMIT 1`)
 	if err != nil {
 		return false, nil, false, err
 	}
@@ -98,7 +101,7 @@ func inspectLinksTable(db *sql.DB) (exists bool, columns map[string]bool, foreig
 	return true, columns, foreignKeys, nil
 }
 
-func migrateLegacyLinksTable(db *sql.DB, columns map[string]bool) error {
+func migrateLegacyLinksTableTx(ctx context.Context, tx *sql.Tx, columns map[string]bool) error {
 	recipientName := `printf('user-%d', recipient_user_id)`
 	if columns["recipient_name"] {
 		recipientName = "recipient_name"
@@ -107,57 +110,21 @@ func migrateLegacyLinksTable(db *sql.DB, columns map[string]bool) error {
 	if columns["granted_by_name"] {
 		grantorName = "granted_by_name"
 	}
-
-	tx, err := db.Begin()
-	if err != nil {
-		return err
-	}
-	committed := false
-	defer func() {
-		if !committed {
-			_ = tx.Rollback()
-		}
-	}()
-
 	statements := []string{
 		`DROP INDEX IF EXISTS idx_vfs_shared_links_outgoing`,
 		`ALTER TABLE vfs_shared_links RENAME TO vfs_shared_links_legacy`,
 		createLinksTableSQL,
-		`INSERT INTO vfs_shared_links (
-			recipient_user_id,
-			recipient_name,
-			granted_by_user_id,
-			granted_by_name,
-			target_uri,
-			alias,
-			access_mode,
-			status,
-			created_at,
-			updated_at
-		) SELECT
-			recipient_user_id,
-			` + recipientName + `,
-			granted_by_user_id,
-			` + grantorName + `,
-			target_uri,
-			alias,
-			access_mode,
-			status,
-			created_at,
-			updated_at
-		FROM vfs_shared_links_legacy`,
+		`INSERT INTO vfs_shared_links (recipient_user_id, recipient_name, granted_by_user_id, granted_by_name, target_uri, alias, access_mode, status, created_at, updated_at)
+		 SELECT recipient_user_id, ` + recipientName + `, granted_by_user_id, ` + grantorName + `, target_uri, alias, access_mode, status, created_at, updated_at
+		 FROM vfs_shared_links_legacy`,
 		`DROP TABLE vfs_shared_links_legacy`,
 		createLinksIndexesSQL,
 	}
 	for _, statement := range statements {
-		if _, err := tx.Exec(statement); err != nil {
+		if _, err := tx.ExecContext(ctx, statement); err != nil {
 			return fmt.Errorf("migrate shared links: %w", err)
 		}
 	}
-	if err := tx.Commit(); err != nil {
-		return err
-	}
-	committed = true
 	return nil
 }
 

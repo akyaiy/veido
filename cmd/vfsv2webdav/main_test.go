@@ -2,10 +2,13 @@ package main
 
 import (
 	"MyServer/internal/common"
+	"MyServer/internal/database/schema"
 	"MyServer/internal/sqliteDB"
 	vfs "MyServer/internal/vfs/v2"
 	httpapi "MyServer/internal/vfs/v2/adapters/httpapi"
 	webdavadapter "MyServer/internal/vfs/v2/adapters/webdav"
+	"MyServer/internal/vfs/v2/providers/local"
+	sharedprovider "MyServer/internal/vfs/v2/providers/shared"
 	"context"
 	"errors"
 	"net/http"
@@ -15,8 +18,14 @@ import (
 )
 
 func TestNewVFSRegistersSharedProvider(t *testing.T) {
-	db := sqliteDB.InitDB(filepath.Join(t.TempDir(), "vfs.sqlite3"))
+	db, err := sqliteDB.InitDB(filepath.Join(t.TempDir(), "vfs.sqlite3"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() { _ = db.Close() })
+	if err := schema.Migrate(context.Background(), db, local.MigrationGroup(), sharedprovider.MigrationGroup()); err != nil {
+		t.Fatal(err)
+	}
 
 	if _, err := db.Exec(`
 		INSERT INTO vfs_scopes (scope_key, kind, owner_subject_key)

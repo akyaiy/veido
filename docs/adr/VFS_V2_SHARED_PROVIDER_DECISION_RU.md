@@ -3,6 +3,7 @@
 > Статус: принятое целевое архитектурное решение, не описание готовой реализации.  
 > Дата решения: 19 сентября 2026 года.  
 > Уточнено 20 сентября 2026 года: междоменное управление ACL и проверка subject идут через VFS; общая SQL-транзакция между Shared и ACL запрещена.  
+> Статус реализации на 21 октября 2026 года: Shared экспортирует собственную migration group; системный database registry не импортирует и не знает Shared, а group передаёт runner только композиция, подключающая сам provider.
 > Реализация ACLv2 и точный контракт управления ACL будут спроектированы отдельно.  
 > Связанные документы: [концепция ACLv2](../ACL_V2_CONCEPT_RU.md), [ACL lifecycle](ACL_LIFECYCLE_ARCHITECTURE_RU.md), [scope resolution](VFS_V2_SCOPE_RESOLUTION_DECISION_RU.md), [текущая реализация VFSv2](../VFS_V2_IMPLEMENTATION_RU.md).
 

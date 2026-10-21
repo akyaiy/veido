@@ -13,6 +13,8 @@ import (
 	"fmt"
 	"os"
 	"time"
+
+	"MyServer/internal/database/migrate"
 )
 
 const SchemaSQL = `
@@ -38,13 +40,81 @@ CREATE TABLE IF NOT EXISTS local_bootstraps (
 );
 `
 
+func MigrationGroup() migrate.Group {
+	return migrate.Group{Name: "provider/local", Migrations: []migrate.Migration{
+		{Version: 1, Name: "content_storage", Up: migrateContentStorage},
+		{Version: 2, Name: "accounts_and_bootstrap", Up: migrateAccounts},
+	}}
+}
+
+// InitDB remains for package-level tests and old demo callers. Production uses
+// the centralized registry and runs this group in the global order.
 func InitDB(db *sql.DB) error {
-	if _, err := db.Exec(SchemaSQL); err != nil {
+	return migrate.Run(context.Background(), db, MigrationGroup())
+}
+
+func migrateContentStorage(ctx context.Context, tx *sql.Tx) error {
+	_, err := tx.ExecContext(ctx, `
+		CREATE TABLE IF NOT EXISTS artifacts (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			hash TEXT NOT NULL UNIQUE,
+			size INTEGER NOT NULL DEFAULT 0,
+			relations_count INTEGER NOT NULL DEFAULT 0
+		);
+		CREATE TABLE IF NOT EXISTS garbage_queue (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			hash TEXT NOT NULL,
+			size INTEGER NOT NULL,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		);
+		CREATE TABLE IF NOT EXISTS metadata (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			parent_id INTEGER REFERENCES metadata(id) ON DELETE CASCADE,
+			name TEXT NOT NULL,
+			is_dir BOOLEAN NOT NULL DEFAULT 0,
+			owner TEXT NOT NULL,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			artefact_id INTEGER,
+			FOREIGN KEY (artefact_id) REFERENCES artifacts(id) ON DELETE SET NULL
+		);
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_metadata_parent_name
+			ON metadata(parent_id, name) WHERE parent_id IS NOT NULL;
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_metadata_root_name
+			ON metadata(name) WHERE parent_id IS NULL;
+		CREATE TRIGGER IF NOT EXISTS increment_artefact_relations
+		AFTER INSERT ON metadata
+		FOR EACH ROW WHEN NEW.artefact_id IS NOT NULL
+		BEGIN
+			UPDATE artifacts SET relations_count = relations_count + 1 WHERE id = NEW.artefact_id;
+		END;
+		CREATE TRIGGER IF NOT EXISTS decrement_or_queue_artefact
+		AFTER DELETE ON metadata
+		FOR EACH ROW WHEN OLD.artefact_id IS NOT NULL
+		BEGIN
+			UPDATE artifacts SET relations_count = relations_count - 1 WHERE id = OLD.artefact_id;
+			INSERT INTO garbage_queue(hash, size)
+				SELECT hash, size FROM artifacts WHERE id = OLD.artefact_id AND relations_count <= 0;
+			DELETE FROM artifacts WHERE id = OLD.artefact_id AND relations_count <= 0;
+		END
+	`)
+	return err
+}
+
+func migrateAccounts(ctx context.Context, tx *sql.Tx) error {
+	if _, err := tx.ExecContext(ctx, SchemaSQL); err != nil {
 		return err
 	}
-
-	_, _ = db.Exec("ALTER TABLE local_bootstraps ADD COLUMN connection_id INTEGER NOT NULL DEFAULT 0")
-	_, _ = db.Exec(`
+	columns, err := localTableColumns(ctx, tx, "local_bootstraps")
+	if err != nil {
+		return err
+	}
+	if !columns["connection_id"] {
+		if _, err := tx.ExecContext(ctx, `ALTER TABLE local_bootstraps ADD COLUMN connection_id INTEGER NOT NULL DEFAULT 0`); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.ExecContext(ctx, `
 		UPDATE local_bootstraps
 		SET connection_id = (
 			SELECT vfs_provider_connections.id
@@ -54,9 +124,28 @@ func InitDB(db *sql.DB) error {
 			  AND vfs_provider_connections.connection_key = local_bootstraps.connection_key
 		)
 		WHERE connection_id = 0
-	`)
-	_, err := db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_local_bootstraps_connection_id ON local_bootstraps(connection_id)")
+	`); err != nil {
+		return err
+	}
+	_, err = tx.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS idx_local_bootstraps_connection_id ON local_bootstraps(connection_id)`)
 	return err
+}
+
+func localTableColumns(ctx context.Context, tx *sql.Tx, table string) (map[string]bool, error) {
+	rows, err := tx.QueryContext(ctx, `SELECT name FROM pragma_table_info(?)`, table)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	columns := make(map[string]bool)
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		columns[name] = true
+	}
+	return columns, rows.Err()
 }
 
 type Account struct {

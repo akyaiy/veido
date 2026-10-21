@@ -3,6 +3,7 @@ package main
 import (
 	"MyServer/internal/common"
 	"MyServer/internal/config"
+	"MyServer/internal/database/schema"
 	"MyServer/internal/sqliteDB"
 	vfs "MyServer/internal/vfs/v2"
 	"MyServer/internal/vfs/v2/providers"
@@ -31,8 +32,14 @@ func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, nil)))
 
 	config.LoadData(*configPath)
-	db := sqliteDB.InitDB("./data/db/vfs_test.sqlite3")
+	db, err := sqliteDB.InitDB("./data/db/vfs_test.sqlite3")
+	if err != nil {
+		log.Fatalf("open database: %v", err)
+	}
 	defer db.Close()
+	if err := schema.Migrate(context.Background(), db); err != nil {
+		log.Fatalf("migrate database: %v", err)
+	}
 
 	if err := seedDebugVFS(db, *actorID); err != nil {
 		log.Fatalf("seed debug vfs: %v", err)

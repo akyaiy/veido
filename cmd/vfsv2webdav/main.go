@@ -4,6 +4,7 @@ import (
 	"MyServer/internal/auth"
 	"MyServer/internal/common"
 	"MyServer/internal/config"
+	"MyServer/internal/database/schema"
 	"MyServer/internal/sqliteDB"
 	vfs "MyServer/internal/vfs/v2"
 	httpapi "MyServer/internal/vfs/v2/adapters/httpapi"
@@ -57,8 +58,14 @@ func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, nil)))
 
 	config.LoadData(*configPath)
-	db := sqliteDB.InitDB(*dbPath)
+	db, err := sqliteDB.InitDB(*dbPath)
+	if err != nil {
+		log.Fatalf("open database: %v", err)
+	}
 	defer db.Close()
+	if err := schema.Migrate(context.Background(), db, local.MigrationGroup(), sharedprovider.MigrationGroup()); err != nil {
+		log.Fatalf("migrate database: %v", err)
+	}
 
 	authService := auth.NewAuth(db, []byte(config.Data.MySecret))
 	adminUser, err := ensureAdminUser(authService)
@@ -374,12 +381,6 @@ func newVFS(db *sql.DB) (vfs.VFSFrontend, error) {
 		return nil, err
 	}
 
-	if err := local.InitDB(db); err != nil {
-		return nil, err
-	}
-	if err := sharedprovider.InitDB(db); err != nil {
-		return nil, err
-	}
 	sharedStore, err := sharedprovider.NewSQLiteStore(db)
 	if err != nil {
 		return nil, err
