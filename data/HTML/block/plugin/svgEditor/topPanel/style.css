@@ -1,0 +1,75 @@
+/* Главные контейнеры */
+#topPanel {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #ccc;
+    width: auto;
+    padding: 7px;
+}
+
+#tabsMenuContainer {
+    position: relative;
+    display: inline-block;
+    flex: 0 0 auto;
+}
+
+#tabs {
+    display: flex;
+    gap: 5px;
+    flex: 1;
+    align-items: center;
+    width: 100%;
+    margin: 0px 10px;
+}
+
+
+
+/* Вкладки меню */
+#tabsMenu {
+    display: none;
+    position: absolute;
+    top: 20px;
+    left: -5px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #fff;
+    font-size: 14px;
+    margin: 2px;
+}
+
+#tabsMenu.active {
+    display: flex;
+    flex-direction: column;
+}
+
+.tabMenu {
+    cursor: pointer;
+    white-space: nowrap;
+    padding: 4px 6px;
+}
+
+.tabMenu:hover {
+    background: #f0f0f0;
+}
+
+
+
+/* Вкладки svg блоков */
+.svgTab {
+    display: flex;
+    font-size: 14px;
+    padding: 2px 4px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+.svgTab.active {
+    background: #e0e0e0;
+}
+.svgTabTitle {
+    cursor: pointer;
+}
+.svgTabClose {
+    user-select: none;
+    margin-left: 5px;
+    cursor: pointer;
+}

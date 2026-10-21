@@ -1,0 +1,45 @@
+/* Главные контейнеры */
+#rightPanel {
+    width: 20%;
+    flex-direction: column;
+}
+
+#rightPanel hr  {
+    width: 100%;
+}
+
+/* Вкладки */
+#propertiesTabs {    
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 5px;
+    width: 100%;
+    box-sizing: border-box;
+    align-items: flex-start;
+    border-bottom: 1px solid #ccc;
+    padding: 7px;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+.propertiesTab {
+    cursor: pointer;
+    display: flex;
+    font-size: 14px;
+    padding: 2px 4px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    white-space: nowrap;
+    flex: 0 0 auto;
+}
+.propertiesTab.active {
+    background: #e0e0e0;
+}
+
+/* Содержимое вкладок */
+#propertiesContent {
+    padding: 7px;
+    overflow: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+}

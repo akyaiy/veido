@@ -1,0 +1,66 @@
+main {
+    width: 100%;
+}
+
+
+
+/* Главные контейнеры */
+#editor {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    min-height: 0;
+    overflow: hidden;
+}
+
+#mainContainer {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+#leftPanel,
+#centerPanel,
+#rightPanel {
+    min-height: 0;
+}
+
+
+
+/* Общие стили */
+.tabs-svg-icon {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+
+
+/* Верхняя панель */
+#topPanel {
+    width: 100%;
+    height: 45px;
+}
+
+
+
+/* Левая панель */
+#leftPanel {
+    width: 10%;
+}
+
+
+
+/* Правая панель */
+#rightPanel {
+    width: 10%;
+}
+
+
+
+/* Центральная панель */
+#centerPanel {
+    flex: 1;
+    overflow: auto;
+}

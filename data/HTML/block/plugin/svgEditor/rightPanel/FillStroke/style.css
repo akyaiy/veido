@@ -1,0 +1,56 @@
+/* Контейнер выбор вкладок */
+#tabsFillStroke {
+    padding-bottom: 7px;
+    margin-bottom: 7px;
+    border-bottom: 1px solid #ccc;
+
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 5px;
+    width: 100%;
+    box-sizing: border-box;
+    align-items: flex-start;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+#tabsFillStroke > div {
+    cursor: pointer;
+    display: flex;
+    font-size: 14px;
+    padding: 2px 4px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    white-space: nowrap;
+    flex: 0 0 auto;
+}
+#tabsFillStroke > div.active {
+    background: #e0e0e0;
+}
+
+
+/* Вкладки */
+.tabFillStroke {
+    display: grid;
+    gap: 5px;
+    padding-bottom: 7px;
+    margin-bottom: 7px;
+}
+
+.tabFillStroke > div {
+    display: grid;
+    grid-template-columns: 1fr 40%;
+    align-items: center;
+}
+
+.tabFillStroke > div > input, 
+.tabFillStroke > div > select {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 2px 3px;
+}
+.tabFillStroke > div > button {
+    width: 30px;
+    box-sizing: border-box;
+    padding: 2px 3px;
+}

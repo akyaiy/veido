@@ -1,0 +1,57 @@
+/* Главные контейнеры */
+main {
+    width: 100%;
+}
+
+#editor {
+    display: flex;
+    flex-direction: column;
+    height: 80vh;
+    overflow: hidden;
+}
+
+
+
+/* Общие стили */
+.svgIcon {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+.colorPickerTrigger {
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: rgb(255, 0, 0);
+    cursor: pointer;
+    height: 17px;
+    padding: 2px 3px;
+}
+
+
+
+/* Под контейнеры */
+#topPanel, #topPanel2 {
+    width: 100%;
+    flex-shrink: 0;
+}
+
+#mainContainer {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+#leftPanel {
+    flex-shrink: 0;
+    overflow-y: auto;
+}
+#rightPanel {
+    flex-shrink: 0;
+    overflow-y: auto;
+}
+#centerPanel {
+    flex: 1;
+    overflow: auto;
+}
