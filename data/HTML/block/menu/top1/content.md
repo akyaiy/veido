@@ -20,6 +20,7 @@
         <li><a href="/editorBlock" data-link="true" data-target="content">editorBlock</a></li>
         <li><a href="/svgEditor" data-link="true" data-target="content">svgEditor</a></li>
         <li><a href="/loadBlockAttribute" data-link="true" data-target="content">loadBlockAttribute</a></li>
+        <li><a href="/siteStructure" data-link="true" data-target="content">Редактор структуры сайта</a></li>    
     </ul>
 </nav>
 <button id="lng_btn" data-loget="false">
