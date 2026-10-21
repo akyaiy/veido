@@ -64,8 +64,8 @@ pre-prod композиции без запуска HTTP. Миграции вн�
 
 - Каждая следующая schema change добавляет новую неизменяемую версию в group;
   уже выпущенные version/name/Up не редактируются.
-- Удаление legacy Auth stores отложено до миграции session runtime и не входит в
-  этот ADR.
+- Auth runtime переведён на `sessions` в ADR-011; удаление сохранённых legacy
+  stores по-прежнему отложено и не входит в этот ADR.
 - Legacy `internal/vfs.Repository.AutoMigrate` остаётся только для legacy tests и
   не входит в pre-prod registry.
 - Runner сериализуется механизмами SQLite; отдельный distributed migration lock

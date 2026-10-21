@@ -17,6 +17,7 @@ func AuthMiddleware(authService *auth.Auth) func(http.Handler) http.Handler {
 			isWebDAV := strings.HasPrefix(r.URL.Path, "/webdav")
 
 			var uid int
+			var sessionID string
 
 			if isWebDAV {
 				user, err := authService.AuthenticateBasicRequest(r)
@@ -49,9 +50,13 @@ func AuthMiddleware(authService *auth.Auth) func(http.Handler) http.Handler {
 					http.Error(w, "Unauthorized", http.StatusUnauthorized)
 					return
 				}
+				sessionID = claims.SessionID
 			}
 
 			ctx := context.WithValue(r.Context(), auth.CONTEXT_USER_ID_KEY, uid)
+			if !isWebDAV {
+				ctx = auth.ContextWithPrincipal(ctx, auth.Principal{UserID: int64(uid), SessionID: sessionID})
+			}
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

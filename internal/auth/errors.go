@@ -140,6 +140,8 @@ func (e *InvalidSigningMethodError) Unwrap() error {
 
 var ErrNoTokenFound = errors.New("no token found")
 
+var ErrRefreshTokenReuse = fmt.Errorf("%w: refresh token reuse detected", ErrInvalidCredentials)
+
 type NoTokenError struct {
 	Reason string
 }

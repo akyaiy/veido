@@ -70,8 +70,8 @@ func migrateUsers(ctx context.Context, tx *sql.Tx) error {
 }
 
 // All three historical stores are preserved during the migration transition.
-// Runtime currently uses whitelist; sessions is the target store and
-// refresh_tokens is legacy. See docs/AUTH_SESSION_SCHEMA_PLAN_RU.md.
+// Runtime uses sessions. Whitelist and refresh_tokens are preserved legacy
+// stores until a separately audited migration can remove them.
 func migrateSessionStores(ctx context.Context, tx *sql.Tx) error {
 	_, err := tx.ExecContext(ctx, `
 		CREATE TABLE IF NOT EXISTS refresh_tokens (

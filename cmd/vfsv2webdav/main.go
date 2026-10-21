@@ -67,7 +67,13 @@ func main() {
 		log.Fatalf("migrate database: %v", err)
 	}
 
-	authService := auth.NewAuth(db, []byte(config.Data.MySecret))
+	authService, err := auth.NewAuth(db, auth.Config{
+		Secret: []byte(config.Data.MySecret), Issuer: "jwtproject2", Audience: "jwtproject2",
+		AccessTTL: config.GetATokenTime(), RefreshTTL: config.GetRTokenTime(),
+	})
+	if err != nil {
+		log.Fatalf("configure auth: %v", err)
+	}
 	adminUser, err := ensureAdminUser(authService)
 	if err != nil {
 		log.Fatalf("seed admin user: %v", err)
@@ -349,8 +355,8 @@ func webdavBasicAuth(authService *auth.Auth, next http.Handler) http.Handler {
 func ensureAdminUser(authService *auth.Auth) (*auth.User, error) {
 	user, err := authService.GetUserByUsername("admin")
 	if err == nil {
-		if _, authErr := authService.AuthenticateUser("admin", "admin"); authErr != nil {
-			if updateErr := authService.UpdatePassword(user.ID, "admin"); updateErr != nil {
+		if _, authErr := authService.AuthenticateUser("admin", "admin-password"); authErr != nil {
+			if updateErr := authService.UpdatePassword(user.ID, "admin-password"); updateErr != nil {
 				return nil, updateErr
 			}
 			user, err = authService.GetUserByUsername("admin")
@@ -366,7 +372,7 @@ func ensureAdminUser(authService *auth.Auth) (*auth.User, error) {
 
 	_, err = authService.CreateUser(&auth.User{
 		Name:     "admin",
-		Password: "admin",
+		Password: "admin-password",
 		Status:   "active",
 	})
 	if err != nil && !errors.Is(err, auth.ErrUserExists) {

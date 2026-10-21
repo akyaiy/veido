@@ -155,6 +155,8 @@ database:
   sqlite_path: "./data/db/server.sqlite3"
 auth:
   jwt_signing_secret: "env:JWT_SIGNING_SECRET"
+  jwt_issuer: "jwtproject2"
+  jwt_audience: "jwtproject2"
   access_token_ttl: 15m
   refresh_token_ttl: 24h
   refresh_cookie_secure: true

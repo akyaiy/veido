@@ -35,7 +35,7 @@ Basic Auth:
 ```js
 VFSv2.configure({
     headers: {
-        Authorization: `Basic ${btoa("admin:admin")}`
+        Authorization: `Basic ${btoa("admin:admin-password")}`
     }
 });
 ```
@@ -122,4 +122,3 @@ if (await VFSv2.exists(uri)) {
     console.log("Файл существует");
 }
 ```
-

@@ -30,7 +30,13 @@ func main() {
 	if err := schema.Migrate(context.Background(), db, localprovider.MigrationGroup(), htmlprovider.MigrationGroup()); err != nil {
 		log.Fatalf("migrate database: %v", err)
 	}
-	aut := auth.NewAuth(db, []byte(config.Data.MySecret))
+	aut, err := auth.NewAuth(db, auth.Config{
+		Secret: []byte(config.Data.MySecret), Issuer: "jwtproject2", Audience: "jwtproject2",
+		AccessTTL: config.GetATokenTime(), RefreshTTL: config.GetRTokenTime(),
+	})
+	if err != nil {
+		log.Fatalf("configure auth: %v", err)
+	}
 	acl.InitACL(db)
 	app.ServerStart(db, aut)
 }

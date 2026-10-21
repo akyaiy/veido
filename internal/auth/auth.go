@@ -1,25 +1,48 @@
 package auth
 
 import (
-	"MyServer/internal/utils"
+	"context"
 	"database/sql"
 	"errors"
-	"fmt"
-	"log/slog"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/mattn/go-sqlite3"
 	"golang.org/x/crypto/bcrypt"
 )
 
 const CONTEXT_USER_ID_KEY = "user_id"
 
+const (
+	StatusActive          = "active"
+	StatusInactive        = "unactive"
+	StatusBlocked         = "blocked"
+	minimumPasswordLength = 8
+	maximumPasswordLength = 72
+)
+
+var usernamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{2,63}$`)
+
+type Config struct {
+	Secret     []byte
+	Issuer     string
+	Audience   string
+	AccessTTL  time.Duration
+	RefreshTTL time.Duration
+	Clock      func() time.Time
+}
+
 type Auth struct {
-	db     *sql.DB
-	secret []byte
+	db         *sql.DB
+	secret     []byte
+	issuer     string
+	audience   string
+	accessTTL  time.Duration
+	refreshTTL time.Duration
+	clock      func() time.Time
 }
 
 type User struct {
@@ -30,149 +53,173 @@ type User struct {
 }
 
 type userId int64
-
-func (u *User) IsValid() bool {
-	return u.Name != "" && u.Password != "" && u.ID > 0
+type Principal struct {
+	UserID    int64
+	SessionID string
 }
+type principalContextKey struct{}
 
-// NewAuth создает новый экземпляр Auth с БД и secret
-func NewAuth(db *sql.DB, secret []byte) *Auth {
-	return &Auth{db: db, secret: secret}
-}
-
-// GetUserFromRequest получает пользователя из HTTP запроса
-// Пытается аутентифицировать через JWT, при ошибке возвращает nil (не ошибку)
-func (a *Auth) GetUserFromRequest(r *http.Request) (*User, error) {
-	// Аутентифицируем через JWT из Authorization header
-	claims, err := a.AuthenticateRequest(r)
-	if err == nil {
-		user, err := strconv.Atoi(claims.Subject)
-		if err != nil {
-			slog.Error("GetUserFromRequest: invalid subject in token", "subject", claims.Subject, "error", err)
-			return nil, nil // Не возвращаем ошибку, просто не аутентифицируем
-		}
-		return a.GetUserByID(int64(user))
+func NewAuth(db *sql.DB, cfg Config) (*Auth, error) {
+	if db == nil {
+		return nil, errors.New("auth: database is required")
 	}
-	return nil, err
+	if len(cfg.Secret) < 32 {
+		return nil, errors.New("auth: JWT secret must contain at least 32 bytes")
+	}
+	if strings.TrimSpace(cfg.Issuer) == "" || strings.TrimSpace(cfg.Audience) == "" {
+		return nil, errors.New("auth: JWT issuer and audience are required")
+	}
+	if cfg.AccessTTL <= 0 || cfg.RefreshTTL <= 0 {
+		return nil, errors.New("auth: access and refresh TTL must be positive")
+	}
+	clock := cfg.Clock
+	if clock == nil {
+		clock = time.Now
+	}
+	return &Auth{db: db, secret: append([]byte(nil), cfg.Secret...), issuer: strings.TrimSpace(cfg.Issuer),
+		audience: strings.TrimSpace(cfg.Audience), accessTTL: cfg.AccessTTL, refreshTTL: cfg.RefreshTTL, clock: clock}, nil
 }
 
-// AuthenticateBasicRequest проверяет HTTP Basic Auth через пользователей из БД.
+func (a *Auth) RefreshTTL() time.Duration { return a.refreshTTL }
+
+func ContextWithPrincipal(ctx context.Context, principal Principal) context.Context {
+	ctx = context.WithValue(ctx, principalContextKey{}, principal)
+	return context.WithValue(ctx, CONTEXT_USER_ID_KEY, int(principal.UserID))
+}
+
+func PrincipalFromContext(ctx context.Context) (Principal, bool) {
+	principal, ok := ctx.Value(principalContextKey{}).(Principal)
+	return principal, ok && principal.UserID > 0 && principal.SessionID != ""
+}
+
+func (u *User) IsValid() bool { return u.Name != "" && u.Password != "" && u.ID > 0 }
+
+func normalizeUsername(username string) (string, error) {
+	username = strings.ToLower(strings.TrimSpace(username))
+	if !usernamePattern.MatchString(username) {
+		return "", &InvalidCredentialsError{Reason: "username must be 3-64 lowercase letters, digits, '.', '_' or '-'"}
+	}
+	return username, nil
+}
+
+func normalizeStatus(status string) (string, error) {
+	status = strings.ToLower(strings.TrimSpace(status))
+	switch status {
+	case StatusActive, StatusInactive, StatusBlocked:
+		return status, nil
+	}
+	return "", &InvalidCredentialsError{Reason: "invalid user status"}
+}
+
+func validatePassword(password string) error {
+	if len(password) < minimumPasswordLength || len(password) > maximumPasswordLength {
+		return &InvalidCredentialsError{Reason: "password must contain 8-72 bytes"}
+	}
+	return nil
+}
+
+func (a *Auth) GetUserFromRequest(r *http.Request) (*User, error) {
+	claims, err := a.AuthenticateRequest(r)
+	if err != nil {
+		return nil, err
+	}
+	userID, err := strconv.ParseInt(claims.Subject, 10, 64)
+	if err != nil {
+		return nil, &InvalidCredentialsError{Reason: "invalid token subject"}
+	}
+	return a.GetUserByID(userID)
+}
+
 func (a *Auth) AuthenticateBasicRequest(r *http.Request) (*User, error) {
 	username, password, ok := r.BasicAuth()
 	if !ok {
 		return nil, &NoTokenError{Reason: "Basic auth credentials are missing"}
 	}
-
 	return a.AuthenticateUser(username, password)
 }
 
-// CreateUser создает нового пользователя в БД
 func (a *Auth) CreateUser(user *User) (userId, error) {
+	username, err := normalizeUsername(user.Name)
+	if err != nil {
+		return 0, err
+	}
+	if err := validatePassword(user.Password); err != nil {
+		return 0, err
+	}
+	status, err := normalizeStatus(user.Status)
+	if err != nil {
+		return 0, err
+	}
 	hash, err := a.HashPassword(user.Password)
 	if err != nil {
-		slog.Error("CreateUser hashing error", "error", err)
-		return 0, &HashingError{Err: err}
+		return 0, err
 	}
-	if user.Password == "" {
-		hash = "" // Если пароль пустой, не хешируем его, чтобы не создавать валидный хеш от пустой строки
-	}
-	if user.Name == "" {
-		return 0, &InvalidCredentialsError{Reason: "username cannot be empty and must be alphanumeric"}
-	}
-
-	res, err := a.db.Exec("INSERT INTO users(username, password_hash, status) VALUES(?,?,?)",
-		user.Name, hash, user.Status)
+	res, err := a.db.Exec("INSERT INTO users(username, password_hash, status) VALUES(?,?,?)", username, hash, status)
 	if err != nil {
 		var sqliteErr sqlite3.Error
-		if errors.As(err, &sqliteErr) {
-			if sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique {
-				user.Password = "" // Чувствительная информация не должна возвращаться
-				return 0, &UserExistsError{User: *user}
-			}
+		if errors.As(err, &sqliteErr) && sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique {
+			return 0, &UserExistsError{User: User{Name: username, Status: status}}
 		}
-		slog.Error("CreateUser db error", "error", err)
 		return 0, &DBError{Err: err}
 	}
-
 	id, err := res.LastInsertId()
 	if err != nil {
-		slog.Error("CreateUser db error", "error", err)
 		return 0, &DBError{Err: err}
 	}
 	return userId(id), nil
 }
 
-// GetUserByID получает пользователя по ID
 func (a *Auth) GetUserByID(userID int64) (*User, error) {
-	row := a.db.QueryRow(
-		"SELECT id, username, status FROM users WHERE id = ?",
-		userID,
-	)
-
-	var u User
-	if err := row.Scan(&u.ID, &u.Name, &u.Status); err != nil {
-		if err == sql.ErrNoRows {
-			return nil, &UserNotFoundError{UserID: &userID}
-		}
-		slog.Error("GetUserByID db error", "error", err)
+	var user User
+	err := a.db.QueryRow("SELECT id, username, status FROM users WHERE id = ?", userID).Scan(&user.ID, &user.Name, &user.Status)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, &UserNotFoundError{UserID: &userID}
+	}
+	if err != nil {
 		return nil, &DBError{Err: err}
 	}
-	return &u, nil
+	return &user, nil
 }
 
-// GetUserByUsername получает пользователя по username
 func (a *Auth) GetUserByUsername(username string) (*User, error) {
-	row := a.db.QueryRow(
-		"SELECT id, username, password_hash, status FROM users WHERE username = ?",
-		username,
-	)
-
-	var u User
-	var hash string
-	if err := row.Scan(&u.ID, &u.Name, &hash, &u.Status); err != nil {
-		if err == sql.ErrNoRows {
-			return nil, &UserNotFoundError{Username: &username}
-		}
-		slog.Error("GetUserByUsername db error", "error", err)
+	normalized, err := normalizeUsername(username)
+	if err != nil {
+		return nil, err
+	}
+	var user User
+	err = a.db.QueryRow("SELECT id, username, status FROM users WHERE username = ?", normalized).Scan(&user.ID, &user.Name, &user.Status)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, &UserNotFoundError{Username: &normalized}
+	}
+	if err != nil {
 		return nil, &DBError{Err: err}
 	}
-	return &u, nil
+	return &user, nil
 }
 
-// AuthenticateUser проверяет учетные данные и возвращает пользователя
 func (a *Auth) AuthenticateUser(username, password string) (*User, error) {
-	row := a.db.QueryRow(
-		"SELECT id, username, password_hash, status FROM users WHERE username = ?",
-		username,
-	)
-
-	var (
-		id     int64
-		name   string
-		hash   string
-		status string
-	)
-
-	if err := row.Scan(&id, &name, &hash, &status); err != nil {
-		if err == sql.ErrNoRows {
-			return nil, &InvalidCredentialsError{Reason: "invalid username"}
-		}
-		slog.Error("AuthenticateUser db error", "error", err)
+	normalized, err := normalizeUsername(username)
+	if err != nil {
+		return nil, &InvalidCredentialsError{Reason: "invalid username or password"}
+	}
+	var user User
+	var hash string
+	err = a.db.QueryRow("SELECT id, username, password_hash, status FROM users WHERE username = ?", normalized).Scan(&user.ID, &user.Name, &hash, &user.Status)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, &InvalidCredentialsError{Reason: "invalid username or password"}
+	}
+	if err != nil {
 		return nil, &DBError{Err: err}
 	}
-
-	if err := a.CheckPassword(hash, password); err != nil {
-		return nil, &InvalidCredentialsError{Reason: "invalid password"}
+	if a.CheckPassword(hash, password) != nil {
+		return nil, &InvalidCredentialsError{Reason: "invalid username or password"}
 	}
-
-	return &User{
-		ID:     id,
-		Name:   name,
-		Status: status,
-	}, nil
+	if user.Status != StatusActive {
+		return nil, &InvalidCredentialsError{Reason: "user is not allowed to sign in"}
+	}
+	return &user, nil
 }
 
-// GetUsers получает список пользователей с пагинацией
 func (a *Auth) GetUsers(limit, offset int) ([]User, error) {
 	if limit <= 0 {
 		limit = 10
@@ -180,277 +227,173 @@ func (a *Auth) GetUsers(limit, offset int) ([]User, error) {
 	if offset < 0 {
 		offset = 0
 	}
-
-	rows, err := a.db.Query(
-		"SELECT id, username, status FROM users LIMIT ? OFFSET ?",
-		limit, offset,
-	)
+	rows, err := a.db.Query("SELECT id, username, status FROM users LIMIT ? OFFSET ?", limit, offset)
 	if err != nil {
-		slog.Error("GetUsers db error", "error", err)
 		return nil, &DBError{Err: err}
 	}
 	defer rows.Close()
-
 	var users []User
 	for rows.Next() {
-		var u User
-		if err := rows.Scan(&u.ID, &u.Name, &u.Status); err != nil {
-			slog.Error("GetUsers scan error", "error", err)
+		var user User
+		if err := rows.Scan(&user.ID, &user.Name, &user.Status); err != nil {
 			return nil, &DBError{Err: err}
 		}
-		users = append(users, u)
+		users = append(users, user)
 	}
-
-	if err = rows.Err(); err != nil {
-		slog.Error("GetUsers rows error", "error", err)
+	if err := rows.Err(); err != nil {
 		return nil, &DBError{Err: err}
 	}
-
 	return users, nil
 }
 
-// UpdateUser обновляет данные пользователя
 func (a *Auth) UpdateUser(userID int64, user *User) error {
 	if userID <= 0 {
 		return &InvalidCredentialsError{Reason: "invalid user id"}
 	}
-
-	if user.Name != "" && !utils.IsASCIIAlphaNumeric(user.Name) {
-		return &InvalidCredentialsError{Reason: "username must be alphanumeric"}
+	var username, status string
+	var err error
+	if user.Name != "" {
+		username, err = normalizeUsername(user.Name)
+		if err != nil {
+			return err
+		}
 	}
-
-	// Формируем UPDATE запрос в зависимости от переданных полей
-	var query string
-	var args []interface{}
-
-	if user.Name != "" && user.Status != "" {
-		query = "UPDATE users SET username = ?, status = ? WHERE id = ?"
-		args = []interface{}{user.Name, user.Status, userID}
-	} else if user.Name != "" {
-		query = "UPDATE users SET username = ? WHERE id = ?"
-		args = []interface{}{user.Name, userID}
-	} else if user.Status != "" {
-		query = "UPDATE users SET status = ? WHERE id = ?"
-		args = []interface{}{user.Status, userID}
-	} else {
+	if user.Status != "" {
+		status, err = normalizeStatus(user.Status)
+		if err != nil {
+			return err
+		}
+	}
+	if username == "" && status == "" {
 		return &InvalidCredentialsError{Reason: "no fields to update"}
 	}
-
-	res, err := a.db.Exec(query, args...)
+	tx, err := a.db.Begin()
+	if err != nil {
+		return &DBError{Err: err}
+	}
+	defer tx.Rollback()
+	res, err := tx.Exec("UPDATE users SET username = COALESCE(NULLIF(?, ''), username), status = COALESCE(NULLIF(?, ''), status) WHERE id = ?", username, status, userID)
 	if err != nil {
 		var sqliteErr sqlite3.Error
-		if errors.As(err, &sqliteErr) {
-			if sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique {
-				return &UserExistsError{User: User{Name: user.Name}}
-			}
+		if errors.As(err, &sqliteErr) && sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique {
+			return &UserExistsError{User: User{Name: username}}
 		}
-		slog.Error("UpdateUser db error", "error", err)
 		return &DBError{Err: err}
 	}
-
 	rows, err := res.RowsAffected()
 	if err != nil {
-		slog.Error("UpdateUser RowsAffected error", "error", err)
 		return &DBError{Err: err}
 	}
-
 	if rows == 0 {
 		return &UserNotFoundError{UserID: &userID}
 	}
-
+	if status != "" && status != StatusActive {
+		if _, err := tx.Exec("UPDATE sessions SET revoked = 1 WHERE user_id = ? AND revoked = 0", userID); err != nil {
+			return &DBError{Err: err}
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return &DBError{Err: err}
+	}
 	return nil
 }
 
-// UpdatePassword обновляет пароль пользователя
-func (a *Auth) UpdatePassword(userID int64, newPassword string) error { // TODO: нужно сделать проверку настоящего пароля
+func (a *Auth) UpdatePassword(userID int64, newPassword string) error {
+	return a.updatePassword(userID, "", newPassword, false)
+}
+func (a *Auth) ChangePassword(userID int64, oldPassword, newPassword string) error {
+	return a.updatePassword(userID, oldPassword, newPassword, true)
+}
+
+func (a *Auth) updatePassword(userID int64, oldPassword, newPassword string, verifyOld bool) error {
 	if userID <= 0 {
 		return &InvalidCredentialsError{Reason: "invalid user id"}
 	}
-
-	if newPassword == "" {
-		return &InvalidCredentialsError{Reason: "password cannot be empty"}
+	if err := validatePassword(newPassword); err != nil {
+		return err
 	}
-
-	hash, err := a.HashPassword(newPassword)
+	newHash, err := a.HashPassword(newPassword)
 	if err != nil {
-		return &HashingError{Err: err}
+		return err
 	}
-
-	res, err := a.db.Exec(
-		"UPDATE users SET password_hash = ? WHERE id = ?",
-		hash, userID,
-	)
+	tx, err := a.db.Begin()
 	if err != nil {
-		slog.Error("UpdatePassword db error", "error", err)
 		return &DBError{Err: err}
 	}
-
+	defer tx.Rollback()
+	if verifyOld {
+		var oldHash string
+		err := tx.QueryRow("SELECT password_hash FROM users WHERE id = ?", userID).Scan(&oldHash)
+		if errors.Is(err, sql.ErrNoRows) {
+			return &UserNotFoundError{UserID: &userID}
+		}
+		if err != nil {
+			return &DBError{Err: err}
+		}
+		if a.CheckPassword(oldHash, oldPassword) != nil {
+			return &InvalidCredentialsError{Reason: "old password is incorrect"}
+		}
+	}
+	res, err := tx.Exec("UPDATE users SET password_hash = ? WHERE id = ?", newHash, userID)
+	if err != nil {
+		return &DBError{Err: err}
+	}
 	rows, err := res.RowsAffected()
 	if err != nil {
-		slog.Error("UpdatePassword RowsAffected error", "error", err)
 		return &DBError{Err: err}
 	}
-
 	if rows == 0 {
 		return &UserNotFoundError{UserID: &userID}
 	}
-
+	if _, err := tx.Exec("UPDATE sessions SET revoked = 1 WHERE user_id = ? AND revoked = 0", userID); err != nil {
+		return &DBError{Err: err}
+	}
+	if err := tx.Commit(); err != nil {
+		return &DBError{Err: err}
+	}
 	return nil
 }
 
-// DeleteUser удаляет пользователя
 func (a *Auth) DeleteUser(userID int64) error {
 	if userID <= 0 {
 		return &InvalidCredentialsError{Reason: "invalid user id"}
 	}
-
 	res, err := a.db.Exec("DELETE FROM users WHERE id = ?", userID)
 	if err != nil {
-		slog.Error("DeleteUser db error", "error", err)
 		return &DBError{Err: err}
 	}
-
 	rows, err := res.RowsAffected()
 	if err != nil {
-		slog.Error("DeleteUser RowsAffected error", "error", err)
 		return &DBError{Err: err}
 	}
-
 	if rows == 0 {
 		return &UserNotFoundError{UserID: &userID}
 	}
-
 	return nil
 }
 
-// HashPassword хеширует пароль
-func (a *Auth) HashPassword(pass string) (string, error) {
-	b, err := bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost)
+func (a *Auth) HashPassword(password string) (string, error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return "", &HashingError{Err: err}
 	}
-	return string(b), nil
+	return string(hash), nil
 }
-
-// CheckPassword сравнивает хеш с паролем
-func (a *Auth) CheckPassword(hash, pass string) error {
-	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(pass))
-	if err != nil {
+func (a *Auth) CheckPassword(hash, password string) error {
+	if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)); err != nil {
 		return &PasswordMismatchError{Err: err}
 	}
 	return nil
 }
 
-// // StoreRefreshToken сохраняет refresh token в БД с TTL
-// func (a *Auth) StoreRefreshToken(token string, userID int64, ttl time.Duration) error {
-// 	expires := time.Now().Add(ttl).Unix()
-// 	_, err := a.db.Exec(
-// 		"INSERT INTO refresh_tokens(token, user_id, expires_at) VALUES(?,?,?)",
-// 		token, userID, expires,
-// 	)
-// 	if err != nil {
-// 		slog.Error("StoreRefreshToken db error", "error", err)
-// 		return &DBError{Err: err}
-// 	}
-// 	return nil
-// }
-
-// // DeleteRefreshToken удаляет refresh token (revoke)
-// func (a *Auth) RevokeTokenPair(userId int64) error {
-// 	_, err := a.db.Exec("INSERT INTO refresh_tokens(user_id, token, expires_at) VALUES (?,?,?)", userId, "", 0)
-// 	if err != nil {
-// 		slog.Error("DeleteRefreshToken db error", "error", err)
-// 		return &DBError{Err: err}
-// 	}
-// 	return nil
-// }
-
-// // VerifyRefreshToken проверяет JWT refresh token и возвращает userID
-// func (a *Auth) VerifyRefreshToken(tokenString string) (int64, error) {
-// 	// Парсим и валидируем токен
-// 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(t *jwt.Token) (interface{}, error) {
-// 		// Проверяем, что используется корректный алгоритм
-// 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-// 			return nil, &InvalidSigningMethodError{Method: fmt.Sprintf("%v", t.Header["alg"])}
-// 		}
-// 		return a.secret, nil
-// 	})
-// 	if err != nil {
-// 		return 0, &InvalidCredentialsError{Reason: "invalid token"}
-// 	}
-
-// 	// Проверяем claims
-// 	claims, ok := token.Claims.(*Claims)
-// 	if !ok || !token.Valid {
-// 		return 0, &InvalidCredentialsError{Reason: "invalid token"}
-// 	}
-
-// 	row := a.db.QueryRow("SELECT 1 FROM refresh_tokens WHERE token = ? LIMIT 1", tokenString)
-// 	var exists int
-// 	err = row.Scan(&exists)
-// 	if errors.Is(err, sql.ErrNoRows) {
-// 		return claims.UserID, nil
-// 	}
-// 	if err == nil {
-// 		return 0, &InvalidCredentialsError{Reason: "token was revoked"}
-// 	}
-
-// 	// Если другая ошибка БД
-// 	slog.Error("VerifyRefreshToken db error", "error", err)
-// 	return 0, &DBError{Err: err}
-// }
-
-// AuthenticateRequest аутентифицирует HTTP-запрос по JWT-токену
-// Возвращает userID и флаг успеха
 func (a *Auth) AuthenticateRequest(r *http.Request) (*Claims, error) {
-	// Читаем заголовок Authorization
-	// Ожидаемый формат: Authorization: Bearer <JWT>
 	header := r.Header.Get("Authorization")
 	if header == "" {
 		return nil, &NoTokenError{Reason: "Authorization header is missing"}
 	}
-
-	// Проверяем префикс Bearer
-	if !strings.HasPrefix(header, "Bearer ") {
+	const prefix = "Bearer "
+	if !strings.HasPrefix(header, prefix) {
 		return nil, &InvalidCredentialsError{Reason: "Authorization header must start with Bearer"}
 	}
-
-	// Извлекаем JWT-токен
-	tokenString := strings.TrimPrefix(header, "Bearer ")
-
-	// Парсим и проверяем JWT
-	claims := &Claims{}
-	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-		// Проверяем алгоритм подписи
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, &InvalidSigningMethodError{Method: fmt.Sprintf("%v", token.Header["alg"])}
-		}
-		// Передаем секретный ключ
-		return a.secret, nil
-	})
-
-	// Проверяем результат
-	if err != nil || !token.Valid {
-		return nil, errors.Join(&InvalidCredentialsError{Reason: "invalid token"}, err)
-	}
-
-	return claims, nil
+	return a.VerifyAccessToken(strings.TrimSpace(strings.TrimPrefix(header, prefix)))
 }
-
-// // ParseToken парсит token и возвращает userID
-// func (a *Auth) ParseToken(tokenString string) (int64, error) {
-// 	claims := &Claims{}
-
-// 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-// 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-// 			return nil, &InvalidSigningMethodError{Method: fmt.Sprintf("%v", token.Header["alg"])}
-// 		}
-// 		return a.secret, nil
-// 	})
-
-// 	if err != nil || !token.Valid {
-// 		return 0, &InvalidCredentialsError{Reason: "invalid token"}
-// 	}
-
-// 	return claims.UserID, nil
-// }

@@ -1,16 +1,16 @@
 package auth
 
 import (
-	"MyServer/internal/config"
-	"log/slog"
+	"context"
 	"strconv"
+
+	"github.com/google/uuid"
 )
 
 type LoginRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
-
 type LoginResponse struct {
 	UserID       int64  `json:"userId"`
 	Username     string `json:"username"`
@@ -18,146 +18,112 @@ type LoginResponse struct {
 	RefreshToken string `json:"refreshToken,omitempty"`
 	UserStatus   string `json:"userStatus"`
 }
-
 type RefreshRequest struct {
-	RefreshToken string
+	RefreshToken string `json:"refreshToken"`
 }
-
 type RefreshResponse struct {
 	AccessToken  string `json:"accessToken"`
 	RefreshToken string `json:"refreshToken"`
 }
 
 func (a *Auth) Login(req *LoginRequest) (*LoginResponse, error) {
-	if req.Username == "" || req.Password == "" {
+	if req == nil || req.Username == "" || req.Password == "" {
 		return nil, &InvalidCredentialsError{Reason: "username and password are required"}
 	}
-
 	user, err := a.AuthenticateUser(req.Username, req.Password)
 	if err != nil {
-		slog.Warn("Login failed: invalid credentials", "username", req.Username)
-		return nil, &InvalidCredentialsError{Reason: "invalid username or password"}
+		return nil, err
 	}
-
-	refreshToken, id, err := a.CreateToken(user.ID, "", config.GetRTokenTime())
+	sessionID := uuid.NewString()
+	refresh, refreshClaims, err := a.signToken(user.ID, sessionID, TokenUseRefresh, a.refreshTTL)
 	if err != nil {
-		slog.Error("Login: failed to create refresh token", "user_id", user.ID, "error", err)
 		return nil, err
 	}
-
-	accessToken, _, err := a.CreateToken(user.ID, id, config.GetATokenTime())
+	access, _, err := a.signToken(user.ID, sessionID, TokenUseAccess, a.accessTTL)
 	if err != nil {
-		slog.Error("Login: failed to create access token", "user_id", user.ID, "error", err)
 		return nil, err
 	}
-
-	if err := a.StoreToken(user.ID, id); err != nil {
-		slog.Error("Login: failed to store refresh token", "user_id", user.ID, "error", err)
-		return nil, err
+	_, err = a.db.Exec(`INSERT INTO sessions(id, user_id, refresh_token_hash, expires_at, revoked) VALUES(?, ?, ?, ?, 0)`,
+		sessionID, user.ID, tokenHash(refresh), refreshClaims.ExpiresAt.Time)
+	if err != nil {
+		return nil, &DBError{Err: err}
 	}
-
-	return &LoginResponse{
-		UserID:       user.ID,
-		Username:     user.Name,
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-		UserStatus:   user.Status,
-	}, nil
-
-	
+	return &LoginResponse{UserID: user.ID, Username: user.Name, AccessToken: access, RefreshToken: refresh, UserStatus: user.Status}, nil
 }
 
-func (a *Auth) checkToken(tokenStr string) (*Claims, int64, error) {
-	claims, err := a.AuthenticateToken(tokenStr)
+func (a *Auth) Refresh(req *RefreshRequest) (*RefreshResponse, error) {
+	if req == nil || req.RefreshToken == "" {
+		return nil, &InvalidCredentialsError{Reason: "refresh token is required"}
+	}
+	claims, err := a.parseToken(req.RefreshToken, TokenUseRefresh)
 	if err != nil {
-		return nil, 0, &InvalidCredentialsError{Reason: "invalid access token"}
+		return nil, err
 	}
-	userID, err := strconv.Atoi(claims.Subject)
+	userID, err := strconv.ParseInt(claims.Subject, 10, 64)
 	if err != nil {
-		slog.Error("invalid user ID in token claims", "subject", claims.Subject, "error", err)
-		return nil, 0, &InvalidCredentialsError{Reason: "invalid token claims"}
+		return nil, &InvalidCredentialsError{Reason: "invalid token subject"}
 	}
-
-	isWhiteListened, err := a.IsTokenWhitelisted(int64(userID), claims.ID)
+	newRefresh, refreshClaims, err := a.signToken(userID, claims.SessionID, TokenUseRefresh, a.refreshTTL)
 	if err != nil {
-		slog.Error("failed to check token whitelist", "user_id", userID, "jwt_id", claims.ID, "error", err)
-		return nil, 0, err
+		return nil, err
 	}
-	if !isWhiteListened {
-		slog.Warn("token is not whitelisted", "user_id", userID, "jwt_id", claims.ID)
-		return nil, 0, &InvalidCredentialsError{Reason: "token is not valid"}
+	newAccess, _, err := a.signToken(userID, claims.SessionID, TokenUseAccess, a.accessTTL)
+	if err != nil {
+		return nil, err
 	}
-	return claims, int64(userID), nil
+	tx, err := a.db.Begin()
+	if err != nil {
+		return nil, &DBError{Err: err}
+	}
+	defer tx.Rollback()
+	result, err := tx.Exec(`UPDATE sessions SET refresh_token_hash = ?, expires_at = ?, last_used_at = ?
+		WHERE id = ? AND user_id = ? AND refresh_token_hash = ? AND revoked = 0
+		AND EXISTS (SELECT 1 FROM users WHERE users.id = sessions.user_id AND users.status = ?)`,
+		tokenHash(newRefresh), refreshClaims.ExpiresAt.Time, a.clock().UTC(), claims.SessionID, userID, tokenHash(req.RefreshToken), StatusActive)
+	if err != nil {
+		return nil, &DBError{Err: err}
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return nil, &DBError{Err: err}
+	}
+	if rows != 1 {
+		if _, err := tx.Exec("UPDATE sessions SET revoked = 1 WHERE id = ? AND user_id = ?", claims.SessionID, userID); err != nil {
+			return nil, &DBError{Err: err}
+		}
+		if err := tx.Commit(); err != nil {
+			return nil, &DBError{Err: err}
+		}
+		return nil, ErrRefreshTokenReuse
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, &DBError{Err: err}
+	}
+	return &RefreshResponse{AccessToken: newAccess, RefreshToken: newRefresh}, nil
 }
 
-
-func (a *Auth) Logout(accessToken string) error {
-	if accessToken == "" {
-		return &InvalidCredentialsError{Reason: "access token is required"}
+func (a *Auth) Logout(ctx context.Context) error {
+	principal, ok := PrincipalFromContext(ctx)
+	if !ok {
+		return &InvalidCredentialsError{Reason: "authenticated session is required"}
 	}
-
-	claims, err := a.AuthenticateToken(accessToken)
+	result, err := a.db.Exec("UPDATE sessions SET revoked = 1 WHERE id = ? AND user_id = ? AND revoked = 0", principal.SessionID, principal.UserID)
 	if err != nil {
-		slog.Warn("Logout: invalid access token", "error", err)
-		return &InvalidCredentialsError{Reason: "invalid access token"}
+		return &DBError{Err: err}
 	}
-	userID, err := strconv.Atoi(claims.Subject)
+	rows, err := result.RowsAffected()
 	if err != nil {
-		slog.Error("Logout: invalid user ID in token claims", "subject", claims.Subject, "error", err)
-		return &InvalidCredentialsError{Reason: "invalid token claims"}
+		return &DBError{Err: err}
 	}
-
-	isWhiteListened, err := a.IsTokenWhitelisted(int64(userID), claims.PairJTI)
-	if err != nil {
-		slog.Error("Logout: failed to check token whitelist", "user_id", userID, "jwt_id", claims.ID, "error", err)
-		return err
-	}
-	if !isWhiteListened {
-		slog.Warn("Logout: token is not whitelisted", "user_id", userID, "jwt_id", claims.ID)
-		return &InvalidCredentialsError{Reason: "token is not valid"}
-	}
-
-	if err := a.RemoveToken(int64(userID), claims.PairJTI); err != nil {
-		slog.Error("Logout: failed to delete access token", "user_id", userID, "error", err)
-		return err
+	if rows != 1 {
+		return &InvalidCredentialsError{Reason: "session is not active"}
 	}
 	return nil
 }
 
-func (a *Auth) Refresh(req *RefreshRequest) (*RefreshResponse, error) {
-	if req.RefreshToken == "" {
-		return nil, &InvalidCredentialsError{Reason: "refresh token is required"}
+func (a *Auth) RevokeAllTokens(userID int64) error {
+	if _, err := a.db.Exec("UPDATE sessions SET revoked = 1 WHERE user_id = ? AND revoked = 0", userID); err != nil {
+		return &DBError{Err: err}
 	}
-
-	claims, userID, err := a.checkToken(req.RefreshToken)
-	if err != nil {
-		slog.Warn("Logout: invalid access token", "error", err)
-		return nil, &InvalidCredentialsError{Reason: "invalid access token"}
-	}
-
-	refreshTokenString, newId, err := a.CreateToken(userID, "", config.GetRTokenTime())
-	if err != nil {
-		slog.Error("Refresh: failed to create new refresh token", "user_id", userID, "error", err)
-		return nil, err
-	}
-
-	accessTokenString, _, err := a.CreateToken(userID, newId, config.GetATokenTime())
-	if err != nil {
-		slog.Error("Refresh: failed to create new access token", "user_id", userID, "error", err)
-		return nil, err
-	}
-
-	if err := a.RemoveToken(userID, claims.ID); err != nil {
-		slog.Error("Refresh: failed to delete old refresh token", "user_id", userID, "error", err)
-	}
-
-	if err := a.StoreToken(userID, newId); err != nil {
-		slog.Error("Refresh: failed to store new refresh token", "user_id", userID, "error", err)
-		return nil, err
-	}
-
-	return &RefreshResponse{
-		AccessToken:  accessTokenString,
-		RefreshToken: refreshTokenString,
-	}, nil
+	return nil
 }

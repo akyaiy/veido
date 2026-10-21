@@ -281,7 +281,7 @@ return vfs.FinishWrite(file, transferErr)
 
 Ошибки имеют оболочку `error` с `code`, `message` и необязательными `operation`, `request_id`. Примеры: `400 invalid_argument`, `403 permission_denied`, `404 not_found`, `409 already_exists`, `501 unsupported`. HTTP-чтение возвращает `application/octet-stream`; Range, ETag, пагинация каталога, batch и частичная запись через PATCH не реализованы этим адаптером.
 
-В `cmd/vfsv2webdav` actor устанавливает Basic Auth middleware. HTTP-адаптер сам не проверяет JWT: другой механизм аутентификации должен установить actor через свою интеграцию. Команда также создаёт/сбрасывает тестового `admin` с паролем `admin` и использует разрешающий авторизатор; это существенная характеристика данной сборки, а не пример готовой production-конфигурации.
+В `cmd/vfsv2webdav` actor устанавливает Basic Auth middleware. HTTP-адаптер сам не проверяет JWT: другой механизм аутентификации должен установить actor через свою интеграцию. Команда также создаёт/сбрасывает тестового `admin` с паролем `admin-password` и использует разрешающий авторизатор; это существенная характеристика данной сборки, а не пример готовой production-конфигурации.
 
 ### WebDAV
 
