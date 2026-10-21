@@ -427,7 +427,7 @@ R1 после этого можно демонстрировать из CLI/HTTP
 > `Control(/templates, "install", ...)` атомарно валидирует и устанавливает
 > package, а VFS проецирует read-only `manifest.json` и рекурсивное `files/...`.
 > Application-level directory builder уже собирает reviewed allowlist
-> `default-spa/7` из `data/HTML/frontend`, запрещает traversal/symlink;
+> `default-spa/11` из `data/HTML/frontend`, запрещает traversal/symlink;
 > `cmd/vfsv2html` идемпотентно устанавливает результат
 > через публичный VFS Control. Ещё не реализованы archive/remote-URI import,
 > production bootstrap и привязка к publication/HTTP.
@@ -527,7 +527,7 @@ Reconciliation повторяет только безопасные шаги и 
 > status `ready`; остальные статусы и descendants неактивного parent скрываются
 > как `found=false`.
 >
-> Demo bootstrap устанавливает обновлённый `default-spa/7` и создаёт реальную
+> Demo bootstrap устанавливает обновлённый `default-spa/11` и создаёт реальную
 > страницу `/demo` с отдельным physical bundle (`content.md`, `style.css`,
 > `script.js`). На `/` остаётся прежнее site-приложение, а `/demo` загружает
 > отдельный административный клиент: он управляет metadata страниц через

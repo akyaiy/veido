@@ -49,6 +49,8 @@ func main() {
 	file := flag.String("manifest", "./site.bootstrap.json", "bootstrap manifest")
 	server := flag.String("server", "http://localhost:8080", "running server URL")
 	token := flag.String("access-token", os.Getenv("SITE_BOOTSTRAP_ACCESS_TOKEN"), "access JWT (or SITE_BOOTSTRAP_ACCESS_TOKEN)")
+	templateOnly := flag.Bool("install-template-only", false, "install the template package only; do not change scope, connections, publishers, or pages")
+	templateVersion := flag.String("template-version", "", "override the immutable application-template version from the manifest")
 	flag.Parse()
 	if *token == "" {
 		fail(fmt.Errorf("access token is required"))
@@ -64,10 +66,25 @@ func main() {
 	if m.ScopeName == "" || m.Site.Connection == "" || m.Site.TemplateSource == "" || m.Site.TemplateVersion == "" {
 		fail(fmt.Errorf("scope_name and site connection/template fields are required"))
 	}
+	if strings.TrimSpace(*templateVersion) != "" {
+		m.Site.TemplateVersion = strings.TrimSpace(*templateVersion)
+	}
 	c := client{base: strings.TrimRight(*server, "/"), token: *token, http: http.DefaultClient}
 	scope, err := c.ensureScope(m.ScopeName)
 	if err != nil {
 		fail(fmt.Errorf("create site scope: %w", err))
+	}
+	htmlURI := fmt.Sprintf("html@%s[%s]:///", m.Site.Connection, scope.Name)
+	if *templateOnly {
+		input, err := templatepackage.BuildDirectory(m.Site.TemplateSource, templatepackage.DefaultSPA(m.Site.TemplateVersion))
+		if err != nil {
+			fail(err)
+		}
+		if err := c.control(htmlURI+"templates", "install", input); err != nil {
+			fail(fmt.Errorf("install site template: %w", err))
+		}
+		fmt.Printf("SITE_URI=%s\n", htmlURI)
+		return
 	}
 	for _, p := range m.Publishers {
 		if err := c.connection(scope.Name, "local", p.Connection, `{"mode":"bootstrap"}`); err != nil {
@@ -80,7 +97,6 @@ func main() {
 	if err := c.connection(scope.Name, "html", m.Site.Connection, `{}`); err != nil {
 		fail(fmt.Errorf("configure HTML connection %q: %w", m.Site.Connection, err))
 	}
-	htmlURI := fmt.Sprintf("html@%s[%s]:///", m.Site.Connection, scope.Name)
 	if err := c.control(htmlURI, "initialize", map[string]any{"name": m.Site.Name, "base_url": m.Site.BaseURL, "visible_to": m.Site.Visibility}); err != nil {
 		fail(fmt.Errorf("initialize site %s: %w", htmlURI, err))
 	}

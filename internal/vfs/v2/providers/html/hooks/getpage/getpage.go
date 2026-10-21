@@ -61,6 +61,7 @@ func (o Output) MarshalJSON() ([]byte, error) {
 // the returned entrypoint, so the browser does not invoke get-page a second
 // time or fetch site/page metadata separately.
 type Bootstrap struct {
+	SiteURI       string `json:"site_uri"`
 	Route         string `json:"route"`
 	SiteName      string `json:"site_name"`
 	PageKey       string `json:"page_key"`
@@ -160,7 +161,7 @@ func run(ctx context.Context, execution hooks.Execution, input Input) (Output, e
 	if err != nil {
 		return Output{}, err
 	}
-	bootstrap := Bootstrap{Route: route, SiteName: site.Name, PageKey: page.PageKey, PageTitle: page.Title, BundleRootURI: pageInfo.BundleRootURI}
+	bootstrap := Bootstrap{SiteURI: string(input.SiteURI), Route: route, SiteName: site.Name, PageKey: page.PageKey, PageTitle: page.Title, BundleRootURI: pageInfo.BundleRootURI}
 	return Output{Output: asset, Route: route, Found: true, PageKey: page.PageKey, Bootstrap: bootstrap}, nil
 }
 

@@ -94,7 +94,7 @@ func TestSiteRoutesServeOnlyEntrypointAndVersionedStatic(t *testing.T) {
 	runtime.pageOutput = getpage.Output{
 		Output: getstatic.Output{Content: pageHTML, ContentType: "text/html; charset=utf-8", Size: int64(len(pageHTML)), ETag: `"sha256-a"`, CacheControl: "no-cache", Entrypoint: true},
 		Route:  "/docs/install", Found: true, PageKey: "install",
-		Bootstrap: getpage.Bootstrap{Route: "/docs/install", SiteName: "Acme", PageKey: "install", PageTitle: "Install", BundleRootURI: "demo@files[acme]:///content/install"},
+		Bootstrap: getpage.Bootstrap{SiteURI: string(siteURI), Route: "/docs/install", SiteName: "Acme", PageKey: "install", PageTitle: "Install", BundleRootURI: "demo@files[acme]:///content/install"},
 	}
 	page := httptest.NewRecorder()
 	router.ServeHTTP(page, httptest.NewRequest(http.MethodGet, "/docs/install", nil))
@@ -143,7 +143,7 @@ func TestAcceptsHTMLRequiresExplicitBrowserRepresentation(t *testing.T) {
 
 func TestEmbedBootstrapEscapesHTMLAndRebuildsValidator(t *testing.T) {
 	input := getstatic.Output{Content: []byte("<html><head></head></html>"), Size: 26, ETag: `"old"`}
-	output, err := embedBootstrap(input, getpage.Bootstrap{Route: "/docs", SiteName: "</script><script>alert(1)</script>", PageKey: "docs", PageTitle: "Docs", BundleRootURI: "demo@files[acme]:///content/docs"})
+	output, err := embedBootstrap(input, getpage.Bootstrap{SiteURI: "html@site[acme]:///", Route: "/docs", SiteName: "</script><script>alert(1)</script>", PageKey: "docs", PageTitle: "Docs", BundleRootURI: "demo@files[acme]:///content/docs"})
 	if err != nil {
 		t.Fatal(err)
 	}

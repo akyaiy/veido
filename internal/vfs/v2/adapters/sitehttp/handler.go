@@ -134,7 +134,7 @@ func (h *Handler) handlePage(w http.ResponseWriter, r *http.Request) {
 		h.writePageNotFound(w, r)
 		return
 	}
-	if output.Bootstrap.Route != expectedRoute || output.Bootstrap.PageKey != output.PageKey || output.Bootstrap.SiteName == "" || output.Bootstrap.BundleRootURI == "" || output.ContentType == "" || output.ETag == "" || output.Size != int64(len(output.Content)) {
+	if output.Bootstrap.SiteURI != string(h.config.SiteURI) || output.Bootstrap.Route != expectedRoute || output.Bootstrap.PageKey != output.PageKey || output.Bootstrap.SiteName == "" || output.Bootstrap.BundleRootURI == "" || output.ContentType == "" || output.ETag == "" || output.Size != int64(len(output.Content)) {
 		h.writeProblem(w, r, http.StatusInternalServerError, "invalid_hook_output", "invalid get-page output", nil)
 		return
 	}

@@ -82,7 +82,7 @@ func TestGetPageResolvesNestedSlugPathAndReturnsEntrypoint(t *testing.T) {
 	if err := json.Unmarshal(result.Output, &output); err != nil {
 		t.Fatal(err)
 	}
-	if !output.Found || output.Route != "/docs/install" || output.PageKey != "install" || output.Bootstrap.SiteName != "Acme" || output.Bootstrap.PageTitle != "Install" || output.Bootstrap.BundleRootURI != "demo@files[site-acme]:///content/install" || !bytes.Equal(output.Content, index) || !output.Entrypoint {
+	if !output.Found || output.Route != "/docs/install" || output.PageKey != "install" || output.Bootstrap.SiteURI != string(siteURI) || output.Bootstrap.SiteName != "Acme" || output.Bootstrap.PageTitle != "Install" || output.Bootstrap.BundleRootURI != "demo@files[site-acme]:///content/install" || !bytes.Equal(output.Content, index) || !output.Entrypoint {
 		t.Fatalf("output = %+v", output)
 	}
 	if len(f.calls) != 6 {
