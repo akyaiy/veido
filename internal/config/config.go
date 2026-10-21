@@ -39,6 +39,7 @@ type Config struct {
 	RTokenTime   string `yaml:"rtokentime"`
 	STimeoutTime string `yaml:"stimeouttime"`
 	MySecret     string `yaml:"mysecret"`
+	CASdir       string `yaml:"casdir"`
 }
 
 var Data *Config
@@ -59,6 +60,7 @@ var defaultConfig = Config{
 	RTokenTime:   "24h",
 	STimeoutTime: "15s",
 	MySecret:     generateSecret(),
+	CASdir:       "./data/CAS",
 }
 
 func LoadData(path string) {

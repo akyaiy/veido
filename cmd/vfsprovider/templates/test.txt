@@ -1,0 +1,30 @@
+// Run with `go test .` from this directory (or `go test ./<directory>` from
+// the repository root). See docs/VFS_V2_PROVIDER_SDK_RU.md for more provider
+// contract checks and examples of HTTP/WebDAV integration tests.
+package main
+
+import (
+    "MyServer/pkg/vfs"
+    "MyServer/pkg/vfs/providertest"
+    "context"
+    "testing"
+    {{if .Filesystem}}"encoding/json"
+    "os"
+    "path/filepath"{{end}}
+)
+
+func TestProvider(t *testing.T) {
+    ctx := context.Background()
+    definition := Definition()
+    config := []byte("{}")
+    {{if .Filesystem}}root := t.TempDir()
+    if err := os.WriteFile(filepath.Join(root, "hello.txt"), []byte("hello\n"), 0600); err != nil { t.Fatal(err) }
+    config, _ = json.Marshal(Config{Root: root}){{end}}
+    // New runs this provider behind the real VFS core with an in-memory
+    // scope/connection resolver. It fills in "dev" and "default" here.
+    h, err := providertest.New(ctx, definition.Factory(), providertest.Options{Connection: vfs.ProviderConnection{ProviderKey: definition.Key, Config: config}})
+    if err != nil { t.Fatal(err) }; t.Cleanup(func() { _ = h.Close() })
+    // Add each new resource to Expected. CheckTree verifies that it can be
+    // listed, stated, and opened; add focused tests for writes or commands.
+    providertest.CheckTree(t, ctx, h, providertest.CheckOptions{Expected: []string{ {{if .Filesystem}}"/hello.txt"{{else}}"/info.json", "/settings.json"{{end}} }})
+}

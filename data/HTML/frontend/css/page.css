@@ -1,0 +1,16 @@
+:root { color: #20242c; background: #fff; font: 16px/1.65 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; }
+.site-header { height: 58px; display: flex; align-items: center; padding: 0 max(20px, calc((100% - 960px) / 2)); border-bottom: 1px solid #e3e5e8; }
+.site-header a { color: #20242c; text-decoration: none; }
+.site-header .site-title { font-weight: 700; }
+.site-header .site-admin { margin-left: auto; color: #68707c; font-size: 13px; }
+.site-content { width: min(760px, calc(100% - 40px)); min-height: calc(100vh - 116px); margin: 0 auto; padding: 54px 0 70px; }
+.site-content h1 { margin: 0 0 24px; font-size: clamp(32px, 5vw, 48px); line-height: 1.1; letter-spacing: -.035em; }
+.site-content h2, .site-content h3 { margin-top: 36px; line-height: 1.25; }
+.site-content p { margin: 0 0 18px; }
+.site-content img { max-width: 100%; height: auto; }
+.site-content a { color: #3157d5; }
+.site-content code { padding: 2px 5px; border-radius: 3px; background: #f1f3f5; font-size: .9em; }
+.site-footer { height: 58px; display: flex; align-items: center; justify-content: center; color: #7a818c; border-top: 1px solid #e3e5e8; font-size: 12px; }
+.page-error { padding: 18px; border: 1px solid #e7b4ba; color: #9f2835; background: #fff5f6; }

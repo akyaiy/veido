@@ -59,8 +59,10 @@ func filesPathFromRequest(r *http.Request) string {
 	path := r.URL.Path
 	// Определение типа запроса (REST или WebDAV)
 	switch {
-	case strings.HasPrefix(path, "/dav/"):
-		path = strings.TrimPrefix(path, "/dav/")
+	case strings.HasPrefix(path, "/webdav/"):
+		path = strings.TrimPrefix(path, "/webdav/")
+	case path == "/webdav":
+		path = ""
 	case strings.HasPrefix(path, "/api/files/"):
 		path = strings.TrimPrefix(path, "/api/files/")
 	default:

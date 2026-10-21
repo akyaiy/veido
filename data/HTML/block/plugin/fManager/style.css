@@ -1,4 +1,14 @@
+/* главный контейнер файлового менеджера */
+#window {
+    width: 976px;
+    margin: 20px auto;
+    background: #fff;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    overflow: hidden;
+}
 
+<<<<<<< HEAD
 #window {width: 90vw; margin: 20px auto; background: #fff; border-radius: 6px; 
     box-shadow: 0 4px 12px rgba(0,0,0,0.2); overflow: hidden;}
 #closeBtn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; font-size: 18px; font-weight: bold; }
@@ -22,248 +32,694 @@ button:hover, .btn:hover {background: #dcdcdc;}
 .view-columns #files td {flex: 1;}
 .overlay {position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5);
     display: flex; justify-content: center; align-items: center; z-index: 1000;}
+=======
+/* кнопка закрытия окна */
+#closeBtn {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: bold;
+}
+>>>>>>> v2
 
-#titlebar { background: #2d2d2e; color: white; padding: 0px; font-size: 18px; position: relative;
-    display: flex; align-items: center; gap: 10px; height: 30px;}
+/* верхняя и нижняя панели */
+#toolbar,
+#toolbarBottom {
+    background: #f2f2f2;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid #ccc;
+}
+.toolbarBtn {
+    cursor: pointer;
+    padding: 0px 5px;
+    font-size: 18px;
+}
 
-#cwdEl {padding: 2px 6px; border-radius: 4px; cursor: text; white-space: nowrap;}
-#cwdEl.editing {background: #fff; color: #000; outline: 1px solid #4a90e2;}
+/* кнопка поиска */
+.iconSearch {
+    filter: grayscale(100%) contrast(120%);
+    font-size: 16px;
+    margin-left: auto;
+    user-select: none;
+}
 
-#cwdEl .cwdEl-base {color: inherit;}
-#cwdEl .cwdEl-selected {color: #999;}
-/* #cwd.editing .cwd-selected {
+/* строка пути в режиме поиска */
+#cwdEl.search.searchPlaceholder::before {
+    content: "Поиск в текущей папке";
+    color: rgba(0, 0, 0, 0.4);
+    pointer-events: none;
+    user-select: none;
+    position: absolute;
+}
+
+/* специфичные стили для нижней панели */
+#toolbarBottom {
+    position: sticky;
+    bottom: 0;
+    border-top: 1px solid #ccc;
+    margin-top: auto;
+}
+
+/* нижнее поле ввода */
+#bottomInput {
+    width: 100%;
+}
+
+/* блок с кнопками действий */
+#toolbar #actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* контейнер для вывода файлов */
+#main {
+    height: 600px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* таблица файлов */
+#files {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+/* базовые стили для кнопок */
+button,
+.btn {
+    background: #e6e6e6;
+    border: 1px solid #aaa;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* эффект наведения для кнопок */
+button:hover,
+.btn:hover {
+    background: #dcdcdc;
+}
+
+/* отображение tbody в режиме плиток */
+.view-tiles #files tbody {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+
+/* строки таблицы в режиме плиток */
+.view-tiles #files tbody tr {
+    display: block;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background: #fafafa;
+    text-align: center;
+}
+
+/* строки таблицы в режиме колонок */
+.view-columns #files tbody tr {
+    display: flex;
+    gap: 20px;
+    border-bottom: 1px solid #eee;
+}
+
+/* ячейки таблицы в режиме колонок */
+.view-columns #files td {
+    flex: 1;
+}
+
+/* оверлей для заднего фона модальных окон */
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+/* верхняя полоса с заголовком */
+#titlebar {
+    background: #2d2d2e;
+    color: white;
+    padding: 0px;
+    font-size: 18px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 30px;
+}
+
+/* строка пути текущей директории */
+#cwdEl {
+    padding: 2px 6px;
+    border-radius: 4px;
+    cursor: text;
+    white-space: nowrap;
+
+    width: stretch;
+    max-width: 100%;
+    overflow: auto;
+    scrollbar-width: none;
+}
+
+/* состояние строки пути при редактировании */
+#cwdEl.editing {
+    background: #fff;
+    color: #000;
+    outline: 1px solid #4a90e2;
+}
+
+/* базовая часть строки пути */
+#cwdEl .cwdEl-base {
+    color: inherit;
+}
+
+/* выделенная часть строки пути */
+#cwdEl .cwdEl-selected {
     color: #999;
-} */
-table {table-layout: fixed; width: 100%;}
-th, td {width: 33%; padding: 8px; text-align: left; overflow: hidden; white-space: nowrap; 
-    text-overflow: ellipsis;}
+}
 
-#files_view {display: grid; overflow-y: auto; height: 600px;}
+/* базовая разметка таблиц */
+table {
+    table-layout: fixed;
+    width: 100%;
+}
 
+/* ячейки и заголовки таблицы */
+th, td {
+    width: 33%;
+    padding: 8px;
+    text-align: left;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
 
+/* новый блок отображения файлов */
+#files_view {
+    display: grid;
+    overflow-y: auto;
+    height: 600px;
+    user-select: none;
+    outline: none;
+}
 
+/* область выделения */
+.selectionBox {
+    position: fixed;
+    border: 1px dashed #4a90e2;
+    background: rgba(74, 144, 226, 0.15);
+    pointer-events: none;
+    z-index: 3100;
+}
 
+/* базовый элемент файла или папки */
 .file_item {
     box-sizing: border-box;
     user-select: none;
     cursor: pointer;
+    margin: 1px;
 }
 
+/* иконка файла */
 .file_icon {
     font-size: 1em;
 }
 
+/* имя файла */
 .file_name {
+    display: inline-block;
+    max-width: 100%;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    vertical-align: bottom;
 }
 
-#files_view.view_table{
+@supports (-webkit-line-clamp: 3) or (line-clamp: 3) {
+    .file_name {
+        display: -webkit-box;
+        max-height: 3.6em;
+        line-height: 1.2em;
+        white-space: normal;
+        word-break: break-word;
+        -webkit-line-clamp: 1;
+        line-clamp: 1;
+        -webkit-box-orient: vertical;
+    }
+    #files_view.view_tiles .file_name {
+        -webkit-line-clamp: 3;
+        line-clamp: 3;
+    }
+}
+
+/* сообщение о пустой папке */
+#files_view.empty {
+    color: #0d0d0d;
+    align-content: center !important;
+    justify-content: center !important;
+}
+
+.file_main_empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    text-align: center;
+}
+
+.file_icon_empty {
+    font-size: 3em;
+}
+
+.file_name_empty {
+    font-size: 1.2em;
+    font-weight: bold;
+}
+
+/* режим таблицы для отображения файлов */
+#files_view.view_table {
     display: flex;
     flex-wrap: wrap;
     align-content: flex-start;
-
 }
 
+/* выделенный активный файл */
 .file_item.selected {
-    background: #2a7cff;   /* синий */
-    color: #fff;           /* белый текст */
+    background: #2a7cff;
+    color: #fff;
 }
 
-/* чтобы вложенные div тоже стали белыми */
+/* файлы в буфере обмена */
+.file_item.clipboard .file_main {
+    opacity: 0.65;
+}
+
+/* белый текст внутри выделенного файла */
 .file_item.selected .file_name,
 .file_item.selected div {
     color: #fff;
 }
 
-/* когда #files_view имеет класс view_list или view_tiles, скрываем предыдущий заголовок */
+/* скрытие заголовков в режимах списка и плиток */
 #files_view.view_list #files_header,
 #files_view.view_tiles #files_header {
     display: none;
 }
 
-#files_header, #files_view.view_table .file_item {
+/* сетка для заголовка и элементов таблицы */
+#files_header,
+#files_view.view_table .file_item {
     display: grid;
-    grid-template-columns:
-        320px   /* file-main (icon + name) */
-        260px   /* size */
-        220px;  /* date */
+    width: 100%;
+    grid-template-columns: 40% 33% 27%;
     column-gap: 32px;
     padding: 2px 6px;
-    align-items: start;     /* прижимает содержимое к верху */
-
-
+    align-items: start;
 }
 
+/* высота элемента в режиме таблицы */
 #files_view.view_table .file_item {
-    height: 25px;           /* или любая нужная высота */
+    height: 25px;
 }
 
+/* высота элемента в режиме списка */
 #files_view.view_list .file_item {
-    height: 25px;           /* или любая нужная высота */
+    height: 25px;
 }
 
-
-
-/* внутренняя компоновка первой колонки */
+/* первая колонка элемента в режиме таблицы */
 #files_view.view_table .file_main {
     display: flex;
     align-items: center;
-    gap: 6px; /* icon ↔ name */
+    gap: 6px;
+    width: 100%;
 }
 
+/* иконка элемента в режиме таблицы */
 #files_view.view_table .file_icon {
     width: 24px;
     text-align: center;
 }
 
+/* режим списка для отображения файлов */
 #files_view.view_list {
     display: flex;
     flex-direction: column;
     flex-wrap: wrap;
     align-content: flex-start;
-
-    column-gap: 150px;
+    column-gap: 0px;
 }
 
+/* элемент файла в режиме списка */
 #files_view.view_list .file_item {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding-left:10px;
-    /* padding: 4px 6px; */
-    width: max-content;
+    padding-left: 10px;
+    width: 220px;
 }
 
-/* показываем только имя */
+/* скрытие метаданных в режиме списка */
 #files_view.view_list .file_item > div:not(.file_main) {
     display: none;
 }
 
+/* первая колонка элемента в режиме списка */
 #files_view.view_list .file_main {
     display: flex;
     align-items: center;
     gap: 6px;
+    width: 100%;
 }
 
+/* режим плиток для отображения файлов */
 #files_view.view_tiles {
     display: flex;
     flex-wrap: wrap;
     align-content: flex-start;
 }
 
+/* элемент файла в режиме плиток */
 #files_view.view_tiles .file_item {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 6px;
-
     width: 120px;
     padding: 10px;
     text-align: center;
 }
 
-/* крупная иконка */
+/* крупная иконка в режиме плиток */
 #files_view.view_tiles .file_icon {
     font-size: 2em;
 }
 
-/* только icon + name */
+/* скрытие метаданных в режиме плиток */
 #files_view.view_tiles .file_item > div:not(.file_main) {
     display: none;
 }
 
+/* первая колонка элемента в режиме плиток */
 #files_view.view_tiles .file_main {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 6px;
+    width: 100%;
 }
 
-#fburger { position: relative; cursor: pointer; padding: 4px 8px; user-select: none;}
-#fburgerMenu {position: absolute; top: 100%; left: 1px; background: #222; border: 1px solid #444; 
-    border-radius: 6px; display: none; min-width: 180px; z-index: 1000; color: #fff;}
-#fburgerMenu div {padding-left: 8px; cursor: pointer; white-space: nowrap; font-size: 15px; padding: 4px 8px;}
-.title {flex: 1; font-weight: bold;}
+/* кнопка бургер-меню */
+#fburger {
+    position: relative;
+    cursor: pointer;
+    padding: 4px 8px;
+    user-select: none;
+}
 
-/* #fburger:hover > #fburgerMenu {
-  display: block;
-} */
+/* выпадающее бургер-меню */
+#fburgerMenu {
+    position: absolute;
+    top: 100%;
+    left: 1px;
+    background: #222;
+    background: #e5e5e5;
+    border: 1px solid #444;
+    border-radius: 6px;
+    display: none;
+    min-width: 180px;
+    z-index: 1000;
+    color: #fff;
+    color: #000000;
+    background: #f2f2f2;
+    border: 1px solid #ccc;
+}
 
+/* пункты внутри бургер-меню */
+#fburgerMenu .menu_item {
+    padding-left: 8px;
+    cursor: pointer;
+    white-space: nowrap;
+    font-size: 15px;
+    padding: 6px 8px;
+}
+
+/* заголовок в панели управления */
+.title {
+    flex: 1;
+    font-weight: bold;
+}
+
+/* базовый класс для пунктов меню */
 .menu_item {
-  padding: 6px 10px;
-  cursor: pointer;
-  white-space: nowrap;
+    padding: 6px 10px;
+    cursor: pointer;
+    white-space: nowrap;
 }
 
- .menu_item:hover {
-  background: #444;
-} 
+/* эффект наведения для пунктов меню */
+.menu_item:hover {
+    background: #444;
+    background: #e5e5e5;
+}
 
-/* Подменю */
+/* выпадающее подменю */
 .submenu {
-  position: absolute;
-  top: 0;
-  left: 100%;
-  display: none;           /* скрыто по умолчанию */
-  padding: 0px;         
-  padding-left: 0px !important;/*;*/
-  min-width: 0;             /* минимальная ширина по содержимому */
-  width: max-content;       /* подстраивается под содержимое */
-  background: #2b2b2b;/*#000;*/
-  border-radius: 6px;
-  border: 1px solid #444;
-  z-index: 1000;
+    position: absolute;
+    top: 0;
+    left: calc(100% + 0.2px);
+    display: none;
+    padding: 0px;
+    padding-left: 0px !important;
+    min-width: 0;
+    width: max-content;
+    color: #fff;
+    background: #2b2b2b;
+    border-radius: 6px;
+    border: 1px solid #444;
+    z-index: 1000;
+    min-width: 100px;
+
+    color: #000000;
+    background: #f2f2f2;
+    border: 1px solid #ccc;
 }
 
-.submenu .menu_item{
-width: calc(100% - 7px);
+#contextMenu {
+    position: fixed;
+    z-index: 3000;
 }
-/* Группы внутри подменю */
+#contextMenu hr {
+    margin: 0px 5px;
+    margin-block-start: 3px;
+    margin-block-end: 3px;
+}
+
+/* группы элементов внутри подменю */
 .submenu_group {
-  /*padding: 2px 8px;         меньше внутренних отступов */
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 0px;         
-  padding-left: 0px !important;
+    display: flex;
+    flex-direction: column;
+    padding-left: 0px !important;
 }
 
-/* .submenu_group label {
-height: 20px;
-width: 100%;
-} */
-
-/* Разделитель */
+/* разделительная линия в подменю */
 .submenu_sep {
-  margin: 4px 0;
-  padding-right: 12px;
+    margin: 6px 6px;
+}
+.submenu_sep hr {
+    margin-block-start: 0em;
+    margin-block-end: 0em;
 }
 
-
-
-.menu_item.active, .submenu_group label:hover {
-  background: #444;
+/* активный пункт меню и наведение на лейбл */
+.menu_item.active,
+.submenu_group label:hover {
+    background: #444;
+    background: #e5e5e5;
 }
 
-
-/* Минимальный размер для радио и чекбоксов */
+/* текстовый контейнер для радио и чекбоксов */
 .submenu_group label {
-  width: calc(100% + 5px);
-  display: flex;           /* для выравнивания input + текст */
-  align-items: center;     /* вертикальное центрирование */
-  gap: 4px;                /* расстояние между кружком и текстом */
-  padding: 4px 6px;        /* минимальные внутренние отступы */
-  font-size: 13px;          /* компактный шрифт */
-  white-space: nowrap;      /* текст в одну строку */
-  cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 8px;
+    font-size: 15px;
+    white-space: nowrap;
+    cursor: pointer;
 }
+
+/* радио-кнопки и чекбоксы внутри подменю */
 .submenu_group input[type="radio"],
 .submenu_group input[type="checkbox"],
 .submenu_group label input[type="radio"],
 .submenu_group label input[type="checkbox"] {
-  width: 14px;              /* маленький кружок */
-  height: 14px;
-  margin: 0;                /* убрать лишние отступы */
+    width: 14px;
+    height: 14px;
+    margin: 0;
+}
+
+/* окно свойств файла */
+.fileProperties {
+    width: 25%;
+    height: 25%;
+    overflow: hidden;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    background: #fff;
+    z-index: 1001;
+}
+
+.filePropertiesTop {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    padding: 10px;
+    border-bottom: 1px solid #ccc;
+    font-size: 16px;
+    background: #f2f2f2;
+}
+
+.filePropertiesTitle {
+    max-width: 88%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.filePropertiesClose {
+    position: absolute;
+    right: 10px;
+    cursor: pointer;
+}
+
+.filePropertiesContent {
+    height: calc(100% - 41px);
+    overflow: auto;
+}
+
+.filePropertiesContent table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.filePropertiesContent td {
+    padding: 6px 10px;
+    vertical-align: top;
+}
+
+.filePropertiesContent td:first-child {
+    width: 12%;
+    font-weight: bold;
+}
+
+.filePropertiesContent td:nth-child(2) {
+    white-space: normal;
+    word-break: break-word;
+}
+
+/* окно переименования файла */
+.renameWindow {
+    width: 25%;
+    overflow: hidden;
+    position: fixed;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    background: #fff;
+    z-index: 3001;
+    display: none;
+    flex-direction: column;
+}
+
+.renameHeader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    padding: 10px;
+    border-bottom: 1px solid #ccc;
+    font-size: 16px;
+    background: #f2f2f2;
+}
+
+.renameCurrentName {
+    max-width: 50%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.renameWindowClose {
+    position: absolute;
+    right: 10px;
+    cursor: pointer;
+}
+
+.renameInput {
+    box-sizing: border-box;
+    width: calc(100% - 20px);
+    margin: 10px 10px 0px 10px;
+    padding: 6px 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.renameWindowRulesRow {
+    display: flex;
+    justify-content: space-between;
+}
+
+.renameWindowRulesMessage {
+    margin: 2px 10px 0px 11px;
+    font-size: 12px;
+    color: #a00;
+
+    position: relative;
+    overflow: hidden;
+}
+
+.renameBtn {
+    margin: 10px 10px 10px 10px;
+    padding: 6px 12px;
+    background: #f2f2f2;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    cursor: pointer;
+    align-self: flex-end;
+    width: fit-content;
+}
+.renameBtn:disabled {
+    background: #e0e0e0;
+    color: #888;
+    cursor: not-allowed;
+}
+
+.renameBtn:hover {
+    background: #e6e6e6;
 }

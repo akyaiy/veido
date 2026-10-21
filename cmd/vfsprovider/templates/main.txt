@@ -1,0 +1,44 @@
+// This is a local development entry point, not the production VFS server.
+// From the generated package directory, run:
+//   go test .
+//   go run .
+// Or supply connection JSON and another loopback port:
+//   go run . -config ./connection.json -addr 127.0.0.1:8092
+// Open http://127.0.0.1:8091/ to list the available test links.
+// /_provider describes declared routes and config; /dav/ exposes WebDAV;
+// /api/v2/vfs exposes the normal VFS HTTP adapter. See
+// docs/VFS_V2_PROVIDER_SDK_RU.md in the repository root for curl examples.
+package main
+
+import (
+    "MyServer/pkg/vfs"
+    "MyServer/pkg/vfs/providerdev"
+    "context"
+    "flag"
+    "log"
+    "net"
+    "net/http"
+    "os"
+)
+
+func main() {
+    addr := flag.String("addr", "127.0.0.1:8091", "loopback development address")
+    config := flag.String("config", "", "optional connection JSON file")
+    flag.Parse()
+    host, _, err := net.SplitHostPort(*addr)
+    if err != nil || net.ParseIP(host) == nil || !net.ParseIP(host).IsLoopback() { log.Fatal("development server requires a loopback IP address") }
+    // The generated package selects only the provider key. The disposable
+    // test harness supplies scope "dev", connection "default", and actor
+    // user:developer, so no database setup is needed for local development.
+    data := []byte("{}")
+    if *config != "" { data, err = os.ReadFile(*config); if err != nil { log.Fatal(err) } }
+    definition := Definition()
+    server, err := providerdev.New(context.Background(), definition.Factory(), providerdev.Options{
+        Connection: vfs.ProviderConnection{ProviderKey: definition.Key, Config: data},
+        Info: definition.Info(),
+    })
+    if err != nil { log.Fatal(err) }
+    defer server.Close()
+    log.Printf("Provider inspector: http://%s", *addr)
+    if err := http.ListenAndServe(*addr, server); err != nil { _ = server.Close(); log.Fatal(err) }
+}

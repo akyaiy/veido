@@ -10,122 +10,122 @@ import (
 	"github.com/mattn/go-sqlite3"
 )
 
-// Roles
+// Groups
 
-func GetRoles(db *sql.DB, limit, offset int) []Role {
-	rows, err := db.Query("SELECT id, name FROM roles LIMIT ? OFFSET ?", limit, offset)
+func GetGroups(db *sql.DB, limit, offset int) []Group {
+	rows, err := db.Query("SELECT id, name FROM groups LIMIT ? OFFSET ?", limit, offset)
 	if err != nil {
-		slog.Error("GetRoles db error", "err", err.Error())
-		return []Role{}
+		slog.Error("GetGroups db error", "err", err.Error())
+		return []Group{}
 	}
 	defer rows.Close()
 
-	var roles []Role
+	var groups []Group
 	for rows.Next() {
-		var role Role
-		if err := rows.Scan(&role.ID, &role.Name); err != nil {
-			slog.Warn("GetRoles - failed to read role", "err", err.Error())
+		var group Group
+		if err := rows.Scan(&group.ID, &group.Name); err != nil {
+			slog.Warn("GetGroups - failed to read group", "err", err.Error())
 			continue
 		}
-		roles = append(roles, role)
+		groups = append(groups, group)
 	}
-	return roles
+	return groups
 }
 
 // Если функция возвращает значение [id] < 1, то произошла ошибка (смотреть в логах)
-func CreateRole(db *sql.DB, name string) int64 {
-	result, err := db.Exec("INSERT INTO roles (name) VALUES (?)", name)
+func CreateGroup(db *sql.DB, name string) int64 {
+	result, err := db.Exec("INSERT INTO groups (name) VALUES (?)", name)
 	if err != nil {
 		var sqliteErr sqlite3.Error
 
 		if errors.As(err, &sqliteErr) {
 			if sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique {
-				slog.Error("CreateRole db ErrConstraintUnique", "err", err.Error())
+				slog.Error("CreateGroup db ErrConstraintUnique", "err", err.Error())
 				return 0
 			}
 		}
-		slog.Error("CreateRole db error", "err", err.Error())
+		slog.Error("CreateGroup db error", "err", err.Error())
 		return 0
 	}
 	id, err := result.LastInsertId() 
 
 	if err != nil {
-		slog.Error("CreateRole db error", "err", err.Error())
+		slog.Error("CreateGroup db error", "err", err.Error())
 		return 0
 	}
 	return id
 }
 
-func UpdateRole(db *sql.DB, fields Role) error {
+func UpdateGroup(db *sql.DB, fields Group) error {
 	result, err := db.Exec(
-		"UPDATE roles SET name = ? WHERE id = ?",
+		"UPDATE groups SET name = ? WHERE id = ?",
 		fields.Name, fields.ID,
 	)
 	if err != nil {
-		slog.Error("UpdateRole db error", "err", err.Error())
+		slog.Error("UpdateGroup db error", "err", err.Error())
 		return err
 	}
 
 	rows, err := result.RowsAffected()
 	if err != nil {
-		slog.Error("UpdateRole db error", "err", err.Error())
+		slog.Error("UpdateGroup db error", "err", err.Error())
 		return err
 	}
 
 	if rows == 0 {
-		slog.Error("UpdateRole db error: role does not exists")
-		return errors.New("role does not exists")
+		slog.Error("UpdateGroup db error: group does not exists")
+		return errors.New("group does not exists")
 	}
 	return nil
 }
 
-func DeleteRole(db *sql.DB, id int64) error {
-	result, err := db.Exec("DELETE FROM roles WHERE id = ?", id)
+func DeleteGroup(db *sql.DB, id int64) error {
+	result, err := db.Exec("DELETE FROM groups WHERE id = ?", id)
 	if err != nil {
-		slog.Error("DeleteRole db error", "err", err.Error())
+		slog.Error("DeleteGroup db error", "err", err.Error())
 		return err
 	}
 
 	rows, err := result.RowsAffected()
 	if err != nil {
-		slog.Error("DeleteRole db error", "err", err.Error())
+		slog.Error("DeleteGroup db error", "err", err.Error())
 		return err
 	}
 
 	if rows == 0 {
-		slog.Error("DeleteRole db error: role does not exists")
-		return errors.New("role does not exists")
+		slog.Error("DeleteGroup db error: group does not exists")
+		return errors.New("group does not exists")
 	}
 	return nil
 }
 
-func AssignRoleToUser(db *sql.DB, roleID, userID int64) error {
+func AssignGroupToUser(db *sql.DB, groupID, userID int64) error {
 	_, err := db.Exec(
-		"INSERT INTO user_roles(user_id, role_id) VALUES (?, ?)",
-		userID, roleID,
+		"INSERT INTO user_groups(user_id, group_id) VALUES (?, ?)",
+		userID, groupID,
 	)
 
 	if err != nil {
 		if strings.Contains(err.Error(), "FOREIGN KEY constraint failed") {
-			return fmt.Errorf("user or role does not exist")
+			return fmt.Errorf("user or group does not exist")
 		}
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
-			return fmt.Errorf("role already assigned")
+			return fmt.Errorf("group already assigned")
 		}
 
-		slog.Error("AssignRoleToUser db error", "err", err.Error())
+		slog.Error("AssignGroupToUser db error", "err", err.Error())
 		return err
 	}
 	return nil
 }
 
-func GetUserRoles(db *sql.DB, userID int64, limit, offset int) ([]Role, error) {
-	roles := []Role{}
+func GetUserGroups(db *sql.DB, userID int64, limit, offset int) ([]Group, error) {
+	groups := []Group{}
 	rows, err := db.Query(
 		`SELECT u.id, r.id, r.name 
 		FROM users u
-		LEFT JOIN user_roles ur ON u.id = ur.user_id
-		LEFT JOIN roles r ON ur.role_id = r.id
+		LEFT JOIN user_groups ur ON u.id = ur.user_id
+		LEFT JOIN groups r ON ur.group_id = r.id
 		WHERE u.id = ? LIMIT ? OFFSET ?`, userID, limit, offset,
 	)
 	if err != nil {
@@ -147,7 +147,7 @@ func GetUserRoles(db *sql.DB, userID int64, limit, offset int) ([]Role, error) {
 		}
 
 		if rID.Valid {
-			roles = append(roles, Role{
+			groups = append(groups, Group{
 				ID:   rID.Int64,
 				Name: rName.String,
 			})
@@ -158,28 +158,28 @@ func GetUserRoles(db *sql.DB, userID int64, limit, offset int) ([]Role, error) {
 		return nil, fmt.Errorf("user with id %d not found", userID)
 	}
 
-	return roles, nil
+	return groups, nil
 }
 
-func DeAssignRoleToUser(db *sql.DB, roleID, userID int64) error {
+func DeAssignGroupToUser(db *sql.DB, groupID, userID int64) error {
 	res, err := db.Exec(
-		"DELETE FROM user_roles WHERE user_id = ? AND role_id = ?",
+		"DELETE FROM user_groups WHERE user_id = ? AND group_id = ?",
 		userID,
-		roleID,
+		groupID,
 	)
 	if err != nil {
-		slog.Error("DeAssignRoleToUser db error", "err", err.Error())
+		slog.Error("DeAssignGroupToUser db error", "err", err.Error())
 		return err
 	}
 
 	rows, err := res.RowsAffected()
 	if err != nil {
-		slog.Error("DeAssignRoleToUser db error", "err", err.Error())
+		slog.Error("DeAssignGroupToUser db error", "err", err.Error())
 		return err
 	}
 
 	if rows == 0 {
-		slog.Error("DeAssignRoleToUser db error: relation does not exist")
+		slog.Error("DeAssignGroupToUser db error: relation does not exist")
 		return errors.New("relation does not exist")
 	}
 
@@ -274,52 +274,52 @@ func DeletePermission(db *sql.DB, id int64) error {
 	return nil
 }
 
-func AssignPermissionToRole(db *sql.DB, roleID, permID int64) error {
+func AssignPermissionToGroup(db *sql.DB, groupID, permID int64) error {
 	_, err := db.Exec(
-		"INSERT INTO role_permissions(role_id, permission_id) VALUES (?, ?)",
-		roleID, permID,
+		"INSERT INTO group_permissions(group_id, permission_id) VALUES (?, ?)",
+		groupID, permID,
 	)
 
 	if err != nil {
 		if strings.Contains(err.Error(), "FOREIGN KEY constraint failed") {
-			return fmt.Errorf("role or permission does not exist")
+			return fmt.Errorf("group or permission does not exist")
 		}
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
-			return fmt.Errorf("permission already assigned to role")
+			return fmt.Errorf("permission already assigned to group")
 		}
 
-		slog.Error("AssignPermissionToRole db error", "err", err.Error())
+		slog.Error("AssignPermissionToGroup db error", "err", err.Error())
 		return err
 	}
 
 	return nil
 }
 
-func GetRolePermissions(db *sql.DB, roleID int64, limit, offset int) ([]Permission, error) {
+func GetGroupPermissions(db *sql.DB, groupID int64, limit, offset int) ([]Permission, error) {
 	permissions := []Permission{}
 
 	rows, err := db.Query(
 		`SELECT r.id, p.id, p.key 
-		FROM roles r
-		LEFT JOIN role_permissions rp ON r.id = rp.role_id
+		FROM groups r
+		LEFT JOIN group_permissions rp ON r.id = rp.group_id
 		LEFT JOIN permissions p ON rp.permission_id = p.id
-		WHERE r.id = ? LIMIT ? OFFSET ?`, roleID, limit, offset,
+		WHERE r.id = ? LIMIT ? OFFSET ?`, groupID, limit, offset,
 	)
 	if err != nil {
-		slog.Error("GetRolePermissions db error", "err", err.Error())
+		slog.Error("GetGroupPermissions db error", "err", err.Error())
 		return nil, err
 	}
 	defer rows.Close()
 
-	roleFound := false
+	groupFound := false
 	for rows.Next() {
-		roleFound = true
+		groupFound = true
 		var rID int64
 		var pID sql.NullInt64
 		var pKey sql.NullString
 
 		if err := rows.Scan(&rID, &pID, &pKey); err != nil {
-			slog.Warn("GetRolePermissions - scan error", "err", err.Error())
+			slog.Warn("GetGroupPermissions - scan error", "err", err.Error())
 			continue
 		}
 
@@ -335,32 +335,32 @@ func GetRolePermissions(db *sql.DB, roleID int64, limit, offset int) ([]Permissi
 		return nil, err
 	}
 
-	if !roleFound {
-		return nil, fmt.Errorf("role with id %d not found", roleID)
+	if !groupFound {
+		return nil, fmt.Errorf("group with id %d not found", groupID)
 	}
 
 	return permissions, nil
 }
 
-func DeAssignPermissionToRole(db *sql.DB, roleID, permID int64) error {
+func DeAssignPermissionToGroup(db *sql.DB, groupID, permID int64) error {
 	res, err := db.Exec(
-		"DELETE FROM role_permissions WHERE role_id = ? AND permission_id = ?",
-		roleID,
+		"DELETE FROM group_permissions WHERE group_id = ? AND permission_id = ?",
+		groupID,
 		permID,
 	)
 	if err != nil {
-		slog.Error("DeAssignPermissionToRole db error", "err", err.Error())
+		slog.Error("DeAssignPermissionToGroup db error", "err", err.Error())
 		return err
 	}
 
 	rows, err := res.RowsAffected()
 	if err != nil {
-		slog.Error("DeAssignPermissionToRole db error", "err", err.Error())
+		slog.Error("DeAssignPermissionToGroup db error", "err", err.Error())
 		return err
 	}
 
 	if rows == 0 {
-		slog.Error("DeAssignPermissionToRole db error: relation does not exist")
+		slog.Error("DeAssignPermissionToGroup db error: relation does not exist")
 		return errors.New("relation does not exist")
 	}
 
@@ -370,7 +370,7 @@ func DeAssignPermissionToRole(db *sql.DB, roleID, permID int64) error {
 type UserPermission struct {
 	ID  int64 `json:"id,omitempty"`
 	Name string `json:"name,omitempty"`
-	ProvidingRoles []string `json:"providingRoles,omitempty"`
+	ProvidingGroups []string `json:"providingGroups,omitempty"`
 	Access string `json:"access"` // "deny" or "allow"
 }
 
@@ -380,9 +380,9 @@ func GetUserPermissions(db *sql.DB, userID int64, limit, offset int) ([]UserPerm
 	rows, err := db.Query(
 		`SELECT p.id, p.key, r.name
 		FROM users u
-		LEFT JOIN user_roles ur ON u.id = ur.user_id
-		LEFT JOIN roles r ON ur.role_id = r.id
-		LEFT JOIN role_permissions rp ON r.id = rp.role_id
+		LEFT JOIN user_groups ur ON u.id = ur.user_id
+		LEFT JOIN groups r ON ur.group_id = r.id
+		LEFT JOIN group_permissions rp ON r.id = rp.group_id
 		LEFT JOIN permissions p ON rp.permission_id = p.id
 		WHERE u.id = ?
 		LIMIT ? OFFSET ?`, userID, limit, offset,
@@ -404,24 +404,24 @@ func GetUserPermissions(db *sql.DB, userID int64, limit, offset int) ([]UserPerm
 		}
 
 		if pID.Valid {
-			providingRole := ""
+			providingGroup := ""
 			if rName.Valid {
-				providingRole = rName.String
+				providingGroup = rName.String
 			}
 
 			found := false
 			for i := range permissions {
 				if permissions[i].ID == pID.Int64 {
-					if providingRole != "" {
+					if providingGroup != "" {
 						already := false
-						for _, existing := range permissions[i].ProvidingRoles {
-							if existing == providingRole {
+						for _, existing := range permissions[i].ProvidingGroups {
+							if existing == providingGroup {
 								already = true
 								break
 							}
 						}
 						if !already {
-							permissions[i].ProvidingRoles = append(permissions[i].ProvidingRoles, providingRole)
+							permissions[i].ProvidingGroups = append(permissions[i].ProvidingGroups, providingGroup)
 						}
 					}
 					found = true
@@ -435,8 +435,8 @@ func GetUserPermissions(db *sql.DB, userID int64, limit, offset int) ([]UserPerm
 					Name:  pKey.String,
 					Access: "allow",
 				}
-				if providingRole != "" {
-					perm.ProvidingRoles = []string{providingRole}
+				if providingGroup != "" {
+					perm.ProvidingGroups = []string{providingGroup}
 				}
 				permissions = append(permissions, perm)
 			}

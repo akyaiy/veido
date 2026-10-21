@@ -2,7 +2,6 @@ package users
 
 import (
 	"MyServer/internal/auth"
-	"MyServer/internal/config"
 	"MyServer/internal/server"
 	"encoding/json"
 	"errors"
@@ -13,7 +12,7 @@ import (
 )
 
 type Status struct {
-	Stat    string    `json:"status"`
+	Stat string `json:"status"`
 	Data any    `json:"data,omitempty"`
 }
 
@@ -28,9 +27,9 @@ func (h *AuthRoutes) AuthRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id, err := h.auth.CreateUser(&auth.User{
-		Name: newUser.Name,
+		Name:     newUser.Name,
 		Password: newUser.Password,
-		Status: "unactive",
+		Status:   "unactive",
 	})
 	if err != nil {
 		if errors.Is(err, auth.ErrUserExists) {
@@ -64,7 +63,7 @@ func (h *AuthRoutes) AuthLogin(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	setRefreshCookie(w, resp.RefreshToken, config.GetRTokenTime())
+	setRefreshCookie(w, resp.RefreshToken, h.auth.RefreshTTL())
 	resp.RefreshToken = "" // не отправляем refresh token в теле ответа, он уже в HttpOnly cookie
 	json.NewEncoder(w).Encode(Status{Stat: "ok", Data: resp.AccessToken})
 }
@@ -90,7 +89,7 @@ func (h *AuthRoutes) AuthRefresh(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	setRefreshCookie(w, resp.RefreshToken, config.GetRTokenTime())
+	setRefreshCookie(w, resp.RefreshToken, h.auth.RefreshTTL())
 	resp.RefreshToken = "" // не отправляем refresh token в теле ответа, он уже в HttpOnly cookie
 	json.NewEncoder(w).Encode(Status{Stat: "ok", Data: resp.AccessToken})
 }
@@ -98,16 +97,7 @@ func (h *AuthRoutes) AuthRefresh(w http.ResponseWriter, r *http.Request) {
 // AuthLogout выходит из системы
 func (h *AuthRoutes) AuthLogout(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	var request struct {
-		AccessToken string `json:"accessToken"`
-	}
-	json.NewDecoder(r.Body).Decode(&request)
-	if request.AccessToken == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(Status{Stat: "error", Data: "Access token is required"})
-		return
-	}
-	err := h.auth.Logout(request.AccessToken)
+	err := h.auth.Logout(r.Context())
 	if err != nil {
 		if errors.Is(err, auth.ErrInvalidCredentials) {
 			w.WriteHeader(http.StatusUnauthorized)
@@ -126,18 +116,7 @@ func (h *AuthRoutes) AuthLogout(w http.ResponseWriter, r *http.Request) {
 // MeGet получает данные текущего пользователя
 func (h *AuthRoutes) MeGet(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	claims, err := h.auth.AuthenticateRequest(r)
-	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(Status{Stat: "error", Data: err.Error()})
-		return
-	}
-	userId, err := strconv.Atoi(claims.Subject)
-	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(Status{Stat: "error", Data: "Invalid token claims"})
-		return
-	}
+	userId := r.Context().Value(auth.CONTEXT_USER_ID_KEY).(int)
 	user, err := h.auth.GetUserByID(int64(userId))
 	if err != nil {
 		if errors.Is(err, auth.ErrUserNotFound) {
@@ -155,18 +134,7 @@ func (h *AuthRoutes) MeGet(w http.ResponseWriter, r *http.Request) {
 // MeUpdate обновляет данные текущего пользователя
 func (h *AuthRoutes) MeUpdate(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	claims, err := h.auth.AuthenticateRequest(r)
-	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(Status{Stat: "error", Data: err.Error()})
-		return
-	}
-	userId, err := strconv.Atoi(claims.Subject)
-	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(Status{Stat: "error", Data: "Invalid token claims"})
-		return
-	}
+	userId := r.Context().Value(auth.CONTEXT_USER_ID_KEY).(int)
 	var updateData struct {
 		Name string `json:"name,omitempty"`
 	}
@@ -176,7 +144,7 @@ func (h *AuthRoutes) MeUpdate(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(Status{Stat: "error", Data: "Name is required"})
 		return
 	}
-	err = h.auth.UpdateUser(int64(userId), &auth.User{Name: updateData.Name})
+	err := h.auth.UpdateUser(int64(userId), &auth.User{Name: updateData.Name})
 	if err != nil {
 		if errors.Is(err, auth.ErrUserNotFound) {
 			w.WriteHeader(http.StatusNotFound)
@@ -193,18 +161,7 @@ func (h *AuthRoutes) MeUpdate(w http.ResponseWriter, r *http.Request) {
 // MeUpdatePassword обновляет пароль текущего пользователя
 func (h *AuthRoutes) MeUpdatePassword(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	claims, err := h.auth.AuthenticateRequest(r)
-	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(Status{Stat: "error", Data: err.Error()})
-		return
-	}
-	userId, err := strconv.Atoi(claims.Subject)
-	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(Status{Stat: "error", Data: "Invalid token claims"})
-		return
-	}
+	userId := r.Context().Value(auth.CONTEXT_USER_ID_KEY).(int)
 	var updateData struct {
 		OldPassword string `json:"oldPassword"`
 		NewPassword string `json:"newPassword"`
@@ -215,12 +172,15 @@ func (h *AuthRoutes) MeUpdatePassword(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(Status{Stat: "error", Data: "Old and new passwords are required"})
 		return
 	}
-	// TODO: нужно сделать проверку настоящего пароля
-	err = h.auth.UpdatePassword(int64(userId), updateData.NewPassword)
+
+	err := h.auth.ChangePassword(int64(userId), updateData.OldPassword, updateData.NewPassword)
 	if err != nil {
 		if errors.Is(err, auth.ErrUserNotFound) {
 			w.WriteHeader(http.StatusNotFound)
 			json.NewEncoder(w).Encode(Status{Stat: "error", Data: "User not found"})
+		} else if errors.Is(err, auth.ErrInvalidCredentials) {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(Status{Stat: "error", Data: err.Error()})
 		} else {
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(Status{Stat: "error", Data: "Internal server error"})
@@ -236,9 +196,9 @@ func (h *AuthRoutes) UsersAdminCreate(w http.ResponseWriter, r *http.Request) {
 	var newUser auth.User
 	json.NewDecoder(r.Body).Decode(&newUser)
 	id, err := h.auth.CreateUser(&auth.User{
-		Name: newUser.Name,
+		Name:     newUser.Name,
 		Password: newUser.Password,
-		Status: newUser.Status,
+		Status:   newUser.Status,
 	})
 	if err != nil {
 		if errors.Is(err, auth.ErrUserExists) {
@@ -318,6 +278,12 @@ func (h *AuthRoutes) UsersAdminUpdate(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, auth.ErrUserNotFound) {
 			w.WriteHeader(http.StatusNotFound)
 			json.NewEncoder(w).Encode(Status{Stat: "error", Data: "User not found"})
+		} else if errors.Is(err, auth.ErrUserExists) {
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(Status{Stat: "error", Data: "User already exists"})
+		} else if errors.Is(err, auth.ErrInvalidCredentials) {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(Status{Stat: "error", Data: err.Error()})
 		} else {
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(Status{Stat: "error", Data: "Internal server error"})
@@ -351,6 +317,9 @@ func (h *AuthRoutes) UsersAdminUpdatePassword(w http.ResponseWriter, r *http.Req
 		if errors.Is(err, auth.ErrUserNotFound) {
 			w.WriteHeader(http.StatusNotFound)
 			json.NewEncoder(w).Encode(Status{Stat: "error", Data: "User not found"})
+		} else if errors.Is(err, auth.ErrInvalidCredentials) {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(Status{Stat: "error", Data: err.Error()})
 		} else {
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(Status{Stat: "error", Data: "Internal server error"})

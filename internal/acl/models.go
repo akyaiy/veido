@@ -2,7 +2,7 @@ package acl
 
 //import "time"
 
-type Role struct {
+type Group struct {
 	ID   int64 `json:"id"`
 	Name string `json:"name"`
 }
@@ -12,12 +12,12 @@ type Permission struct {
 	Key string `json:"name"`
 }
 
-type RolePermission struct {
-	RoleID       int64
+type GroupPermission struct {
+	GroupID       int64
 	PermissionID int64
 }
 
-type UserRole struct {
+type UserGroup struct {
 	UserID int64
-	RoleID int64
+	GroupID int64
 }

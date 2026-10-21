@@ -1,0 +1,464 @@
+package webdav
+
+import (
+	"MyServer/internal/common"
+	vfs "MyServer/internal/vfs/v2"
+	"bytes"
+	"context"
+	"os"
+	"reflect"
+	"testing"
+)
+
+type fakeFrontend struct {
+	seen        []common.CanonURI
+	statuses    map[common.CanonURI]string
+	infos       map[common.CanonURI]string
+	statErrors  map[common.CanonURI]error
+	connections []*vfs.Node
+}
+
+func (f *fakeFrontend) Stat(ctx context.Context, actor vfs.Actor, uri common.CanonURI) (*vfs.Node, error) {
+	f.seen = append(f.seen, uri)
+	if err, ok := f.statErrors[uri]; ok {
+		return nil, err
+	}
+	if uri == mustURINoT("scopes@scopes[system]:///scopes/system/connections/debug@1") {
+		return &vfs.Node{Name: "debug@1", Kind: "connection", IsDir: true}, nil
+	}
+	if uri == mustURINoT("scopes@scopes[system]:///scopes/system/connections/scopes@scopes") {
+		return &vfs.Node{Name: "scopes@scopes", Kind: "connection", IsDir: true}, nil
+	}
+	if uri.Path() == "/info.json" {
+		return &vfs.Node{Name: "info.json", Kind: "file", Size: 2}, nil
+	}
+	return &vfs.Node{Name: "docs", IsDir: true}, nil
+}
+
+func (f *fakeFrontend) ReadDir(ctx context.Context, actor vfs.Actor, uri common.CanonURI) ([]*vfs.Node, error) {
+	f.seen = append(f.seen, uri)
+	switch uri {
+	case mustURINoT("scopes@scopes[system]:///scopes"):
+		return []*vfs.Node{{Name: "debug", IsDir: true}, {Name: "system", IsDir: true}}, nil
+	case mustURINoT("scopes@scopes[system]:///scopes/system/connections"):
+		if f.connections != nil {
+			return f.connections, nil
+		}
+		return []*vfs.Node{{Name: "debug@1", IsDir: true}, {Name: "scopes@scopes", IsDir: true}}, nil
+	}
+	return []*vfs.Node{{Name: "a.txt", Size: 10}}, nil
+}
+
+func (f *fakeFrontend) OpenFile(ctx context.Context, actor vfs.Actor, uri common.CanonURI, flag int) (vfs.File, error) {
+	f.seen = append(f.seen, uri)
+	if status, ok := f.statuses[uri]; ok {
+		return &staticFile{
+			Reader: bytes.NewReader([]byte(status)),
+			name:   pathBase(uri.Path()),
+			size:   int64(len(status)),
+		}, nil
+	}
+	if info, ok := f.infos[uri]; ok {
+		return &staticFile{
+			Reader: bytes.NewReader([]byte(info)),
+			name:   pathBase(uri.Path()),
+			size:   int64(len(info)),
+		}, nil
+	}
+	if uri == mustURINoT("scopes@scopes[system]:///me/default_scope.json") {
+		data := `{"scope_key":"system"}`
+		return &staticFile{
+			Reader: bytes.NewReader([]byte(data)),
+			name:   "default_scope.json",
+			size:   int64(len(data)),
+		}, nil
+	}
+	return nil, os.ErrNotExist
+}
+
+func (f *fakeFrontend) Mkdir(ctx context.Context, actor vfs.Actor, uri common.CanonURI) (*vfs.Node, error) {
+	f.seen = append(f.seen, uri)
+	return &vfs.Node{Name: "new", IsDir: true}, nil
+}
+
+func (f *fakeFrontend) Move(ctx context.Context, actor vfs.Actor, source common.CanonURI, target common.CanonURI) error {
+	f.seen = append(f.seen, source, target)
+	return nil
+}
+
+func (f *fakeFrontend) Delete(ctx context.Context, actor vfs.Actor, uri common.CanonURI) error {
+	f.seen = append(f.seen, uri)
+	return nil
+}
+
+func (f *fakeFrontend) Control(ctx context.Context, actor vfs.Actor, uri common.CanonURI, command string, input []byte) ([]byte, error) {
+	return nil, nil
+}
+
+type staticFile struct {
+	*bytes.Reader
+	name string
+	size int64
+}
+
+func (f *staticFile) Write(p []byte) (int, error) {
+	return 0, os.ErrInvalid
+}
+
+func (f *staticFile) Close() error {
+	return nil
+}
+
+func (f *staticFile) Stat() (os.FileInfo, error) {
+	return newFileInfo(f.name, &vfs.Node{Name: f.name, Size: f.size}), nil
+}
+
+func pathBase(value string) string {
+	if value == "" || value == "/" {
+		return "/"
+	}
+	index := len(value) - 1
+	for index > 0 && value[index] == '/' {
+		index--
+	}
+	end := index + 1
+	for index >= 0 && value[index] != '/' {
+		index--
+	}
+	return value[index+1 : end]
+}
+
+func TestAdapterJoinsDAVPathToBaseURI(t *testing.T) {
+	frontend := &fakeFrontend{}
+	adapter, err := NewWebDAVAdapter(frontend, vfs.Actor{Kind: vfs.ActorUser, ID: "1"}, mustURI(t, "debug@default[debug]:///root"))
+	if err != nil {
+		t.Fatalf("NewWebDAVAdapter() error = %v", err)
+	}
+
+	if _, err := adapter.Stat(context.Background(), "/docs"); err != nil {
+		t.Fatalf("Stat() error = %v", err)
+	}
+	if err := adapter.Mkdir(context.Background(), "new", 0755); err != nil {
+		t.Fatalf("Mkdir() error = %v", err)
+	}
+
+	want := []common.CanonURI{
+		mustURI(t, "debug@default[debug]:///root/docs"),
+		mustURI(t, "debug@default[debug]:///root/new"),
+	}
+	if !reflect.DeepEqual(frontend.seen, want) {
+		t.Fatalf("seen URIs = %#v, want %#v", frontend.seen, want)
+	}
+}
+
+func TestRootAdapterListsScopesAndConnections(t *testing.T) {
+	frontend := rootAdapterFakeFrontend(t)
+	adapter, err := NewWebDAVRootAdapter(frontend, vfs.Actor{Kind: vfs.ActorUser, ID: "1"}, mustURI(t, "scopes@scopes[system]:///"))
+	if err != nil {
+		t.Fatalf("NewWebDAVRootAdapter() error = %v", err)
+	}
+
+	root, err := adapter.OpenFile(context.Background(), "/", os.O_RDONLY, 0)
+	if err != nil {
+		t.Fatalf("OpenFile(/) error = %v", err)
+	}
+	rootEntries, err := root.Readdir(0)
+	if err != nil {
+		t.Fatalf("root Readdir() error = %v", err)
+	}
+	if got, want := names(rootEntries), []string{".system", "Home", "debug"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("root entries = %+v, want %+v", got, want)
+	}
+
+	scopeDir, err := adapter.OpenFile(context.Background(), "/.system", os.O_RDONLY, 0)
+	if err != nil {
+		t.Fatalf("OpenFile(/system) error = %v", err)
+	}
+	scopeEntries, err := scopeDir.Readdir(0)
+	if err != nil {
+		t.Fatalf("scope Readdir() error = %v", err)
+	}
+	if got, want := names(scopeEntries), []string{"1", "scopes"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("scope entries = %+v, want %+v", got, want)
+	}
+}
+
+func TestRootAdapterHomeListsDefaultScopeConnections(t *testing.T) {
+	frontend := rootAdapterFakeFrontend(t)
+	adapter, err := NewWebDAVRootAdapter(frontend, vfs.Actor{Kind: vfs.ActorUser, ID: "1"}, mustURI(t, "scopes@scopes[system]:///"))
+	if err != nil {
+		t.Fatalf("NewWebDAVRootAdapter() error = %v", err)
+	}
+
+	homeDir, err := adapter.OpenFile(context.Background(), "/Home", os.O_RDONLY, 0)
+	if err != nil {
+		t.Fatalf("OpenFile(Home) error = %v", err)
+	}
+	entries, err := homeDir.Readdir(0)
+	if err != nil {
+		t.Fatalf("Home Readdir() error = %v", err)
+	}
+	if got, want := names(entries), []string{"1", "scopes"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("Home entries = %+v, want %+v", got, want)
+	}
+
+	want := []common.CanonURI{
+		mustURI(t, "scopes@scopes[system]:///me/default_scope.json"),
+		mustURI(t, "scopes@scopes[system]:///scopes/system/connections"),
+		mustURI(t, "scopes@scopes[system]:///scopes/system/connections/debug@1/status.json"),
+		mustURI(t, "debug@1[system]:///"),
+		mustURI(t, "scopes@scopes[system]:///scopes/system/connections/debug@1/info.json"),
+		mustURI(t, "scopes@scopes[system]:///scopes/system/connections/scopes@scopes/status.json"),
+		mustURI(t, "scopes@scopes[system]:///"),
+		mustURI(t, "scopes@scopes[system]:///scopes/system/connections/scopes@scopes/info.json"),
+	}
+	if !reflect.DeepEqual(frontend.seen, want) {
+		t.Fatalf("seen URIs = %#v, want %#v", frontend.seen, want)
+	}
+}
+
+func TestRootAdapterHomePathMapsToDefaultScope(t *testing.T) {
+	frontend := rootAdapterFakeFrontend(t)
+	adapter, err := NewWebDAVRootAdapter(frontend, vfs.Actor{Kind: vfs.ActorUser, ID: "1"}, mustURI(t, "scopes@scopes[system]:///"))
+	if err != nil {
+		t.Fatalf("NewWebDAVRootAdapter() error = %v", err)
+	}
+
+	if _, err := adapter.Stat(context.Background(), "/Home/scopes/info.json"); err != nil {
+		t.Fatalf("Stat(Home mounted path) error = %v", err)
+	}
+
+	want := []common.CanonURI{
+		mustURI(t, "scopes@scopes[system]:///me/default_scope.json"),
+		mustURI(t, "scopes@scopes[system]:///scopes/system/connections"),
+		mustURI(t, "scopes@scopes[system]:///scopes/system/connections/debug@1/info.json"),
+		mustURI(t, "scopes@scopes[system]:///info.json"),
+	}
+	if !reflect.DeepEqual(frontend.seen, want) {
+		t.Fatalf("seen URIs = %#v, want %#v", frontend.seen, want)
+	}
+}
+
+func TestRootAdapterStatsConnectionMountThroughScopesProvider(t *testing.T) {
+	frontend := rootAdapterFakeFrontend(t)
+	adapter, err := NewWebDAVRootAdapter(frontend, vfs.Actor{Kind: vfs.ActorUser, ID: "1"}, mustURI(t, "scopes@scopes[system]:///"))
+	if err != nil {
+		t.Fatalf("NewWebDAVRootAdapter() error = %v", err)
+	}
+
+	info, err := adapter.Stat(context.Background(), "/.system/1")
+	if err != nil {
+		t.Fatalf("Stat(connection mountpoint) error = %v", err)
+	}
+	if info.Name() != "1" || !info.IsDir() {
+		t.Fatalf("Stat(connection mountpoint) = %+v, want 1 dir", info)
+	}
+
+	want := []common.CanonURI{
+		mustURI(t, "scopes@scopes[system]:///scopes/system/connections"),
+		mustURI(t, "scopes@scopes[system]:///scopes/system/connections/debug@1"),
+		mustURI(t, "scopes@scopes[system]:///scopes/system/connections/debug@1/status.json"),
+	}
+	if !reflect.DeepEqual(frontend.seen, want) {
+		t.Fatalf("seen URIs = %#v, want %#v", frontend.seen, want)
+	}
+}
+
+func TestRootAdapterResolvesConnectionDisplayName(t *testing.T) {
+	frontend := &fakeFrontend{
+		connections: []*vfs.Node{{Name: "debug@conn-1", IsDir: true}},
+		statuses: map[common.CanonURI]string{
+			mustURI(t, "scopes@scopes[system]:///scopes/system/connections/debug@conn-1/status.json"): `{"status":"active","ready":true}`,
+		},
+		infos: map[common.CanonURI]string{
+			mustURI(t, "scopes@scopes[system]:///scopes/system/connections/debug@conn-1/info.json"): `{"provider_key":"debug","connection_key":"conn-1","display_name":"Мои файлы"}`,
+		},
+	}
+	adapter, err := NewWebDAVRootAdapter(frontend, vfs.Actor{Kind: vfs.ActorUser, ID: "1"}, mustURI(t, "scopes@scopes[system]:///"))
+	if err != nil {
+		t.Fatalf("NewWebDAVRootAdapter() error = %v", err)
+	}
+
+	if _, err := adapter.Stat(context.Background(), "/.system/Мои файлы/info.json"); err != nil {
+		t.Fatalf("Stat(display name path) error = %v", err)
+	}
+
+	want := []common.CanonURI{
+		mustURI(t, "scopes@scopes[system]:///scopes/system/connections"),
+		mustURI(t, "scopes@scopes[system]:///scopes/system/connections/debug@conn-1/info.json"),
+		mustURI(t, "debug@conn-1[system]:///info.json"),
+	}
+	if !reflect.DeepEqual(frontend.seen, want) {
+		t.Fatalf("seen URIs = %#v, want %#v", frontend.seen, want)
+	}
+}
+
+func TestRootAdapterCreatesConnectionThroughScopesProvider(t *testing.T) {
+	frontend := &fakeFrontend{}
+	adapter, err := NewWebDAVRootAdapter(frontend, vfs.Actor{Kind: vfs.ActorUser, ID: "1"}, mustURI(t, "scopes@scopes[system]:///"))
+	if err != nil {
+		t.Fatalf("NewWebDAVRootAdapter() error = %v", err)
+	}
+
+	if err := adapter.Mkdir(context.Background(), "/.system/debug@Мои файлы", 0755); err != nil {
+		t.Fatalf("Mkdir(connection display name) error = %v", err)
+	}
+
+	want := []common.CanonURI{
+		mustURI(t, "scopes@scopes[system]:///scopes/system/connections/debug@Мои файлы"),
+	}
+	if !reflect.DeepEqual(frontend.seen, want) {
+		t.Fatalf("seen URIs = %#v, want %#v", frontend.seen, want)
+	}
+}
+
+func TestRootAdapterRenamesConnectionDisplayNameThroughScopesProvider(t *testing.T) {
+	frontend := rootAdapterFakeFrontend(t)
+	adapter, err := NewWebDAVRootAdapter(frontend, vfs.Actor{Kind: vfs.ActorUser, ID: "1"}, mustURI(t, "scopes@scopes[system]:///"))
+	if err != nil {
+		t.Fatalf("NewWebDAVRootAdapter() error = %v", err)
+	}
+
+	if err := adapter.Rename(context.Background(), "/.system/1", "/.system/Работа"); err != nil {
+		t.Fatalf("Rename(connection display name) error = %v", err)
+	}
+
+	want := []common.CanonURI{
+		mustURI(t, "scopes@scopes[system]:///scopes/system/connections"),
+		mustURI(t, "scopes@scopes[system]:///scopes/system/connections/debug@1"),
+		mustURI(t, "scopes@scopes[system]:///scopes/system/connections/Работа"),
+	}
+	if !reflect.DeepEqual(frontend.seen, want) {
+		t.Fatalf("seen URIs = %#v, want %#v", frontend.seen, want)
+	}
+}
+
+func TestRootAdapterHidesInactiveConnectionMount(t *testing.T) {
+	frontend := &fakeFrontend{statuses: map[common.CanonURI]string{
+		mustURI(t, "scopes@scopes[system]:///scopes/system/connections/debug@1/status.json"):       `{"status":"inactive","ready":false}`,
+		mustURI(t, "scopes@scopes[system]:///scopes/system/connections/scopes@scopes/status.json"): `{"status":"active","ready":true}`,
+	}, infos: map[common.CanonURI]string{
+		mustURI(t, "scopes@scopes[system]:///scopes/system/connections/debug@1/info.json"):       `{"provider_key":"debug","connection_key":"1","display_name":"1"}`,
+		mustURI(t, "scopes@scopes[system]:///scopes/system/connections/scopes@scopes/info.json"): `{"provider_key":"scopes","connection_key":"scopes","display_name":"scopes"}`,
+	}}
+	adapter, err := NewWebDAVRootAdapter(frontend, vfs.Actor{Kind: vfs.ActorUser, ID: "1"}, mustURI(t, "scopes@scopes[system]:///"))
+	if err != nil {
+		t.Fatalf("NewWebDAVRootAdapter() error = %v", err)
+	}
+
+	scopeDir, err := adapter.OpenFile(context.Background(), "/.system", os.O_RDONLY, 0)
+	if err != nil {
+		t.Fatalf("OpenFile(/.system) error = %v", err)
+	}
+	scopeEntries, err := scopeDir.Readdir(0)
+	if err != nil {
+		t.Fatalf("scope Readdir() error = %v", err)
+	}
+	if got, want := names(scopeEntries), []string{"scopes"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("scope entries = %+v, want %+v", got, want)
+	}
+
+	if _, err := adapter.Stat(context.Background(), "/.system/1"); !errorsIsNotExist(err) {
+		t.Fatalf("Stat(inactive connection) error = %v, want not exist", err)
+	}
+}
+
+func TestRootAdapterSkipsBrokenConnectionMount(t *testing.T) {
+	frontend := &fakeFrontend{
+		statuses: map[common.CanonURI]string{
+			mustURI(t, "scopes@scopes[system]:///scopes/system/connections/debug@1/status.json"): `{"status":"active","ready":true}`,
+			mustURI(t, "scopes@scopes[system]:///scopes/system/connections/local@2/status.json"): `{"status":"active","ready":true}`,
+		},
+		infos: map[common.CanonURI]string{
+			mustURI(t, "scopes@scopes[system]:///scopes/system/connections/debug@1/info.json"): `{"provider_key":"debug","connection_key":"1","display_name":"Дебаг"}`,
+			mustURI(t, "scopes@scopes[system]:///scopes/system/connections/local@2/info.json"): `{"provider_key":"local","connection_key":"2","display_name":"2"}`,
+		},
+		statErrors: map[common.CanonURI]error{
+			mustURI(t, "local@2[system]:///"): os.ErrNotExist,
+		},
+		connections: []*vfs.Node{
+			{Name: "debug@1", IsDir: true},
+			{Name: "local@2", IsDir: true},
+		},
+	}
+	adapter, err := NewWebDAVRootAdapter(frontend, vfs.Actor{Kind: vfs.ActorUser, ID: "1"}, mustURI(t, "scopes@scopes[system]:///"))
+	if err != nil {
+		t.Fatalf("NewWebDAVRootAdapter() error = %v", err)
+	}
+
+	scopeDir, err := adapter.OpenFile(context.Background(), "/.system", os.O_RDONLY, 0)
+	if err != nil {
+		t.Fatalf("OpenFile(/.system) error = %v", err)
+	}
+	scopeEntries, err := scopeDir.Readdir(0)
+	if err != nil {
+		t.Fatalf("scope Readdir() error = %v", err)
+	}
+	if got, want := names(scopeEntries), []string{"Дебаг"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("scope entries = %+v, want %+v", got, want)
+	}
+}
+
+func TestRootAdapterTranslatesMountedPathToCanonURI(t *testing.T) {
+	frontend := rootAdapterFakeFrontend(t)
+	adapter, err := NewWebDAVRootAdapter(frontend, vfs.Actor{Kind: vfs.ActorUser, ID: "1"}, mustURI(t, "scopes@scopes[system]:///"))
+	if err != nil {
+		t.Fatalf("NewWebDAVRootAdapter() error = %v", err)
+	}
+
+	if _, err := adapter.Stat(context.Background(), "/.system/scopes/info.json"); err != nil {
+		t.Fatalf("Stat(mapped path) error = %v", err)
+	}
+
+	want := []common.CanonURI{
+		mustURI(t, "scopes@scopes[system]:///scopes/system/connections"),
+		mustURI(t, "scopes@scopes[system]:///scopes/system/connections/debug@1/info.json"),
+		mustURI(t, "scopes@scopes[system]:///info.json"),
+	}
+	if !reflect.DeepEqual(frontend.seen, want) {
+		t.Fatalf("seen URIs = %#v, want %#v", frontend.seen, want)
+	}
+}
+
+func rootAdapterFakeFrontend(t *testing.T) *fakeFrontend {
+	t.Helper()
+	return &fakeFrontend{
+		statuses: map[common.CanonURI]string{
+			mustURI(t, "scopes@scopes[system]:///scopes/system/connections/debug@1/status.json"):       `{"status":"active","ready":true}`,
+			mustURI(t, "scopes@scopes[system]:///scopes/system/connections/scopes@scopes/status.json"): `{"status":"active","ready":true}`,
+		},
+		infos: map[common.CanonURI]string{
+			mustURI(t, "scopes@scopes[system]:///scopes/system/connections/debug@1/info.json"):       `{"provider_key":"debug","connection_key":"1","display_name":"1"}`,
+			mustURI(t, "scopes@scopes[system]:///scopes/system/connections/scopes@scopes/info.json"): `{"provider_key":"scopes","connection_key":"scopes","display_name":"scopes"}`,
+		},
+	}
+}
+
+func names(infos []os.FileInfo) []string {
+	out := make([]string, 0, len(infos))
+	for _, info := range infos {
+		out = append(out, info.Name())
+	}
+	return out
+}
+
+func errorsIsNotExist(err error) bool {
+	return err != nil && os.IsNotExist(err)
+}
+
+func mustURI(t *testing.T, raw string) common.CanonURI {
+	t.Helper()
+	uri, err := common.CastURI(raw)
+	if err != nil {
+		t.Fatalf("CastURI(%q) error = %v", raw, err)
+	}
+	return uri
+}
+
+func mustURINoT(raw string) common.CanonURI {
+	uri, err := common.CastURI(raw)
+	if err != nil {
+		panic(err)
+	}
+	return uri
+}

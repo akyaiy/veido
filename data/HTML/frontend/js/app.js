@@ -2,7 +2,7 @@
  *  access-token хранится только в памяти (без localStorage)
  **********************************************************************/
 let accessToken = null;   
-let spritePath = './static/img/icons.svg';
+let spritePath = '/_static/img/icons.svg';
 let tokenWriting = null; // флаг блокировки refresh
 
 const auth = {
@@ -574,7 +574,7 @@ async function loadBlock(path, target, itemsHowText = false) {
         const response = await apiProtected(`/api/HTML/${blockName}`, { method: "GET" });
 
         if (!window.markdownit) {
-            await loadMdScript('/js/markdown-it.min.js');
+            await loadMdScript('/_static/vendor/markdown-it.min.js');
         }
         const { content: mdContent, css, js } = response;
         
@@ -605,7 +605,22 @@ async function loadBlock(path, target, itemsHowText = false) {
             }
         }
 
-        // Вставка JS в нужный документ
+        // Добавление JS блока через import()
+        if (mode === 'importJs') {
+            if (js) {
+                const blob = new Blob([js], { type: 'text/javascript' });
+                const moduleUrl = URL.createObjectURL(blob);
+                try {
+                    const mod = await import(moduleUrl);
+                    return mod;
+                } finally {
+                    URL.revokeObjectURL(moduleUrl);
+                }
+            }
+            return response;
+        }
+        
+        // Добавление JS блока
         if (js) {
             if (itemsHowText) {
                 const jsDiv = doc.getElementById(block_Name.replace(/Html$/, 'Js'));
@@ -695,7 +710,7 @@ window.addEventListener("click", (event) => {
  * Переключение видимости пароля
  *****************************************************************************/
 class PasswordToggle {
-    //static spritePath = './static/img/icons.svg';
+    //static spritePath = '/_static/img/icons.svg';
 
     static init(root = document) {
         root.querySelectorAll('input[type="password"]:not([data-pass-init])')
