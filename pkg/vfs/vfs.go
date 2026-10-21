@@ -32,6 +32,7 @@ type Action = common.Action
 type Error = core.Error
 type ErrorKind = core.ErrorKind
 type Operation = core.Operation
+type PublicErrorDetails = core.PublicErrorDetails
 
 const (
 	ActorUser              = core.ActorUser
@@ -66,6 +67,7 @@ var (
 	ParseURI                  = common.CastURI
 	NewError                  = core.NewError
 	KindOf                    = core.KindOf
+	PublicDetailsOf           = core.PublicDetailsOf
 	FinishWrite               = core.FinishWrite
 	RequestContextFromContext = core.RequestContextFromContext
 	ContextWithRequestContext = core.ContextWithRequestContext

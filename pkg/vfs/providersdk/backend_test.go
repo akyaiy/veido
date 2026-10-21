@@ -171,3 +171,25 @@ func TestMountKeepsSelfURIPrefix(t *testing.T) {
 		t.Fatalf("mount SelfURI=%s error=%v", data, err)
 	}
 }
+
+func TestMissingDynamicMountIsOmittedFromParentListing(t *testing.T) {
+	tree := sdk.New()
+	tree.Root().Metadata(func(context.Context, sdk.Request, sdk.Unit) (*vfs.Node, error) {
+		return nil, os.ErrNotExist
+	})
+	missing, err := tree.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider, err := sdk.Compose(sdk.FromFS(fstest.MapFS{}), sdk.Mount{Path: "/dynamic", Provider: missing})
+	if err != nil {
+		t.Fatal(err)
+	}
+	nodes, err := provider.ReadDir(context.Background(), "/")
+	if err != nil || len(nodes) != 0 {
+		t.Fatalf("root listing = %+v, %v; want empty", nodes, err)
+	}
+	if _, err := provider.Stat(context.Background(), "/dynamic"); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("dynamic mount stat = %v, want not exist", err)
+	}
+}

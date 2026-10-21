@@ -71,8 +71,6 @@ select:focus {border-color: #7f57ff; box-shadow: 0 0 0 2px rgba(127, 87, 255, 0.
   fill:none;
   stroke-width: 2px; /*Увеличиваем толщину для видимости */
 }
-
-
 .pass-wrap {
     position: relative;
     display: inline-block;

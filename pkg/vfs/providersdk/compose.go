@@ -140,6 +140,9 @@ func (c *composite) ReadDir(ctx context.Context, raw string) ([]*vfs.Node, error
 	for _, m := range c.mounts {
 		if path.Dir(m.Path) == clean(raw) && !m.Hidden {
 			n, err := c.Stat(ctx, m.Path)
+			if errors.Is(err, os.ErrNotExist) || errors.Is(err, vfs.ErrNotFound) {
+				continue
+			}
 			if err != nil {
 				return nil, err
 			}

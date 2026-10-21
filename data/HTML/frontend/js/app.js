@@ -2,7 +2,7 @@
  *  access-token хранится только в памяти (без localStorage)
  **********************************************************************/
 let accessToken = null;   
-let spritePath = './static/img/icons.svg';
+let spritePath = '/_static/img/icons.svg';
 let tokenWriting = null; // флаг блокировки refresh
 
 const auth = {
@@ -583,7 +583,7 @@ async function loadBlock(path, block_Name, itemsHowText = null, mode = null) {
         const response = await apiProtected(`/api/HTML/${blockName}`, {method: "GET"});
         // Динамически подгружаем markdown-it, если он ещё не загружен
         if (!window.markdownit) {
-            await loadMdScript('/js/markdown-it.min.js');
+            await loadMdScript('/_static/vendor/markdown-it.min.js');
         }
         const { content: mdContent, css, js } = response;
        // Преобразуем markdown в HTML
@@ -675,7 +675,7 @@ window.addEventListener("click", (event) => {
  * Переключение видимости пароля
  *****************************************************************************/
 class PasswordToggle {
-    //static spritePath = './static/img/icons.svg';
+    //static spritePath = '/_static/img/icons.svg';
 
     static init(root = document) {
         root.querySelectorAll('input[type="password"]:not([data-pass-init])')

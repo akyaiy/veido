@@ -65,25 +65,31 @@ func (d Definition[C]) Config(ctx context.Context, data []byte) (C, error) {
 
 func (d Definition[C]) Factory() vfs.ProviderFactory {
 	return func(ctx context.Context, connection vfs.ProviderConnection) (vfs.FSProvider, error) {
-		if !validName(d.Key) || d.Open == nil {
-			return nil, fmt.Errorf("%w: invalid provider definition", vfs.ErrInvalidArgument)
-		}
-		if connection.ProviderKey != d.Key {
-			return nil, fmt.Errorf("%w: provider key mismatch", vfs.ErrInvalidArgument)
-		}
-		if _, err := (vfs.ResourceAddress{ProviderKey: d.Key, ConnectionKey: "default", ScopeKey: "dev", Path: "/"}).URI(); err != nil {
-			return nil, err
-		}
-		cfg, err := d.Config(ctx, connection.Config)
-		if err != nil {
-			return nil, err
-		}
-		p, err := d.Open(ctx, connection, cfg)
-		if err == nil && p == nil {
-			return nil, fmt.Errorf("%w: nil provider", vfs.ErrInternal)
-		}
-		return p, err
+		provider, _, err := d.open(ctx, connection)
+		return provider, err
 	}
+}
+
+func (d Definition[C]) open(ctx context.Context, connection vfs.ProviderConnection) (vfs.FSProvider, C, error) {
+	var zero C
+	if !validName(d.Key) || d.Open == nil {
+		return nil, zero, fmt.Errorf("%w: invalid provider definition", vfs.ErrInvalidArgument)
+	}
+	if connection.ProviderKey != d.Key {
+		return nil, zero, fmt.Errorf("%w: provider key mismatch", vfs.ErrInvalidArgument)
+	}
+	if _, err := (vfs.ResourceAddress{ProviderKey: d.Key, ConnectionKey: "default", ScopeKey: "dev", Path: "/"}).URI(); err != nil {
+		return nil, zero, err
+	}
+	cfg, err := d.Config(ctx, connection.Config)
+	if err != nil {
+		return nil, zero, err
+	}
+	provider, err := d.Open(ctx, connection, cfg)
+	if err == nil && provider == nil {
+		return nil, zero, fmt.Errorf("%w: nil provider", vfs.ErrInternal)
+	}
+	return provider, cfg, err
 }
 
 func (d Definition[C]) CheckConfig(ctx context.Context, data []byte) error {

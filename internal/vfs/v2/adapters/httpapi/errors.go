@@ -31,6 +31,7 @@ type errorDescriptor struct {
 	code      string
 	message   string
 	operation v2.Operation
+	details   map[string]any
 }
 
 func classifyError(err error) errorDescriptor {
@@ -51,6 +52,10 @@ func classifyError(err error) errorDescriptor {
 		if vfsErr.Message != "" {
 			descriptor.message = vfsErr.Message
 		}
+	}
+	if code, details, found := v2.PublicDetailsOf(err); found {
+		descriptor.code = code
+		descriptor.details = details
 	}
 	return descriptor
 }
@@ -79,29 +84,29 @@ func legacyErrorKind(err error) v2.ErrorKind {
 func descriptorForKind(kind v2.ErrorKind) errorDescriptor {
 	switch kind {
 	case v2.KindInvalidArgument:
-		return errorDescriptor{http.StatusBadRequest, string(kind), "invalid argument", v2.OpUnknown}
+		return errorDescriptor{status: http.StatusBadRequest, code: string(kind), message: "invalid argument", operation: v2.OpUnknown}
 	case v2.KindNotFound:
-		return errorDescriptor{http.StatusNotFound, string(kind), "resource not found", v2.OpUnknown}
+		return errorDescriptor{status: http.StatusNotFound, code: string(kind), message: "resource not found", operation: v2.OpUnknown}
 	case v2.KindAlreadyExists:
-		return errorDescriptor{http.StatusConflict, string(kind), "resource already exists", v2.OpUnknown}
+		return errorDescriptor{status: http.StatusConflict, code: string(kind), message: "resource already exists", operation: v2.OpUnknown}
 	case v2.KindPermissionDenied:
-		return errorDescriptor{http.StatusForbidden, string(kind), "permission denied", v2.OpUnknown}
+		return errorDescriptor{status: http.StatusForbidden, code: string(kind), message: "permission denied", operation: v2.OpUnknown}
 	case v2.KindConflict:
-		return errorDescriptor{http.StatusConflict, string(kind), "resource conflict", v2.OpUnknown}
+		return errorDescriptor{status: http.StatusConflict, code: string(kind), message: "resource conflict", operation: v2.OpUnknown}
 	case v2.KindFailedPrecondition:
-		return errorDescriptor{http.StatusConflict, string(kind), "failed precondition", v2.OpUnknown}
+		return errorDescriptor{status: http.StatusConflict, code: string(kind), message: "failed precondition", operation: v2.OpUnknown}
 	case v2.KindResourceExhausted:
-		return errorDescriptor{http.StatusTooManyRequests, string(kind), "resource exhausted", v2.OpUnknown}
+		return errorDescriptor{status: http.StatusTooManyRequests, code: string(kind), message: "resource exhausted", operation: v2.OpUnknown}
 	case v2.KindUnsupported:
-		return errorDescriptor{http.StatusNotImplemented, string(kind), "unsupported operation", v2.OpUnknown}
+		return errorDescriptor{status: http.StatusNotImplemented, code: string(kind), message: "unsupported operation", operation: v2.OpUnknown}
 	case v2.KindUnavailable:
-		return errorDescriptor{http.StatusServiceUnavailable, string(kind), "service unavailable", v2.OpUnknown}
+		return errorDescriptor{status: http.StatusServiceUnavailable, code: string(kind), message: "service unavailable", operation: v2.OpUnknown}
 	case v2.KindCanceled:
-		return errorDescriptor{http.StatusRequestTimeout, string(kind), "operation canceled", v2.OpUnknown}
+		return errorDescriptor{status: http.StatusRequestTimeout, code: string(kind), message: "operation canceled", operation: v2.OpUnknown}
 	case v2.KindDeadlineExceeded:
-		return errorDescriptor{http.StatusGatewayTimeout, string(kind), "deadline exceeded", v2.OpUnknown}
+		return errorDescriptor{status: http.StatusGatewayTimeout, code: string(kind), message: "deadline exceeded", operation: v2.OpUnknown}
 	default:
-		return errorDescriptor{http.StatusInternalServerError, string(v2.KindInternal), "internal VFS error", v2.OpUnknown}
+		return errorDescriptor{status: http.StatusInternalServerError, code: string(v2.KindInternal), message: "internal VFS error", operation: v2.OpUnknown}
 	}
 }
 
@@ -116,5 +121,6 @@ func (h *Handler) writeError(w http.ResponseWriter, r *http.Request, err error) 
 		Message:   descriptor.message,
 		Operation: descriptor.operation,
 		RequestID: requestID,
+		Details:   descriptor.details,
 	}})
 }

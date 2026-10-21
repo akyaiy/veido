@@ -21,6 +21,15 @@ type CollectionSpec[P, T any] struct {
 // Collection creates a directory and returns its dynamic item resource.
 // Children declared on the returned resource share its loaded item per call.
 func Collection[P, T any](parent *Resource[P], name, param string, spec CollectionSpec[P, T]) *Resource[T] {
+	_, item := CollectionResources(parent, name, param, spec)
+	return item
+}
+
+// CollectionResources is the command-friendly form of Collection. It returns
+// both the collection directory and its dynamic item so callers can attach
+// commands to the directory (for example, "create") without abandoning the
+// typed tree.
+func CollectionResources[P, T any](parent *Resource[P], name, param string, spec CollectionSpec[P, T]) (*Resource[P], *Resource[T]) {
 	dir := Directory(parent, name)
 	if !validName(param) || strings.Contains(parent.entry.pattern, "{"+param+"}") {
 		parent.tree.err = errors.Join(parent.tree.err, fmt.Errorf("invalid or repeated parameter %q", param))
@@ -69,7 +78,7 @@ func Collection[P, T any](parent *Resource[P], name, param string, spec Collecti
 		sort.Slice(nodes, func(i, j int) bool { return nodes[i].Name < nodes[j].Name })
 		return nodes, nil
 	}
-	return item
+	return dir, item
 }
 
 func collectionNode(node *vfs.Node) (*vfs.Node, error) {

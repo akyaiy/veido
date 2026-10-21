@@ -1,9 +1,10 @@
 # ADR-007: HTML Provider как метадоменная проекция файлов сайта
 
 > Статус: предложенное целевое архитектурное решение, не описание готовой реализации.  
+> Статус реализации на 20 октября 2026 года: в процессе; реализованы provider-local модели, schema v4 с миграциями `source_uri` → `bundle_root_uri`, legacy visibility и immutable application templates, `PageService`, typed VFS-проекция, `initialize`, publisher roots, безопасный `create` и обязательная node visibility для всех уже проецируемых сущностей (`site`, `publisher`, `page`). Создание metadata и initial visibility атомарно; поддержаны `all`, `guest`, exact trusted actor, optimistic revisions, фильтрация lookup/list/`tree.json` и скрытие поддерева невидимого parent. Через actor-bound `BoundVFS` при создании проверяются каталог bundle и обязательные `content.md`, `style.css`, `script.js`; `info.json` возвращает канонический `bundle_root_uri`, а physical source читается напрямую через VFS Core. Editor slice предоставляет actor-filtered read-only `editor/model.xml` и writable `editor/layout.xml`: реализованы детерминированные codecs, XML security/limits, сохранение layout невидимых страниц, атомарный Store CAS и публичный `layout_revision_conflict`. Template slice предоставляет атомарный `Control(/templates, "install", ...)`, content-addressed blobs, строгий manifest allowlist и read-only VFS-проекцию `/templates/<key>/<version>/{manifest.json,files/...}`. Application-level builder безопасно собирает reviewed allowlist `default-spa/7` из `data/HTML/frontend`, запрещает symlink/traversal и устанавливает package через публичный VFS в demo bootstrap. Общий Hook SDK/Registry/Runtime foundation из ADR-008 реализован отдельно от HTML-домена; HTML `providersdk.Module` регистрирует read-only `get-static` и `get-page` вместе с provider factory и создаёт site bindings при открытии connection. Adapter вызывает hooks через canonical site URI и key, не зная внутренних binding keys. `get-static` выбирает последнюю установленную версию bound template key, читает только manifest-listed asset через actor-bound VFS, проверяет фактические size/SHA-256 и возвращает content с HTTP metadata. Demo Site HTTP slice выдаёт точный `/` и unversioned `/_static/*` через `get-static`, а остальные browser paths передаёт `get-page`; тот разрешает одно- и многосегментную цепочку slug по actor-filtered `tree.json`, возвращает SPA entrypoint и actor-filtered bootstrap (`site_name`, page metadata и `bundle_root_uri`) только для существующей Page и 404 для неизвестного маршрута. Adapter безопасно встраивает bootstrap в HTML и пересчитывает response ETag; browser runtime больше не повторяет `get-page` и не читает отдельно `site.json`/`info.json`, а сразу параллельно загружает три physical bundle-файла. Demo seed создаёт `/demo` с отдельным physical bundle; `/` сохраняет прежнее site-приложение. Bundle обычной страницы `demo` подключает рабочую панель управления site settings, страницами и physical bundles через публичные VFS-контракты. Unversioned static использует ETag с обязательной revalidation, без `immutable`. Filesystem/FileServer не используется; универсальный Hook HTTP endpoint также реализован. Active publication, поиск, publication/sitemap, production-регистрация, реальный ACL и lifecycle ещё отсутствуют. Отдельный `cmd/vfsv2html` предоставляет проверяемую demo-композицию.
 > Дата решения: 24 сентября 2026 года.  
 > Уточнено 26 сентября 2026 года: прямой VFS-контракт отделён от общих VFS hooks; добавлены режимы удаления поддерева, позиционные anchors и стратегия конфликтов редактора.  
-> Уточнено 29 сентября 2026 года: editor connections переведены на provider-local page IDs; добавлены versioned application templates, manifest-разрешённая статика и правила выдачи корня сайта.
+> Уточнено 29 сентября 2026 года: editor connections переведены на provider-local page IDs; добавлены versioned application templates, manifest-разрешённая статика и правила выдачи корня сайта. 3 октября 2026 года физическая модель Page/Block уточнена до bundle из `content.md`, `style.css`, `script.js`; отдельного `content.html` нет, HTML-фрагменты хранятся внутри Markdown. 4 октября 2026 года добавлена обязательная provider-owned проекция видимости узлов: без подходящей записи сущность не существует для actor, а ACL независимо ограничивает допустимые действия. 6 октября 2026 года VFS-проекция упрощена: HTML Provider публикует только metadata со ссылкой `bundle_root_uri`, не создаёт логические представления файлов bundle и не делегирует их чтение или запись.
 > Связанные документы: [практический план реализации](../VFS_V2_HTML_PROVIDER_IMPLEMENTATION_PLAN_RU.md), [контракт HTML-редактора](../HTML_EDITOR_CONTRACT_RU.md), [серверные хуки VFSv2](VFS_V2_SERVER_HOOKS_DECISION_RU.md), [Shared Provider](VFS_V2_SHARED_PROVIDER_DECISION_RU.md), [scope resolution](VFS_V2_SCOPE_RESOLUTION_DECISION_RU.md), [ACL lifecycle](ACL_LIFECYCLE_ARCHITECTURE_RU.md), [текущая реализация VFSv2](../VFS_V2_IMPLEMENTATION_RU.md), [концепция ACLv2](../ACL_V2_CONCEPT_RU.md).
 
 ## 1. Контекст
@@ -13,8 +14,8 @@
 находиться в разных файловых VFS-провайдерах:
 
 ```text
-local@alice[site-acme]:///website/pages/home.html
-s3@bob[site-acme]:///content/blocks/footer.html
+local@alice[site-acme]:///website/pages/home/{content.md,style.css,script.js}
+s3@bob[site-acme]:///content/blocks/footer/{content.md,style.css,script.js}
 ```
 
 HTML Provider не должен становиться ещё одним обязательным файловым backend и не
@@ -124,13 +125,14 @@ HTTP routes и не знает, была ли его команда вызван
 Системной идентичностью любого ресурса является канонический VFS URI:
 
 ```text
-html@site[site-acme]:///pages/home/source.html
-local@alice[site-acme]:///website/pages/home.html
+html@site[site-acme]:///pages/home/info.json
+local@alice[site-acme]:///website/pages/home/content.md
 ```
 
-Эти URI являются двумя разными ACL-ресурсами. Первый — логическая проекция HTML
-Provider, второй — физический файл. Наличие доступа к одному URI не предоставляет
-доступ ко второму.
+Первый URI адресует metadata HTML Provider, второй — физический файл файлового
+provider. HTML Provider не создаёт параллельный URI для байтов source. Клиент
+получает `bundle_root_uri` из metadata и обращается к дочерним physical URI через
+VFS Core; доступ к `info.json` не предоставляет доступ к физическим файлам.
 
 HTML Provider может использовать числовые ID, `page_key` и `block_key` внутри
 своего домена. Они:
@@ -163,6 +165,7 @@ type Site struct {
     ActivePublicationID *int64
     TreeRevision        int64
     ModelRevision       int64
+    VisibilityRevision  int64
 }
 ```
 
@@ -216,7 +219,7 @@ type Page struct {
     Position            int
     ThemeID              *int64
     PublisherSubjectKey string
-    SourceURI           string
+    BundleRootURI           string
     TemplateBlockID     *int64
     RootBlockID         *int64
     Revision             int64
@@ -225,10 +228,14 @@ type Page struct {
 }
 ```
 
-Для MVP страница может напрямую ссылаться на физический HTML-документ через
-`SourceURI`. Поля template/root позволяют позднее использовать композицию из
-блоков без изменения модели дерева. Допускается поэтапное внедрение: первая
-версия требует `SourceURI`, а композиционная страница добавляется после блоков.
+Для MVP страница ссылается через `BundleRootURI` на физический каталог. Ссылка
+возвращается в `info.json` и не превращается в отдельное файловое представление
+HTML Provider. В физическом каталоге
+обязательны три именованных артефакта контракта: `content.md`, `style.css`
+и `script.js`. `content.md` является единственным источником контента и может
+содержать inline HTML-фрагменты; отдельного `content.html` нет. Поля
+template/root позволяют позднее использовать композицию из блоков без изменения
+модели дерева.
 
 Значение полей:
 
@@ -300,8 +307,7 @@ type Block struct {
     Name                string
     Kind                string
     PublisherSubjectKey string
-    SourceURI           string
-    ViewURI             string
+    BundleRootURI           string
 }
 ```
 
@@ -315,8 +321,11 @@ widget
 fragment
 ```
 
-`ViewURI` необязателен. Если он отсутствует, MVP может отображать source как
-view, но при этом actor должен иметь доступ к тому же физическому ресурсу.
+Для Block действует тот же физический bundle-контракт, что и для Page:
+`content.md`, `style.css`, `script.js`. `meta.json` содержит ссылку на корень
+bundle, а операции над файлами выполняются по physical URI. Результат просмотра
+или публикации является отдельным
+производным артефактом публикации, а не четвёртым редактируемым файлом bundle.
 
 ### 5.5. Publication
 
@@ -459,6 +468,73 @@ type SiteSEO struct {
 `robots.txt` является конфигурационным документом HTML-домена и может храниться
 в HTML Store. Он не считается содержимым страницы или asset публикатора.
 
+### 5.10. NodeVisibility
+
+Каждая доменная сущность, проецируемая HTML Provider как VFS-узел, имеет явный
+набор получателей видимости. Запись видимости отвечает только на вопрос
+«существует ли этот узел в представлении данного actor» и не предоставляет
+права выполнить над ним действие.
+
+```go
+type NodeVisibility struct {
+    SiteID      int64
+    NodeKind    string
+    NodeKey     string
+    AudienceKey string
+    CreatedAt   time.Time
+}
+```
+
+`NodeKind` и `NodeKey` являются provider-local ссылкой на сущность. Они не
+становятся системной идентичностью ресурса: для ACL ею остаётся полный
+канонический VFS URI. Начальные `NodeKind`:
+
+```text
+site
+page
+block
+theme
+publisher
+publication
+```
+
+`AudienceKey` поддерживает:
+
+```text
+all       любой actor, включая guest
+guest     только неаутентифицированный actor
+user:17   точный доверенный subject текущего actor
+```
+
+Другие типы subject допускаются только тогда, когда они присутствуют в
+доверенном request context. HTML Provider не вызывает Auth service, не читает
+его таблицы и не вычисляет членство в группах самостоятельно. До появления
+такого kernel-контракта group selectors не принимаются.
+
+Узел видим, если существует хотя бы одна запись, подходящая actor. Если
+подходящей записи нет, HTML Provider ведёт себя так, будто сущность для actor не
+существует: `Stat`, `OpenFile`, `ReadDir`, document lookup и `Control` по этому
+узлу возвращают `not_found`. Это правило применяется не только при формировании
+списка и не может быть обойдено угадыванием `page_key` или `block_key`.
+
+Документы metadata, принадлежащие сущности, наследуют её visibility. Например,
+`info.json` страницы не требует отдельной строки и недоступен, если Page не
+видна actor. Physical `content.md`, `style.css` и `script.js` не входят в эту
+проекцию: их доступ определяет ACL файловых URI. Каталоги-коллекции `/pages`,
+`/blocks` и аналогичные показывают только видимых потомков.
+
+Для дерева Page действует дополнительное правило: Page эффективно видима,
+только если подходят записи самой Page и каждого её предка. Невидимый parent
+скрывает всё поддерево; HTML Provider не переподвешивает видимых потомков и не
+раскрывает их как корневые страницы.
+
+Создание сущности и её начального набора visibility выполняется одной локальной
+транзакцией. Команда создания обязана получить непустой `visible_to`; неявного
+добавления `all` или `guest` нет. Изменение набора выполняется отдельной
+идемпотентной командой `set-visibility` с optimistic revision. Для миграции
+существующих данных безопасный default — записи для owner сайта и publisher
+сущности; `all` и `guest` появляются только по явному решению.
+
 ## 6. Собственное хранилище HTML Provider
 
 HTML Provider использует собственный Store. Для первой реализации рекомендуется
@@ -470,6 +546,7 @@ html_publisher_roots
 html_pages
 html_page_types
 html_page_search_tags
+html_node_visibility
 html_blocks
 html_themes
 html_editor_layouts
@@ -485,10 +562,11 @@ html_operations
 | --- | --- |
 | `html_sites` | Название, владелец, выбранный application template и активная публикация |
 | `html_publisher_roots` | Публикатор и зарегистрированные канонические root URI |
-| `html_pages` | Дерево, page metadata и physical source URI |
+| `html_pages` | Дерево, page metadata и physical bundle root URI |
 | `html_page_types` | Семантические классы страниц |
 | `html_page_search_tags` | Теги страниц для поиска |
-| `html_blocks` | Block metadata, source URI и optional view URI |
+| `html_node_visibility` | Явная provider-owned проекция: какие subject selectors видят доменный узел |
+| `html_blocks` | Block metadata и physical bundle root URI |
 | `html_themes` | Темы и ссылки на физические stylesheet/template |
 | `html_editor_layouts` | Layout XML, визуальные параметры и layout revision |
 | `html_site_seo` | Содержимое `robots.txt` и SEO-настройки сайта |
@@ -501,16 +579,48 @@ html_operations
 принадлежат Hook Runtime и его Execution Store; HTML Provider не читает и не
 изменяет это хранилище.
 
+Минимальная схема visibility projection:
+
+```sql
+CREATE TABLE html_node_visibility (
+    site_id       INTEGER NOT NULL,
+    node_kind     TEXT NOT NULL,
+    node_key      TEXT NOT NULL,
+    audience_key  TEXT NOT NULL,
+    created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (site_id, node_kind, node_key, audience_key),
+    FOREIGN KEY (site_id) REFERENCES html_sites(id) ON DELETE CASCADE
+);
+```
+
+Store не делает join с Auth или ACL и не хранит здесь действия `r/w/x`.
+Domain service проверяет, что `(node_kind, node_key)` адресует сущность того же
+site, и каскадно очищает её visibility при удалении. Для каждой существующей
+сущности требуется хотя бы одна запись; отсутствие подходящей actor записи
+означает невидимость, а не разрешение по умолчанию.
+
 Байты application templates не сохраняются в metadata-таблицах. Установленный
 пакет принадлежит connection сайта и проецируется HTML Provider под
 `/templates/<key>/<version>`. Реализация может держать package bytes в своём
-blob-хранилище либо делегировать чтение на зарегистрированный source URI, но
+blob-хранилище либо делегировать чтение на зарегистрированный package URI, но
 это внутренняя деталь provider: его канонический VFS-адрес остаётся site-local.
 
 Таблицы HTML Provider не содержат байты HTML, CSS, JavaScript, изображений и
 других assets. Они не имеют foreign key на таблицы Auth, ACL, Scopes или
 файловых providers. `connection.ID` или эквивалентный локальный ключ используется
 для изоляции данных разных HTML connections.
+
+Schema v2 заменяет доменное поле `source_uri` на `bundle_root_uri`. Для legacy
+пути `.../home.html` metadata backfill вычисляет root `.../home`; старый столбец
+остаётся временной деталью совместимости и не публикуется в DTO. Эта SQL-миграция
+не переносит чужие физические байты: если legacy deployment уже содержит
+файлы, создание каталога, перенос содержимого в `content.md` и создание
+`style.css`/`script.js` выполняются отдельной actor-bound VFS-операцией с
+повторной ACL-проверкой, после чего reconciliation подтверждает bundle.
+
+Schema v3 добавляет `html_sites.visibility_revision` и
+`html_node_visibility`. Миграция создаёт записи только для owner сайта и
+publisher соответствующей сущности; она намеренно не выдаёт `all` или `guest`.
 
 Основные ограничения:
 
@@ -522,6 +632,8 @@ blob-хранилище либо делегировать чтение на за
 - theme принадлежит тому же сайту;
 - канонические URI сохраняются после разбора и нормализации;
 - обычное изменение metadata не меняет owner или publisher;
+- создание сущности и начальных visibility entries атомарно;
+- `all` и `guest` никогда не добавляются миграцией или командой неявно;
 - удаление metadata не удаляет физический target.
 
 ## 7. VFS-проекция
@@ -551,14 +663,10 @@ html@site[site-acme]:///
 │       └── roots.json
 ├── pages/
 │   └── <page-key>/
-│       ├── info.json
-│       ├── source.html
-│       └── view.html
+│       └── info.json
 ├── blocks/
 │   └── <block-key>/
-│       ├── meta.json
-│       ├── source.html
-│       └── view.html
+│       └── meta.json
 ├── publications/
 │   └── <publication-key>/
 │       ├── status.json
@@ -573,18 +681,19 @@ html@site[site-acme]:///
 Виртуальные документы:
 
 - `site.json` формируется из `Site`;
-- `tree.json` формируется из `html_pages`;
+- `tree.json` формируется из эффективно видимых actor строк `html_pages`;
 - `editor/model.xml` формируется из актуальной доменной модели и не хранится как
   параллельный источник истины;
 - `editor/layout.xml` хранит нормализованное визуальное состояние редактора;
 - `templates` содержит единственную site-local проекцию установленных пакетов
   шаблонов; отдельная копия в `public` не создаётся;
 - `config/robots.txt` является редактируемой SEO-конфигурацией сайта;
-- `info.json` и `meta.json` формируются из metadata;
-- `source.html` делегирует операцию на физический `SourceURI`;
-- `view.html` делегирует операцию на `ViewURI` либо на `SourceURI` по правилам MVP;
+- `info.json` и `meta.json` формируются из metadata и содержат канонический
+  `bundle_root_uri` физического каталога;
+- файлы bundle не проецируются под `html@...`: клиент читает и изменяет их по
+  physical URI через обычный VFS Core и ACL;
 - `public` проецирует только активную публикацию;
-- `public/sitemap.xml` генерируется из активного publication manifest;
+- `public/sitemap.xml` генерируется из guest-visible части активного publication manifest;
 - `public/robots.txt` возвращает robots snapshot активной публикации.
 
 Изменения доменной структуры выполняются через типизированные команды `Control`.
@@ -599,8 +708,10 @@ Control(/pages, "create", payload)
 Control(/pages/<page-key>, "update", payload)
 Control(/pages/<page-key>, "move", payload)
 Control(/pages/<page-key>, "delete", payload)
+Control(/pages/<page-key>, "set-visibility", payload)
 Control(/blocks, "create", payload)
 Control(/blocks/<block-key>, "update", payload)
+Control(/blocks/<block-key>, "set-visibility", payload)
 Control(/templates, "install", payload)
 Control(/, "publish", payload)
 ```
@@ -638,14 +749,18 @@ GET https://example.com/
   -> template_manifest_uri
   -> Read html@site[site-acme]:///templates/default-spa/1/files/index.html
 
-GET https://example.com/_static/default-spa/1/js/app.js
-  -> Read html@site[site-acme]:///templates/default-spa/1/files/js/app.js
+GET https://example.com/_static/js/app.js
+  -> list html@site[site-acme]:///templates/default-spa
+  -> select last installed version
+  -> Read html@site[site-acme]:///templates/default-spa/<latest>/files/js/app.js
 ```
 
-Для `/` адаптер использует только application template, зафиксированный в
-активном publication manifest. В entrypoint ссылки на собственный runtime
-используют prefix `/_static/<template-key>/<template-version>/`. Такой namespace отделяет системный SPA runtime
-от пользовательских маршрутов `/about`, `/catalog` и assets публикаторов.
+Для `/` и `/_static/*` adapter использует последнюю установленную версию
+application template с key из trusted site binding. В entrypoint ссылки на
+собственный runtime используют prefix `/_static/`. Такой namespace отделяет
+системный SPA runtime от пользовательских маршрутов `/about`, `/catalog` и
+assets публикаторов. Поскольку внешний URL не versioned, ответы требуют
+revalidation по ETag и не получают `immutable` cache policy.
 
 Текущая реализация проекта ведёт себя как SPA:
 
@@ -662,13 +777,13 @@ extensionless path или *.html -> data/HTML/frontend/index.html
 публичному namespace:
 
 ```text
-/_static/default-spa/1/js/app.js
-/_static/default-spa/1/js/vfsv2.js
-/_static/default-spa/1/vendor/markdown-it.min.js
-/_static/default-spa/1/css/style.css
-/_static/default-spa/1/img/favicon.png
-/_static/default-spa/1/img/icons.svg
-/_static/default-spa/1/fonts/...
+/_static/js/app.js
+/_static/js/vfsv2.js
+/_static/vendor/markdown-it.min.js
+/_static/css/style.css
+/_static/img/favicon.png
+/_static/img/icons.svg
+/_static/fonts/...
 ```
 
 При миграции можно временно объявить aliases `/js`, `/css`, `/img` и `/static`
@@ -679,20 +794,34 @@ Provider и не дают доступ к файлам, отсутствующи
 `index.html` сейчас использует `/js`, `/css` и `/img`, `app.js` содержит
 `./static/img/icons.svg`, а загрузчик Markdown использует
 `/js/markdown-it.min.js`. Template build либо меняет эти ссылки на
-`/_static/<template-key>/<version>/...`, либо manifest временно объявляет точные aliases для
+`/_static/...`, либо manifest временно объявляет точные aliases для
 них. Общий fallback на весь каталог для совместимости запрещён.
 
 Правила разрешения публичного HTTP-запроса:
 
 1. API и служебные server routes обрабатываются до Site HTTP Adapter.
-2. Зарезервированный `/_static/` разрешается только через template manifest
-   активной публикации; key/version в URL должны совпасть с ней, а отсутствующий
-   asset возвращает `404`, а не SPA entrypoint.
+2. Зарезервированный `/_static/` разрешается только через manifest последней
+   установленной версии template из trusted site binding; отсутствующий asset
+   возвращает `404`, а не SPA entrypoint.
 3. Явный опубликованный asset разрешается через active publication manifest.
 4. `/` и существующий публичный маршрут страницы возвращают template entrypoint
    в SPA-режиме либо готовый page artifact в server-rendered режиме.
 5. Неизвестный маршрут возвращает `404`; наличие точки или расширения не должно
    само по себе открывать файл server filesystem.
+
+Отсутствие Page является ожидаемым результатом разрешения, а не отказом hook
+runtime: `get-page` завершается успешно с `found=false`. Site HTTP Adapter
+преобразует такой output в HTTP 404. При явном `Accept: text/html` ответом
+служит простая HTML-страница; API-клиент получает JSON `page_not_found`.
+Выбор representation выполняется по `Accept`, а не по `User-Agent`, и ответ
+содержит `Vary: Accept`. Ошибкой выполнения hook
+остаются только невалидный input и сбои чтения, декодирования или доступа.
+
+До реализации active publication ограниченный demo Site HTTP slice считает
+публично активным только status `ready`. `draft`, `hidden` и `archived`, а также
+любой descendant неактивного parent, разрешаются как `found=false` без раскрытия
+существования metadata. Это временная preview/public policy demo, а не замена
+целевого publication manifest.
 
 Если active publication отсутствует, публичный HTTP-root возвращает состояние
 `not_found`/«site is not published». Draft template можно читать прямо по его
@@ -732,7 +861,7 @@ HTML Provider не может создать собственный scope или
 2. Создать файловые connections публикаторов.
 3. Создать html@site в scope сайта.
 4. Настроить начальные ACL-права через ACL Provider.
-5. Инициализировать metadata сайта в HTML Provider.
+5. Инициализировать metadata сайта и его явный `visible_to` в HTML Provider.
 ```
 
 Рекомендуемый внешний интерфейс такого сценария — зарегистрированный
@@ -751,7 +880,8 @@ Control(
     {
         "publisher_subject_key": "user:17",
         "root_uri": "local@alice[site-acme]:///website",
-        "purpose": "content"
+        "purpose": "content",
+        "visible_to": ["user:17"]
     }
 )
 ```
@@ -773,11 +903,14 @@ HTML Provider:
 
 ## 10. Создание страницы и блока
 
-Физический файл создаётся в файловом подключении до регистрации логического
+Физический bundle создаётся в файловом подключении до регистрации логического
 ресурса:
 
 ```text
-PUT local@alice[site-acme]:///website/pages/home.html
+MKDIR local@alice[site-acme]:///website/pages/home
+PUT local@alice[site-acme]:///website/pages/home/content.md
+PUT local@alice[site-acme]:///website/pages/home/style.css
+PUT local@alice[site-acme]:///website/pages/home/script.js
 
 Control(
     html@site[site-acme]:///pages,
@@ -786,13 +919,14 @@ Control(
         "page_key": "home",
         "slug": "home",
         "title": "Главная",
-        "source_uri":
-            "local@alice[site-acme]:///website/pages/home.html"
+        "bundle_root_uri":
+            "local@alice[site-acme]:///website/pages/home",
+        "visible_to": ["user:17"]
     }
 )
 ```
 
-Это прямой низкоуровневый сценарий: клиент сам выполняет две независимые
+Это прямой низкоуровневый сценарий: клиент сам выполняет несколько независимых
 VFS-операции. Он полезен для CLI, импорта, отладки и клиентов, которым нужен
 полный контроль над каждым шагом.
 
@@ -800,7 +934,7 @@ VFS-операции. Он полезен для CLI, импорта, отлад
 `create-page-with-content`. Такой hook:
 
 ```text
-1. Создаёт физический файл по URI выбранного публикатора.
+1. Создаёт каталог bundle и три обязательных файла по URI выбранного публикатора.
 2. Вызывает create страницы в HTML Provider.
 3. При необходимости сохраняет начальное положение блока в layout.
 4. Возвращает созданную страницу и новые revisions.
@@ -808,39 +942,38 @@ VFS-операции. Он полезен для CLI, импорта, отлад
 
 Hook выполняет те же публичные VFS-операции и не записывает напрямую в HTML
 Store. Если второй шаг не выполнен после успешного создания файла, execution
-остаётся частично завершённым и может быть повторено идемпотентно. Файл нельзя
+остаётся частично завершённым и может быть повторено идемпотентно. Bundle нельзя
 считать автоматически удалённым: безопасная компенсация должна быть явным
 шагом конкретного hook-сценария.
 
 При регистрации HTML Provider:
 
-1. Канонизирует `source_uri`.
+1. Канонизирует `bundle_root_uri`.
 2. Проверяет совпадение scope.
 3. Находит зарегистрированный root, содержащий target URI.
 4. Безопасно проверяет принадлежность по сегментам канонического пути, а не по
    строковому prefix.
 5. Вызывает `BoundVFS.Stat` с исходным actor.
-6. Проверяет ожидаемый тип ресурса.
+6. Проверяет, что root является каталогом, а `content.md`, `style.css` и
+   `script.js` существуют и являются файлами. Каждая проверка идёт отдельным
+   `BoundVFS.Stat` с исходным actor.
 7. Сохраняет metadata в локальной транзакции.
 
 Строка регистрации не предоставляет доступ к target. Если actor не имеет права
 на физический URI, внутренняя VFS-операция завершается отказом.
 
-В следующей итерации запись может выполняться через логический URI:
+После чтения `info.json` клиент строит URI нужного файла относительно
+`bundle_root_uri` и обращается к файловому provider напрямую через VFS Core:
 
 ```text
-PUT html@site[site-acme]:///pages/home/source.html
+PUT local@alice[site-acme]:///website/pages/home/content.md
 ```
 
-HTML Provider находит `SourceURI` и вызывает:
-
-```go
-boundVFS.OpenFile(ctx, targetURI, flags)
-```
-
-Фиксация, abort и ошибки физической записи остаются ответственностью файлового
-provider и общих контрактов VFS. Внешняя и внутренняя операции проходят
-независимые ACL-проверки над разными URI.
+HTML Provider не участвует в этой операции, не буферизует байты и не создаёт
+второй ACL-ресурс для того же файла. Фиксация, abort и ошибки записи остаются
+ответственностью файлового provider и общих контрактов VFS. Доступ к metadata
+страницы и доступ к physical bundle проверяются независимо на их канонических
+URI.
 
 ## 11. Дерево страниц
 
@@ -868,6 +1001,8 @@ Page.Title
   `promote_children`;
 - изменение parent и position выполняется одной локальной транзакцией;
 - `tree.json` загружает страницы сайта и собирает дерево в памяти;
+- перед сборкой `tree.json` отбрасываются Page без подходящей visibility entry
+  и поддеревья под невидимым parent;
 - удаление страницы не удаляет её физический source.
 
 Перемещение страницы внутри навигационного дерева не меняет логический URI
@@ -892,7 +1027,7 @@ Position
 
 Они хранятся в нормализованной доменной модели HTML Provider. Редакторский XML
 ссылается на страницу по provider-local `Page.ID`, но не является
-самостоятельным источником Title, Description, Theme или SourceURI.
+самостоятельным источником Title, Description, Theme или BundleRootURI.
 
 ### 11.2. Два XML-документа редактора
 
@@ -982,7 +1117,7 @@ html@site[site-acme]:///pages/<page-key>/info.json
 | `create` | Создать страницу и включить её в дерево | Ожидаемая tree revision |
 | `move` | Сменить parent или порядок | Ожидаемая tree revision |
 | `delete` | Удалить страницу по явно выбранному режиму | Ожидаемая tree revision |
-| `set-content` | Изменить physical binding после проверки target | Ожидаемая page revision |
+| `set-visibility` | Атомарно заменить явный набор audience selectors | Ожидаемая visibility revision |
 | Replace `layout.xml` | Сохранить только визуальное состояние | Ожидаемая layout revision |
 
 `info.json` можно сделать заменяемым документом для обычных полей. Provider
@@ -1004,7 +1139,7 @@ Control(/pages/<page-key>, "delete", payload)
 Control(/pages/<page-key>, "set-types", payload)
 Control(/pages/<page-key>, "set-search-tags", payload)
 Control(/pages/<page-key>, "set-theme", payload)
-Control(/pages/<page-key>, "set-content", payload)
+Control(/pages/<page-key>, "set-visibility", payload)
 ```
 
 После успешной команды следующий `model.xml` автоматически отражает изменения,
@@ -1053,11 +1188,13 @@ tree-revision   = create/delete/move/order
 model-revision  = любое изменение данных, попадающих в model.xml
 page-revision   = функциональные поля конкретной страницы
 layout-revision = visual state
+visibility-revision = наборы audience selectors узлов site
 ```
 
 Structural-команда принимает ожидаемую tree revision. Изменение страницы
 принимает её ожидаемую page revision. Layout сохраняется со своей revision.
-Конфликт возвращает актуальную revision и не перезаписывает новое состояние.
+`set-visibility` принимает ожидаемую site visibility revision. Конфликт
+возвращает актуальную revision и не перезаписывает новое состояние.
 
 Изменение title/description повышает page revision и model revision. Изменение
 parent/position повышает tree revision и model revision. Изменение status,
@@ -1089,7 +1226,7 @@ Frontend не удаляет локально введённые данные п
 3. Объединяет функциональные nodes с визуальным состоянием.
 4. При выборе страницы читает `/pages/<page-key>/info.json`.
 5. Недостающим layout nodes назначает начальные координаты.
-6. Игнорирует layout nodes удалённых страниц.
+6. Игнорирует layout nodes удалённых или невидимых actor страниц.
 
 Изменения через любой другой интерфейс отражаются в следующем чтении
 `model.xml`. Перезаписывать layout при каждом внешнем изменении не требуется.
@@ -1141,9 +1278,9 @@ Hook применяется, когда одно действие пользов
 | Hook | Возможные шаги |
 | --- | --- |
 | `create-site` | Создать scope, connections, HTML site metadata и начальные ACL |
-| `create-page-with-content` | Создать physical file, создать Page, записать начальный layout |
-| `clone-page` | Скопировать physical content допустимым VFS-механизмом и создать новую Page |
-| `delete-page-and-source` | Явно удалить Page и отдельно удалить physical source |
+| `create-page-with-content` | Создать physical bundle, создать Page, записать начальный layout |
+| `clone-page` | Скопировать physical bundle допустимым VFS-механизмом и создать новую Page |
+| `delete-page-and-bundle` | Явно удалить Page и отдельно удалить physical bundle |
 | `publish-site` | Проверить targets, подготовить manifest и активировать публикацию |
 
 Hooks регистрируются через общий Hook SDK и выполняются независимым Hook Runtime
@@ -1251,7 +1388,9 @@ Auth устанавливает actor
     ↓
 VFS Core проверяет ACL логического HTML URI
     ↓
-HTML Provider выполняет доменную валидацию
+HTML Provider проверяет node visibility текущего actor
+    ↓
+HTML Provider выполняет остальную доменную валидацию
     ↓
 BoundVFS сохраняет того же actor
     ↓
@@ -1263,6 +1402,21 @@ target provider выполняет собственную валидацию
 ACL `deny` нельзя расширить metadata-проверкой. ACL `allow` не отменяет отказ
 HTML-домена или target backend.
 
+Node visibility и ACL не взаимозаменяемы:
+
+```text
+нет visibility entry  -> узел не существует для actor (`not_found`)
+есть visibility entry -> узел входит в его HTML-проекцию, но ещё не разрешён
+ACL deny              -> операция запрещена независимо от visibility
+ACL allow             -> provider всё ещё может отказать по visibility/domain/backend
+```
+
+Visibility entry не содержит действий и не может предоставить `r`, `w` или
+`x`. ACL не создаёт visibility entry и само по себе не заставляет HTML Provider
+показывать сущность. Команда `set-visibility` сначала проходит обычную ACL
+проверку `x` своего канонического URI, затем меняет только provider-owned
+проекцию.
+
 Удаление или деактивация публикатора:
 
 - запрещает новые привязки по правилам HTML-домена;
@@ -1272,33 +1426,41 @@ HTML-домена или target backend.
 - может запускать отдельный авторизованный workflow отзыва через ACL Provider и
   `BoundVFS`.
 
-## 14. Source и View
+## 14. Рабочий bundle и результат просмотра
 
-Логические ресурсы `source.html` и `view.html` имеют разные канонические URI и
-могут иметь разные ACL-правила. Однако HTML Provider не повышает привилегии при
-делегировании.
-
-Если `view.html` строится чтением закрытого физического `SourceURI`, actor должен
-иметь право прочитать этот URI. Поэтому схема:
+Рабочий bundle Page и Block имеет фиксированный контракт:
 
 ```text
-allow r logical view
-deny r physical source
+<bundle-root>/
+├── content.md
+├── style.css
+└── script.js
 ```
 
-не позволяет синхронно построить view внутри HTML Provider с тем же actor.
+`content.md` хранит Markdown и при необходимости inline HTML-фрагменты.
+Самостоятельного `content.html` или редактируемого `view.html` в bundle нет.
+Все три файла принадлежат файловому provider и имеют только свои physical URI.
+HTML Provider хранит ссылку на корень каталога, но не проецирует файлы под
+`html@...` и не участвует в их чтении или записи.
 
-Просмотр без доступа к рабочему source достигается отдельным физическим
-артефактом, который сам публикатор сохраняет в своём файловом подключении:
+Если preview строится чтением закрытого физического bundle, actor должен иметь
+право прочитать необходимые файлы этого bundle. Поэтому схема:
 
 ```text
-рабочий SourceURI       -> закрытый файл публикатора
-опубликованный ViewURI  -> подготовленный публичный файл того же публикатора
+allow r html page metadata
+deny r physical content.md
 ```
 
-Для MVP допустимо `ViewURI = SourceURI`. В этом режиме разделение логических
-путей существует как будущий контракт, но не скрывает исходный HTML и требует
-одинакового физического доступа.
+не позволяет клиенту прочитать source или построить из него preview. Для source
+всегда требуется отдельное разрешение на physical URI.
+
+Просмотр без доступа к рабочему bundle достигается отдельным производным
+артефактом, который публикация сохраняет в разрешённом файловом подключении:
+
+```text
+рабочий BundleRootURI  -> закрытые content.md/style.css/script.js
+publication resource  -> подготовленный публичный HTML/CSS/JS
+```
 
 ## 15. Публикация
 
@@ -1327,8 +1489,9 @@ pending -> validating -> ready -> active
 
 1. Actor вызывает `Control(html root, "publish", payload)`.
 2. HTML Provider создаёт operation ID и запись `pending`.
-3. Фиксирует локальный снимок дерева и metadata.
-4. Выбирает опубликованные `ViewURI`/target URI страниц, блоков и assets.
+3. Фиксирует локальный снимок дерева, metadata и visibility revision.
+4. Выбирает только эффективно видимые actor сущности и target URI их
+   производных publication-ресурсов.
 5. Через `BoundVFS.Stat` проверяет каждый target с тем же actor.
 6. Сохраняет неизменяемый manifest ссылок в HTML Store.
 7. Проверяет полноту manifest.
@@ -1359,6 +1522,8 @@ HTML Provider не выполняет публикацию от привилег
 - значения типов и поисковых тегов;
 - snapshot `robots.txt` и данные для `sitemap.xml`.
 - application template key/version и список требуемых runtime assets.
+- visibility selectors каждого опубликованного узла, чтобы активная публикация
+  сохраняла ту же проекцию и не расширяла аудиторию.
 
 Координаты, режим collapsed/expanded и revision редактора в публикацию не входят.
 
@@ -1415,9 +1580,17 @@ actor публикации и хранит возвращённый URI упра
 `public/sitemap.xml` генерируется из активного publication manifest, а не из
 текущего чернового дерева. Полный URL строится из `Site.BaseURL` и цепочки slug.
 
+Публичный sitemap является guest-проекцией: в него попадают только Page,
+эффективно видимые для `guest` (`guest` или `all` на самой Page и всех её
+предках). Аутентифицированная actor-specific проекция sitemap, если она
+предоставляется редактору, фильтруется тем же алгоритмом для этого actor и не
+используется как общий SEO sitemap.
+
 В sitemap включается страница, которая:
 
 - входит в активную публикацию;
+- имеет подходящие visibility entries для выбранной аудитории на всей цепочке
+  Page → ancestors;
 - не имеет статуса `hidden` или `archived`;
 - имеет корректный публичный маршрут;
 - разрешена publication metadata для индексирования.
@@ -1493,13 +1666,31 @@ tombstone и recovery. Поэтому MVP устанавливает огран�
 
 ## 20. ReadDir, Stat и раскрытие metadata
 
-`Stat` и `ReadDir` также проходят через VFS Core и ACL. HTML Provider не получает
-Authorizer и не повторяет ACL-проверку самостоятельно.
+`Stat` и `ReadDir` сначала проходят через VFS Core и ACL запрошенного URI. HTML
+Provider не получает Authorizer и не повторяет ACL-проверку самостоятельно.
+После ACL `allow` provider обязательно применяет собственную node visibility
+projection к текущему trusted actor.
 
-Если текущий VFS Core проверяет только каталог целиком и не фильтрует каждый
-элемент листинга, право `r` на каталог `/pages` должно означать разрешение видеть
-его список. Нельзя обещать скрытие отдельных имён внутри доступного каталога без
-соответствующего общего контракта VFS.
+`ReadDir(/pages)` не возвращает все строки `html_pages`: он возвращает только
+эффективно видимые Page. `Stat(/pages/<key>)`, lookup `info.json` и команды
+страницы выполняют ту же проверку, поэтому скрытый key нельзя обнаружить прямым
+запросом. Отсутствие visibility entry представляется как `not_found`, а
+не как отдельная ошибка, раскрывающая существование сущности.
+
+Текущей проверки ACL только на каталог недостаточно для разграничения действий
+над каждым ребёнком, но это не отменяет provider visibility-фильтрацию имён.
+При последующем обращении к возвращённому дочернему URI VFS Core отдельно
+проверяет его ACL. Таким образом, листинг требует одновременно ACL `r` каталога
+и visibility entries детей, а чтение ребёнка — его visibility entry и ACL `r`
+его собственного канонического URI.
+
+`tree.json`, `editor/model.xml`, поисковые результаты и другие агрегаты строятся
+из того же отфильтрованного набора. Они не могут использовать нефильтрованный
+Store query как способ обойти visibility.
+
+Actor-dependent документы нельзя складывать в общий публичный cache. Их cache
+key/ETag включает site visibility revision и идентификатор аудитории; ответы
+помечаются private либо отдаются через cache, разделённый по trusted actor.
 
 Закрытые поля owner, physical URI и внутренние ID не должны попадать в публичные
 виртуальные документы без явной необходимости. Логи не содержат source,
@@ -1525,7 +1716,9 @@ resource_in_use
 invalid_delete_mode
 invalid_position_anchor
 invalid_editor_layout
+invalid_visibility_audience
 tree_revision_conflict
+visibility_revision_conflict
 page_revision_conflict
 layout_revision_conflict
 publication_conflict
@@ -1561,6 +1754,20 @@ ACL-ошибки остаются ошибками VFS/ACL. HTML Provider не �
 - Добавить позиционирование через `beforeId`, `afterId`, `first` и `last`.
 - Реализовать построение `tree.json`.
 
+### Этап 2.1. Обязательная node visibility projection
+
+- Добавить `html_node_visibility` и `Site.VisibilityRevision`.
+- Требовать непустой `visible_to` при создании каждой доменной сущности.
+- Реализовать `set-visibility` с optimistic revision и атомарной заменой набора.
+- Поддержать `all`, `guest` и точный trusted subject actor.
+- Применять одну проверку visibility в lookup, `Stat`, `ReadDir`, `OpenFile` и
+  `Control`; отсутствие записи возвращает `not_found`.
+- Фильтровать `tree.json`, `editor/model.xml`, поиск, publication manifest и
+  sitemap тем же сервисом, включая правило невидимого parent.
+- Добавить безопасную миграцию существующих сущностей для owner/publisher без
+  неявной выдачи `all` или `guest`.
+- Разделить actor-dependent cache по subject и visibility revision.
+
 ### Этап 3. Визуальный редактор и SEO
 
 - Добавить read-only `editor/model.xml` с tree/model revisions.
@@ -1590,16 +1797,16 @@ ACL-ошибки остаются ошибками VFS/ACL. HTML Provider не �
   сайта.
 - Сохранять site-local template manifest URI и digest в publication manifest.
 - Реализовать Site HTTP Adapter: `/` читает entrypoint из site-local template
-  URI, `/_static/<key>/<version>/` читает только manifest asset активной
-  публикации, неизвестный asset возвращает `404`.
-- Возвращать MIME, ETag и разные cache policy для entrypoint и versioned assets.
+  URI, `/_static/` читает только manifest asset последней установленной версии,
+  неизвестный asset возвращает `404`.
+- Возвращать MIME и ETag; unversioned entrypoint и static требуют revalidation.
 
-### Этап 4. Делегирование содержимого
+### Этап 4. Прямой доступ к source через physical VFS URI
 
-- Реализовать `source.html` как делегирование `OpenFile`.
-- Сохранить actor исходного запроса.
-- Корректно передавать ошибки target provider.
-- Не обращаться к его Store или backend напрямую.
+Отдельная реализация в HTML Provider не требуется. `info.json`/`meta.json`
+возвращают `bundle_root_uri`, а клиент читает и записывает `content.md`,
+`style.css`, `script.js` напрямую через VFS Core. HTML Provider не создаёт для
+них routes, не вызывает `OpenFile` и не дублирует ошибки файлового provider.
 
 ### Этап 5. Блоки
 
@@ -1626,7 +1833,7 @@ ACL-ошибки остаются ошибками VFS/ACL. HTML Provider не �
 - Добавить `publish-site` только для внешней orchestration; publication state
   machine оставить в HTML Provider.
 - Обеспечить одинаковые результаты доменных команд при прямом и hook-вызове.
-- Проверить частичный сбой между созданием physical file и Page metadata.
+- Проверить частичный сбой между созданием physical bundle и Page metadata.
 - Не блокировать базовый MVP HTML Provider отсутствием Hook Runtime: все
   доменные операции остаются доступны напрямую через VFS.
 
@@ -1634,7 +1841,7 @@ ACL-ошибки остаются ошибками VFS/ACL. HTML Provider не �
 
 - Завершить необходимые части ADR-005.
 - Подключить настоящий ACL evaluator.
-- Настроить права scope, logical HTML URI и physical target URI.
+- Настроить права scope, HTML metadata URI и physical target URI.
 - Интегрировать create/delete с ACL lifecycle.
 - Добавить reconciliation broken bindings и публикаций.
 
@@ -1643,26 +1850,34 @@ ACL-ошибки остаются ошибками VFS/ACL. HTML Provider не �
 Первый сквозной результат должен выполнять сценарий:
 
 ```text
-1. Файл уже существует:
-   local@alice[site-acme]:///website/pages/home.html
+1. Bundle уже существует:
+   local@alice[site-acme]:///website/pages/home/
+   ├── content.md
+   ├── style.css
+   └── script.js
 
 2. Alice регистрирует root:
    local@alice[site-acme]:///website
 
-3. Alice создаёт Page metadata с source URI.
+3. Alice создаёт Page metadata с bundle root URI и явным
+   `visible_to: ["user:17"]`. HTML Provider через `BoundVFS` проверяет
+   каталог и каждый из трёх обязательных файлов, а Page и visibility entries
+   сохраняет одной локальной транзакцией.
 
-4. HTML Provider повышает tree/model revisions.
+4. HTML Provider повышает tree/model/visibility revisions.
 
 5. tree.json и сформированный editor/model.xml возвращают страницу home.
 
 6. editor/layout.xml принимает визуальную позицию страницы независимо от
    functional model, а попытка записать model.xml возвращает unsupported.
 
-7. Чтение:
-   html@site[site-acme]:///pages/home/source.html
-   делегируется через BoundVFS исходному local URI.
+7. Клиент получает `bundle_root_uri` из `info.json` и читает файлы напрямую:
+   local@alice[site-acme]:///website/pages/home/content.md
+   local@alice[site-acme]:///website/pages/home/style.css
+   local@alice[site-acme]:///website/pages/home/script.js
 
-8. Actor и ACL-контекст не меняются.
+8. VFS Core проверяет исходного actor и ACL каждого physical URI; HTML Provider
+   в файловой операции не участвует.
 ```
 
 В эту итерацию не входят blocks, themes, sitemap, renderer, публикация, внешний
@@ -1685,6 +1900,24 @@ HTTP endpoint, автоматическое создание scope и полно
 9. Используемый template/root block не удаляется.
 10. Неизвестный status или theme отклоняется.
 11. Types и SearchTags сохраняются без дубликатов.
+
+### Node visibility
+
+1. Создание сущности без непустого `visible_to` отклоняется.
+2. Создание сущности и visibility entries фиксируется или откатывается вместе.
+3. `all` показывает узел и authenticated actor, и guest; `guest` — только guest.
+4. Точная запись `user:17` не показывает узел другому actor.
+5. Отсутствующая запись делает `Stat`, direct lookup, file access и `Control`
+   неотличимыми от отсутствующей сущности.
+6. `ReadDir` не раскрывает key невидимого узла даже при ACL `r` каталога.
+7. ACL `deny` запрещает действие при наличии visibility entry.
+8. ACL `allow` не показывает узел без visibility entry.
+9. Невидимый parent исключает всё поддерево из `tree.json` и `model.xml`.
+10. Guest sitemap содержит только опубликованные Page, видимые через `guest`
+    или `all` на всей цепочке предков.
+11. Изменение visibility повышает `VisibilityRevision` и инвалидирует только
+    соответствующие actor-dependent projections.
+12. Миграция legacy-данных не создаёт `all` или `guest` неявно.
 
 ### Визуальный редактор
 
@@ -1719,7 +1952,7 @@ HTTP endpoint, автоматическое создание scope и полно
    доменные ограничения.
 4. Hook Runtime не получает HTML Store или PageService.
 5. Частичный сбой hook возвращает завершённые и неуспешные шаги.
-6. Повтор с тем же idempotency key не создаёт второй physical file или Page.
+6. Повтор с тем же idempotency key не создаёт второй physical bundle или Page.
 7. Hook из нескольких VFS-вызовов не объявляется атомарным.
 8. Пакетная атомарность, если она появится, завершается одной командой и
    транзакцией HTML Provider.
@@ -1728,8 +1961,8 @@ HTTP endpoint, автоматическое создание scope и полно
 
 1. Запрос `/` через Site HTTP Adapter возвращает entrypoint версии template из
    active publication manifest.
-2. `/_static/<key>/<version>/js/app.js` возвращает asset из site-local
-   `/templates/<key>/<version>` с JavaScript MIME.
+2. `/_static/js/app.js` возвращает asset из последней установленной версии
+   site-local `/templates/<key>/<version>` с JavaScript MIME.
 3. Vendor library возвращается только если явно перечислена в manifest.
 4. Отсутствующий static asset возвращает `404`, а не `index.html`.
 5. Попытка запросить `..`, абсолютный filesystem path или encoded traversal
@@ -1738,8 +1971,8 @@ HTTP endpoint, автоматическое создание scope и полно
    читается.
 7. Generator binary, `.go`, `.zip`, swap-файл и случайная копия SVG из текущего
    frontend-каталога недоступны.
-8. Versioned asset получает ETag и immutable cache policy; entrypoint можно
-   ревалидировать после переключения template/publication.
+8. Unversioned asset и entrypoint получают ETag и требуют revalidation без
+   immutable cache policy после установки новой версии template.
 9. Site assets и theme files продолжают читаться из connections публикаторов;
    application template читается из `/templates` connection сайта.
 10. Каталоги библиотек blocks/plugins не публикуются автоматически.
@@ -1823,6 +2056,15 @@ hooks.
 несохранённые действия локально, а сервер принимает законченные доменные
 операции с revisions.
 
+### 25.10. Строить видимость HTML-узлов только из ACL
+
+Отклонено. ACL отвечает на вопрос, разрешено ли действие над известным
+каноническим URI, но не является источником пользовательской HTML-проекции.
+ACL `allow` не должен автоматически добавлять Page в навигацию, `tree.json`,
+editor model или sitemap. Источником существования узла для аудитории является
+`html_node_visibility`; ACL остаётся обязательным независимым ограничителем
+действий и не может быть расширен этой таблицей.
+
 ## 26. Последствия
 
 Положительные последствия:
@@ -1839,11 +2081,16 @@ hooks.
 - связи editor model и layout не ломаются при изменении title, slug или key;
 - статический runtime сайта имеет versioned allowlist и не раскрывает весь
   каталог приложения.
+- явная visibility projection не позволяет ACL `allow` автоматически раскрыть
+  не включённый в аудиторию доменный узел;
+- `tree.json`, editor model, publication и sitemap используют один источник
+  истины о видимости.
 
 Цена решения:
 
-- одно чтение logical resource может выполнять вторую VFS/ACL-проверку;
-- actor должен иметь права и на logical URI, и на physical URI;
+- клиенту нужны отдельные права на HTML metadata URI и physical URI source;
+- клиент обязан корректно разрешать фиксированные имена файлов относительно
+  канонического `bundle_root_uri`;
 - view закрытого source требует отдельного файла, подготовленного публикатором;
 - публикация нуждается в state machine и reconciliation;
 - стабильность байтов публикации зависит от неизменности URI публикатора;
@@ -1856,6 +2103,11 @@ hooks.
 - установка template package и Site HTTP Adapter требуют отдельного
   версионирования и тестирования;
 - экспорт и импорт сайта обязаны переписывать provider-local page IDs в layout.
+- каждый actor-dependent aggregate требует фильтрации и раздельного cache key;
+- изменение visibility получает собственную revision и увеличивает число
+  provider-local записей;
+- отсутствие visibility entry возвращается как `not_found`, поэтому диагностика
+  для администратора должна выполняться через отдельный разрешённый management view.
 
 ## 27. Критерий завершения MVP
 
@@ -1866,23 +2118,25 @@ MVP считается работоспособным, когда выполня
     -> подключить html@site
     -> зарегистрировать файловый root публикатора
     -> загрузить физическую страницу
-    -> зарегистрировать Page metadata
-    -> построить дерево
+    -> зарегистрировать Page metadata и явный visible_to
+    -> построить отфильтрованное для actor дерево
     -> получить model.xml из актуальной доменной модели
     -> применить functional изменения напрямую через VFS
     -> отдельно сохранить visual layout.xml
-    -> прочитать страницу через logical HTML URI
+    -> получить bundle_root_uri из Page metadata
+    -> прочитать source напрямую через physical VFS URI
     -> получить корневой entrypoint по template URI активной публикации
     -> получить app.js, CSS и разрешённые libraries через browser /_static
     -> создать manifest URI файлов публикаторов
     -> активировать публикацию
-    -> получить sitemap.xml и robots.txt активной публикации
+    -> получить guest-filtered sitemap.xml и robots.txt активной публикации
     -> получить опубликованные файлы из подключений публикаторов
 ```
 
 Все межпровайдерные обращения в этом сценарии проходят через `BoundVFS` с
 исходным actor. Ни одна metadata-запись сама по себе не предоставляет право
-доступа.
+доступа. Visibility entry включает узел только в provider projection, а
+разрешённые действия по-прежнему определяет ACL.
 
 После реализации ADR-008 тот же сценарий может дополнительно использовать
 hooks `create-site`, `create-page-with-content` и `publish-site`. Это улучшает

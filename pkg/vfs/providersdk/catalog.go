@@ -33,6 +33,10 @@ func (c *Catalog) Register(key string, factory vfs.ProviderFactory) {
 	delete(c.checks, key)
 }
 func RegisterDefinition[C any](catalog *Catalog, definition Definition[C]) error {
+	return registerDefinitionFactory(catalog, definition, definition.Factory())
+}
+
+func registerDefinitionFactory[C any](catalog *Catalog, definition Definition[C], factory vfs.ProviderFactory) error {
 	if catalog == nil || !validName(definition.Key) || definition.Open == nil {
 		return fmt.Errorf("%w: invalid provider definition", vfs.ErrInvalidArgument)
 	}
@@ -44,7 +48,7 @@ func RegisterDefinition[C any](catalog *Catalog, definition Definition[C]) error
 	if _, exists := catalog.registry.Factory(definition.Key); exists {
 		return fmt.Errorf("%w: provider %q", vfs.ErrAlreadyExists, definition.Key)
 	}
-	catalog.registry.Register(definition.Key, definition.Factory())
+	catalog.registry.Register(definition.Key, factory)
 	catalog.info[definition.Key] = definition.Info()
 	catalog.checks[definition.Key] = definition.CheckConfig
 	return nil

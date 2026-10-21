@@ -63,6 +63,29 @@ type Error struct {
 	Err     error
 }
 
+// PublicErrorDetails is implemented by domain errors that have a stable,
+// explicitly safe machine code and response details. Transports may expose
+// this data without importing the provider that produced the error.
+type PublicErrorDetails interface {
+	PublicCode() string
+	PublicDetails() map[string]any
+}
+
+// PublicDetailsOf returns a detached copy of explicitly public domain error
+// details found anywhere in err's unwrap tree.
+func PublicDetailsOf(err error) (string, map[string]any, bool) {
+	var public PublicErrorDetails
+	if !errors.As(err, &public) || public == nil || public.PublicCode() == "" {
+		return "", nil, false
+	}
+	details := public.PublicDetails()
+	copy := make(map[string]any, len(details))
+	for key, value := range details {
+		copy[key] = value
+	}
+	return public.PublicCode(), copy, true
+}
+
 func (e *Error) Error() string {
 	if e == nil {
 		return "<nil>"

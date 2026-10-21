@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"strings"
@@ -29,6 +30,9 @@ func newTestAccountProvider(t *testing.T) (*AccountProvider, context.Context) {
 			t.Fatalf("db.Close() error = %v", err)
 		}
 	})
+	if _, err := db.Exec(`PRAGMA foreign_keys = ON`); err != nil {
+		t.Fatalf("enable foreign keys error = %v", err)
+	}
 
 	const schema = `
 		CREATE TABLE artifacts (
@@ -49,6 +53,29 @@ func newTestAccountProvider(t *testing.T) (*AccountProvider, context.Context) {
 			FOREIGN KEY (artefact_id) REFERENCES artifacts(id) ON DELETE SET NULL
 		);
 		CREATE UNIQUE INDEX idx_metadata_parent_name ON metadata(parent_id, name) WHERE parent_id IS NOT NULL;
+		CREATE TABLE garbage_queue (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			hash TEXT NOT NULL,
+			size INTEGER NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		);
+		CREATE TRIGGER increment_artefact_relations
+		AFTER INSERT ON metadata
+		FOR EACH ROW
+		WHEN NEW.artefact_id IS NOT NULL
+		BEGIN
+			UPDATE artifacts SET relations_count = relations_count + 1 WHERE id = NEW.artefact_id;
+		END;
+		CREATE TRIGGER decrement_or_queue_artefact
+		AFTER DELETE ON metadata
+		FOR EACH ROW
+		WHEN OLD.artefact_id IS NOT NULL
+		BEGIN
+			UPDATE artifacts SET relations_count = relations_count - 1 WHERE id = OLD.artefact_id;
+			INSERT INTO garbage_queue (hash, size)
+			SELECT hash, size FROM artifacts WHERE id = OLD.artefact_id AND relations_count <= 0;
+			DELETE FROM artifacts WHERE id = OLD.artefact_id AND relations_count <= 0;
+		END;
 	`
 	if _, err := db.Exec(schema); err != nil {
 		t.Fatalf("db.Exec(schema) error = %v", err)
@@ -279,6 +306,45 @@ func TestAccountProviderFileSystemCreateReadMoveDelete(t *testing.T) {
 	}
 	if _, err := provider.Stat(ctx, "/moved.txt"); !os.IsNotExist(err) {
 		t.Fatalf("Stat(deleted moved.txt) error = %v, want os.ErrNotExist", err)
+	}
+}
+
+func TestAccountProviderReplacingFileWithIdenticalContentIsNoOp(t *testing.T) {
+	provider, ctx := newTestAccountProvider(t)
+	const content = "console.log('unchanged');\n"
+
+	writer, err := provider.OpenFile(ctx, "/script.js", os.O_CREATE|os.O_WRONLY|os.O_TRUNC)
+	if err != nil {
+		t.Fatalf("OpenFile(create script.js) error = %v", err)
+	}
+	if _, err := writer.Write([]byte(content)); err != nil {
+		t.Fatalf("Write(create script.js) error = %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("Close(create script.js) error = %v", err)
+	}
+
+	replacement, err := provider.OpenFile(ctx, "/script.js", os.O_WRONLY|os.O_TRUNC)
+	if err != nil {
+		t.Fatalf("OpenFile(replace script.js) error = %v", err)
+	}
+	if _, err := replacement.Write([]byte(content)); err != nil {
+		t.Fatalf("Write(replace script.js) error = %v", err)
+	}
+	if err := replacement.Close(); err != nil {
+		t.Fatalf("Close(replace script.js) error = %v", err)
+	}
+
+	reader, err := provider.OpenFile(ctx, "/script.js", os.O_RDONLY)
+	if err != nil {
+		t.Fatalf("OpenFile(read script.js) error = %v", err)
+	}
+	data, readErr := io.ReadAll(reader)
+	if err := errors.Join(readErr, reader.Close()); err != nil {
+		t.Fatalf("Read(script.js) error = %v", err)
+	}
+	if string(data) != content {
+		t.Fatalf("script.js = %q, want %q", data, content)
 	}
 }
 

@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HTML Provider · VFS demo</title>
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">VFSv2 development console</p>
+      <h1>HTML Provider</h1>
+    </div>
+    <div class="topbar__meta">
+      <span>scope <strong>html-demo</strong></span>
+      <span>actor <strong>user:html-demo</strong></span>
+      <button id="refresh-all" class="button button--quiet" type="button">Обновить всё</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <section class="panel explorer" aria-labelledby="explorer-title">
+      <div class="panel__header">
+        <div>
+          <p class="eyebrow">Scopes / connections</p>
+          <h2 id="explorer-title">Файлы VFS</h2>
+        </div>
+        <button id="go-parent" class="icon-button" type="button" title="На уровень выше">↑</button>
+      </div>
+
+      <div class="scope-grid">
+        <div>
+          <h3>Scopes</h3>
+          <ul id="scope-list" class="nav-list" aria-label="Scopes"></ul>
+        </div>
+        <div>
+          <h3>Подключения</h3>
+          <ul id="connection-list" class="nav-list" aria-label="Подключения"></ul>
+        </div>
+      </div>
+
+      <form id="uri-form" class="uri-bar">
+        <label for="uri-input">Канонический URI</label>
+        <div class="uri-bar__controls">
+          <input id="uri-input" spellcheck="false" autocomplete="off">
+          <button class="button" type="submit">Открыть</button>
+          <button id="run-control" class="button button--quiet" type="button">Control…</button>
+        </div>
+      </form>
+
+      <div class="browser-grid">
+        <div>
+          <div class="subheader">
+            <h3>Содержимое</h3>
+            <div class="inline-actions">
+              <span id="browser-count" class="muted"></span>
+              <button id="new-directory" class="link-button" type="button">+ каталог</button>
+              <button id="new-file" class="link-button" type="button">+ файл</button>
+              <button id="register-root" class="link-button" type="button">Зарегистрировать root</button>
+            </div>
+          </div>
+          <ul id="file-list" class="file-list" aria-live="polite"></ul>
+        </div>
+        <div class="preview">
+          <div class="subheader">
+            <h3>Просмотр</h3>
+            <div class="inline-actions">
+              <button id="save-file" class="link-button" type="button" disabled>Сохранить</button>
+              <button id="move-resource" class="link-button" type="button" disabled>Переместить</button>
+              <button id="delete-resource" class="link-button link-button--danger" type="button" disabled>Удалить</button>
+              <button id="close-preview" class="link-button" type="button">Очистить</button>
+            </div>
+          </div>
+          <p id="preview-meta" class="muted">Выберите файл.</p>
+          <textarea id="file-preview" rows="18" spellcheck="false" disabled></textarea>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel pages" aria-labelledby="pages-title">
+      <div class="panel__header">
+        <div>
+          <p class="eyebrow">html@site[html-demo]</p>
+          <h2 id="pages-title">Страницы</h2>
+        </div>
+        <button id="refresh-pages" class="icon-button" type="button" title="Обновить страницы">↻</button>
+      </div>
+
+      <div class="pages-grid">
+        <aside>
+          <ul id="page-list" class="page-list" aria-label="Страницы"></ul>
+          <button id="new-page" class="button button--wide" type="button">+ Новая страница</button>
+          <details class="tree-box">
+            <summary>Актуальное дерево</summary>
+            <pre id="tree-preview"></pre>
+          </details>
+        </aside>
+
+        <div>
+          <form id="page-form" class="form-stack">
+            <input id="page-revision" type="hidden">
+            <div class="form-row">
+              <label>Page key<input id="page-key" required></label>
+              <label>Slug<input id="page-slug" required></label>
+            </div>
+            <div class="form-row form-row--three">
+              <label>Parent page ID<input id="page-parent-id" type="number" min="1" placeholder="root"></label>
+              <label>Позиция
+                <select id="page-position-mode">
+                  <option value="last">last</option>
+                  <option value="first">first</option>
+                  <option value="before">before ID</option>
+                  <option value="after">after ID</option>
+                </select>
+              </label>
+              <label>Anchor page ID<input id="page-position-anchor" type="number" min="1" placeholder="для before/after"></label>
+            </div>
+            <label>Заголовок<input id="page-title"></label>
+            <label>Заметка<input id="page-note"></label>
+            <label>Описание<textarea id="page-description" rows="4"></textarea></label>
+            <div class="form-row">
+              <label>Статус
+                <select id="page-status">
+                  <option value="draft">draft</option>
+                  <option value="ready">ready</option>
+                  <option value="hidden">hidden</option>
+                  <option value="archived">archived</option>
+                </select>
+              </label>
+              <label>Bundle root URI
+                <input id="page-bundle" spellcheck="false" required>
+                <button id="prepare-bundle" class="link-button" type="button">Создать writable bundle</button>
+              </label>
+            </div>
+            <label>Типы, через запятую<input id="page-types"></label>
+            <label>Поисковые теги, через запятую<input id="page-tags"></label>
+            <label>Видно аудиториям, через запятую<input id="page-visible-to" placeholder="all, guest, user:html-demo" required></label>
+            <div class="actions">
+              <button id="save-page" class="button" type="submit">Сохранить</button>
+              <button id="move-page" class="button button--quiet" type="button" hidden>Переместить</button>
+              <select id="delete-mode" aria-label="Режим удаления">
+                <option value="reject">reject</option>
+                <option value="cascade">cascade</option>
+                <option value="promote_children">promote_children</option>
+              </select>
+              <button id="delete-page" class="button button--danger" type="button">Удалить</button>
+              <span id="page-state" class="muted"></span>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="notice" class="notice" role="status" aria-live="polite"></div>
+  <script src="/assets/app.js" defer></script>
+</body>
+</html>

@@ -74,3 +74,19 @@ func TestUnknownErrorMessageIsNotExposed(t *testing.T) {
 		t.Fatalf("descriptor = %+v", got)
 	}
 }
+
+type publicConflict struct{}
+
+func (publicConflict) Error() string      { return "private revision state" }
+func (publicConflict) PublicCode() string { return "tree_revision_conflict" }
+func (publicConflict) PublicDetails() map[string]any {
+	return map[string]any{"current_revision": int64(9)}
+}
+
+func TestClassifyErrorUsesExplicitPublicDomainDetails(t *testing.T) {
+	err := v2.NewError(v2.KindConflict, v2.OpControl, "revision conflict", publicConflict{})
+	got := classifyError(err)
+	if got.status != http.StatusConflict || got.code != "tree_revision_conflict" || got.details["current_revision"] != int64(9) {
+		t.Fatalf("descriptor = %+v", got)
+	}
+}

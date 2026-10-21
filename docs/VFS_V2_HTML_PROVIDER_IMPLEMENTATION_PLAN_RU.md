@@ -1,7 +1,7 @@
 # Практический план реализации ADR-007
 
 > Статус: рабочий план, не описание готовой реализации.  
-> Дата: 30 сентября 2026 года.  
+> Дата актуализации: 4 октября 2026 года.
 > Архитектурное решение: [ADR-007: HTML Provider](adr/VFS_V2_HTML_PROVIDER_DECISION_RU.md).  
 > Клиентский контракт: [контракт HTML-редактора](HTML_EDITOR_CONTRACT_RU.md).  
 > Зависимые решения: [ADR-003: ACL lifecycle](adr/ACL_LIFECYCLE_ARCHITECTURE_RU.md), [ADR-005: scope resolution](adr/VFS_V2_SCOPE_RESOLUTION_DECISION_RU.md), [ADR-008: VFS hooks](adr/VFS_V2_SERVER_HOOKS_DECISION_RU.md).
@@ -17,7 +17,7 @@ providers или их хранилищ.
 | Результат | Что можно продемонстрировать | Что ещё не обещается |
 | --- | --- | --- |
 | R0: доменное ядро | SQLite Store и операции дерева проходят unit-тесты | VFS-проекция и физический content |
-| R1: editor vertical slice | Page metadata, `model.xml`, `layout.xml` и `source.html` работают через VFSv2 | Публичный сайт и публикации |
+| R1: editor vertical slice | Actor-filtered Page metadata, `model.xml`, `layout.xml`; редактор получает `bundle_root_uri` и работает с source напрямую через VFSv2 | Публичный сайт и публикации |
 | R2: публичный MVP ADR-007 | Versioned template, publication manifest, `/`, `/_static`, sitemap и robots | Hooks и полная ACL lifecycle recovery |
 | R3: production hardening | Реальный ACL, lifecycle, reconciliation и вывод legacy HTML routes | Необязательные blocks/hooks, если они поставляются отдельно |
 
@@ -68,10 +68,11 @@ production-ready до R3 нельзя.
 6. HTML Provider не импортирует пакеты `local`, `shared`, Auth, ACL management,
    Scopes Store или legacy VFS.
 7. `Page.ID` остаётся provider-local ссылкой; ACL identity — полный logical URI.
-8. Удаление Page metadata не удаляет physical file.
+8. Удаление Page metadata не удаляет physical bundle.
 9. Hooks не входят в зависимости HTML Provider.
-10. Site HTTP Adapter читает опубликованный сайт через VFSFrontend, а не через
-    HTML Store или filesystem.
+10. Site HTTP Adapter получает готовый content только через site-bound hook
+    Runtime; уже hook читает ресурсы через actor-bound VFS. Adapter не получает
+    HTML Store, VFSFrontend или filesystem.
 
 Архитектурный тест должен запрещать нежелательные imports в пакете provider-а.
 
@@ -148,6 +149,11 @@ editor contract и тестах HTTP adapter-а.
 
 ### Инкремент 1. Store и доменные модели (R0)
 
+> Реализовано 30 сентября 2026 года: добавлены provider-local модели,
+> versioned SQLite schema, Store, внутренние короткие транзакции и тесты
+> изоляции/ограничений. Поля themes, blocks и active publication отложены до
+> появления соответствующих таблиц и сервисов.
+
 Добавить `html.InitDB`, `NewSQLiteStore` и минимальные таблицы:
 
 ```text
@@ -160,9 +166,10 @@ html_editor_layouts
 html_site_seo
 ```
 
-Сразу предусмотреть поля template selection и nullable
-`active_publication_id`, но таблицы template/publication можно добавить в их
-инкрементах.
+Сразу предусмотрены поля template selection. `active_publication_id`, theme и
+block references добавляются отдельными миграциями вместе с соответствующими
+таблицами и сервисами, чтобы не создавать ссылок без владельца и проверяемой
+целостности.
 
 Обязательные ограничения SQLite:
 
@@ -191,6 +198,12 @@ Store API должен принимать `context.Context` и явный `conne
 
 ### Инкремент 2. PageService и ревизии (R0)
 
+> Реализовано 1 октября 2026 года: `PageService` стал единственной публичной
+> точкой изменения Page, добавлены optimistic revision conflicts, anchors,
+> cycle detection, нормализация siblings, три режима удаления и атомарная
+> замена types/tags. В MVP `bundle_root_uri` задаётся при создании Page и
+> остаётся неизменяемой ссылкой; отдельная команда `set-bundle` не вводится.
+
 Реализовать `PageService`, который является единственной точкой изменения
 страниц. Сначала поддержать:
 
@@ -198,11 +211,12 @@ Store API должен принимать `context.Context` и явный `conne
 - `update`;
 - `move`;
 - `delete` с `reject`, `cascade`, `promote_children`;
-- `set-content`;
 - `set-types`, `set-search-tags` можно добавить в том же PR либо сразу после
   первого vertical slice.
 
-Все команды используют строгий JSON decoder и reject unknown fields.
+PageService принимает типизированные request DTO и валидирует их до мутации.
+Строгий JSON decoder и reject unknown fields добавляются в VFS-проекции, где
+появится транспортный `Control`-контракт.
 
 Правила транзакций:
 
@@ -218,7 +232,24 @@ Store API должен принимать `context.Context` и явный `conne
 Тестировать таблицей все инварианты из раздела 24 ADR-007, особенно indirect
 cycle, stale revisions и promote-children.
 
-### Инкремент 3. Минимальная VFS-проекция
+### Инкремент 3. Минимальная VFS-проекция, roots и безопасный create
+
+> Реализовано 2 октября 2026 года: добавлены `providersdk.Definition`, typed
+> VFS-проекция, идемпотентный `initialize`, `register-root`, безопасный
+> `create` с canonical URI/scope/segment containment и `BoundVFS.Stat` каталога
+> bundle и обязательных `content.md`, `style.css`, `script.js`, все
+> команды `PageService`, публичные conflict details и provider-law/
+> end-to-end тесты. Добавлен отдельный `cmd/vfsv2html` с demo scope, одним
+> HTML connection, одной страницей и web-консолью для страниц, scopes,
+> connections и файлов. Physical content connection использует writable
+> provider поверх локального CAS: UI умеет создавать полный bundle, каталоги и
+> файлы, читать/заменять/перемещать/удалять ресурсы, после чего регистрировать
+> Page metadata через публичный HTTP VFS API. Production ACL и lifecycle в этот
+> статус не входят.
+>
+> Уточнение ADR-007 от 4 октября реализовано инкрементом 3.1: минимальная
+> VFS-проекция больше не возвращает все Page безусловно, а применяет обязательную
+> provider-owned visibility к lookup, `/pages` и `tree.json`.
 
 Собрать provider через `providersdk.Definition` и typed tree. На этом этапе
 проецируются:
@@ -227,21 +258,39 @@ cycle, stale revisions и promote-children.
 /
 ├── site.json
 ├── tree.json
-├── editor/
-│   ├── model.xml
-│   └── layout.xml
 ├── publishers/
 └── pages/
     └── <page-key>/
-        ├── info.json
-        └── source.html
+        └── info.json
 ```
 
 Команды регистрируются на `/`, `/publishers`, `/pages` и
-`/pages/<page-key>` через `providersdk.Command`. `model.xml` и `tree.json`
-формируются из Store и не имеют Replace handler. `info.json` в первой версии
+`/pages/<page-key>` через `providersdk.Command`. `tree.json`
+формируется из Store и не имеет Replace handler. `info.json` в первой версии
 read-only; functional write выполняется через `Control update`, чтобы не
 изобретать conditional PUT вне согласованного контракта.
+
+В этот же инкремент входят `register-root` и `create`. До сохранения Page
+команда `create` обязана:
+
+1. разобрать bundle root URI через `common.CastURI` и сохранить canonical string;
+2. потребовать explicit scope, равный scope HTML connection;
+3. segment-aware проверить нахождение target внутри зарегистрированного root;
+4. вызвать `BoundVFS.Stat` для root с request context и тем же actor;
+5. проверить, что root — каталог, а `content.md`, `style.css`, `script.js` — файлы;
+6. создать Page только после успешной проверки target.
+
+Нельзя проверять root строковым `strings.HasPrefix`: `/site/a` не должен
+совпадать с `/site/ab`. Сравниваются provider, connection, scope и очищенные
+path segments. Неуспешный `Stat` не оставляет Page или частично записанный
+binding.
+
+Этот slice не зависит от наличия production ACL evaluator. `BoundVFS` уже
+обеспечивает повторный вход через VFS Core и сохраняет actor; в development
+composition может использоваться текущий allow-all/recording authorizer.
+Это проверяет правильную архитектурную трассу, но не считается доказательством
+production-авторизации. Подключение реального ACL и ACL lifecycle остаётся в
+инкременте 11.
 
 `Stat` и `ReadDir` не должны раскрывать ресурс, который не существует в
 HTML Store. Provider instance хранит только immutable dependencies и connection
@@ -251,43 +300,75 @@ metadata; request actor берётся только из context.
 
 - provider laws из `providertest`;
 - route listing;
-- read-only `model.xml` возвращает unsupported/permission на запись;
+- `register-root` отклоняет другой scope и несуществующий target;
+- `create` отклоняет bundle вне root, не-каталог и bundle без любого из трёх
+  обязательных файлов, не создавая Page при ошибке target;
+- recording authorizer/fake physical provider подтверждают повторный проход
+  через VFS Core с тем же actor;
 - Control неизвестной командой возвращает unsupported;
 - один provider instance безопасен для параллельных requests разных actors.
 
-### Инкремент 4. Publisher roots и actor-bound content delegation
+### Инкремент 3.1. Обязательная node visibility projection
 
-Реализовать `register-root` и `set-content` в следующем порядке:
+> Реализовано 4 октября 2026 года для всех сущностей, присутствующих в текущем
+> executable slice: `site`, publisher root и Page. Добавлены schema v3,
+> атомарные initial visibility entries, safe legacy backfill, `all`, `guest`,
+> exact actor, `VisibilityService`, optimistic `set-visibility`, фильтрация
+> direct lookup/list/`tree.json` и правило невидимого parent. Доказаны обе
+> независимые границы: ACL allow не раскрывает узел без visibility, а visibility
+> не преодолевает ACL deny. Подключение этого же сервиса к ещё не реализованным
+> Block/Theme/Publication, `model.xml`, поиску, publication manifest и sitemap
+> выполняется при появлении соответствующих ресурсов в следующих инкрементах.
 
-1. `common.CastURI` и сохранение только canonical string;
-2. обязательный explicit scope, равный scope HTML connection;
-3. segment-aware containment target внутри зарегистрированного root;
-4. `BoundVFS.Stat` с request context;
-5. проверка ожидаемого типа target;
-6. локальная запись binding только после успешного Stat.
+До расширения editor-проекции добавить provider-owned
+`html_node_visibility(site_id, node_kind, node_key, audience_key)` и
+`Site.VisibilityRevision`.
 
-Нельзя проверять root строковым `strings.HasPrefix`: `/site/a` не должен
-совпадать с `/site/ab`. Сравниваются provider, connection, scope и очищенные
-path segments.
+Правила:
 
-`source.html` делегирует `OpenFile` непосредственно в `BoundVFS`. Возвращаемый
-file не буферизуется HTML Provider и сохраняет семантику commit/abort target
-provider-а. Ошибки ACL/backend передаются как классифицированные VFS errors;
-недоступный ранее сохранённый URI может быть представлен как `broken_binding`.
+- каждая создаваемая доменная сущность получает непустой `visible_to` в той же
+  локальной транзакции;
+- `all` соответствует любому actor, `guest` — только неаутентифицированному,
+  exact subject — только тому же trusted actor;
+- без подходящей записи узел возвращает `not_found` в list и direct lookup;
+- metadata-документы Page/Block наследуют visibility владельца; physical source
+  остаётся вне HTML-проекции и защищается ACL своих URI;
+- невидимый parent скрывает всё поддерево;
+- `tree.json`, `model.xml`, поиск, publication и sitemap используют один
+  VisibilityService;
+- ACL остаётся независимым ограничителем действий и не создаёт видимость;
+- `set-visibility` атомарно заменяет audience set по expected visibility
+  revision;
+- legacy migration создаёт owner/publisher entries, но не добавляет `all` или
+  `guest` неявно.
 
-Интеграционный тест должен использовать recording authorizer и fake physical
-provider и доказать две независимые проверки:
+Тесты должны отдельно доказать обе стороны: ACL `allow` без visibility не
+раскрывает узел, а visibility entry не преодолевает ACL `deny`.
 
-```text
-r/w logical html URI
-    -> provider
-    -> r/w physical URI с тем же actor
-```
+### Инкремент 4. Прямой доступ редактора к physical source
 
-Отдельно проверить outer allow + target deny, backend deny после ACL allow и
-отсутствие вызова target при невалидном root.
+> Архитектурно завершён решением от 6 октября 2026 года: отдельный код HTML
+> Provider не требуется.
+
+HTML Provider возвращает в `info.json` канонический `bundle_root_uri`, но не
+проецирует `content.md`, `style.css`, `script.js` под `html@...` и не вводит
+`set-bundle`. Редактор добавляет к корню фиксированные имена файлов и обращается
+к полученным physical URI через обычный VFS API. ACL и ошибки принадлежат одному
+реальному файловому ресурсу, без второго proxy-слоя.
+
+Интеграционный тест редактора должен подтвердить, что source URI берётся из
+видимого `info.json`, а чтение/запись выполняются через VFS Core непосредственно
+в файловый provider с исходным actor.
 
 ### Инкремент 5. Editor model и layout (R1)
+
+> Частично реализовано 19 октября 2026 года: добавлены детерминированный codec
+> и read-only VFS route `editor/model.xml`, безопасный parser/normalizer schema
+> v1 и writable route `editor/layout.xml`, `LayoutService` с actor-filtered
+> чтением и сохранением невидимой части, optimistic `layout_revision` и
+> атомарный Store CAS. Provider-тесты покрывают visibility, ACL deny,
+> malformed/oversized XML и публичный conflict. HTTP integration и полный
+> сквозной R1-тест с direct physical source ещё не реализованы.
 
 Реализовать deterministic codec `model.xml`:
 
@@ -312,10 +393,11 @@ adapter:
 ```text
 initialize site
 -> register physical root
--> create page with source URI
+-> create page with bundle root URI
 -> read tree.json and model.xml
 -> write/read layout.xml
--> read and replace source.html through BoundVFS
+-> obtain bundle_root_uri from info.json
+-> read and replace content.md/style.css/script.js by physical VFS URI
 -> stale page/tree/layout revision returns 409 with domain code
 ```
 
@@ -339,6 +421,16 @@ R1 после этого можно демонстрировать из CLI/HTTP
 помечается как ACL-free development slice.
 
 ### Инкремент 7. Versioned application templates
+
+> Статус на 20 октября 2026 года: частично реализован. Schema v4 хранит
+> immutable package metadata, content-addressed blobs и точный asset allowlist;
+> `Control(/templates, "install", ...)` атомарно валидирует и устанавливает
+> package, а VFS проецирует read-only `manifest.json` и рекурсивное `files/...`.
+> Application-level directory builder уже собирает reviewed allowlist
+> `default-spa/7` из `data/HTML/frontend`, запрещает traversal/symlink;
+> `cmd/vfsv2html` идемпотентно устанавливает результат
+> через публичный VFS Control. Ещё не реализованы archive/remote-URI import,
+> production bootstrap и привязка к publication/HTTP.
 
 Добавить таблицы metadata template package, asset allowlist и provider-owned
 blob storage. Предпочтительный первый вариант — content-addressed blobs внутри
@@ -374,7 +466,7 @@ VFS-проекция `/templates/<key>/<version>/manifest.json` и `/files/...` 
 URIs проходят ту же root/scope/`BoundVFS` проверку, что Page source. Нельзя
 переиспользовать cached successful Stat как право на последующее чтение.
 
-Blocks не должны задерживать публикацию прямых `Page.SourceURI`, если продукту
+Blocks не должны задерживать публикацию прямых `Page.BundleRootURI`, если продукту
 сначала нужен page-only public MVP. В этом случае blocks поставляются сразу
 после R2, а ADR/реестр честно отмечают частичную реализацию.
 
@@ -415,6 +507,37 @@ Reconciliation повторяет только безопасные шаги и 
 
 ### Инкремент 10. `/public` и Site HTTP Adapter (R2)
 
+> Статус на 20 октября 2026 года: реализован ограниченный demo Site HTTP slice
+> поверх site-bound `get-static`. Точный `GET /` возвращает template entrypoint,
+> `GET /_static/*` выбирает последнюю установленную версию template key из
+> trusted site binding и проверяет manifest allowlist,
+> выставляет MIME, Content-Length, ETag, Cache-Control и `nosniff`; неизвестный
+> static получает 404 без fallback. Любой другой browser path, включая
+> многосегментный, передаётся site-bound `get-page`: hook читает actor-filtered
+> `tree.json`, разрешает точную цепочку slug и возвращает template entrypoint
+> только для существующего маршрута; вместе с entrypoint hook возвращает
+> actor-filtered bootstrap страницы, который adapter безопасно встраивает в
+> HTML с новым ETag. Browser runtime поэтому не повторяет `get-page` и не читает
+> отдельно `site.json`/`info.json`; неизвестный маршрут возвращается hook как
+> успешный output с `found=false`, а Adapter преобразует его в 404 HTML при
+> `Accept: text/html` или JSON `page_not_found` для API-клиента. Adapter
+> не получает HTML Store и не читает VFS отдельно от hook. Active publication,
+> `/public` и sitemap/robots ещё не реализованы.
+> До появления active publication demo policy считает публично активным только
+> status `ready`; остальные статусы и descendants неактивного parent скрываются
+> как `found=false`.
+>
+> Demo bootstrap устанавливает обновлённый `default-spa/7` и создаёт реальную
+> страницу `/demo` с отдельным physical bundle (`content.md`, `style.css`,
+> `script.js`). На `/` остаётся прежнее site-приложение, а `/demo` загружает
+> отдельный административный клиент: он управляет metadata страниц через
+> VFS Control и читает/заменяет все файлы bundle через actor-bound VFS.
+> Предыдущие версии сохраняются как immutable packages; публичный `/_static`
+> автоматически выбирает последнюю установленную версию. Client router оставляет legacy-приложение
+> только на `/`, а все остальные разрешённые routes без исключений загружают
+> physical page bundle по встроенному bootstrap. Панель управления на `/demo` определяется
+> собственным bundle страницы `demo`, а не специальной веткой router.
+
 HTML Provider проецирует active publication:
 
 ```text
@@ -423,21 +546,22 @@ HTML Provider проецирует active publication:
 /public/robots.txt
 ```
 
-Site HTTP Adapter находится вне provider-а и принимает готовый VFSFrontend,
-site URI resolver и actor policy. Он не получает HTML Store.
+Site HTTP Adapter находится вне provider-а и принимает Hook Runtime, site URI
+resolver и actor policy. Он не получает HTML Store, VFSFrontend или filesystem;
+чтение выполняет site-bound hook с исходным actor через VFS Core.
 
 Порядок маршрутов production server-а:
 
 1. `/api/*` и служебные routes;
-2. `/_static/<key>/<version>/*`;
+2. `/_static/*`;
 3. site asset/public routes;
-4. SPA route fallback только для допустимого site route;
+4. SPA route через `get-page` только для точного допустимого site route;
 5. обычный 404.
 
-`/_static` проверяет active publication, точное совпадение key/version и asset
-allowlist. Неизвестный static asset никогда не получает `index.html`.
-Entrypoint получает revalidation cache policy; versioned assets — digest ETag и
-immutable cache.
+`/_static` выбирает последнюю установленную версию template key из trusted
+site binding и проверяет asset allowlist. Неизвестный static asset никогда не
+получает `index.html`. Поскольку публичный URL не versioned, entrypoint и static
+получают digest ETag и revalidation cache policy без `immutable`.
 
 После прохождения parity-тестов legacy `http.FileServer`, `LoadTemplatePage` и
 `/api/HTML` сначала выключаются feature flag-ом, затем удаляются отдельным PR.
@@ -461,12 +585,27 @@ server использует allow-all/noop или legacy обход для за�
 
 ### Инкремент 12. Необязательные hooks ADR-008
 
+> Статус на 20 октября 2026 года: общий transport-neutral Hook SDK, frozen
+> definitions, trusted native Engine, dynamic trusted resource bindings, actor-bound Runtime и
+> in-memory idempotency уже реализованы независимо от HTML Provider. Read-only
+> site-bound `get-static` объявлен самим HTML `providersdk.Module`; Provider SDK
+> регистрирует definition вместе с provider factory и создаёт binding site root →
+> `default-spa` (latest installed) при открытии connection. Adapter вызывает его через
+> `RunResource(actor, siteURI, "get-static", ...)`. Hook разрешает только asset из проверенного
+> manifest, сохраняет actor на всех VFS-шагах, читает asset внутри hook, сверяет
+> фактические size/SHA-256 и возвращает bytes вместе с HTTP metadata. Asset
+> ограничен 4 MiB, а JSON output учитывает Base64 overhead. Универсальный Hook
+> HTTP adapter реализует ADR route и вызывает direct/resource-bound hooks.
+> Остальные прикладные HTML hooks и durable execution journal ещё отсутствуют.
+
 После появления Hook Runtime зарегистрировать через его публичный SDK:
 
 - `create-site`;
 - `create-page-with-content`;
-- `delete-page-and-source`;
+- `delete-page-and-bundle`;
 - `publish-site`.
+- `get-static` как read-only reader разрешённого template resource для
+  конкретного site binding; hook возвращает bytes и HTTP metadata одним результатом.
 
 Hooks вызывают только actor-bound VFS. Они не получают `html.Store`,
 `PageService` или прямой ACL management service. Тест частичного сбоя должен
@@ -484,9 +623,10 @@ Hooks вызывают только actor-bound VFS. Они не получаю�
 | 0 | Contract gaps: initialize и structured errors | — | исполнимый контракт |
 | 1 | Models, schema, SQLite Store | PR 0 | основа R0 |
 | 2 | PageService и domain tests | PR 1 | R0 |
-| 3 | VFS projection и commands | PR 2 | logical resources |
-| 4 | Roots, bindings, BoundVFS delegation | PR 3 | physical content |
-| 5 | model/layout XML и HTTP integration | PR 4 | R1 |
+| 3 | VFS projection, roots, safe create | PR 2 | logical resources |
+| 3a | Node visibility, `all`/`guest`/exact actor, filtered aggregates | PR 3 | safe discovery projection |
+| 4 | Зафиксировать прямой доступ редактора к source по `bundle_root_uri` в контрактных тестах | PR 3a | упрощённый physical source contract |
+| 5 | model/layout XML и HTTP integration | PR 3a | R1 |
 | 6 | registry/runtime composition | PR 5 | runnable R1 |
 | 7 | template package и `/templates` | PR 6 | static source |
 | 8 | themes/SEO, при необходимости blocks | PR 6 | publication inputs |

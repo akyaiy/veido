@@ -319,6 +319,20 @@ func (s *nodeStore) saveFileArtifact(ctx context.Context, rootID int64, parentID
 	var id int64
 	if err == nil {
 		id = existingID
+		var existingArtifactID sql.NullInt64
+		if err := tx.QueryRowContext(ctx, `SELECT artefact_id FROM metadata WHERE id = ?`, id).Scan(&existingArtifactID); err != nil {
+			return nil, err
+		}
+		// Replacing a file with identical bytes resolves to the same CAS
+		// artifact. Deleting the metadata row here would let the delete trigger
+		// garbage-collect that artifact before the row is inserted again.
+		if existingArtifactID.Valid && existingArtifactID.Int64 == artifactID {
+			if err := tx.Commit(); err != nil {
+				return nil, err
+			}
+			committed = true
+			return s.byID(ctx, id)
+		}
 		if _, err := tx.ExecContext(ctx, `DELETE FROM metadata WHERE id = ?`, id); err != nil {
 			return nil, err
 		}

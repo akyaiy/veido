@@ -24,10 +24,11 @@ type problemResponse struct {
 }
 
 type problemBody struct {
-	Code      string       `json:"code"`
-	Message   string       `json:"message"`
-	Operation v2.Operation `json:"operation,omitempty"`
-	RequestID string       `json:"request_id,omitempty"`
+	Code      string         `json:"code"`
+	Message   string         `json:"message"`
+	Operation v2.Operation   `json:"operation,omitempty"`
+	RequestID string         `json:"request_id,omitempty"`
+	Details   map[string]any `json:"details,omitempty"`
 }
 
 func nodeToResponse(node *v2.Node) nodeResponse {
