@@ -2,6 +2,9 @@
  *  access-token хранится только в памяти (без localStorage)
  **********************************************************************/
 let accessToken = null;   
+if (window.location.pathname === "/") {
+    window.location.replace("/home");
+}
 let spritePath = '/_static/img/icons.svg';
 let tokenWriting = null; // флаг блокировки refresh
 
