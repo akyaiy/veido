@@ -448,9 +448,11 @@ async function apiProtected(path, options = {}) {
  ****************************************************************************/
 async function refreshAccess (){
     //Отправка запроса на обновление токена
-    const rr = await fetch("/api/auth/session/refresh", {
+    const rr = await fetch("/api/v2/vfs/hooks/auth.refresh/run", {
         method: "POST",
-        credentials: "include"
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ input: {} })
     });
     // Проверка ответа
     if (!rr.ok) {
@@ -462,13 +464,14 @@ async function refreshAccess (){
     const j = await rr.json();
     emitAuthEvent(true);  // Пользователь вошёл в систему ✅
     //console.log("+++")
-    accessToken = j.data;
+    accessToken = j.output?.access_token;
+    if (!accessToken) return null;
     // Декодирование payload JWT
     const payload = JSON.parse(
             atob(accessToken.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))
     );
     // Обновление данных пользователя
-    user.id = payload.user_id;
+    user.id = payload.sub;
     //user.name = (await getUserDataByID(user.id)).name;
     //lngEdit();
 
@@ -509,13 +512,7 @@ async function refreshAccess (){
 //     }
 // }
 
-PageReady.add(async () => {
-    try {
-        await refreshAccess();
-    } catch (e) {
-        /* console.error("refreshAccess failed:", e); */
-    }
-});
+
 
 /********************************************************************************
  * loadMenu функция загрузки блока меню страницы в формате Markdown            
@@ -550,7 +547,7 @@ async function loadMenu() {
 /**********************************************************************************
  * loadBlock — универсальная функция загрузки блоков (с поддержкой iframe)
  **********************************************************************************/
-async function loadBlock(path, target, itemsHowText = false) {
+async function loadBlock(path, target, itemsHowText = false, mode = "") {
     // Поддержка передачи как элемента DOM, так и ID
     let container = typeof target === 'string' ? document.getElementById(target) : target;
     if (!container) return;
@@ -571,7 +568,26 @@ async function loadBlock(path, target, itemsHowText = false) {
             }
         });
 
-        const response = await apiProtected(`/api/HTML/${blockName}`, { method: "GET" });
+        const bootstrap = JSON.parse(document.getElementById("html-page-bootstrap")?.textContent || "{}");
+        const uri = blockName === `pages/${bootstrap.page_key}`
+            ? bootstrap.bundle_root_uri
+            : `local@publisher[abc3a4-site]:///${blockName}`;
+
+        const results = await Promise.all(
+            ["content.md", "style.css", "script.js"].map(file =>
+                apiProtected(`/api/v2/vfs/read?uri=${encodeURIComponent(uri + "/" + file)}`, { method: "GET" })
+            )
+        );
+
+        if (results.some(value => value === null)) {
+            throw new Error(`Не удалось загрузить блок: ${blockName}`);
+        }
+
+        const response = {
+            content: results[0],
+            css: results[1],
+            js: results[2]
+        };
 
         if (!window.markdownit) {
             await loadMdScript('/_static/vendor/markdown-it.min.js');
@@ -830,30 +846,30 @@ async function getUserDataByID(id) {
 async function userLogin(username, password) {
     try {
         // Запрос логина
-        const r = await apiProtected(`/api/auth/session/login`, {
+        const r = await apiProtected(`/api/v2/vfs/hooks/auth.login/run`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                username,
-                password
+                input: { username, password }
             })
         });
         // Проверка access token
-        if (!r?.data) {
+        if (!r?.output?.access_token) {
             throw new Error("Token not received");
         }
         const payload = JSON.parse(
-            atob(r.data.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))
+            atob(r.output.access_token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))
     );
         // Успешный результат
+        accessToken = r.output.access_token;
         emitAuthEvent(true);  // Пользователь вошёл в систему ✅
         //console.log("+++");
         user.name = username;
         user.id = payload.sub; // sub вместо user_id в JWT payload
         return {
-            accessToken: r.data
+            accessToken: r.output.access_token
         };
     // Обработка ошибок (catch)    
     } catch (err) {
