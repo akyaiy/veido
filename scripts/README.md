@@ -26,6 +26,11 @@ SITE_ACCESS_TOKEN='<access JWT>' scripts/add-page.sh \
   --source-dir ./site-content/publisher/pages/about
 ```
 
+`bootstrap-site.sh` выполняется только для нового сайта. Повторный полный
+bootstrap намеренно откажется до изменения данных, если site scope уже
+существует. Для обновления frontend-шаблона используй `install-template.sh`,
+а для страниц — `add-page.sh`.
+
 `add-page.sh` ожидает в source directory файлы `content.md`, `style.css` и
 `script.js`; `SITE_URI` берёт из `.env`. При конкурентном изменении дерева
 страниц создание может вернуть conflict: запусти команду повторно после
@@ -40,3 +45,14 @@ SITE_ACCESS_TOKEN='<access JWT>' scripts/add-page.sh \
 версию `default-spa` через VFS и устанавливает следующую. Поэтому
 `template_version` в `site.bootstrap.json` не требуется менять вручную для
 обычных обновлений frontend assets.
+
+Если старый повторный bootstrap уже оставил `local@publisher` с credential,
+который не совпадает с local account, для локальной development-БД есть
+одноразовый recovery:
+
+```bash
+scripts/repair-publisher-credential.sh --yes
+```
+
+Это не обычная VFS-операция и не инструмент frontend-разработки: он нужен
+только для восстановления повреждённого credential в локальной БД.

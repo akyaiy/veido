@@ -70,9 +70,23 @@ func main() {
 		m.Site.TemplateVersion = strings.TrimSpace(*templateVersion)
 	}
 	c := client{base: strings.TrimRight(*server, "/"), token: *token, http: http.DefaultClient}
-	scope, err := c.ensureScope(m.ScopeName)
+	var scope node
+	var scopeExists bool
+	scope, scopeExists, err = c.findScope(m.ScopeName)
 	if err != nil {
-		fail(fmt.Errorf("create site scope: %w", err))
+		fail(fmt.Errorf("find site scope: %w", err))
+	}
+	if *templateOnly {
+		if !scopeExists {
+			fail(fmt.Errorf("site scope %q does not exist; template-only install never creates a site", m.ScopeName))
+		}
+	} else if scopeExists {
+		fail(fmt.Errorf("site scope %q already exists (%s); bootstrap refuses to overwrite an existing site or publisher connection", m.ScopeName, scope.Name))
+	} else {
+		scope, err = c.mkdir("scopes@scopes[system]:///scopes/" + m.ScopeName)
+		if err != nil {
+			fail(fmt.Errorf("create site scope: %w", err))
+		}
 	}
 	htmlURI := fmt.Sprintf("html@%s[%s]:///", m.Site.Connection, scope.Name)
 	if *templateOnly {
@@ -169,27 +183,23 @@ func (c client) mkdir(uri string) (node, error) {
 	return n, e
 }
 
-func (c client) ensureScope(name string) (node, error) {
-	created, err := c.mkdir("scopes@scopes[system]:///scopes/" + name)
-	if err == nil {
-		return created, nil
-	}
-	data, listErr := c.req("GET", "/api/v2/vfs/list?uri="+url.QueryEscape("scopes@scopes[system]:///scopes"), nil)
-	if listErr != nil {
-		return node{}, fmt.Errorf("create scope: %w (cannot list existing scopes: %v)", err, listErr)
+func (c client) findScope(name string) (node, bool, error) {
+	data, err := c.req("GET", "/api/v2/vfs/list?uri="+url.QueryEscape("scopes@scopes[system]:///scopes"), nil)
+	if err != nil {
+		return node{}, false, err
 	}
 	var listed struct {
 		Items []node `json:"items"`
 	}
-	if listErr = json.Unmarshal(data, &listed); listErr != nil {
-		return node{}, listErr
+	if err = json.Unmarshal(data, &listed); err != nil {
+		return node{}, false, err
 	}
 	for _, item := range listed.Items {
 		if strings.HasSuffix(item.Name, "-"+name) {
-			return item, nil
+			return item, true, nil
 		}
 	}
-	return node{}, fmt.Errorf("create scope: %w", err)
+	return node{}, false, nil
 }
 func (c client) connection(scope, provider, key, config string) error {
 	connectionURI := "scopes@scopes[system]:///scopes/" + scope + "/connections/" + provider + "@" + key
