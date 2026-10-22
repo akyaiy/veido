@@ -2085,10 +2085,12 @@ function toggleFileMenu() {
 *** */
 function handleFileMenuClose(event) {
     const fileMenu = document.getElementById('fileMenu');
+    const fileMenuList = document.getElementById('fileMenuList');
+    if (!fileMenu || !fileMenuList) return;
 
     if (fileMenu.contains(event.target) && !event.target.closest('#fileMenuList > div')) return;
 
-    document.getElementById('fileMenuList').style.display = 'none';
+    fileMenuList.style.display = 'none';
 }
 
 // Обработчики файлового меню
@@ -2314,7 +2316,7 @@ function openPage(name, content = '') {
     fileName.className = 'fileName';
     fileName.textContent = name;
     fileClose.className = 'fileClose';
-    fileClose.innerHTML = '<svg class="svgIcon" use="4x5" style="color: rgb(0, 0, 0);"><use href="./static/img/icons.svg#4x5"></use></svg>';
+    fileClose.innerHTML = '<svg class="svgIcon" use="4x5" style="color: rgb(0, 0, 0);"><use href="/_static/img/icons.svg#4x5"></use></svg>';
 
     fileClose.appendChild(icon);
     file.appendChild(fileName);
@@ -2816,7 +2818,7 @@ function initSvgIcons() {
 
         // Создание SVG <use> элемента
         const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-        use.setAttribute('href', './static/img/icons.svg#' + id);
+        use.setAttribute('href', '/_static/img/icons.svg#' + id);
 
         // Применение цвета
         if (color) {

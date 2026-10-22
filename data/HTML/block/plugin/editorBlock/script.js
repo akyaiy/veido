@@ -95,7 +95,7 @@ function initSvgIcons() {
 
         // Создание SVG <use> элемента
         const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-        use.setAttribute('href', './static/img/icons.svg#' + id);
+        use.setAttribute('href', '/_static/img/icons.svg#' + id);
 
         // Применение цвета
         if (color) svg.style.color = color;

@@ -67,8 +67,16 @@ async function onLoginClick() {
 
 /* ------------------- Кнопки ------------------- */
 logout_btn.onclick = async () => {
-    await userLogout();   // вызываем существующую функцию
-    await initUser();           // делаем своё
+    try {
+        await userLogout();
+    } catch (e) {
+        console.error("Logout error:", e);
+    } finally {
+        accessToken = "";
+        user.name = "";
+        user.id = "";
+        showLogin();
+    }
 };
 login_btn.onclick = onLoginClick;
 document.onkeydown = (e) => { (e.key === 'Enter') && onLoginClick(); };
