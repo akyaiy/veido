@@ -78,6 +78,6 @@ EXISTS="$(sqlite3 "$DB_PATH" "SELECT count(*) FROM local_accounts WHERE subject_
 sqlite3 "$DB_PATH" "UPDATE local_accounts SET secret_hash = '$HASH', updated_at = CURRENT_TIMESTAMP WHERE subject_key = '$SUBJECT';"
 unset SECRET CONFIG HASH
 
-ROOT_URI="local@${PUBLISHER}[${SCOPE_KEY]}:///"
+ROOT_URI="local@${PUBLISHER}[${SCOPE_KEY}]:///"
 curl -fsS -H "Authorization: Bearer $ACCESS_TOKEN" --get "$SERVER_URL/api/v2/vfs/stat" --data-urlencode "uri=$ROOT_URI" >/dev/null
 printf 'Repaired publisher %s in scope %s. The local account now opens through VFS.\n' "$PUBLISHER" "$SCOPE_KEY"
