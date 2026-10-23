@@ -88,7 +88,7 @@ async uniquePath(path, isDir = false) {
  * Поведение:
  * - Отправляет защищённый запрос через VFSv2.
  * - При ошибке 403 выводит сообщение об отсутствии прав доступа.
- * - При любой другой ошибке выводит общее сообщение об ошибке загрузки.
+ * - Показывает сообщение об ошибке и повторно выбрасывает ошибку вызывающему коду.
  ***************************************************************************/
   async list(path) {
     try {
@@ -97,12 +97,12 @@ async uniquePath(path, isDir = false) {
             modTime: item.updated_at ?? item.modTime
         }));
     } catch (e) {
-        if (e.status === 403) {
+        if (e?.status === 403) {
             alert("Нет прав на просмотр файлов");
         } else {
             alert("Ошибка списка файлов");
         }
-        return;
+        throw e;
     }
 }
 
@@ -179,14 +179,10 @@ async put(path, content) {
 }
 
 /***************************************************************************
- * patch — частичное обновление содержимого файла:
- * - Принимает путь к файлу и обновляемое содержимое.
- * - Обновляет часть файла без полной перезаписи.
- * - При неуспешном ответе сервера выбрасывает ошибку.
- * - Возвращает успешный результат операции.
+ * patch — частичная запись не поддерживается VFS API.
  ***************************************************************************/
-async patch(path, content) {
-    return await this.put(path, content);
+async patch() {
+    throw new Error("Частичная запись через VFS не поддерживается; используйте put() для полной замены файла");
 }
 
 /***************************************************************************
@@ -263,29 +259,54 @@ async move(path, target) {
 }
 
 /***************************************************************************
- * getRange — загрузка части файла:
+ * getRange — получение части файла:
  * - Принимает путь к файлу и диапазон байт.
- * - Загружает указанную часть файла с использованием Range-запроса.
+ * - Читает файл целиком и возвращает клиентский срез; VFS Range-запрос не поддерживает.
  * - При неуспешном ответе сервера выбрасывает ошибку.
  * - Возвращает данные файла в бинарном виде.
  ***************************************************************************/
 async getRange(path, start = 0, end = null) {
+    // Серверный VFS read не поддерживает Range, поэтому срез выполняется после чтения всего файла.
     const bytes = await this.vfs.readBytes(this.uri(path));
     return bytes.slice(start, end === null ? undefined : end + 1).buffer;
 }
 
 /***************************************************************************
- * search — поиск файлов с фильтрацией:
+ * search — рекурсивный поиск файлов и папок с фильтрацией:
  * - Принимает путь каталога и параметры поиска.
- * - Выполняет поиск файлов по заданным условиям.
+ * - Обходит каталог и его подкаталоги.
  * - При неуспешном ответе сервера выбрасывает ошибку.
- * - Возвращает список найденных файлов.
+ * - Возвращает найденные элементы с относительным путём в поле path.
  ***************************************************************************/
 async search(path = '', query = {}) {
-    const entries = await this.vfs.readdir(this.uri(path));
-    return entries.filter(item => Object.entries(query).every(([key, value]) =>
-        String(item[key] ?? "").includes(String(value))
-    ));
+    const root = this.cleanPath(path);
+    const results = [];
+    const visited = new Set();
+
+    const visit = async directory => {
+        const cleanDirectory = this.cleanPath(directory);
+        if (visited.has(cleanDirectory)) return;
+        visited.add(cleanDirectory);
+
+        const entries = await this.vfs.readdir(this.uri(cleanDirectory));
+        for (const item of entries) {
+            const childPath = cleanDirectory
+                ? `${cleanDirectory}/${item.name}`
+                : item.name;
+            const result = { ...item, path: childPath };
+
+            if (Object.entries(query).every(([key, value]) =>
+                String(result[key] ?? "").includes(String(value))
+            )) {
+                results.push(result);
+            }
+
+            if (item.is_dir) await visit(childPath);
+        }
+    };
+
+    await visit(root);
+    return results;
 }
 
 /***************************************************************************
@@ -322,7 +343,16 @@ async download(path, fileName) {
  * - поддерживает файлы и директории (рекурсивно)
  ***************************************************************************/
 async downloadZip(paths, zipName = "archive.zip") {
-    const { zipSync } = await loadBlock("plugin/zipArchiver", "zipArchiver", null, "importJs");
+    const zipModule = await loadBlock(
+        "plugin/zipArchiver",
+        document.createElement("div"),
+        false,
+        "importJs"
+    );
+    if (!zipModule || typeof zipModule.zipSync !== "function") {
+        throw new Error("Не удалось загрузить функцию zipSync из plugin/zipArchiver");
+    }
+    const { zipSync } = zipModule;
 
     const filesMap = {};
 
@@ -397,10 +427,12 @@ class FileManager {
   }
 
 /***************************************************************************
- * init — загружает содержимое корневого каталога.
+ * init — загружает содержимое начального каталога.
  ***************************************************************************/
 async init() {
-  this.currentFiles = await f.list(await this.msg.getData());
+  const initialPath = this.api.cleanPath(await this.msg.getData());
+  this.cwd = initialPath ? `/${initialPath}` : '/';
+  this.currentFiles = await this.api.list(this.cwd);
   //console.log(this.currentFiles);
     this.updateCwdDisplay();
     this.sortFiles();
@@ -451,8 +483,9 @@ sortFiles() {
  * Переменные для хранения текущее состояние файлового менеджера.
  ***************************************************************************/
 async openDir(path) {
-    this.currentFiles = await f.list(path);
-    this.cwd = path;
+    const cleanPath = this.api.cleanPath(path);
+    this.currentFiles = await this.api.list(cleanPath);
+    this.cwd = cleanPath ? `/${cleanPath}` : '/';
 
     this.updateCwdDisplay();
     this.sortFiles();
@@ -657,14 +690,9 @@ class MsgClient {
  ***************************************************************************/
   async getData() {
     this.data = await tempStore.getByRecipient("fManager");
-    let urlPath;
-    if (this.data){
-    if (this.data?.[0]?.path) {
-      urlPath = this.data[0].path;
-    } else if (this.data[0].path === '/') {
-      urlPath = '';
-    }} else {urlPath = "/"}
-    return urlPath
+    const message = this.data?.[0];
+    const path = message?.path ?? message?.data?.path;
+    return typeof path === "string" && path.trim() ? path : "/";
   }
 
 /***************************************************************************

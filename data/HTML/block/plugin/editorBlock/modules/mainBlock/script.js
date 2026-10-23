@@ -1956,7 +1956,7 @@ function blockEditorSelection(event) {
     const target = event.target;
 
     if (
-        target !== null &&
+        target instanceof Element &&
         target.closest('#viewEditorContent, #mdEditorContent, #cssEditorContent, #jsEditorContent')
     ) {
         event.preventDefault();
