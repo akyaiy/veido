@@ -152,96 +152,90 @@ async function downloadSvgText(svgText, fileName) {
     URL.revokeObjectURL(link.href);
 }
 
-// Загрузка svg из файла
-async function openSvgFromFileManager() {
-    if (window.showOpenFilePicker) {
-        try {
-            const [handle] = await window.showOpenFilePicker({
-                multiple: false,
-                types: [
-                    {
-                        description: "SVG",
-                        accept: {
-                            "image/svg+xml": [".svg"]
-                        }
-                    }
-                ]
-            });
-
-            if (!handle) return;
-
-            const file = await handle.getFile();
-            const text = await file.text();
-            await loadSvgFromText(text, file.name);
-        } catch (error) {
-            return;
-        }
-
-        return;
-    }
-
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ".svg,image/svg+xml";
-    input.hidden = true;
-
-    document.body.appendChild(input);
-
-    input.addEventListener("change", async () => {
-        try {
-            const file = input.files && input.files[0];
-            if (!file) return;
-
-            const text = await file.text();
-            await loadSvgFromText(text, file.name);
-        } finally {
-            input.remove();
-        }
-    }, { once: true });
-
-    input.click();
+// Преобразование пути в VFS URI
+function svgFileUri(path) {
+    return path.includes(":///") ? path : window.VFS_ROOT + path.replace(/^\/+/, "");
 }
 
-// Сохранение svg через файл менеджер
+// Получение активного SVG блока
+function getActiveSvgBlock() {
+    const tab = tabs.querySelector(".svgTab.active");
+    return tab ? storage.querySelector(`.${svgBlockClass}[data-num="${tab.dataset.num}"]`) : null;
+}
+
+// Открытие SVG из VFS
+async function openSvgFromFileManager() {
+    const path = prompt("Путь к SVG:");
+    if (!path) return;
+
+    try {
+        const uri = svgFileUri(path);
+        const text = await window.vfs.read(uri);
+        await loadSvgFromText(text, uri);
+    } catch (error) {
+        console.error("Ошибка открытия SVG:", error);
+    }
+}
+
+// Сохранение SVG как нового файла в VFS
 async function saveSvgAsFileManager() {
     const svgText = getCurrentSvgText();
     if (!svgText) return;
 
-    const fileName = getActiveSvgFileName();
+    const path = prompt("Путь для сохранения:", getActiveSvgFileName());
+    if (!path) return;
 
-    if (window.showSaveFilePicker) {
+    const uri = svgFileUri(path.endsWith(".svg") ? path : path + ".svg");
+
+    try {
+        // Проверяем, существует ли файл
+        let exists = false;
+
         try {
-            const handle = await window.showSaveFilePicker({
-                suggestedName: fileName,
-                types: [
-                    {
-                        description: "SVG",
-                        accept: {
-                            "image/svg+xml": [".svg"]
-                        }
-                    }
-                ]
-            });
-
-            const writable = await handle.createWritable();
-            await writable.write(svgText);
-            await writable.close();
+            await window.vfs.stat(uri);
+            exists = true;
         } catch (error) {
-            return;
+            if (error.status !== 404) throw error;
         }
 
-        return;
-    }
+        if (exists) {
+            // Подтверждение перезаписи
+            if (!confirm("Файл уже существует. Перезаписать?")) return;
 
-    await downloadSvgText(svgText, fileName);
+            await window.vfs.write(uri, svgText);
+        } else {
+            // Создание нового файла
+            await window.vfs.create(uri, new Blob([svgText], { type: "image/svg+xml" }));
+        }
+
+        // Обновление пути и названия вкладки
+        const svgBlock = getActiveSvgBlock();
+        if (svgBlock) svgBlock.dataset.url = uri;
+
+        const title = tabs.querySelector(".svgTab.active .svgTabTitle");
+        if (title) title.textContent = uri.split("/").pop().replace(/\.svg$/i, "");
+
+    } catch (error) {
+        console.error("Ошибка сохранения SVG:", error);
+    }
 }
 
-// Сохранение svg стандартным именем
+// Сохранение SVG в VFS
 async function saveSvgWithStandardName() {
+    const svgBlock = getActiveSvgBlock();
     const svgText = getCurrentSvgText();
     if (!svgText) return;
 
-    await downloadSvgText(svgText, getStandardSvgFileName());
+    if (!svgBlock?.dataset.url?.endsWith(".svg")) {
+        await saveSvgAsFileManager();
+        return;
+    }
+
+    try {
+        await window.vfs.write(svgFileUri(svgBlock.dataset.url), svgText);
+    } catch (error) {
+        console.error("Ошибка сохранения SVG:", error);
+    }
 }
 
 // Загрузка svg из текста
@@ -273,7 +267,7 @@ async function loadSvgFromText(svgText, fileName = null) {
     // Название вкладки
     const svgTabTitle = document.createElement("div");
     if (fileName) {
-        svgTabTitle.textContent = fileName.replace(/\.svg$/i, "");
+        svgTabTitle.textContent = fileName.split("/").pop().replace(/\.svg$/i, "");
     } else {
         svgTabTitle.textContent = "*new";
     }

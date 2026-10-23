@@ -55,50 +55,106 @@ document.addEventListener('click', closeFileMenu);
  * Действия файлового меню
 === */
 
-async function executeFileMenuAction(action) {
-    let blockContent = null;
+// Путь текущего файла
+let editorBlockFileUri = null;
 
+// Преобразование пути в VFS URI
+function editorBlockUri(path) {
+    return path.includes(':///')
+        ? path
+        : window.VFS_ROOT + path.replace(/^\/+/, '');
+}
+
+// Сохранение блока
+async function saveEditorBlock(saveAs = false) {
+    const blockId = window.editorBlock.currentBlockId;
+    if (!blockId) return;
+
+    const block = document.getElementById(blockId);
+    if (!block) return;
+
+    // Получение пути папки
+    let path = block.dataset.path;
+
+    // Запрос пути для нового блока или "Сохранить как"
+    if (!path || saveAs) {
+        path = prompt('Введите путь к папке:', path || 'pages/new');
+        if (!path || !path.trim()) return;
+    }
+
+    path = path.trim().replace(/^\/+|\/+$/g, '');
+
+    // Сохранение изменений редактора
+    window.editorBlock.savePreviousBlock(blockId);
+
+    const html = document.getElementById(blockId + 'Html')?.textContent ?? '';
+    const css = document.getElementById(blockId + 'Css')?.textContent ?? '';
+    const js = document.getElementById(blockId + 'Js')?.textContent ?? '';
+
+    try {
+        // Сохранение трёх файлов
+        for (const [name, content] of [
+            ['content.md', html],
+            ['style.css', css],
+            ['script.js', js]
+        ]) {
+            const uri = editorBlockUri(path + '/' + name);
+
+            if (await window.vfs.exists(uri)) {
+                await window.vfs.write(uri, content);
+            } else {
+                await window.vfs.create(
+                    uri,
+                    new Blob([content], { type: 'text/plain' })
+                );
+            }
+        }
+
+        // Запоминаем путь папки для следующего сохранения
+        block.dataset.path = path;
+    } catch (error) {
+        console.error('Ошибка сохранения блока:', error);
+    }
+}
+
+/* ***
+ * executeFileMenuAction - выполнение действия файлового меню
+ * - принимает действие (save, saveAs, open, new, pageProperties)
+ * - выполняет соответствующее действие
+*** */
+async function executeFileMenuAction(action) {
     switch (action) {
         case 'save':
-            blockContent = window.editorBlock.saveBlock();
-
-            // Заменить потом!!!!!
-            const blob = new Blob([blockContent], { type: 'application/zip' });
-            const downloadUrl = URL.createObjectURL(blob);
-            const downloadLink = document.createElement('a');
-            downloadLink.href = downloadUrl;
-            downloadLink.download = 'block.json';
-            downloadLink.click();
-            URL.revokeObjectURL(downloadUrl);
-
+            await saveEditorBlock();
             break;
 
         case 'saveAs':
-            blockContent = window.editorBlock.saveBlock();
-
-            // Заменить потом!!!!!
-            const blob2 = new Blob([blockContent], { type: 'application/zip' });
-            const downloadUrl2 = URL.createObjectURL(blob2);
-            const downloadLink2 = document.createElement('a');
-            downloadLink2.href = downloadUrl2;
-            downloadLink2.download = 'block.json';
-            downloadLink2.click();
-            URL.revokeObjectURL(downloadUrl2);
-
+            await saveEditorBlock(true);
             break;
 
-        case 'open':
-            const path = await window.editorBlock.prompt('Введите путь к файлу для открытия:');
-            if (path === null || path.trim() === '') return;
-            await window.editorBlock.openBlock(path);
+        case 'open': {
+            const path = await window.editorBlock.prompt(
+                'Введите путь к файлу для открытия:'
+            );
+
+            if (!path || !path.trim()) return;
+
+            try {
+                await window.editorBlock.openBlock(path.replace(/^\/+/, ''));
+            } catch (error) {
+                console.error('Ошибка открытия блока:', error);
+            }
             break;
+        }
 
         case 'new':
             window.editorBlock.newBlock();
+            editorBlockFileUri = null;
             break;
 
         case 'pageProperties':
-            if (window.editorBlock && typeof window.editorBlock.openPageProperties === 'function') {
+            if (window.editorBlock &&
+                typeof window.editorBlock.openPageProperties === 'function') {
                 window.editorBlock.openPageProperties();
             }
             break;

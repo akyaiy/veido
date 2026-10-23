@@ -50,6 +50,36 @@ function emitAuthEvent(isLoggedIn) {
   document.dispatchEvent(event);
 }
 
+// Общие настройки VFS
+window.VFS_ROOT = "local@publisher[abc3a4-site]:///";
+
+window.vfs = window.VFSv2.client({
+    baseURL: "/api/v2/vfs",
+    fetch: async (url, options = {}) => {
+        if (tokenWriting) await tokenWriting;
+
+        const send = () => {
+            const headers = new Headers(options.headers);
+            if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+            return fetch(url, { ...options, headers });
+        };
+
+        let response = await send();
+        if (response.status !== 401) return response;
+
+        if (!tokenWriting) {
+            tokenWriting = refreshAccess().finally(() => {
+                tokenWriting = null;
+            });
+        }
+
+        await tokenWriting;
+
+        if (!accessToken) return response;
+        return await send();
+    }
+});
+
 
 /***********************************************************************
  * TempStore — это временное хранилище данных в браузере на базе IndexedDB, с возможностями:
@@ -574,7 +604,7 @@ async function loadBlock(path, target, itemsHowText = false, mode = "") {
         const bootstrap = JSON.parse(document.getElementById("html-page-bootstrap")?.textContent || "{}");
         const uri = blockName === `pages/${bootstrap.page_key}`
             ? bootstrap.bundle_root_uri
-            : `local@publisher[abc3a4-site]:///${blockName}`;
+            : window.VFS_ROOT + `${blockName}`;
 
         const results = await Promise.all(
             ["content.md", "style.css", "script.js"].map(file =>

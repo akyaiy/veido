@@ -7,37 +7,12 @@ class FilesApiClient {
  * constructor — инициализация VFSv2-клиента.
  ***************************************************************************/
 constructor() {
-    this.vfs = window.VFSv2.client({
-        baseURL: "/api/v2/vfs",
-        fetch: async (url, options) => {
-            if (tokenWriting) await tokenWriting;
-
-            const send = () => {
-                const headers = new Headers(options.headers);
-                if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
-                return fetch(url, { ...options, headers });
-            };
-
-            let response = await send();
-            if (response.status !== 401) return response;
-
-            if (!tokenWriting) {
-                tokenWriting = refreshAccess().finally(() => {
-                    tokenWriting = null;
-                });
-            }
-            await tokenWriting;
-
-            if (!accessToken) return response;
-            response = await send();
-            return response;
-        }
-    });
+    this.vfs = window.vfs;
 }
 
 // uri — преобразование пути файлового менеджера в канонический URI VFS:
 uri(path = '') {
-    return `local@publisher[abc3a4-site]:///${this.cleanPath(path)}`;
+    return window.VFS_ROOT + `${this.cleanPath(path)}`;
 }
 
 // cleanPath — нормализация пути:

@@ -535,7 +535,7 @@ function loadViewEditorStyles(iframeDoc) {
 
     const linkEl = iframeDoc.createElement('link');
     linkEl.rel = 'stylesheet';
-    linkEl.href = '/css/style.css';
+    linkEl.href = '/_static/css/style.css';
     iframeDoc.head.appendChild(linkEl);
 
     return parentWin;
@@ -1008,7 +1008,6 @@ window.editorBlock.newBlock = newBlock;
 
 /* ***
  * saveBlock - сохранение текущего блока
- * // Заменить потом!!!!!
 *** */
 function saveBlock() {
     const viewEditorContent = document.getElementById('viewEditorContent');
