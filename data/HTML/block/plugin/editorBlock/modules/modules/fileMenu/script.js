@@ -34,6 +34,10 @@ function openFileMenu(event) {
  * - если да, скрывает меню файлов
 *** */
 function closeFileMenu(event) {
+    if (!fileMenuButton || !fileMenuList || !fileMenuButton.isConnected || !fileMenuList.isConnected) {
+        return;
+    }
+
     if (!fileMenuButton.contains(event.target)) {
         fileMenuList.style.display = 'none';
     }

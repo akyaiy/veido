@@ -834,6 +834,10 @@ window.editorBlock.attachContextMenuShortcutHandlers = attachContextMenuShortcut
 // Регистрация глобальных слушателей событий
 contextMenu.addEventListener('click', handleMenuClick);
 document.addEventListener('mousedown', event => {
+    if (!contextMenu || !contextMenu.isConnected) {
+        return;
+    }
+
     if (!contextMenu.contains(event.target)) {
         handleMenuHide();
     }

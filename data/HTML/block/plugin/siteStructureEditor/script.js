@@ -1405,6 +1405,7 @@ function handleMenuClose(event) {
     // Получение контекстного меню
     const contextMenu = document.getElementById('contextMenu');
 
+    if (!contextMenu || !document.getElementById('siteMap')) return;
     if (contextMenu.contains(event.target)) return;
 
     closeContextMenu();
@@ -1819,6 +1820,8 @@ function updatePageArrows(page = null) {
 function loadPage() {
     // Получение карты и страниц
     const siteMap = document.getElementById('siteMap');
+    if (!siteMap) return;
+
     const pages = siteMap.querySelectorAll('pageBlock');
 
     // Загрузка страниц
@@ -2060,6 +2063,8 @@ document.addEventListener('mouseup', handleConnectionPointUp);
 function updateEditorState() {
     // Получение карты и выбранной вкладки
     const siteMap = document.getElementById('siteMap');
+    if (!siteMap) return;
+
     const file = document.querySelector('#fileList .fileItem.selected');
 
     // Блокировка карты
@@ -2478,6 +2483,8 @@ function handleSelectClick(event) {
  * - закрывает открытые списки при нажатии снаружи
 *** */
 function handleSelectClose(event) {
+    if (!document.getElementById('pageProperties')) return;
+
     if (event.target.closest('.multipleSelect')) {
         return;
     }

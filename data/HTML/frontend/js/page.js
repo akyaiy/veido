@@ -548,6 +548,9 @@ async function loadMenu() {
  * loadBlock — универсальная функция загрузки блоков (с поддержкой iframe)
  **********************************************************************************/
 async function loadBlock(path, target, itemsHowText = false, mode = "") {
+    // Убираем ведущие слэши, если есть
+    path = String(path).replace(/^\/+/, '');
+
     // Поддержка передачи как элемента DOM, так и ID
     let container = typeof target === 'string' ? document.getElementById(target) : target;
     if (!container) return;
