@@ -4,10 +4,40 @@
 class FilesApiClient {
 
 /***************************************************************************
- * constructor — инициализация базового пути.
+ * constructor — инициализация VFSv2-клиента.
  ***************************************************************************/
-constructor(baseUrl = '/api/files/acc2fs') {
-    this.baseUrl = baseUrl;
+constructor() {
+    this.vfs = window.VFSv2.client({
+        baseURL: "/api/v2/vfs",
+        fetch: async (url, options) => {
+            if (tokenWriting) await tokenWriting;
+
+            const send = () => {
+                const headers = new Headers(options.headers);
+                if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+                return fetch(url, { ...options, headers });
+            };
+
+            let response = await send();
+            if (response.status !== 401) return response;
+
+            if (!tokenWriting) {
+                tokenWriting = refreshAccess().finally(() => {
+                    tokenWriting = null;
+                });
+            }
+            await tokenWriting;
+
+            if (!accessToken) return response;
+            response = await send();
+            return response;
+        }
+    });
+}
+
+// uri — преобразование пути файлового менеджера в канонический URI VFS:
+uri(path = '') {
+    return `local@publisher[abc3a4-site]:///${this.cleanPath(path)}`;
 }
 
 // cleanPath — нормализация пути:
@@ -33,16 +63,7 @@ baseName(path = '') {
 
 // dirEntries — получение списка файлов и каталогов в указанной директории:
 async dirEntries(dirPath = '') {
-    const cleanDir = this.cleanPath(dirPath);
-    const url = cleanDir
-        ? `/api/files/acc2fs/${cleanDir}?op=full-read`
-        : `/api/files/acc2fs?op=full-read`;
-
-    const res = await apiProtected(url);
-    if (!res.ok) return [];
-
-    const data = await res.json().catch(() => []);
-    return Array.isArray(data) ? data : [];
+    return await this.vfs.readdir(this.uri(dirPath));
 }
 
 // uniquePath — генерация уникального пути для нового файла или каталога:
@@ -90,26 +111,22 @@ async uniquePath(path, isDir = false) {
  * @returns {Promise<any>} Результат запроса к API со списком файлов
  *
  * Поведение:
- * - Отправляет защищённый запрос к `/api/files{path}`.
+ * - Отправляет защищённый запрос через VFSv2.
  * - При ошибке 403 выводит сообщение об отсутствии прав доступа.
  * - При любой другой ошибке выводит общее сообщение об ошибке загрузки.
  ***************************************************************************/
   async list(path) {
     try {
-        const res = await apiProtected(`/api/files/acc2fs${path}?op=full-read`);//urlPath
-
-        if (!res.ok) {
-            if (res.status === 403) {
-                alert("Нет прав на просмотр файлов");
-            } else {
-                alert("Ошибка списка файлов");
-            }
-            return;
-        }
-
-        return await res.json();
+        return (await this.vfs.readdir(this.uri(path))).map(item => ({
+            ...item,
+            modTime: item.updated_at ?? item.modTime
+        }));
     } catch (e) {
-        alert("Ошибка списка файлов");
+        if (e.status === 403) {
+            alert("Нет прав на просмотр файлов");
+        } else {
+            alert("Ошибка списка файлов");
+        }
         return;
     }
 }
@@ -126,10 +143,7 @@ async uniquePath(path, isDir = false) {
  * - Возвращает содержимое файла в текстовом виде.
  ***************************************************************************/
   async getFile(path) {
-    const url = `${this.baseUrl}/${path}?op=full-read`;
-    const res = await apiProtected(url);
-    if (!res.ok) throw new Error(`Error getting file: ${res.statusText}`);
-    return await res.text(); // для бинарных файлов можно использовать res.arrayBuffer()
+    return await this.vfs.read(this.uri(path)); // для бинарных файлов используйте readBytes
   }
 
 /***************************************************************************
@@ -144,31 +158,18 @@ async uniquePath(path, isDir = false) {
  *
  * Поведение:
  * - Принимает путь к файлу относительно базового пути.
- * - Выполняет HEAD-запрос без загрузки содержимого.
+ * - Запрашивает метаданные через VFSv2 без загрузки содержимого.
  * - При неуспешном ответе сервера выбрасывает ошибку.
  * - Возвращает размер, дату изменения и тип содержимого.
  ***************************************************************************/
 async head(path) {
-    const url = `${this.baseUrl}/${path}?op=stat`;
-    const res = await apiProtected(url);
-    if (!res.ok) throw new Error(`Error getting file stat: ${res.statusText}`);
-    return await res.json();
+    return await this.vfs.stat(this.uri(path));
 }
 
 // upload — загрузка файла на сервер:
 async upload(path, file) {
     const uniquePath = await this.uniquePath(path, false);
-    const cleanPath = this.cleanPath(uniquePath);
-
-    const res = await apiProtected(`/api/files/acc2fs/${cleanPath}?type=file`, {
-        method: "POST",
-        body: file
-    });
-
-    if (!res.ok) {
-        throw new Error(`Error uploading file: ${res.statusText}`);
-    }
-
+    await this.vfs.create(this.uri(uniquePath), file);
     return true;
 }
 
@@ -186,14 +187,7 @@ async upload(path, file) {
  ***************************************************************************/
 async mkdir(path) {
     const uniquePath = await this.uniquePath(path, true);
-    const cleanPath = this.cleanPath(uniquePath);
-
-    const res = await apiProtected(`/api/files/acc2fs/${cleanPath}?type=dir`, {
-        method: 'POST'
-    });
-
-    if (!res.ok) throw new Error(`Error creating folder: ${res.statusText}`);
-
+    await this.vfs.mkdir(this.uri(uniquePath));
     return true;
 }
 
@@ -205,15 +199,7 @@ async mkdir(path) {
  * - Возвращает успешный результат операции.
  ***************************************************************************/
 async put(path, content) {
-    const url = `${this.baseUrl}/${path}?op=write`;
-
-    const res = await apiProtected(url, {
-        method: 'PATCH',
-        body: content
-    });
-
-    if (!res.ok) throw new Error(`Error updating file: ${res.statusText}`);
-
+    await this.vfs.write(this.uri(path), content);
     return true;
 }
 
@@ -225,16 +211,7 @@ async put(path, content) {
  * - Возвращает успешный результат операции.
  ***************************************************************************/
 async patch(path, content) {
-    const url = `${this.baseUrl}/${path}?op=write`;
-
-    const res = await apiProtected(url, {
-        method: 'PATCH',
-        body: content
-    });
-
-    if (!res.ok) throw new Error(`Error patching file: ${res.statusText}`);
-
-    return true;
+    return await this.put(path, content);
 }
 
 /***************************************************************************
@@ -245,12 +222,7 @@ async patch(path, content) {
  * - Возвращает успешный результат операции.
  ***************************************************************************/
 async delete(path) {
-    const url = `${this.baseUrl}/${path}`;
-
-    const res = await apiProtected(url, { method: 'DELETE' });
-
-    if (!res.ok) throw new Error(`Error deleting: ${res.statusText}`);
-
+    await this.vfs.remove(this.uri(path));
     return true;
 }
 
@@ -262,19 +234,11 @@ async delete(path) {
  * - Возвращает успешный результат операции.
  ***************************************************************************/
 async copy(path, target) {
-    const cleanPath = path.replace(/^\/+/, '');
-    const cleanTarget = target.replace(/^\/+/, '');
+    const cleanPath = this.cleanPath(path);
+    const cleanTarget = this.cleanPath(target);
 
     // Получаем метаданные объекта (файл или папка)
-    const statUrl = `${this.baseUrl}/${cleanPath}?op=stat`;
-    const statRes = await apiProtected(statUrl);
-
-    // Если сервер ничего не вернул — прекращаем выполнение
-    if (!statRes.ok) {
-        throw new Error(`Copy failed: cannot stat source ${cleanPath}`);
-    }
-
-    const statData = await statRes.json();
+    const statData = await this.vfs.stat(this.uri(cleanPath));
 
     // Проверяем тип объекта по флагу is_dir
     if (statData.is_dir === true) {
@@ -284,29 +248,11 @@ async copy(path, target) {
         const uniqueCleanTarget = this.cleanPath(uniqueTarget);
 
         // Получаем список содержимого папки
-        const srcUrl = `${this.baseUrl}/${cleanPath}?op=full-read`;
-        const childrenRes = await apiProtected(srcUrl);
-
         // Защита от пустой папки или null ответа
-        const children = await childrenRes.json();
-
-        // Проверяем, что пришёл массив
-        if (!Array.isArray(children)) {
-            throw new Error(
-                `Copy failed: invalid folder content for ${cleanPath}`
-            );
-        }
+        const children = await this.vfs.readdir(this.uri(cleanPath));
 
         // Создаём папку в целевом месте
-        const createDirUrl = `${this.baseUrl}/${uniqueCleanTarget}?type=dir`;
-        const createDirRes = await apiProtected(createDirUrl, {
-            method: 'POST'
-        });
-
-        // Если не удалось создать папку — прерываем копирование
-        if (!createDirRes.ok) {
-            throw new Error(`Copy failed: cannot create directory ${uniqueCleanTarget}`);
-        }
+        await this.vfs.mkdir(this.uri(uniqueCleanTarget));
 
         // Рекурсивно копируем каждый элемент внутри папки
         for (const child of children) {
@@ -322,36 +268,9 @@ async copy(path, target) {
         const uniqueTarget = await this.uniquePath(cleanTarget, false);
         const uniqueCleanTarget = this.cleanPath(uniqueTarget);
 
-        // Загружаем файл как бинарные данные (Blob)
-        const srcUrl = `/api/files/acc2fs/${cleanPath}?op=full-read`;
-
-        const response = await apiProtected(srcUrl, {
-            headers: {
-                // если есть авторизация — добавляем заголовки
-                ...this.getAuthHeaders?.()
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error(`Copy failed: cannot read file ${cleanPath}`);
-        }
-
         // Преобразуем ответ в Blob (бинарные данные файла)
-        const blob = await response.blob();
-
-        // Формируем URL для создания файла в целевой директории
-        const dstUrl = `/api/files/acc2fs/${uniqueCleanTarget}?type=file`;
-
-        // Отправляем файл на сервер
-        const dstRes = await apiProtected(dstUrl, {
-            method: 'POST',
-            body: blob
-        });
-
-        // Проверяем успешность создания файла
-        if (!dstRes.ok) {
-            throw new Error(`Copy failed: cannot create file ${uniqueCleanTarget}`);
-        }
+        const blob = await this.vfs.readBlob(this.uri(cleanPath));
+        await this.vfs.create(this.uri(uniqueCleanTarget), blob);
     }
 
     return true;
@@ -364,9 +283,7 @@ async copy(path, target) {
  * - Возвращает успешный результат операции.
  ***************************************************************************/
 async move(path, target) {
-    const url = `${this.baseUrl}/${path}?op=move&dest=${encodeURIComponent(target)}`;
-    const res = await apiProtected(url, { method: 'PATCH' });
-    if (!res.ok) throw new Error(`Error moving file: ${res.statusText}`);
+    await this.vfs.move(this.uri(path), this.uri(target));
     return true;
 }
 
@@ -378,19 +295,8 @@ async move(path, target) {
  * - Возвращает данные файла в бинарном виде.
  ***************************************************************************/
 async getRange(path, start = 0, end = null) {
-    const headers = {};
-
-    if (end !== null) {
-        headers['Range'] = `bytes=${start}-${end}`;
-    }
-
-    const res = await apiProtected(`/api/files/acc2fs/${path}?op=full-read`, {
-        headers
-    });
-
-    if (!res.ok) throw new Error(`Error getting range: ${res.statusText}`);
-
-    return await res.arrayBuffer();
+    const bytes = await this.vfs.readBytes(this.uri(path));
+    return bytes.slice(start, end === null ? undefined : end + 1).buffer;
 }
 
 /***************************************************************************
@@ -401,16 +307,10 @@ async getRange(path, start = 0, end = null) {
  * - Возвращает список найденных файлов.
  ***************************************************************************/
 async search(path = '', query = {}) {
-    const params = new URLSearchParams(query);
-    const url = `${this.baseUrl}/${path}?${params.toString()}`;
-
-    const data = await apiProtected(url);
-
-    if (!data.ok) {
-        throw new Error(`Error search: ${data.statusText}`);
-    }
-
-    return await data.json();
+    const entries = await this.vfs.readdir(this.uri(path));
+    return entries.filter(item => Object.entries(query).every(([key, value]) =>
+        String(item[key] ?? "").includes(String(value))
+    ));
 }
 
 /***************************************************************************
@@ -422,17 +322,11 @@ async search(path = '', query = {}) {
  * - Возвращает Blob (файл или ZIP-архив).
  ***************************************************************************/
 async download(path, fileName) {
-    const res = await apiProtected(`/api/files/acc2fs${path}?op=full-read`);
-
-    const contentType = res.headers.get("content-type") || "";
-
-    const isDir = contentType.includes("application/json");
+    const isDir = (await this.vfs.stat(this.uri(path))).is_dir;
 
     // файл
     if (!isDir) {
-        if (!res.ok) throw new Error(`Error downloading file: ${res.statusText}`);
-
-        const blob = await res.blob();
+        const blob = await this.vfs.readBlob(this.uri(path));
 
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
@@ -444,10 +338,6 @@ async download(path, fileName) {
     }
 
     // папка
-    if (!res.ok) throw new Error(`Error downloading folder: ${res.statusText}`);
-
-    const files = await res.json();
-
     await this.downloadZip([path], fileName);
 }
 
@@ -463,15 +353,10 @@ async downloadZip(paths, zipName = "archive.zip") {
 
     const read = async (basePath, node) => {
         const path = `${basePath}/${node.name}`;
-
-        const res = await apiProtected(`/api/files/acc2fs${path}?op=full-read`);
-        const ct = res.headers.get("content-type") || "";
-
-        const isDir = ct.includes("application/json");
+        const isDir = (await this.vfs.stat(this.uri(path))).is_dir;
 
         if (isDir) {
-            const children = await res.json();
-            if (!Array.isArray(children)) return;
+            const children = await this.vfs.readdir(this.uri(path));
 
             for (const c of children) {
                 await read(path, c);
@@ -479,28 +364,22 @@ async downloadZip(paths, zipName = "archive.zip") {
             return;
         }
 
-        const buf = new Uint8Array(await (await res.blob()).arrayBuffer());
+        const buf = await this.vfs.readBytes(this.uri(path));
         filesMap[path.replace(/^\//, "")] = buf;
     };
 
     for (const p of paths) {
         const path = typeof p === "string" ? p : p.name;
 
-        const res = await apiProtected(`/api/files/acc2fs${path}?op=full-read`);
-        const ct = res.headers.get("content-type") || "";
-
-        const isDir = ct.includes("application/json");
+        const isDir = (await this.vfs.stat(this.uri(path))).is_dir;
 
         if (isDir) {
-            const children = await res.json();
-
-            if (Array.isArray(children)) {
-                for (const c of children) {
-                    await read(path, c);
-                }
+            const children = await this.vfs.readdir(this.uri(path));
+            for (const c of children) {
+                await read(path, c);
             }
         } else {
-            const buf = new Uint8Array(await (await res.blob()).arrayBuffer());
+            const buf = await this.vfs.readBytes(this.uri(path));
             const name = path.split("/").filter(Boolean).pop();
             filesMap[name] = buf;
         }
