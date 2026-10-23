@@ -71,6 +71,34 @@ type Page struct {
 	UpdatedAt           time.Time
 }
 
+type Block struct {
+	ID                  int64
+	SiteID              int64
+	BlockKey            string
+	Name                string
+	Type                string
+	PublisherSubjectKey string
+	BundleRootURI       common.CanonURI
+	Revision            int64
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+}
+
+// BlockTree is provider-owned organization metadata; block identity remains BlockKey.
+type BlockTree struct {
+	SiteID       int64
+	Revision     int64
+	DocumentJSON []byte
+	UpdatedAt    time.Time
+}
+
+type NewBlock struct {
+	SiteID                                    int64
+	BlockKey, Name, Type, PublisherSubjectKey string
+	BundleRootURI                             common.CanonURI
+	VisibleTo                                 []string
+}
+
 type EditorLayout struct {
 	SiteID        int64
 	SchemaVersion int

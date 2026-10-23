@@ -24,6 +24,16 @@ scripts/bootstrap-site.sh --username admin --password 'admin123'
 SITE_ACCESS_TOKEN='<access JWT>' scripts/add-page.sh \
   --key about --slug about --title 'О нас' \
   --source-dir ./site-content/publisher/pages/about
+
+# загрузить Block и добавить его в provider-owned tree
+SITE_ACCESS_TOKEN="$SITE_ACCESS_TOKEN" scripts/add-block.sh \
+  --key promo-card --name 'Promo card' --type ui-component \
+  --source-dir ./site-content/publisher/blocks/promo-card \
+  --folder-key components --folder-name 'Components'
+
+# заменить только bytes bundle существующей Page
+SITE_ACCESS_TOKEN="$SITE_ACCESS_TOKEN" scripts/update-page-bundle.sh \
+  --key home --source-dir ./site-content/publisher/pages/home
 ```
 
 `bootstrap-site.sh` выполняется только для нового сайта. Повторный полный
@@ -31,10 +41,37 @@ bootstrap намеренно откажется до изменения данн
 существует. Для обновления frontend-шаблона используй `install-template.sh`,
 а для страниц — `add-page.sh`.
 
+`add-block.sh` использует тот же зарегистрированный publisher root, но хранит
+physical bundle в `local@publisher[<scope>]:///blocks/<key>/`. Для
+`ui-component` нужны три файла `content.md`, `style.css`, `script.js`; для
+`content` допускается только `content.md`. Скрипт создаёт metadata через
+`Control(/blocks, "create", ...)` и при переданных `--folder-key`/
+`--folder-name` атомарно заменяет `blocks/tree.json` с его текущей revision.
+При conflict дерева повтори запуск только после проверки, что metadata Block
+не была уже создана: скрипт намеренно не перезаписывает существующий Block.
+
 `add-page.sh` ожидает в source directory файлы `content.md`, `style.css` и
 `script.js`; `SITE_URI` берёт из `.env`. При конкурентном изменении дерева
 страниц создание может вернуть conflict: запусти команду повторно после
 проверки, что page ещё не создана.
+
+`update-page-bundle.sh` заменяет только три physical файла существующей Page
+через VFS. Он не создаёт Page и не меняет slug, status, visibility или metadata.
+После успешной команды сделай hard reload страницы в браузере.
+
+Чтобы показать стандартную страницу Blocks через `cmd/server`, скопируй demo
+bundle в publisher source, загрузь хотя бы один Block, затем создай Page:
+
+```bash
+mkdir -p site-content/publisher/pages/blocks
+cp cmd/vfsv2html/content/demo/{content.md,style.css,script.js} site-content/publisher/pages/blocks/
+SITE_ACCESS_TOKEN="$SITE_ACCESS_TOKEN" scripts/add-page.sh \
+  --key blocks --slug blocks --title 'Blocks' \
+  --source-dir ./site-content/publisher/pages/blocks
+```
+
+Скрипт этой страницы берёт `site_uri` из server bootstrap, поэтому один и тот
+же bundle работает и в `cmd/server`, и в isolated `cmd/vfsv2html` demo.
 
 `login.sh` хранит только access JWT, server URL и shell exports в локальном
 `.site-session`; пароль и refresh credential в файл не попадают. Access JWT

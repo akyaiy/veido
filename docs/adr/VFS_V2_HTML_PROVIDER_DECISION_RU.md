@@ -3,6 +3,12 @@
 > Статус: предложенное целевое архитектурное решение, не описание готовой реализации.  
 > Статус реализации на 21 октября 2026 года: в процессе; schema v4 зарегистрирована как `provider/html` в централизованном migration runner с совместимым импортом прежней `html_schema_migrations`. Реализованы provider-local модели, миграции `source_uri` → `bundle_root_uri`, legacy visibility и immutable application templates, `PageService`, typed VFS-проекция, `initialize`, publisher roots, безопасный `create` и обязательная node visibility для всех уже проецируемых сущностей (`site`, `publisher`, `page`). Создание metadata и initial visibility атомарно; поддержаны `all`, `guest`, exact trusted actor, optimistic revisions, фильтрация lookup/list/`tree.json` и скрытие поддерева невидимого parent. Через actor-bound `BoundVFS` при создании проверяются каталог bundle и обязательные `content.md`, `style.css`, `script.js`; `info.json` возвращает канонический `bundle_root_uri`, а physical source читается напрямую через VFS Core. Editor slice предоставляет actor-filtered read-only `editor/model.xml` и writable `editor/layout.xml`: реализованы детерминированные codecs, XML security/limits, сохранение layout невидимых страниц, атомарный Store CAS и публичный `layout_revision_conflict`. Template slice предоставляет атомарный `Control(/templates, "install", ...)`, content-addressed blobs, строгий manifest allowlist и read-only VFS-проекцию `/templates/<key>/<version>/{manifest.json,files/...}`. Application-level builder безопасно собирает reviewed allowlist `default-spa/10` из `data/HTML/frontend`, запрещает symlink/traversal и устанавливает package через публичный VFS в demo bootstrap. Общий Hook SDK/Registry/Runtime foundation из ADR-008 реализован отдельно от HTML-домена; HTML `providersdk.Module` регистрирует read-only `get-static` и `get-page` вместе с provider factory и создаёт site bindings при открытии connection. Adapter вызывает hooks через canonical site URI и key, не зная внутренних binding keys. `get-static` выбирает последнюю установленную версию bound template key, читает только manifest-listed asset через actor-bound VFS, проверяет фактические size/SHA-256 и возвращает content с HTTP metadata. Demo Site HTTP slice выдаёт точный `/` и unversioned `/_static/*` через `get-static`, а остальные browser paths передаёт `get-page`; тот разрешает одно- и многосегментную цепочку slug по actor-filtered `tree.json`, возвращает SPA entrypoint и actor-filtered bootstrap (`site_uri`, `site_name`, page metadata и `bundle_root_uri`) только для существующей Page и 404 для неизвестного маршрута. Adapter безопасно встраивает bootstrap в HTML и пересчитывает response ETag; browser runtime больше не повторяет `get-page` и не читает отдельно `site.json`/`info.json`, а сразу параллельно загружает три physical bundle-файла. Demo seed создаёт `/demo` с отдельным physical bundle; `/` сохраняет прежнее site-приложение. Bundle обычной страницы `demo` подключает рабочую панель управления site settings, страницами и physical bundles через публичные VFS-контракты. Новая страница наследует `visible_to` сайта: поэтому на публичном сайте она сразу видна guest readers. Unversioned static использует ETag с обязательной revalidation, без `immutable`. Filesystem/FileServer не используется; универсальный Hook HTTP endpoint также реализован. Active publication, поиск, publication/sitemap, production-регистрация, реальный ACL и lifecycle ещё отсутствуют. Отдельный `cmd/vfsv2html` предоставляет проверяемую demo-композицию.
 >
+> Уточнено 23 октября 2026 года: базовый контракт Block — это ленивая
+> библиотека blocks, а не обязательная composition-модель Page. Организация
+> библиотеки хранится одним provider-owned `blocks/tree.json`; она не меняет
+> канонический URI блока и не предоставляет доступ. Данное уточнение описывает
+> целевую модель; Block Store и VFS-проекция реализованы без ACL и publication.
+>
 > Исправление от 21 октября 2026 года: упоминания site/resource bindings в
 > предыдущем статусе устарели и заменены ADR-008. Hooks не прикрепляются к
 > connection или одному URI: `get-static` и `get-page` получают `site_uri` и
@@ -225,8 +231,6 @@ type Page struct {
     ThemeID              *int64
     PublisherSubjectKey string
     BundleRootURI           string
-    TemplateBlockID     *int64
-    RootBlockID         *int64
     Revision             int64
     CreatedAt            time.Time
     UpdatedAt            time.Time
@@ -238,9 +242,10 @@ type Page struct {
 HTML Provider. В физическом каталоге
 обязательны три именованных артефакта контракта: `content.md`, `style.css`
 и `script.js`. `content.md` является единственным источником контента и может
-содержать inline HTML-фрагменты; отдельного `content.html` нет. Поля
-template/root позволяют позднее использовать композицию из блоков без изменения
-модели дерева.
+содержать inline HTML-фрагменты; отдельного `content.html` нет. Базовая модель
+Page не хранит обязательный список blocks: frontend загружает blocks своим
+скриптом только по необходимости. Будущая явная composition-модель может быть
+добавлена отдельным решением, не меняя идентичность Page или Block.
 
 Значение полей:
 
@@ -310,27 +315,43 @@ type Block struct {
     SiteID              int64
     BlockKey            string
     Name                string
-    Kind                string
+    Type                string
     PublisherSubjectKey string
-    BundleRootURI           string
+    BundleRootURI       string
+    Revision            int64
+    CreatedAt           time.Time
+    UpdatedAt           time.Time
 }
 ```
 
-Начальные виды блока:
+Block — самостоятельный элемент лениво загружаемой frontend-библиотеки. Его
+`BlockKey` неизменяем и образует единственный канонический логический URI
+`/blocks/<block-key>`; перенос в другую папку библиотеки этот URI не меняет.
+
+Начальные типы:
 
 ```text
-template
+ui-component
 content
-layout
-widget
-fragment
 ```
 
-Для Block действует тот же физический bundle-контракт, что и для Page:
-`content.md`, `style.css`, `script.js`. `meta.json` содержит ссылку на корень
-bundle, а операции над файлами выполняются по physical URI. Результат просмотра
-или публикации является отдельным
-производным артефактом публикации, а не четвёртым редактируемым файлом bundle.
+`ui-component` — доверенный визуальный/интерактивный компонент и может иметь
+`content.md`, `style.css`, `script.js`. `content` — редакционные данные и имеет
+только `content.md`: произвольный JavaScript в нём запрещён. Если контенту
+нужна интерактивность, frontend использует отдельный `ui-component`.
+
+`meta.json` содержит ссылку на физический bundle, а операции над его файлами
+выполняются только по physical URI. Provider не запускает `script.js`, не
+сканирует каталоги plugins и не превращает присутствие файла в публикацию.
+
+Организация библиотеки хранится отдельным версионированным документом:
+
+```text
+html@site[site-acme]:///blocks/tree.json
+```
+
+Документ содержит только папки, вложенность, порядок и `block_key`. Он не
+является вторым адресом Block и не меняет его visibility или ACL.
 
 ### 5.5. Publication
 
@@ -540,6 +561,13 @@ user:17   точный доверенный subject текущего actor
 существующих данных безопасный default — записи для owner сайта и publisher
 сущности; `all` и `guest` появляются только по явному решению.
 
+Для Block это правило действует поштучно: запись вида
+`(site_id, "block", block_key, "user:17")` делает видимым только указанный
+Block для `user:17`. Отсутствие подходящей записи означает, что Block не
+существует для actor ни в `/blocks`, ни в `blocks/tree.json`, ни по прямому
+URI. Visibility отвечает только за existence-projection и не открывает
+physical bundle.
+
 ## 6. Собственное хранилище HTML Provider
 
 HTML Provider использует собственный Store. Для первой реализации рекомендуется
@@ -553,6 +581,7 @@ html_page_types
 html_page_search_tags
 html_node_visibility
 html_blocks
+html_block_trees
 html_themes
 html_editor_layouts
 html_site_seo
@@ -572,6 +601,7 @@ html_operations
 | `html_page_search_tags` | Теги страниц для поиска |
 | `html_node_visibility` | Явная provider-owned проекция: какие subject selectors видят доменный узел |
 | `html_blocks` | Block metadata и physical bundle root URI |
+| `html_block_trees` | Один versioned JSON-документ организации библиотеки blocks для site |
 | `html_themes` | Темы и ссылки на физические stylesheet/template |
 | `html_editor_layouts` | Layout XML, визуальные параметры и layout revision |
 | `html_site_seo` | Содержимое `robots.txt` и SEO-настройки сайта |
@@ -633,7 +663,6 @@ publisher соответствующей сущности; она намерен
 - `block_key` уникален внутри сайта;
 - slug уникален среди соседних страниц;
 - parent страницы принадлежит тому же сайту;
-- template и root block принадлежат тому же сайту;
 - theme принадлежит тому же сайту;
 - канонические URI сохраняются после разбора и нормализации;
 - обычное изменение metadata не меняет owner или publisher;
@@ -670,6 +699,7 @@ html@site[site-acme]:///
 │   └── <page-key>/
 │       └── info.json
 ├── blocks/
+│   ├── tree.json
 │   └── <block-key>/
 │       └── meta.json
 ├── publications/
@@ -695,6 +725,9 @@ html@site[site-acme]:///
 - `config/robots.txt` является редактируемой SEO-конфигурацией сайта;
 - `info.json` и `meta.json` формируются из metadata и содержат канонический
   `bundle_root_uri` физического каталога;
+- `blocks/tree.json` — единственный versioned JSON-документ с папками,
+  вложенностью и порядком `block_key`; при чтении он отфильтрован по visibility
+  текущего actor и не раскрывает невидимые blocks;
 - файлы bundle не проецируются под `html@...`: клиент читает и изменяет их по
   physical URI через обычный VFS Core и ACL;
 - `public` проецирует только активную публикацию;
@@ -717,6 +750,7 @@ Control(/pages/<page-key>, "set-visibility", payload)
 Control(/blocks, "create", payload)
 Control(/blocks/<block-key>, "update", payload)
 Control(/blocks/<block-key>, "set-visibility", payload)
+Replace(/blocks/tree.json, payload with expected revision)
 Control(/templates, "install", payload)
 Control(/, "publish", payload)
 ```
@@ -1337,24 +1371,57 @@ Frontend удаляет локальную операцию только пос�
 файлы, ACL и публикацию, в MVP не вводится. Эти данные имеют разных владельцев,
 разные revisions и разные границы отказа.
 
-## 12. Блоки и композиция
+## 12. Библиотека Blocks
 
 Block хранит metadata и ссылку на физический source. HTML Provider не извлекает
-граф вложенности из HTML и не выводит права одного блока из содержимого другого.
+граф вложенности из HTML, не выводит права одного блока из содержимого другого
+и не хранит обязательную связь Page → Block. Frontend сам выбирает, какой Block
+и когда загрузить своим скриптом.
 
-Page может явно ссылаться на:
+Дерево организации библиотеки хранится одним JSON-документом. Минимальная форма:
 
-```text
-TemplateBlockID
-RootBlockID
+```json
+{
+  "revision": 4,
+  "folders": [
+    {
+      "key": "ui",
+      "name": "UI-компоненты",
+      "folders": [
+        {"key": "navigation", "name": "Навигация", "blocks": ["site-menu"]}
+      ]
+    },
+    {"key": "content", "name": "Контент", "blocks": ["home-intro"]}
+  ]
+}
 ```
 
-Перед назначением HTML Provider проверяет существование блоков внутри того же
-сайта. Блок нельзя удалить, если он используется известной HTML Provider
-ссылкой template/root. Ссылки внутри произвольного HTML в эту проверку не входят.
+Provider проверяет revision, отсутствие циклов папок, уникальность `block_key`
+в дереве и принадлежность всех указанных blocks этому site. Входящий JSON не
+меняет Block metadata, visibility или physical bundle. Пустые папки и невидимые
+blocks не возвращаются actor-у при чтении. Право заменить дерево определяется
+обычным ACL-действием записи на `blocks/tree.json`; оно не предоставляет прав
+на сами blocks или их files.
 
-Каждый фактически открываемый логический блок и каждый target URI проходят свои
-VFS/ACL-проверки.
+При частичной visibility actor получает лишь отфильтрованную проекцию дерева.
+Поэтому запись этой проекции может перемещать, добавлять или удалять только
+видимые actor-у `block_key`; скрытые blocks, их порядок и существующие папки,
+содержащие их, сохраняются без изменения. Такой actor не может переименовать,
+переместить или переупорядочить уже существующую папку: это косвенно изменило
+бы организацию невидимых ресурсов. Новую папку он может создать для размещения
+видимых blocks. Полное изменение структуры существующих папок требует
+видимости всего их поддерева (либо отдельной будущей управляющей операции с
+явной политикой авторизации).
+
+Frontend сначала читает `blocks/tree.json`, затем по необходимости читает
+`/blocks/<block-key>/meta.json` и обращается к `bundle_root_uri` через VFS. Для
+каждого такого обращения VFS Core снова применяет ACL к logical и physical URI.
+
+Удаление Block удаляет только его metadata и visibility entries; physical
+bundle не удаляется. В первой версии Block не удерживается Page-ссылками,
+поскольку таких ссылок нет. Будущая composition-модель, если потребуется,
+должна быть отдельным явным контрактом и проверять известные связи без анализа
+HTML/Markdown.
 
 ## 13. Владение и авторизация
 
@@ -1433,7 +1500,7 @@ Visibility entry не содержит действий и не может пр�
 
 ## 14. Рабочий bundle и результат просмотра
 
-Рабочий bundle Page и Block имеет фиксированный контракт:
+Рабочий bundle Page и `ui-component` Block имеет фиксированный контракт:
 
 ```text
 <bundle-root>/
@@ -1441,6 +1508,11 @@ Visibility entry не содержит действий и не может пр�
 ├── style.css
 └── script.js
 ```
+
+У `content` Block допустим только `content.md`; `style.css` и `script.js` для
+него не загружаются. Право изменять bundle `ui-component`, в особенности
+`script.js`, должно выдаваться только доверенному actor: такой JavaScript
+выполняется в browser-контексте сайта.
 
 `content.md` хранит Markdown и при необходимости inline HTML-фрагменты.
 Самостоятельного `content.html` или редактируемого `view.html` в bundle нет.
@@ -1815,10 +1887,16 @@ ACL-ошибки остаются ошибками VFS/ACL. HTML Provider не �
 
 ### Этап 5. Блоки
 
-- Добавить Block Store и `/blocks`.
-- Реализовать source/view binding.
-- Добавить template/root связи страницы.
-- Запретить удаление явно используемого блока.
+- Добавить Block Store, `/blocks/<block-key>/meta.json` и provider-owned
+  versioned `/blocks/tree.json`.
+- Реализовать два типа: `ui-component` с полным bundle и `content` только с
+  `content.md`.
+- Проверять bundle URI через actor-bound `BoundVFS`, registered publisher root
+  и физический контракт файлов.
+- Фильтровать `tree.json` по block visibility; отсутствие entry должно скрывать
+  Block и из дерева, и по прямому URI.
+- Не добавлять обязательные Page → Block связи, server renderer или
+  автоматическую публикацию каталогов plugins.
 
 ### Этап 6. Публикация
 
@@ -1902,7 +1980,7 @@ HTTP endpoint, автоматическое создание scope и полно
    удаляет физические source-файлы.
 8. Режим `promote_children` переносит детей к parent удаляемой страницы и
    нормализует порядок.
-9. Используемый template/root block не удаляется.
+9. Block metadata не удаляет physical bundle.
 10. Неизвестный status или theme отклоняется.
 11. Types и SearchTags сохраняются без дубликатов.
 
@@ -1923,6 +2001,27 @@ HTTP endpoint, автоматическое создание scope и полно
 11. Изменение visibility повышает `VisibilityRevision` и инвалидирует только
     соответствующие actor-dependent projections.
 12. Миграция legacy-данных не создаёт `all` или `guest` неявно.
+13. Невидимый Block отсутствует в `/blocks`, `blocks/tree.json` и при прямом
+    lookup по key.
+14. Visibility Block не предоставляет доступа к его physical bundle.
+
+### Библиотека Blocks
+
+1. `ui-component` принимает только полный bundle `content.md`, `style.css`,
+   `script.js`; `content` отклоняет `style.css` и `script.js`.
+2. Block другого site, другого scope или вне registered publisher root не
+   регистрируется.
+3. Некорректный tree JSON, циклические folders, повтор block key и неизвестный
+   block key отклоняются.
+4. Успешное перемещение Block в `tree.json` не меняет его canonical URI,
+   visibility и `bundle_root_uri`.
+5. Устаревшая revision дерева возвращает conflict и не перезаписывает новое
+   расположение папок.
+6. Frontend может лениво загрузить видимый Block по `block_key`; наличие Block
+   в дереве не отменяет ACL-проверку его metadata и physical files.
+7. Запись отфильтрованного дерева изменяет только видимые actor-у blocks;
+   скрытые blocks и содержащие их существующие папки не перемещаются, не
+   переименовываются и не переупорядочиваются.
 
 ### Визуальный редактор
 

@@ -1,23 +1,29 @@
 package html
 
 import (
+	"MyServer/internal/common"
 	"context"
 	"errors"
 )
 
 var (
-	ErrSiteNotFound          = errors.New("html site not found")
-	ErrSiteRevisionConflict  = errors.New("site revision conflict")
-	ErrPublisherRootNotFound = errors.New("html publisher root not found")
-	ErrPageNotFound          = errors.New("html page not found")
-	ErrAlreadyExists         = errors.New("html store record already exists")
-	ErrInvalidRecord         = errors.New("invalid html store record")
-	ErrNodeNotVisible        = errors.New("html node not visible")
-	ErrInvalidAudience       = errors.New("invalid html visibility audience")
-	ErrVisibilityConflict    = errors.New("visibility revision conflict")
-	ErrTemplateNotFound      = errors.New("html application template not found")
-	ErrTemplateAssetNotFound = errors.New("html application template asset not found")
-	ErrInvalidTemplate       = errors.New("invalid html application template")
+	ErrSiteNotFound              = errors.New("html site not found")
+	ErrSiteRevisionConflict      = errors.New("site revision conflict")
+	ErrPublisherRootNotFound     = errors.New("html publisher root not found")
+	ErrPageNotFound              = errors.New("html page not found")
+	ErrAlreadyExists             = errors.New("html store record already exists")
+	ErrInvalidRecord             = errors.New("invalid html store record")
+	ErrNodeNotVisible            = errors.New("html node not visible")
+	ErrInvalidAudience           = errors.New("invalid html visibility audience")
+	ErrVisibilityConflict        = errors.New("visibility revision conflict")
+	ErrTemplateNotFound          = errors.New("html application template not found")
+	ErrTemplateAssetNotFound     = errors.New("html application template asset not found")
+	ErrInvalidTemplate           = errors.New("invalid html application template")
+	ErrBlockNotFound             = errors.New("html block not found")
+	ErrBlockRevisionConflict     = errors.New("block revision conflict")
+	ErrBlockTreeRevisionConflict = errors.New("block tree revision conflict")
+	ErrInvalidBlockType          = errors.New("invalid block type")
+	ErrInvalidBlockTree          = errors.New("invalid block tree")
 )
 
 // Store owns only HTML Provider metadata. Its records do not grant access to
@@ -34,6 +40,13 @@ type Store interface {
 	PageByID(ctx context.Context, siteID, pageID int64) (*Page, error)
 	PageByKey(ctx context.Context, siteID int64, pageKey string) (*Page, error)
 	ListPages(ctx context.Context, siteID int64) ([]Page, error)
+	CreateBlock(ctx context.Context, input NewBlock) (*Block, error)
+	BlockByKey(ctx context.Context, siteID int64, blockKey string) (*Block, error)
+	ListBlocks(ctx context.Context, siteID int64) ([]Block, error)
+	UpdateBlock(ctx context.Context, siteID int64, blockKey, name, typ, publisher string, bundle common.CanonURI, expectedRevision int64) (*Block, error)
+	DeleteBlock(ctx context.Context, siteID int64, blockKey string, expectedRevision int64) error
+	ReadBlockTree(ctx context.Context, siteID int64) (*BlockTree, error)
+	ReplaceBlockTree(ctx context.Context, siteID, expectedRevision int64, document []byte) (*BlockTree, error)
 	PageTypes(ctx context.Context, siteID, pageID int64) ([]string, error)
 	PageSearchTags(ctx context.Context, siteID, pageID int64) ([]string, error)
 

@@ -2,6 +2,7 @@
 package main
 
 import (
+	"MyServer/internal/common"
 	"MyServer/internal/vfs/v2/providers/html"
 	"MyServer/internal/vfs/v2/providers/html/templatepackage"
 	"bytes"
@@ -50,6 +51,7 @@ func main() {
 	server := flag.String("server", "http://localhost:8080", "running server URL")
 	token := flag.String("access-token", os.Getenv("SITE_BOOTSTRAP_ACCESS_TOKEN"), "access JWT (or SITE_BOOTSTRAP_ACCESS_TOKEN)")
 	templateOnly := flag.Bool("install-template-only", false, "install the template package only; do not change scope, connections, publishers, or pages")
+	siteURIOverride := flag.String("site-uri", "", "canonical HTML site URI for template-only installation")
 	templateVersion := flag.String("template-version", "", "override the immutable application-template version from the manifest")
 	flag.Parse()
 	if *token == "" {
@@ -70,6 +72,21 @@ func main() {
 		m.Site.TemplateVersion = strings.TrimSpace(*templateVersion)
 	}
 	c := client{base: strings.TrimRight(*server, "/"), token: *token, http: http.DefaultClient}
+	if *templateOnly && strings.TrimSpace(*siteURIOverride) != "" {
+		uri, err := common.CastURI(strings.TrimSpace(*siteURIOverride))
+		if err != nil || uri.Provider() != html.ProviderKey || uri.Path() != "/" || !uri.HasScope() {
+			fail(fmt.Errorf("-site-uri must be a canonical HTML site root"))
+		}
+		input, err := templatepackage.BuildDirectory(m.Site.TemplateSource, templatepackage.DefaultSPA(m.Site.TemplateVersion))
+		if err != nil {
+			fail(err)
+		}
+		if err := c.control(string(uri)+"templates", "install", input); err != nil {
+			fail(fmt.Errorf("install site template: %w", err))
+		}
+		fmt.Printf("SITE_URI=%s\n", uri)
+		return
+	}
 	var scope node
 	var scopeExists bool
 	scope, scopeExists, err = c.findScope(m.ScopeName)

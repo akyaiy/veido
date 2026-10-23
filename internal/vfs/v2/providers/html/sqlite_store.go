@@ -16,7 +16,7 @@ import (
 	"github.com/mattn/go-sqlite3"
 )
 
-const schemaVersion = 4
+const schemaVersion = 5
 
 const migrationTableSQL = `
 CREATE TABLE IF NOT EXISTS html_schema_migrations (
@@ -231,6 +231,17 @@ CREATE TABLE html_template_assets (
 CREATE INDEX idx_html_template_assets_package_path
 	ON html_template_assets(package_id, path);`
 
+const schemaV5SQL = `
+CREATE TABLE html_blocks (
+ id INTEGER PRIMARY KEY AUTOINCREMENT, site_id INTEGER NOT NULL, block_key TEXT NOT NULL CHECK(length(trim(block_key)) > 0),
+ name TEXT NOT NULL CHECK(length(trim(name)) > 0), type TEXT NOT NULL CHECK(type IN ('ui-component','content')),
+ publisher_subject_key TEXT NOT NULL CHECK(length(trim(publisher_subject_key)) > 0), bundle_root_uri TEXT NOT NULL CHECK(length(trim(bundle_root_uri)) > 0),
+ revision INTEGER NOT NULL DEFAULT 1 CHECK(revision >= 1), created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY(site_id) REFERENCES html_sites(id) ON DELETE CASCADE, UNIQUE(site_id, block_key));
+CREATE INDEX idx_html_blocks_site_key ON html_blocks(site_id, block_key);
+CREATE TABLE html_block_trees (site_id INTEGER PRIMARY KEY, revision INTEGER NOT NULL DEFAULT 1 CHECK(revision >= 1), document_json BLOB NOT NULL, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(site_id) REFERENCES html_sites(id) ON DELETE CASCADE);
+CREATE TRIGGER html_blocks_cleanup_visibility AFTER DELETE ON html_blocks BEGIN DELETE FROM html_node_visibility WHERE site_id=OLD.site_id AND node_kind='block' AND node_key=OLD.block_key; END;`
+
 type SQLiteStore struct {
 	db *sql.DB
 }
@@ -243,6 +254,7 @@ func MigrationGroup() migrate.Group {
 		{Version: 2, Name: "page_bundle_roots", Up: migrateHTMLV2},
 		{Version: 3, Name: "node_visibility", Up: migrateHTMLV3},
 		{Version: 4, Name: "application_templates", Up: migrateHTMLV4},
+		{Version: 5, Name: "blocks", Up: migrateHTMLV5},
 	}}
 }
 
@@ -355,6 +367,22 @@ func migrateHTMLV4(ctx context.Context, tx *sql.Tx) error {
 		}
 	}
 	return recordHTMLMigration(ctx, tx, 4)
+}
+
+func migrateHTMLV5(ctx context.Context, tx *sql.Tx) error {
+	current, err := prepareHTMLMigration(ctx, tx)
+	if err != nil {
+		return err
+	}
+	if current < 5 {
+		if _, err := tx.ExecContext(ctx, schemaV5SQL); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO html_block_trees(site_id, document_json) SELECT id, '{"revision":1,"folders":[]}' FROM html_sites`); err != nil {
+			return err
+		}
+	}
+	return recordHTMLMigration(ctx, tx, 5)
 }
 
 func htmlColumnExists(ctx context.Context, tx *sql.Tx, table, column string) (bool, error) {
@@ -505,6 +533,9 @@ func (s *SQLiteStore) CreateSite(ctx context.Context, input NewSite) (*Site, err
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO html_editor_layouts(site_id, schema_version, revision, xml)
 			VALUES (?, 1, 1, ?)`, siteID, layout); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO html_block_trees(site_id, document_json) VALUES (?, '{"revision":1,"folders":[]}')`, siteID); err != nil {
 			return err
 		}
 		if err := replaceNodeVisibilityTx(ctx, tx, siteID, NodeKindSite, SiteNodeKey, audiences); err != nil {

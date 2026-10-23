@@ -5,6 +5,7 @@ import (
 	sdk "MyServer/pkg/vfs/providersdk"
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -20,6 +21,7 @@ type Provider struct {
 	visibility *VisibilityService
 	layouts    *LayoutService
 	templates  *TemplateService
+	blocks     *BlockService
 	connection vfs.ProviderConnection
 	routes     []sdk.RouteInfo
 	vfs.FSProvider
@@ -49,7 +51,11 @@ func NewProvider(store *SQLiteStore, connection vfs.ProviderConnection) (*Provid
 	if err != nil {
 		return nil, err
 	}
-	p := &Provider{store: store, pages: pages, bindings: bindings, visibility: visibility, layouts: layouts, templates: templates, connection: connection}
+	blocks, err := NewBlockService(store)
+	if err != nil {
+		return nil, err
+	}
+	p := &Provider{store: store, pages: pages, bindings: bindings, visibility: visibility, layouts: layouts, templates: templates, blocks: blocks, connection: connection}
 	base, err := p.buildFS()
 	if err != nil {
 		return nil, err
@@ -188,6 +194,70 @@ func (p *Provider) buildFS() (*sdk.Provider, error) {
 			return &vfs.Node{Name: strconv.FormatInt(root.ID, 10), Kind: "publisher_root", IsDir: true, UpdatedAt: root.UpdatedAt}
 		},
 	})
+
+	blocksDir, blockItem := sdk.CollectionResources(root, "blocks", "blockKey", sdk.CollectionSpec[sdk.Unit, Block]{
+		List: func(ctx context.Context, _ sdk.Request, _ sdk.Unit) ([]Block, error) {
+			site, err := p.site(ctx)
+			if err != nil {
+				return nil, mapProviderError(vfs.OpReadDir, err)
+			}
+			blocks, err := p.visibleBlocks(ctx, site)
+			return blocks, mapProviderError(vfs.OpReadDir, err)
+		},
+		Lookup: func(ctx context.Context, _ sdk.Request, _ sdk.Unit, key string) (Block, error) {
+			site, err := p.site(ctx)
+			if err != nil {
+				return Block{}, mapProviderError(vfs.OpStat, err)
+			}
+			b, err := p.visibleBlockByKey(ctx, site, key)
+			if err != nil {
+				return Block{}, mapProviderError(vfs.OpStat, err)
+			}
+			return *b, nil
+		},
+		Node: func(b Block) *vfs.Node {
+			return &vfs.Node{Name: b.BlockKey, Kind: "html_block", IsDir: true, UpdatedAt: b.UpdatedAt}
+		},
+	})
+	blocksDir.Metadata(func(ctx context.Context, _ sdk.Request, _ sdk.Unit) (*vfs.Node, error) {
+		if _, err := p.site(ctx); err != nil {
+			return nil, mapProviderError(vfs.OpStat, err)
+		}
+		return sdk.DirNode("blocks"), nil
+	})
+	sdk.Command(blocksDir, "create", sdk.CommandSpec[sdk.Unit, CreateBlockInput, BlockDocument]{Handle: func(ctx context.Context, _ sdk.Request, _ sdk.Unit, in CreateBlockInput) (BlockDocument, error) {
+		b, err := p.createBlock(ctx, in)
+		if err != nil {
+			return BlockDocument{}, mapProviderError(vfs.OpControl, err)
+		}
+		d, err := p.blockDocument(ctx, b)
+		return d, mapProviderError(vfs.OpControl, err)
+	}})
+	sdk.BytesDocument(blocksDir, "tree.json", func(ctx context.Context, _ sdk.Request, _ sdk.Unit) ([]byte, error) {
+		d, err := p.blockTreeDocument(ctx)
+		return d, mapProviderError(vfs.OpRead, err)
+	}, func(ctx context.Context, _ sdk.Request, _ sdk.Unit, data []byte) error {
+		err := p.replaceBlockTree(ctx, data)
+		return mapProviderError(vfs.OpWrite, err)
+	}, 1<<20)
+	sdk.JSON(blockItem, "meta.json", func(ctx context.Context, _ sdk.Request, b Block) (BlockDocument, error) {
+		d, err := p.blockDocument(ctx, &b)
+		return d, mapProviderError(vfs.OpRead, err)
+	})
+	sdk.Command(blockItem, "update", sdk.CommandSpec[Block, UpdateBlockInput, BlockDocument]{Handle: func(ctx context.Context, _ sdk.Request, b Block, in UpdateBlockInput) (BlockDocument, error) {
+		next, err := p.updateBlock(ctx, b, in)
+		if err != nil {
+			return BlockDocument{}, mapProviderError(vfs.OpControl, err)
+		}
+		d, err := p.blockDocument(ctx, next)
+		return d, mapProviderError(vfs.OpControl, err)
+	}})
+	sdk.Command(blockItem, "delete", sdk.CommandSpec[Block, DeleteBlockInput, sdk.Unit]{Handle: func(ctx context.Context, _ sdk.Request, b Block, in DeleteBlockInput) (sdk.Unit, error) {
+		return sdk.Unit{}, mapProviderError(vfs.OpControl, p.blocks.DeleteBlock(ctx, b.SiteID, b.BlockKey, in.ExpectedBlockRevision))
+	}})
+	sdk.Command(blockItem, "set-visibility", sdk.CommandSpec[Block, SetVisibilityInput, VisibilityDocument]{Handle: func(ctx context.Context, _ sdk.Request, b Block, in SetVisibilityInput) (VisibilityDocument, error) {
+		return p.setNodeVisibility(ctx, b.SiteID, NodeKindBlock, b.BlockKey, in)
+	}})
 	publishersDir.Metadata(func(ctx context.Context, _ sdk.Request, _ sdk.Unit) (*vfs.Node, error) {
 		if _, err := p.site(ctx); err != nil {
 			return nil, mapProviderError(vfs.OpStat, err)
@@ -523,6 +593,228 @@ func (p *Provider) visiblePageByKey(ctx context.Context, site *Site, key string)
 	return nil, ErrPageNotFound
 }
 
+func (p *Provider) visibleBlocks(ctx context.Context, site *Site) ([]Block, error) {
+	actor, err := sdk.Actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	blocks, err := p.store.ListBlocks(ctx, site.ID)
+	if err != nil {
+		return nil, err
+	}
+	return p.visibility.VisibleBlocks(ctx, site.ID, actor, blocks)
+}
+func (p *Provider) visibleBlockByKey(ctx context.Context, site *Site, key string) (*Block, error) {
+	blocks, err := p.visibleBlocks(ctx, site)
+	if err != nil {
+		return nil, err
+	}
+	for i := range blocks {
+		if blocks[i].BlockKey == key {
+			return &blocks[i], nil
+		}
+	}
+	return nil, ErrBlockNotFound
+}
+func (p *Provider) blockDocument(ctx context.Context, b *Block) (BlockDocument, error) {
+	if b == nil {
+		return BlockDocument{}, ErrBlockNotFound
+	}
+	visible, err := p.store.NodeAudiences(ctx, b.SiteID, NodeKindBlock, b.BlockKey)
+	if err != nil {
+		return BlockDocument{}, err
+	}
+	return BlockDocument{BlockKey: b.BlockKey, Name: b.Name, Type: b.Type, PublisherSubjectKey: b.PublisherSubjectKey, BundleRootURI: string(b.BundleRootURI), Revision: b.Revision, CreatedAt: b.CreatedAt, UpdatedAt: b.UpdatedAt, VisibleTo: visible}, nil
+}
+func (p *Provider) createBlock(ctx context.Context, in CreateBlockInput) (*Block, error) {
+	site, err := p.site(ctx)
+	if err != nil {
+		return nil, err
+	}
+	bound, err := sdk.Bound(ctx)
+	if err != nil {
+		return nil, err
+	}
+	uri, root, err := p.bindings.ValidateBlockBundle(ctx, bound, site, p.connection.ScopeKey, in.BundleRootURI, in.Type)
+	if err != nil {
+		return nil, err
+	}
+	return p.blocks.CreateBlock(ctx, CreateBlockRequest{SiteID: site.ID, BlockKey: in.BlockKey, Name: in.Name, Type: in.Type, PublisherSubjectKey: root.PublisherSubjectKey, BundleRootURI: uri, VisibleTo: in.VisibleTo})
+}
+func (p *Provider) updateBlock(ctx context.Context, b Block, in UpdateBlockInput) (*Block, error) {
+	site, err := p.site(ctx)
+	if err != nil {
+		return nil, err
+	}
+	bound, err := sdk.Bound(ctx)
+	if err != nil {
+		return nil, err
+	}
+	uri, root, err := p.bindings.ValidateBlockBundle(ctx, bound, site, p.connection.ScopeKey, in.BundleRootURI, in.Type)
+	if err != nil {
+		return nil, err
+	}
+	return p.blocks.UpdateBlock(ctx, UpdateBlockRequest{SiteID: b.SiteID, BlockKey: b.BlockKey, ExpectedRevision: in.ExpectedBlockRevision, Name: in.Name, Type: in.Type, PublisherSubjectKey: root.PublisherSubjectKey, BundleRootURI: uri})
+}
+func (p *Provider) blockTreeDocument(ctx context.Context) ([]byte, error) {
+	site, err := p.site(ctx)
+	if err != nil {
+		return nil, err
+	}
+	stored, err := p.store.ReadBlockTree(ctx, site.ID)
+	if err != nil {
+		return nil, err
+	}
+	tree, err := ParseBlockTree(stored.DocumentJSON)
+	if err != nil {
+		return nil, err
+	}
+	blocks, err := p.visibleBlocks(ctx, site)
+	if err != nil {
+		return nil, err
+	}
+	visible := map[string]bool{}
+	for _, b := range blocks {
+		visible[b.BlockKey] = true
+	}
+	tree.Revision = stored.Revision
+	tree.Folders = filterBlockFolders(tree.Folders, visible)
+	return json.Marshal(tree)
+}
+func filterBlockFolders(folders []BlockFolder, visible map[string]bool) []BlockFolder {
+	out := make([]BlockFolder, 0, len(folders))
+	for _, f := range folders {
+		n := f
+		n.Folders = filterBlockFolders(f.Folders, visible)
+		n.Blocks = n.Blocks[:0]
+		for _, b := range f.Blocks {
+			if visible[b] {
+				n.Blocks = append(n.Blocks, b)
+			}
+		}
+		if len(n.Blocks) > 0 || len(n.Folders) > 0 {
+			out = append(out, n)
+		}
+	}
+	return out
+}
+func (p *Provider) replaceBlockTree(ctx context.Context, data []byte) error {
+	site, err := p.site(ctx)
+	if err != nil {
+		return err
+	}
+	tree, err := ParseBlockTree(data)
+	if err != nil {
+		return err
+	}
+	blocks, err := p.visibleBlocks(ctx, site)
+	if err != nil {
+		return err
+	}
+	visible := map[string]bool{}
+	for _, b := range blocks {
+		visible[b.BlockKey] = true
+	}
+	var check func([]BlockFolder) bool
+	check = func(fs []BlockFolder) bool {
+		for _, f := range fs {
+			for _, b := range f.Blocks {
+				if !visible[b] {
+					return false
+				}
+			}
+			if !check(f.Folders) {
+				return false
+			}
+		}
+		return true
+	}
+	if !check(tree.Folders) {
+		return ErrBlockNotFound
+	}
+	stored, err := p.store.ReadBlockTree(ctx, site.ID)
+	if err != nil {
+		return err
+	}
+	if stored.Revision != tree.Revision {
+		return &RevisionConflict{Kind: ErrBlockTreeRevisionConflict, Current: stored.Revision}
+	}
+	base, err := ParseBlockTree(stored.DocumentJSON)
+	if err != nil {
+		return err
+	}
+	merged := mergeVisibleBlockTree(base, tree, visible)
+	merged.Revision = tree.Revision
+	data, err = json.Marshal(merged)
+	if err != nil {
+		return err
+	}
+	_, err = p.blocks.ReplaceTree(ctx, site.ID, data)
+	return err
+}
+
+// mergeVisibleBlockTree applies an actor's catalog edit without treating the
+// visibility-filtered tree it read as the canonical tree. Hidden blocks keep
+// their folders and order; only keys in visible may be removed or re-placed.
+func mergeVisibleBlockTree(base, submitted BlockTreeDocument, visible map[string]bool) BlockTreeDocument {
+	merged := BlockTreeDocument{Revision: base.Revision, Folders: cloneBlockFolders(base.Folders)}
+	removeVisibleBlocks(merged.Folders, visible)
+
+	var apply func([]BlockFolder, *[]BlockFolder)
+	apply = func(folders []BlockFolder, target *[]BlockFolder) {
+		for _, submittedFolder := range folders {
+			folder := findBlockFolder(merged.Folders, submittedFolder.Key)
+			if folder == nil {
+				*target = append(*target, BlockFolder{Key: submittedFolder.Key, Name: submittedFolder.Name})
+				folder = &(*target)[len(*target)-1]
+			}
+			folder.Blocks = append(folder.Blocks, submittedFolder.Blocks...)
+			apply(submittedFolder.Folders, &folder.Folders)
+		}
+	}
+	apply(submitted.Folders, &merged.Folders)
+	return merged
+}
+
+func cloneBlockFolders(folders []BlockFolder) []BlockFolder {
+	out := make([]BlockFolder, len(folders))
+	for i, folder := range folders {
+		out[i] = BlockFolder{
+			Key:     folder.Key,
+			Name:    folder.Name,
+			Folders: cloneBlockFolders(folder.Folders),
+			Blocks:  append([]string(nil), folder.Blocks...),
+		}
+	}
+	return out
+}
+
+func removeVisibleBlocks(folders []BlockFolder, visible map[string]bool) {
+	for i := range folders {
+		folder := &folders[i]
+		kept := folder.Blocks[:0]
+		for _, key := range folder.Blocks {
+			if !visible[key] {
+				kept = append(kept, key)
+			}
+		}
+		folder.Blocks = kept
+		removeVisibleBlocks(folder.Folders, visible)
+	}
+}
+
+func findBlockFolder(folders []BlockFolder, key string) *BlockFolder {
+	for i := range folders {
+		if folders[i].Key == key {
+			return &folders[i]
+		}
+		if found := findBlockFolder(folders[i].Folders, key); found != nil {
+			return found
+		}
+	}
+	return nil
+}
+
 func (p *Provider) visiblePublisherRoots(ctx context.Context, site *Site) ([]PublisherRoot, error) {
 	actor, err := sdk.Actor(ctx)
 	if err != nil {
@@ -626,13 +918,13 @@ func mapProviderError(op vfs.Operation, err error) error {
 		return err
 	}
 	switch {
-	case errors.Is(err, ErrInvalidRecord), errors.Is(err, ErrInvalidEditorXML), errors.Is(err, ErrInvalidAudience), errors.Is(err, ErrInvalidDeleteMode), errors.Is(err, ErrInvalidPosition), errors.Is(err, ErrScopeMismatch), errors.Is(err, ErrInvalidTemplate):
+	case errors.Is(err, ErrInvalidRecord), errors.Is(err, ErrInvalidEditorXML), errors.Is(err, ErrInvalidAudience), errors.Is(err, ErrInvalidDeleteMode), errors.Is(err, ErrInvalidPosition), errors.Is(err, ErrScopeMismatch), errors.Is(err, ErrInvalidTemplate), errors.Is(err, ErrInvalidBlockType), errors.Is(err, ErrInvalidBlockTree):
 		return vfs.NewError(vfs.KindInvalidArgument, op, "invalid HTML operation", err)
-	case errors.Is(err, ErrSiteNotFound), errors.Is(err, ErrPublisherRootNotFound), errors.Is(err, ErrPageNotFound), errors.Is(err, ErrParentNotFound), errors.Is(err, ErrNodeNotVisible), errors.Is(err, ErrTemplateNotFound), errors.Is(err, ErrTemplateAssetNotFound):
+	case errors.Is(err, ErrSiteNotFound), errors.Is(err, ErrPublisherRootNotFound), errors.Is(err, ErrPageNotFound), errors.Is(err, ErrBlockNotFound), errors.Is(err, ErrParentNotFound), errors.Is(err, ErrNodeNotVisible), errors.Is(err, ErrTemplateNotFound), errors.Is(err, ErrTemplateAssetNotFound):
 		return vfs.NewError(vfs.KindNotFound, op, "HTML resource not found", err)
 	case errors.Is(err, ErrAlreadyExists):
 		return vfs.NewError(vfs.KindAlreadyExists, op, "HTML resource already exists", err)
-	case errors.Is(err, ErrSiteRevisionConflict), errors.Is(err, ErrPageRevisionConflict), errors.Is(err, ErrTreeRevisionConflict), errors.Is(err, ErrVisibilityConflict), errors.Is(err, ErrLayoutRevisionConflict):
+	case errors.Is(err, ErrSiteRevisionConflict), errors.Is(err, ErrPageRevisionConflict), errors.Is(err, ErrTreeRevisionConflict), errors.Is(err, ErrBlockRevisionConflict), errors.Is(err, ErrBlockTreeRevisionConflict), errors.Is(err, ErrVisibilityConflict), errors.Is(err, ErrLayoutRevisionConflict):
 		return vfs.NewError(vfs.KindConflict, op, "HTML revision conflict", err)
 	case errors.Is(err, ErrCycleDetected), errors.Is(err, ErrResourceInUse), errors.Is(err, ErrTargetOutsideRoot), errors.Is(err, ErrUnexpectedTargetType), errors.Is(err, ErrPublisherRootInactive), errors.Is(err, ErrIncompleteBundle):
 		return vfs.NewError(vfs.KindFailedPrecondition, op, "HTML precondition failed", err)

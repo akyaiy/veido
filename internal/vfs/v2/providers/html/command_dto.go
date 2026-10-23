@@ -131,6 +131,34 @@ type PageDocument struct {
 	VisibleTo           []string  `json:"visible_to"`
 }
 
+type CreateBlockInput struct {
+	BlockKey      string   `json:"block_key" required:"true"`
+	Name          string   `json:"name" required:"true"`
+	Type          string   `json:"type" required:"true"`
+	BundleRootURI string   `json:"bundle_root_uri" required:"true"`
+	VisibleTo     []string `json:"visible_to" required:"true"`
+}
+type UpdateBlockInput struct {
+	ExpectedBlockRevision int64  `json:"expected_block_revision" required:"true"`
+	Name                  string `json:"name" required:"true"`
+	Type                  string `json:"type" required:"true"`
+	BundleRootURI         string `json:"bundle_root_uri" required:"true"`
+}
+type DeleteBlockInput struct {
+	ExpectedBlockRevision int64 `json:"expected_block_revision" required:"true"`
+}
+type BlockDocument struct {
+	BlockKey            string    `json:"block_key"`
+	Name                string    `json:"name"`
+	Type                string    `json:"type"`
+	PublisherSubjectKey string    `json:"publisher_subject_key"`
+	BundleRootURI       string    `json:"bundle_root_uri"`
+	Revision            int64     `json:"revision"`
+	CreatedAt           time.Time `json:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at"`
+	VisibleTo           []string  `json:"visible_to"`
+}
+
 type TreeDocument struct {
 	TreeRevision       int64      `json:"tree_revision"`
 	ModelRevision      int64      `json:"model_revision"`

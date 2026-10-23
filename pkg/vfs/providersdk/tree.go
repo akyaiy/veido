@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"sort"
 	"strings"
 	"time"
 )
@@ -276,10 +277,24 @@ func (t *Tree) Build() (*Provider, error) {
 	}
 	t.built = true
 	fs := virtfs.New()
-	for _, e := range t.entries {
+	entries := append([]*entry(nil), t.entries...)
+	sort.SliceStable(entries, func(i, j int) bool {
+		return routeSpecificity(entries[i].pattern) > routeSpecificity(entries[j].pattern)
+	})
+	for _, e := range entries {
 		fs.Route(e.pattern, e.handler)
 	}
 	return &Provider{fs: fs, entries: t.entries, observer: t.observer}, nil
+}
+
+func routeSpecificity(pattern string) int {
+	score := 0
+	for _, part := range strings.Split(pattern, "/") {
+		if !strings.HasPrefix(part, "{") && part != "*" {
+			score++
+		}
+	}
+	return score
 }
 
 func overlaps(a, b string) bool {
@@ -288,7 +303,7 @@ func overlaps(a, b string) bool {
 		return false
 	}
 	for i := range aa {
-		if aa[i] != bb[i] && !strings.HasPrefix(aa[i], "{") && !strings.HasPrefix(bb[i], "{") {
+		if aa[i] != bb[i] && (!strings.HasPrefix(aa[i], "{") || !strings.HasPrefix(bb[i], "{")) {
 			return false
 		}
 	}

@@ -144,6 +144,16 @@ scripts/install-template.sh
 SITE_ACCESS_TOKEN="$SITE_ACCESS_TOKEN" scripts/add-page.sh \
   --key about --slug about --title 'О нас' \
   --source-dir ./site-content/publisher/pages/about
+
+# Загрузить Block через тот же public VFS HTTP API
+SITE_ACCESS_TOKEN="$SITE_ACCESS_TOKEN" scripts/add-block.sh \
+  --key promo-card --name 'Promo card' --type ui-component \
+  --source-dir ./site-content/publisher/blocks/promo-card \
+  --folder-key components --folder-name 'Components'
+
+# Обновить только physical bundle существующей Page
+SITE_ACCESS_TOKEN="$SITE_ACCESS_TOKEN" scripts/update-page-bundle.sh \
+  --key home --source-dir ./site-content/publisher/pages/home
 ```
 
 `scripts/add-page.sh` загружает bundle в подключение

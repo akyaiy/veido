@@ -7,8 +7,8 @@
 - Scopes Provider в system scope;
 - writable content connection `demo-content@content[html-demo]:///content`,
   использующий metadata/CAS реализацию Local Provider;
-- publisher root `/content` и страницы `home`/`demo`, созданные через публичные
-  команды `Control` HTML Provider.
+- publisher root `/content`, страницы `home`/`demo` и Blocks `demo-ui`/
+  `demo-content`, созданные через публичные команды `Control` HTML Provider.
 - immutable application template `default-spa/7`, собранный из явного
   allowlist `data/HTML/frontend` и установленный через
   `Control(/templates, "install", ...)`.
@@ -23,6 +23,10 @@ script.js    клиентский код страницы
 ```
 
 Отдельный `content.html` не используется.
+
+Blocks лежат в `/content/blocks`: `demo-ui` является `ui-component` с тремя
+contract-файлами, `demo-content` — `content` только с `content.md`. Seed создаёт
+provider-owned дерево с папками `UI components` и `Content`.
 
 Запуск:
 
@@ -42,10 +46,11 @@ GET /api/v2/vfs/read?uri=html%40site%5Bhtml-demo%5D%3A%2F%2F%2Fpages%2Fhome%2Fin
 
 На `/` сохранено прежнее клиентское приложение. Все остальные routes, включая
 `/demo`, являются обычными HTML Provider pages и загружаются одинаково через
-`get-page` и physical bundle. Bundle страницы `demo` открывает рабочую панель
-управления сайтом: дерево страниц, создание/обновление/перемещение и
-удаление metadata, редактирование `content.md`/`style.css`/`script.js`, статусы,
-типы, поисковые теги, visibility и просмотр publisher roots.
+`get-page` и physical bundle. Bundle страницы `demo` наглядно показывает
+`blocks/tree.json`, затем лениво читает `/blocks/<key>/meta.json`; по кнопке
+показывает physical `content.md` по `bundle_root_uri`. Это демонстрирует, что
+Block не является обязательной частью Page и HTML Provider не читает байты
+bundle из собственного Store.
 Остальные browser routes отображают найденную `get-page` страницу, загружая
 её `content.md`, `style.css` и `script.js` через actor-bound VFS. Page bootstrap
 встраивается в первоначальный HTML-ответ: браузер не повторяет `get-page` и не
@@ -65,3 +70,25 @@ template version.
 Physical content и его metadata сохраняются между запусками в SQLite/CAS.
 Authorizer в demo допускает все resource actions после owner scope gate; это
 проверочная сборка, а не production ACL.
+
+## Обновление и миграция
+
+Останови процесс, затем примени миграции к существующей demo БД:
+
+```bash
+go run ./cmd/migrate -db ./data/db/vfsv2_html_demo.sqlite3
+```
+
+Либо для основной конфигурации с `DB_PATH` из `.env`:
+
+```bash
+scripts/migrate.sh
+```
+
+Чтобы обновить именно страницу `/demo` после правки файлов в
+`cmd/vfsv2html/content/demo/`, достаточно перезапустить команду запуска выше.
+Content fixtures повторно записываются через VFS, а seed Blocks и дерева
+идемпотентен. Ничего удалять из SQLite или CAS для обычного обновления не надо.
+
+Для полностью чистой демо-среды выбери другой пути `-db` и `-content-store`
+либо удали только конкретные demo-файлы/БД, когда процесс остановлен.

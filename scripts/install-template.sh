@@ -51,6 +51,13 @@ if [[ ! "$SITE_URI" =~ ^html@([^[]+)\[([^]]+)\]:///+$ ]]; then
   printf 'invalid SITE_URI in .env: %s\n' "$SITE_URI" >&2
   exit 1
 fi
+SITE_CONNECTION="${BASH_REMATCH[1]}"
+SITE_SCOPE="${BASH_REMATCH[2]}"
+# A bootstrap manifest describes an initial site and may retain its old scope
+# name. Template updates must target the live canonical SITE_URI from .env.
+EFFECTIVE_MANIFEST="$(mktemp)"
+trap 'rm -f "$EFFECTIVE_MANIFEST"' EXIT
+jq --arg scope "$SITE_SCOPE" --arg connection "$SITE_CONNECTION" '.scope_name = $scope | .site.connection = $connection' "$MANIFEST" >"$EFFECTIVE_MANIFEST"
 
 encode_uri() { jq -rn --arg value "$1" '$value | @uri'; }
 next_version() {
@@ -63,7 +70,7 @@ next_version() {
 
 for ((attempt = 1; attempt <= MAX_ATTEMPTS; attempt++)); do
   version="$(next_version)"
-  if output="$(go run ./cmd/sitebootstrap -server "$SERVER_URL" -access-token "$ACCESS_TOKEN" -manifest "$MANIFEST" -install-template-only -template-version "$version" 2>&1)"; then
+  if output="$(go run ./cmd/sitebootstrap -server "$SERVER_URL" -access-token "$ACCESS_TOKEN" -manifest "$EFFECTIVE_MANIFEST" -install-template-only -site-uri "$SITE_URI" -template-version "$version" 2>&1)"; then
     printf '%s\n' "$output"
     printf 'Installed default-spa/%s. Reload the browser with Ctrl+Shift+R.\n' "$version"
     exit 0

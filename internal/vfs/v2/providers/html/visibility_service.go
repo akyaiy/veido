@@ -125,6 +125,23 @@ func (s *VisibilityService) PageVisible(ctx context.Context, siteID, pageID int6
 	return false, nil
 }
 
+func (s *VisibilityService) VisibleBlocks(ctx context.Context, siteID int64, actor vfs.Actor, blocks []Block) ([]Block, error) {
+	keys, err := s.store.VisibleNodeKeys(ctx, siteID, NodeKindBlock, actorAudiences(actor))
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Block, 0, len(blocks))
+	for _, b := range blocks {
+		if _, ok := keys[b.BlockKey]; ok {
+			out = append(out, b)
+		}
+	}
+	return out, nil
+}
+func (s *VisibilityService) BlockVisible(ctx context.Context, siteID int64, actor vfs.Actor, block Block) (bool, error) {
+	return s.store.NodeVisible(ctx, siteID, NodeKindBlock, block.BlockKey, actorAudiences(actor))
+}
+
 func (s *VisibilityService) VisiblePublisherRoots(ctx context.Context, siteID int64, actor vfs.Actor, roots []PublisherRoot) ([]PublisherRoot, error) {
 	keys, err := s.store.VisibleNodeKeys(ctx, siteID, NodeKindPublisher, actorAudiences(actor))
 	if err != nil {

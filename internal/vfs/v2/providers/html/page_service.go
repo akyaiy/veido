@@ -57,6 +57,12 @@ func (e *RevisionConflict) PublicCode() string {
 	if e != nil && errors.Is(e.Kind, ErrLayoutRevisionConflict) {
 		return "layout_revision_conflict"
 	}
+	if e != nil && errors.Is(e.Kind, ErrBlockTreeRevisionConflict) {
+		return "block_tree_revision_conflict"
+	}
+	if e != nil && errors.Is(e.Kind, ErrBlockRevisionConflict) {
+		return "block_revision_conflict"
+	}
 	return "page_revision_conflict"
 }
 

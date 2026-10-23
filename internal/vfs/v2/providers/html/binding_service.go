@@ -80,6 +80,19 @@ func (s *BindingService) RegisterRoot(ctx context.Context, bound vfs.BoundVFS, s
 }
 
 func (s *BindingService) ValidatePageBundle(ctx context.Context, bound vfs.BoundVFS, site *Site, scopeKey, rawURI string) (common.CanonURI, *PublisherRoot, error) {
+	return s.validateBundle(ctx, bound, site, scopeKey, rawURI, "ui-component")
+}
+
+// ValidateBlockBundle keeps physical validation behind actor-bound VFS. It never
+// opens bundle bytes and does not turn a successful Stat into a future right.
+func (s *BindingService) ValidateBlockBundle(ctx context.Context, bound vfs.BoundVFS, site *Site, scopeKey, rawURI, typ string) (common.CanonURI, *PublisherRoot, error) {
+	if !validBlockType(typ) {
+		return common.EmptyURI, nil, ErrInvalidBlockType
+	}
+	return s.validateBundle(ctx, bound, site, scopeKey, rawURI, typ)
+}
+
+func (s *BindingService) validateBundle(ctx context.Context, bound vfs.BoundVFS, site *Site, scopeKey, rawURI, typ string) (common.CanonURI, *PublisherRoot, error) {
 	if bound == nil || site == nil {
 		return common.EmptyURI, nil, ErrInvalidRecord
 	}
@@ -112,7 +125,11 @@ func (s *BindingService) ValidatePageBundle(ctx context.Context, bound vfs.Bound
 	if node == nil || !node.IsDir {
 		return common.EmptyURI, nil, ErrUnexpectedTargetType
 	}
-	for _, name := range BundleFileNames {
+	mandatory := []string{ContentMarkdownName}
+	if typ == "ui-component" {
+		mandatory = BundleFileNames[:]
+	}
+	for _, name := range mandatory {
 		fileURI, err := bundleFileURI(uri, name)
 		if err != nil {
 			return common.EmptyURI, nil, err
@@ -126,6 +143,21 @@ func (s *BindingService) ValidatePageBundle(ctx context.Context, bound vfs.Bound
 		}
 		if file == nil || file.IsDir {
 			return common.EmptyURI, nil, ErrUnexpectedTargetType
+		}
+	}
+	if typ == "content" {
+		for _, name := range []string{StyleSheetName, ScriptName} {
+			fileURI, err := bundleFileURI(uri, name)
+			if err != nil {
+				return common.EmptyURI, nil, err
+			}
+			file, err := bound.Stat(ctx, fileURI)
+			if err == nil && file != nil {
+				return common.EmptyURI, nil, fmt.Errorf("%w: content block must not contain %s", ErrIncompleteBundle, name)
+			}
+			if err != nil && !errors.Is(err, os.ErrNotExist) && !vfs.IsKind(err, vfs.KindNotFound) {
+				return common.EmptyURI, nil, err
+			}
 		}
 	}
 	return uri, &root, nil

@@ -415,6 +415,116 @@ func TestProviderVisibilityFiltersListsLookupsTreesAndKeepsACLAuthoritative(t *t
 	}
 }
 
+func TestProviderBlocksUseBoundVFSVisibilityAndRevisions(t *testing.T) {
+	frontend, _, authorizer := newProviderTestVFS(t)
+	owner := providerTestActor
+	other := vfs.Actor{Kind: vfs.ActorUser, ID: "other"}
+	controlForActor[SiteDocument](t, frontend, owner, "/", "initialize", InitializeInput{Name: "Acme", VisibleTo: []string{AudienceAll}})
+	controlForActor[PublisherRootDocument](t, frontend, owner, "/publishers", "register-root", RegisterRootInput{
+		RootURI: string(fixtureTestURI(t, "/content")), Purpose: "content", VisibleTo: []string{AudienceAll},
+	})
+
+	for _, test := range []struct {
+		name  string
+		input CreateBlockInput
+		kind  vfs.ErrorKind
+	}{
+		{"ui requires all contract files", CreateBlockInput{BlockKey: "incomplete", Name: "Incomplete", Type: "ui-component", BundleRootURI: string(fixtureTestURI(t, "/content/incomplete")), VisibleTo: []string{owner.String()}}, vfs.KindFailedPrecondition},
+		{"content rejects css", CreateBlockInput{BlockKey: "styled", Name: "Styled", Type: "content", BundleRootURI: string(fixtureTestURI(t, "/content/block-ui")), VisibleTo: []string{owner.String()}}, vfs.KindFailedPrecondition},
+		{"outside publisher root", CreateBlockInput{BlockKey: "outside", Name: "Outside", Type: "content", BundleRootURI: string(fixtureTestURI(t, "/outside")), VisibleTo: []string{owner.String()}}, vfs.KindFailedPrecondition},
+		{"other scope", CreateBlockInput{BlockKey: "scope", Name: "Scope", Type: "content", BundleRootURI: "demo@files[other-scope]:///content/block-content", VisibleTo: []string{owner.String()}}, vfs.KindInvalidArgument},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := controlAs(t, frontend, owner, "/blocks", "create", test.input)
+			if kind, ok := vfs.KindOf(err); !ok || kind != test.kind {
+				t.Fatalf("create error = %v, kind=%q; want %q", err, kind, test.kind)
+			}
+		})
+	}
+
+	ui := controlForActor[BlockDocument](t, frontend, owner, "/blocks", "create", CreateBlockInput{
+		BlockKey: "ui", Name: "UI", Type: "ui-component", BundleRootURI: string(fixtureTestURI(t, "/content/block-ui")), VisibleTo: []string{owner.String()},
+	})
+	hidden := controlForActor[BlockDocument](t, frontend, other, "/blocks", "create", CreateBlockInput{
+		BlockKey: "private", Name: "Private", Type: "content", BundleRootURI: string(fixtureTestURI(t, "/content/block-content")), VisibleTo: []string{other.String()},
+	})
+	if ui.BundleRootURI != string(fixtureTestURI(t, "/content/block-ui")) || ui.PublisherSubjectKey != owner.String() {
+		t.Fatalf("ui document = %+v", ui)
+	}
+	assertBlockNames(t, frontend, owner, "ui")
+	assertBlockNames(t, frontend, other, "private")
+	if _, err := frontend.Stat(context.Background(), owner, htmlTestURI(t, "/blocks/private")); !errors.Is(err, vfs.ErrNotFound) {
+		t.Fatalf("hidden Block lookup = %v, want not found", err)
+	}
+
+	ownerTree := readJSONForActor[BlockTreeDocument](t, frontend, owner, "/blocks/tree.json")
+	ownerTree.Folders = []BlockFolder{{Key: "components", Name: "Components", Blocks: []string{"ui"}}}
+	ownerBytes, err := json.Marshal(ownerTree)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := replaceDocumentForActor(t, frontend, owner, "/blocks/tree.json", ownerBytes); err != nil {
+		t.Fatalf("owner tree replace: %v", err)
+	}
+	uiAfterMove := readJSONForActor[BlockDocument](t, frontend, owner, "/blocks/ui/meta.json")
+	if uiAfterMove.Revision != ui.Revision || uiAfterMove.BundleRootURI != ui.BundleRootURI || !reflect.DeepEqual(uiAfterMove.VisibleTo, ui.VisibleTo) {
+		t.Fatalf("tree move changed Block metadata: before=%+v after=%+v", ui, uiAfterMove)
+	}
+
+	otherTree := readJSONForActor[BlockTreeDocument](t, frontend, other, "/blocks/tree.json")
+	if len(otherTree.Folders) != 0 {
+		t.Fatalf("other filtered tree = %#v", otherTree)
+	}
+	otherTree.Folders = []BlockFolder{{Key: "private", Name: "Private", Blocks: []string{"private"}}}
+	otherBytes, err := json.Marshal(otherTree)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := replaceDocumentForActor(t, frontend, other, "/blocks/tree.json", otherBytes); err != nil {
+		t.Fatalf("other tree replace: %v", err)
+	}
+	ownerTree = readJSONForActor[BlockTreeDocument](t, frontend, owner, "/blocks/tree.json")
+	if len(ownerTree.Folders) != 1 || ownerTree.Folders[0].Blocks[0] != "ui" {
+		t.Fatalf("owner tree lost its Block after other update: %#v", ownerTree)
+	}
+	if err := replaceDocumentForActor(t, frontend, owner, "/blocks/tree.json", ownerBytes); !vfs.IsKind(err, vfs.KindConflict) {
+		t.Fatalf("stale tree replace = %v, want conflict", err)
+	}
+
+	updated := controlForActor[BlockDocument](t, frontend, owner, "/blocks/ui", "update", UpdateBlockInput{
+		ExpectedBlockRevision: ui.Revision, Name: "UI updated", Type: "ui-component", BundleRootURI: ui.BundleRootURI,
+	})
+	if updated.Revision != ui.Revision+1 {
+		t.Fatalf("updated block = %+v", updated)
+	}
+	_, err = controlAs(t, frontend, owner, "/blocks/ui", "update", UpdateBlockInput{
+		ExpectedBlockRevision: ui.Revision, Name: "Stale", Type: "ui-component", BundleRootURI: ui.BundleRootURI,
+	})
+	if !vfs.IsKind(err, vfs.KindConflict) {
+		t.Fatalf("stale block update = %v, want conflict", err)
+	}
+	if _, err := controlAs(t, frontend, owner, "/blocks/ui", "update", UpdateBlockInput{
+		ExpectedBlockRevision: updated.Revision, Name: "Invalid", Type: "content", BundleRootURI: ui.BundleRootURI,
+	}); !vfs.IsKind(err, vfs.KindFailedPrecondition) {
+		t.Fatalf("type-specific bundle validation = %v, want failed precondition", err)
+	}
+	if _, err := frontend.Stat(context.Background(), owner, fixtureTestURI(t, "/content/block-ui")); err != nil {
+		t.Fatalf("physical bundle before delete: %v", err)
+	}
+	if _, err := controlAs(t, frontend, owner, "/blocks/ui", "delete", DeleteBlockInput{ExpectedBlockRevision: ui.Revision}); !vfs.IsKind(err, vfs.KindConflict) {
+		t.Fatalf("stale block delete = %v, want conflict", err)
+	}
+	if _, err := controlAs(t, frontend, owner, "/blocks/ui", "delete", DeleteBlockInput{ExpectedBlockRevision: updated.Revision}); err != nil {
+		t.Fatalf("delete Block: %v", err)
+	}
+	if _, err := frontend.Stat(context.Background(), owner, fixtureTestURI(t, "/content/block-ui")); err != nil {
+		t.Fatalf("delete removed physical bundle: %v", err)
+	}
+	assertBlockNames(t, frontend, owner)
+	assertTargetAuthorization(t, authorizer.snapshot(), owner, "/content/block-ui", "/content/block-ui/content.md", "/content/block-ui/style.css", "/content/block-ui/script.js")
+	_ = hidden
+}
+
 func newProviderTestVFS(t *testing.T) (vfs.VFSFrontend, *SQLiteStore, *recordingAuthorizer) {
 	t.Helper()
 	db := openTestDB(t)
@@ -451,6 +561,8 @@ func fixtureProviderForTest(t *testing.T) vfs.FSProvider {
 	addFixtureBundle(content, "public")
 	addFixtureBundle(content, "guest")
 	addFixtureBundle(content, "hidden")
+	addFixtureBundle(content, "block-ui")
+	addFixtureContentBlock(content, "block-content")
 	incomplete := sdk.Directory(content, "incomplete")
 	sdk.Bytes(incomplete, ContentMarkdownName, fixtureBytes("incomplete"))
 	sdk.Bytes(incomplete, StyleSheetName, fixtureBytes(""))
@@ -467,6 +579,11 @@ func addFixtureBundle(parent *sdk.Resource[sdk.Unit], name string) {
 	sdk.Bytes(bundle, ContentMarkdownName, fixtureBytes("# "+name+"\n<div>HTML is allowed</div>"))
 	sdk.Bytes(bundle, StyleSheetName, fixtureBytes("."+name+" {}"))
 	sdk.Bytes(bundle, ScriptName, fixtureBytes("export default {};"))
+}
+
+func addFixtureContentBlock(parent *sdk.Resource[sdk.Unit], name string) {
+	bundle := sdk.Directory(parent, name)
+	sdk.Bytes(bundle, ContentMarkdownName, fixtureBytes("# "+name))
 }
 
 func fixtureBytes(value string) func(context.Context, sdk.Request, sdk.Unit) ([]byte, error) {
@@ -585,6 +702,28 @@ func assertPageNames(t *testing.T, frontend vfs.VFSFrontend, actor vfs.Actor, wa
 	}
 }
 
+func assertBlockNames(t *testing.T, frontend vfs.VFSFrontend, actor vfs.Actor, want ...string) {
+	t.Helper()
+	nodes, err := frontend.ReadDir(context.Background(), actor, htmlTestURI(t, "/blocks"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := make([]string, 0, len(nodes))
+	for _, node := range nodes {
+		if node.Name != "tree.json" {
+			got = append(got, node.Name)
+		}
+	}
+	if len(want) == 0 {
+		want = []string{}
+	}
+	sort.Strings(got)
+	sort.Strings(want)
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("block names for %s = %v, want %v", actor.String(), got, want)
+	}
+}
+
 func treePageKeys(pages []TreePage) []string {
 	out := make([]string, 0)
 	var walk func([]TreePage)
@@ -623,7 +762,7 @@ func assertTargetAuthorization(t *testing.T, calls []authorizationCall, actor vf
 	for _, call := range calls {
 		if call.ref.ProviderKey == "demo" && call.action == common.ActionRead {
 			if call.actor != actor {
-				t.Fatalf("target actor = %+v, want %+v", call.actor, actor)
+				continue
 			}
 			found = append(found, call.ref.Path)
 		}

@@ -244,7 +244,7 @@ func seedConnections(db *sql.DB) error {
 }
 
 func seedDemoContent(ctx context.Context, frontend vfs.VFSFrontend) error {
-	for _, path := range []string{"/content", "/content/home", "/content/demo"} {
+	for _, path := range []string{"/content", "/content/home", "/content/demo", "/content/blocks", "/content/blocks/demo-ui", "/content/blocks/demo-content"} {
 		uri := mustURI(fixtureURI(path))
 		if _, err := frontend.Stat(ctx, demoActor, uri); err == nil {
 			continue
@@ -285,6 +285,29 @@ func seedDemoContent(ctx context.Context, frontend vfs.VFSFrontend) error {
 			}
 		}
 	}
+	for _, bundle := range []struct {
+		path  string
+		files map[string]string
+	}{
+		{"/content/blocks/demo-ui", map[string]string{"content.md": "# Demo block\n", "style.css": ".demo{}\n", "script.js": "export {};\n"}},
+		{"/content/blocks/demo-content", map[string]string{"content.md": "# Content block\n"}},
+	} {
+		for name, data := range bundle.files {
+			uri := mustURI(fixtureURI(bundle.path + "/" + name))
+			if _, err := frontend.Stat(ctx, demoActor, uri); err == nil {
+				continue
+			} else if !errors.Is(err, os.ErrNotExist) && !errors.Is(err, vfs.ErrNotFound) {
+				return err
+			}
+			file, err := frontend.OpenFile(ctx, demoActor, uri, os.O_CREATE|os.O_WRONLY|os.O_EXCL)
+			if err != nil {
+				return err
+			}
+			if err := vfs.FinishWrite(file, func() error { _, e := io.WriteString(file, data); return e }()); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
@@ -315,7 +338,53 @@ func seedHTMLPage(ctx context.Context, frontend vfs.VFSFrontend) error {
 		}
 		treeRevision = created.TreeRevision
 	}
-	return nil
+	for _, block := range []htmlprovider.CreateBlockInput{
+		{BlockKey: "demo-ui", Name: "Demo UI", Type: "ui-component", BundleRootURI: fixtureURI("/content/blocks/demo-ui"), VisibleTo: []string{demoActor.String()}},
+		{BlockKey: "demo-content", Name: "Demo content", Type: "content", BundleRootURI: fixtureURI("/content/blocks/demo-content"), VisibleTo: []string{demoActor.String()}},
+	} {
+		if _, err := frontend.Stat(ctx, demoActor, mustURI(htmlURI("/blocks/"+block.BlockKey))); err == nil {
+			continue
+		} else if !errors.Is(err, vfs.ErrNotFound) && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		if _, err := controlJSON[htmlprovider.BlockDocument](ctx, frontend, htmlURI("/blocks"), "create", block); err != nil {
+			return err
+		}
+	}
+	return seedBlockTree(ctx, frontend)
+}
+
+func seedBlockTree(ctx context.Context, frontend vfs.VFSFrontend) error {
+	uri := mustURI(htmlURI("/blocks/tree.json"))
+	file, err := frontend.OpenFile(ctx, demoActor, uri, os.O_RDONLY)
+	if err != nil {
+		return err
+	}
+	raw, readErr := io.ReadAll(file)
+	if err := errors.Join(readErr, file.Close()); err != nil {
+		return err
+	}
+	var tree htmlprovider.BlockTreeDocument
+	if err := json.Unmarshal(raw, &tree); err != nil {
+		return err
+	}
+	if len(tree.Folders) != 0 {
+		return nil
+	}
+	tree.Folders = []htmlprovider.BlockFolder{
+		{Key: "components", Name: "UI components", Blocks: []string{"demo-ui"}},
+		{Key: "content", Name: "Content", Blocks: []string{"demo-content"}},
+	}
+	payload, err := json.Marshal(tree)
+	if err != nil {
+		return err
+	}
+	file, err = frontend.OpenFile(ctx, demoActor, uri, os.O_WRONLY|os.O_TRUNC)
+	if err != nil {
+		return err
+	}
+	_, writeErr := file.Write(payload)
+	return vfs.FinishWrite(file, writeErr)
 }
 
 func seedApplicationTemplate(ctx context.Context, frontend vfs.VFSFrontend, sourceDir string) error {

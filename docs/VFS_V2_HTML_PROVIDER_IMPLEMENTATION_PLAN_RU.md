@@ -3,6 +3,7 @@
 > Статус: рабочий план, не описание готовой реализации.  
 > Дата актуализации: 4 октября 2026 года.
 > Архитектурное решение: [ADR-007: HTML Provider](adr/VFS_V2_HTML_PROVIDER_DECISION_RU.md).  
+> Детальный план Blocks без реализации ACL: [ADR-007 Blocks](ADR-007_BLOCKS_IMPLEMENTATION_PLAN_RU.md).
 > Клиентский контракт: [контракт HTML-редактора](HTML_EDITOR_CONTRACT_RU.md).  
 > Зависимые решения: [ADR-003: ACL lifecycle](adr/ACL_LIFECYCLE_ARCHITECTURE_RU.md), [ADR-005: scope resolution](adr/VFS_V2_SCOPE_RESOLUTION_DECISION_RU.md), [ADR-008: VFS hooks](adr/VFS_V2_SERVER_HOOKS_DECISION_RU.md).
 
@@ -166,10 +167,10 @@ html_editor_layouts
 html_site_seo
 ```
 
-Сразу предусмотрены поля template selection. `active_publication_id`, theme и
-block references добавляются отдельными миграциями вместе с соответствующими
-таблицами и сервисами, чтобы не создавать ссылок без владельца и проверяемой
-целостности.
+Сразу предусмотрены поля template selection. `active_publication_id` и theme
+добавляются отдельными миграциями вместе с соответствующими таблицами и
+сервисами. Базовая Block-библиотека не добавляет Page → Block references:
+frontend загружает blocks лениво по своему сценарию.
 
 Обязательные ограничения SQLite:
 
@@ -177,7 +178,7 @@ block references добавляются отдельными миграциям�
 - `page_key` уникален внутри site;
 - отдельные unique indexes для root slug и `(site_id, parent_id, slug)`, потому
   что SQLite не считает два `NULL` одинаковыми;
-- parent и theme/block links проверяются в локальной транзакции;
+- parent и theme links проверяются в локальной транзакции;
 - нет foreign keys на Auth, ACL, scopes и таблицы других providers;
 - удаление Page не переиспользует его integer ID;
 - все timestamps и revision changes происходят внутри той же транзакции, что и
@@ -459,8 +460,15 @@ VFS-проекция `/templates/<key>/<version>/manifest.json` и `/files/...` 
 Этот инкремент допускается разделить на два PR:
 
 - `ThemeService`, `/themes`, default/page theme и проверка same-site links;
-- `BlockService`, `/blocks`, source/view binding, template/root block links и
-  `resource_in_use` при удалении.
+- `BlockService`, `/blocks/<block-key>/meta.json` и versioned
+  `/blocks/tree.json`; два типа `ui-component` и `content`; per-block
+  visibility и проверка physical bundle через `BoundVFS`.
+
+`blocks/tree.json` хранит папки, вложенность, порядок и block keys, но не
+меняет canonical URI block и не выдаёт доступ. При чтении дерево фильтруется по
+visibility actor; frontend лениво читает metadata и bundle нужного block.
+Базовый Block slice не вводит обязательные Page → Block links, server renderer
+или `resource_in_use` для несуществующих в этой модели ссылок.
 
 `config/robots.txt` хранится как HTML metadata document. Theme/block physical
 URIs проходят ту же root/scope/`BoundVFS` проверку, что Page source. Нельзя

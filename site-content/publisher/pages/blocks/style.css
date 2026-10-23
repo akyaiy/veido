@@ -1,0 +1,8 @@
+.site-content { color: #293342; }
+.blocks-lead { max-width: 72ch; line-height: 1.6; }
+.blocks-demo { margin: 1.5rem 0; padding: 1.25rem; border: 1px solid #d9e2ec; border-radius: 12px; background: #fff; }
+.blocks-toolbar { display: flex; gap: 1rem; align-items: center; justify-content: space-between; }.blocks-toolbar h2,.blocks-contract h2 { margin: 0; }
+.blocks-kicker { margin: 0 0 .3rem; font: .8rem ui-monospace, SFMono-Regular, monospace; color: #5d6b82; }
+.blocks-toolbar button,.block-card button { border: 0; border-radius: 7px; background: #2257a0; color: #fff; padding: .55rem .8rem; cursor: pointer; }.blocks-toolbar button:hover,.block-card button:hover { background: #183f75; }
+.blocks-tree { display: grid; gap: 1rem; }.block-folder { padding-top: .75rem; border-top: 1px solid #e6edf5; }.block-folder:first-child { border-top: 0; }.block-folder h3 { margin: 0 0 .6rem; font-size: 1rem; }
+.block-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .75rem; }.block-card { padding: .85rem; border-radius: 9px; background: #f5f8fc; border-left: 4px solid #4d8bd9; }.block-card--content { border-left-color: #19a67a; }.block-card h4 { margin: 0 0 .35rem; }.block-card p { margin: .35rem 0; font-size: .9rem; }.block-card code { word-break: break-all; font-size: .78rem; }.block-source { margin: .75rem 0 0; padding: .65rem; overflow: auto; border-radius: 6px; background: #132238; color: #e6f1ff; white-space: pre-wrap; }.blocks-error { color: #a1202a; }
