@@ -65,8 +65,61 @@ function editorBlockUri(path) {
         : window.VFS_ROOT + path.replace(/^\/+/, '');
 }
 
-// Сохранение блока
-async function saveEditorBlock(saveAs = false) {
+/* ***
+ * openEditorFileManager - открытие файлового менеджера
+ * - передаёт начальный путь и действие файловому менеджеру
+ * - указывает функцию для возврата выбранного пути
+*** */
+let editorBlockFileAction = null;
+
+async function openEditorFileManager(action, path = '/') {
+    editorBlockFileAction = action;
+
+    await window.tempStore.store({
+        path: path,
+        sender: 'editorBlock',
+        callbackFun: 'editorBlockFileSelected',
+        listTfootAct: 'loadBlock'
+    }, {
+        recipient: 'fManager',
+        ttlMs: 60000,
+        destroyOnRead: true
+    });
+
+    // Создание отдельного контейнера для файлового менеджера
+    const container = document.createElement('div');
+    container.id = 'fManagerContainer';
+    document.body.appendChild(container);
+
+    // Загрузка файлового менеджера в контейнер
+    await loadBlock('plugin/fManager', container);
+}
+
+/* ***
+ * editorBlockFileSelected - получение выбранного пути
+ * - получает путь от файлового менеджера
+ * - открывает блок или сохраняет его в выбранную папку
+*** */
+window.editorBlockFileSelected = async function editorBlockFileSelected() {
+    const messages = await window.tempStore.getByRecipient('editorBlock');
+    const path = messages?.[0]?.data?.path;
+
+    if (!path) return;
+
+    if (editorBlockFileAction === 'open') {
+        await window.editorBlock.openBlock(path.replace(/^\/+/, ''));
+    } else {
+        await saveEditorBlock(false, path);
+    }
+};
+
+/* ***
+ * saveEditorBlock - сохранение блока
+ * - получает путь текущего блока
+ * - при необходимости открывает файловый менеджер
+ * - сохраняет HTML, CSS и JS через VFSv2
+*** */
+async function saveEditorBlock(saveAs = false, selectedPath = null) {
     const blockId = window.editorBlock.currentBlockId;
     if (!blockId) return;
 
@@ -76,12 +129,13 @@ async function saveEditorBlock(saveAs = false) {
     // Получение пути папки
     let path = block.dataset.path;
 
-    // Запрос пути для нового блока или "Сохранить как"
-    if (!path || saveAs) {
-        path = prompt('Введите путь к папке:', path || 'pages/new');
-        if (!path || !path.trim()) return;
+    // Выбор папки для нового блока или "Сохранить как"
+    if (!selectedPath && (!path || saveAs)) {
+        await openEditorFileManager('save', path || '/');
+        return;
     }
 
+    path = selectedPath || path;
     path = path.trim().replace(/^\/+|\/+$/g, '');
 
     // Сохранение изменений редактора
@@ -132,20 +186,10 @@ async function executeFileMenuAction(action) {
             await saveEditorBlock(true);
             break;
 
-        case 'open': {
-            const path = await window.editorBlock.prompt(
-                'Введите путь к файлу для открытия:'
-            );
-
-            if (!path || !path.trim()) return;
-
-            try {
-                await window.editorBlock.openBlock(path.replace(/^\/+/, ''));
-            } catch (error) {
-                console.error('Ошибка открытия блока:', error);
-            }
+        case 'open':
+            // Открытие файлового менеджера для выбора блока
+            await openEditorFileManager('open');
             break;
-        }
 
         case 'new':
             window.editorBlock.newBlock();

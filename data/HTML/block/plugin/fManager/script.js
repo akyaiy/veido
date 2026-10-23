@@ -744,8 +744,15 @@ const filesView = document.getElementById('files_view');
  * - Удаляет связанные динамические стили и скрипты.
  ***************************************************************************/
 closeBtn.addEventListener('click', () => {
-    const f_m = document.getElementById("fManager");
-    if (f_m) f_m.remove();
+    const container = document.getElementById('fManagerContainer');
+
+    if (container) {
+        container.remove();
+    } else {
+        const f_m = document.getElementById("fManager");
+        if (f_m) f_m.remove();
+    }
+
     document.querySelectorAll('[data-dynamic="fManager"]').forEach(el => el.remove());
 });
 
@@ -1196,29 +1203,42 @@ filesView.addEventListener("click", () => {
 /***************************************************************************
  * listTfoot — управление нижней панелью действий:
  * - Отображает нижнюю панель файлового менеджера.
- * - Назначает действие кнопки в зависимости от режима.
+ * - Назначает подтверждение выбранного пути.
  ***************************************************************************/
 function listTfoot(act) {
     const toolbarBottom = document.getElementById('toolbarBottom');
     toolbarBottom.style.display = '';
-    
-    if (act === 'loadBlock') {
+
+    if (act === 'loadBlock' || act === 'saveBlock') {
         const bottomBtn = document.getElementById('bottomBtn');
         bottomBtn.onclick = () => submitPath();
     }
 }
 
 /***************************************************************************
- * submitBlockPath — подтверждение выбора:
- * - Формирование пути по текущему каталогу и вводу пользователя.
- * - Передача пути через tempStore.
- * - Вызов callback-функции.
- * - Закрытие файлового менеджера.
+ * submitPath — подтверждение выбора:
+ * - Формирует путь по текущему каталогу и введённому имени.
+ * - Если имя не введено, возвращает текущую папку.
+ * - Передаёт путь через tempStore и вызывает callback.
+ * - Закрывает файловый менеджер.
  ***************************************************************************/
 async function submitPath() {
     const input = document.getElementById('bottomInput');
-    let path = fm.cwd + '/' + input.value;
+    const selected = getSelectedItems();
+
+    // Получение пути выделенного элемента
+    let path = selected.length === 1
+        ? selected[0].dataset.path
+        : fm.cwd;
+
+    // Если введено имя, используем его относительно текущей папки
+    if (input.value.trim()) {
+        path = fm.cwd.replace(/\/+$/, '') + '/' + input.value.trim();
+    }
+
+    // Нормализация пути
     path = path.replace(/^\/data\/HTML\/block\//, '');
+
     await M.setData(path);
     await M.callBack();
     closeBtn.click();

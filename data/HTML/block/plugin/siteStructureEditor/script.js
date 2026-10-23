@@ -2107,6 +2107,56 @@ function siteFileUri(path) {
     return path.includes(':///') ? path : window.VFS_ROOT + path.replace(/^\/+/, '');
 }
 
+// Текущее действие файлового менеджера
+let siteFileAction = null;
+
+/* ***
+ * openSiteFileManager - открытие файлового менеджера
+ * - передаёт начальный путь и действие
+ * - загружает менеджер в отдельный контейнер
+*** */
+async function openSiteFileManager(action) {
+    siteFileAction = action;
+
+    await window.tempStore.store({
+        path: '/',
+        sender: 'siteStructureEditor',
+        callbackFun: 'siteFileSelected',
+        listTfootAct: 'loadBlock'
+    }, {
+        recipient: 'fManager',
+        ttlMs: 60000,
+        destroyOnRead: true
+    });
+
+    // Создание контейнера
+    document.getElementById('fManagerContainer')?.remove();
+
+    const container = document.createElement('div');
+    container.id = 'fManagerContainer';
+    document.body.appendChild(container);
+
+    await loadBlock('plugin/fManager', container);
+}
+
+/* ***
+ * siteFileSelected - обработка выбранного пути
+ * - получает путь от файлового менеджера
+ * - открывает или сохраняет XML
+*** */
+window.siteFileSelected = async function siteFileSelected() {
+    const messages = await window.tempStore.getByRecipient('siteStructureEditor');
+    const path = messages?.[0]?.data?.path;
+
+    if (!path) return;
+
+    if (siteFileAction === 'open') {
+        await openFile(path);
+    } else {
+        await saveFile(path);
+    }
+};
+
 // Получение XML текущей карты
 function getSiteXml() {
     const siteMap = document.getElementById('siteMap');
@@ -2134,42 +2184,42 @@ function getSiteXml() {
 
 /* ***
  * saveFile - сохранение структуры сайта в VFS
- * - сохраняет по существующему пути
- * - для нового файла запрашивает путь
- * - подтверждает перезапись существующего файла
+ * - игнорирует объект события от кнопки
+ * - использует выбранный путь из файлового менеджера
+ * - сохраняет XML по указанному пути
 *** */
-async function saveFile() {
-    const file = document.querySelector('#fileList .fileItem.selected');
-    if (!file) return;
-
-    const xml = getSiteXml();
-    let uri = file.dataset.url;
-
-    // Получение пути для нового файла
-    if (!uri) {
-        const path = prompt('Путь для сохранения:', 'siteStructureEditor.xml');
-        if (!path) return;
-
-        uri = siteFileUri(path.endsWith('.xml') ? path : path + '.xml');
+async function saveFile(selectedPath = null) {
+    // Проверка выбранного пути
+    if (typeof selectedPath !== 'string') {
+        selectedPath = null;
     }
 
+    const file = document.querySelector('#fileList .fileItem.selected');
+
+    let uri = file.dataset.url;
+
+    // Выбор пути для нового файла
+    if (!uri && !selectedPath) {
+        await openSiteFileManager('save');
+        return;
+    }
+
+    if (selectedPath) {
+        const path = selectedPath.replace(/^\/+/, '');
+        uri = siteFileUri(path.endsWith('.xml') ? path : path + '/siteStructureEditor.xml');
+    }
+
+    const xml = getSiteXml();
+
     try {
-        if (file.dataset.url) {
-            // Сохранение существующего файла
+        if (await window.vfs.exists(uri)) {
+            if (!file.dataset.url && !confirm('Файл уже существует. Перезаписать?')) return;
             await window.vfs.write(uri, xml);
         } else {
-            // Проверка нового пути
-           const exists = await window.vfs.exists(uri);
-
-            if (exists) {
-                if (!confirm('Файл уже существует. Перезаписать?')) return;
-                await window.vfs.write(uri, xml);
-            } else {
-                await window.vfs.create(
-                    uri,
-                    new Blob([xml], { type: 'application/xml' })
-                );
-            }
+            await window.vfs.create(
+                uri,
+                new Blob([xml], { type: 'application/xml' })
+            );
         }
 
         // Сохранение пути и имени вкладки
@@ -2200,13 +2250,18 @@ function createPageXml(xmlDocument, page) {
 
 /* ***
  * openFile - открытие структуры сайта из VFS
- * - получает XML по пути
- * - создаёт вкладку
- * - запоминает путь файла
+ * - открывает файловый менеджер для выбора XML
+ * - получает путь выбранного файла
+ * - игнорирует объект события от кнопки
 *** */
-async function openFile() {
-    const path = prompt('Путь к XML:');
-    if (!path) return;
+async function openFile(selectedPath = null) {
+    // Проверка выбранного пути
+    if (typeof selectedPath !== 'string' || !selectedPath.trim()) {
+        await openSiteFileManager('open');
+        return;
+    }
+
+    const path = selectedPath;
 
     try {
         const uri = siteFileUri(path);

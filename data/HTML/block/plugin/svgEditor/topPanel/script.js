@@ -157,35 +157,108 @@ function svgFileUri(path) {
     return path.includes(":///") ? path : window.VFS_ROOT + path.replace(/^\/+/, "");
 }
 
+// Текущее действие файлового менеджера
+let svgFileAction = null;
+
+/* ***
+ * openSvgFileManager - открытие файлового менеджера
+ * - передаёт начальный путь и действие
+ * - загружает менеджер в отдельный контейнер
+*** */
+async function openSvgFileManager(action) {
+    svgFileAction = action;
+
+    await window.tempStore.store({
+        path: '/',
+        sender: 'svgEditor',
+        callbackFun: 'svgFileSelected',
+        listTfootAct: 'loadBlock'
+    }, {
+        recipient: 'fManager',
+        ttlMs: 60000,
+        destroyOnRead: true
+    });
+
+    // Создание контейнера
+    document.getElementById('fManagerContainer')?.remove();
+
+    const container = document.createElement('div');
+    container.id = 'fManagerContainer';
+    document.body.appendChild(container);
+
+    // Загрузка файлового менеджера
+    await loadBlock('plugin/fManager', container.id);
+}
+
+/* ***
+ * svgFileSelected - обработка выбранного пути
+ * - получает путь от файлового менеджера
+ * - открывает или сохраняет SVG
+*** */
+window.svgFileSelected = async function svgFileSelected() {
+    const messages = await window.tempStore.getByRecipient('svgEditor');
+    const path = messages?.[0]?.data?.path;
+
+    if (!path) return;
+
+    if (svgFileAction === 'open') {
+        await openSvgFromFileManager(path);
+    } else {
+        await saveSvgAsFileManager(path);
+    }
+};
+
 // Получение активного SVG блока
 function getActiveSvgBlock() {
     const tab = tabs.querySelector(".svgTab.active");
     return tab ? storage.querySelector(`.${svgBlockClass}[data-num="${tab.dataset.num}"]`) : null;
 }
 
-// Открытие SVG из VFS
-async function openSvgFromFileManager() {
-    const path = prompt("Путь к SVG:");
-    if (!path) return;
+/* ***
+ * openSvgFromFileManager - открытие SVG из VFS
+ * - открывает файловый менеджер для выбора файла
+ * - загружает выбранный SVG в новую вкладку
+*** */
+async function openSvgFromFileManager(selectedPath = null) {
+    // Открытие файлового менеджера
+    if (typeof selectedPath !== 'string' || !selectedPath.trim()) {
+        await openSvgFileManager('open');
+        return;
+    }
 
     try {
-        const uri = svgFileUri(path);
+        // Получение и чтение файла
+        const uri = svgFileUri(selectedPath);
         const text = await window.vfs.read(uri);
+
+        // Загрузка SVG в редактор
         await loadSvgFromText(text, uri);
     } catch (error) {
         console.error("Ошибка открытия SVG:", error);
     }
 }
 
-// Сохранение SVG как нового файла в VFS
-async function saveSvgAsFileManager() {
+/* ***
+ * saveSvgAsFileManager - сохранение SVG как нового файла
+ * - открывает файловый менеджер для выбора пути
+ * - сохраняет SVG в выбранной папке
+ * - проверяет существование файла перед перезаписью
+*** */
+async function saveSvgAsFileManager(selectedPath = null) {
     const svgText = getCurrentSvgText();
     if (!svgText) return;
 
-    const path = prompt("Путь для сохранения:", getActiveSvgFileName());
-    if (!path) return;
+    // Открытие файлового менеджера
+    if (typeof selectedPath !== 'string' || !selectedPath.trim()) {
+        await openSvgFileManager('save');
+        return;
+    }
 
-    const uri = svgFileUri(path.endsWith(".svg") ? path : path + ".svg");
+    // Формирование пути к SVG
+    const path = selectedPath.replace(/\/+$/, '');
+    const uri = svgFileUri(
+        path.endsWith(".svg") ? path : path + "/" + getActiveSvgFileName()
+    );
 
     try {
         // Проверяем, существует ли файл
