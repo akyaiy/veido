@@ -11,6 +11,7 @@
         <li><a href="/svgEditor" data-link="true" data-target="content">svgEditor</a></li>
         <li><a href="/siteStructure" data-link="true" data-target="content">siteStructure</a></li>    
         <li><a href="/login" data-link="true" data-target="content">login</a></li>    
+        <li><a href="/fManager" data-link="true" data-target="content">fManager</a></li>    
     </ul>
 </nav>
 <button id="lng_btn" data-loget="false">
