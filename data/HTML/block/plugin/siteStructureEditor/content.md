@@ -1,3 +1,4 @@
+
 <div id="siteStructureEditor">
 
 
@@ -7,15 +8,15 @@
     <div id="fileMenu">
         <div id="fileMenuIcon"><svg class="svgIcon" use="8x13"></svg></div>
         <div id="fileMenuList">
-            <div id="newFile">Новый</div>
-            <div id="openFile">Открыть</div>
-            <div id="saveFile">Сохранить</div>
+            <div id="newFile">#{New}</div>
+            <div id="openFile">#{Open}</div>
+            <div id="saveFile">#{Save}</div>
         </div>
     </div>
     <div id="fileList"></div>
     <div id="siteHistory">
-        <div id="historyBack" title="Назад"><svg class="svgIcon" use="3x13"></svg></div>
-        <div id="historyForward" title="Вперёд"><svg class="svgIcon" use="3x14"></svg></div>
+        <div id="historyBack" title="#{Back}"><svg class="svgIcon" use="3x13"></svg></div>
+        <div id="historyForward" title="#{Forward}"><svg class="svgIcon" use="3x14"></svg></div>
     </div>
 </div>
 
@@ -28,9 +29,9 @@
     <div id="mapSettings">
         <div id="viewSettings">
             <select id="viewType">
-                <option value="cards">Карточки</option>
-                <option value="tree">Дерево</option>
-                <!-- <option value="colors">Цвета</option> -->
+                <option value="cards">#{Cards}</option>
+                <option value="tree">#{Tree}</option>
+                <!-- <option value="colors">#{Colors}</option> -->
             </select>
         </div>
         <div id="gridSettings">
@@ -51,24 +52,24 @@
 <div id="pageProperties">
 
 <div data-property="id"><label>ID</label><input type="number" min="1"></div>
-<div data-property="name"><label>Имя</label><input type="text"></div>
-<div data-property="title"><label>Название</label><input type="text"></div>
-<div data-property="caption"><label>Пояснение</label><textarea></textarea></div>
-<div data-property="description"><label>Описание</label><textarea></textarea></div>
+<div data-property="name"><label>#{Name}</label><input type="text"></div>
+<div data-property="title"><label>#{Title}</label><input type="text"></div>
+<div data-property="caption"><label>#{Caption}</label><textarea></textarea></div>
+<div data-property="description"><label>#{Description}</label><textarea></textarea></div>
 <hr>
 
-<div data-property="types"><label>Типы</label><div class="multipleSelect"><div class="multipleSelectValue">Выберите типы</div><div class="multipleSelectList"><input type="text" class="multipleSelectAdd" placeholder="Добавить тип"><label><input type="checkbox" value="page">Страница</label><label><input type="checkbox" value="section">Раздел</label><label><input type="checkbox" value="service">Служебная</label><label><input type="checkbox" value="dynamic">Динамическая</label><label><input type="checkbox" value="external">Внешняя</label></div></div></div>
-<div data-property="theme"><label>Тема</label><select><option value="">По умолчанию</option><option value="light">Светлая</option><option value="dark">Тёмная</option></select></div>
-<div data-property="order"><label>Порядок</label><select></select></div>
-<div data-property="redirect"><label>Перенаправление</label><input type="text"></div>
+<div data-property="types"><label>#{Types}</label><div class="multipleSelect"><div class="multipleSelectValue">#{Select types}</div><div class="multipleSelectList"><input type="text" class="multipleSelectAdd" placeholder="#{Add type}"><label><input type="checkbox" value="page">#{Page}</label><label><input type="checkbox" value="section">#{Section}</label><label><input type="checkbox" value="service">#{Service}</label><label><input type="checkbox" value="dynamic">#{Dynamic}</label><label><input type="checkbox" value="external">#{External}</label></div></div></div>
+<div data-property="theme"><label>#{Theme}</label><select><option value="">#{Default}</option><option value="light">#{Light}</option><option value="dark">#{Dark}</option></select></div>
+<div data-property="order"><label>#{Order}</label><select></select></div>
+<div data-property="redirect"><label>#{Redirect}</label><input type="text"></div>
 <hr>
 
-<div data-property="status"><label>Статус</label><select><option value="draft">Черновик</option><option value="published">Опубликована</option><option value="hidden">Скрыта</option><option value="archived">Архив</option></select></div>
-<div data-property="access"><label>Доступ</label><div class="multipleSelect"><div class="multipleSelectValue">Настроить доступ</div><div class="multipleSelectList"><div class="accessAdd"><input type="text" placeholder="Добавить пользователя"><select><option value="read">Чтение</option><option value="edit">Изменение</option><option value="full">Полный</option></select></div><div class="accessItem" data-access="guest"><span>Гость</span><select><option value="read">Чтение</option><option value="edit">Изменение</option><option value="full">Полный</option></select></div><div class="accessItem" data-access="user"><span>Пользователь</span><select><option value="read">Чтение</option><option value="edit">Изменение</option><option value="full">Полный</option></select></div><div class="accessItem" data-access="admin"><span>Администратор</span><select><option value="read">Чтение</option><option value="edit">Изменение</option><option value="full">Полный</option></select></div></div></div></div>
+<div data-property="status"><label>#{Status}</label><select><option value="draft">#{Draft}</option><option value="published">#{Published}</option><option value="hidden">#{Hidden}</option><option value="archived">#{Archived}</option></select></div>
+<div data-property="access"><label>#{Access}</label><div class="multipleSelect"><div class="multipleSelectValue">#{Configure access}</div><div class="multipleSelectList"><div class="accessAdd"><input type="text" placeholder="#{Add user}"><select><option value="read">#{Read}</option><option value="edit">#{Edit}</option><option value="full">#{Full}</option></select></div><div class="accessItem" data-access="guest"><span>#{Guest}</span><select><option value="read">#{Read}</option><option value="edit">#{Edit}</option><option value="full">#{Full}</option></select></div><div class="accessItem" data-access="user"><span>#{User}</span><select><option value="read">#{Read}</option><option value="edit">#{Edit}</option><option value="full">#{Full}</option></select></div><div class="accessItem" data-access="admin"><span>#{Administrator}</span><select><option value="read">#{Read}</option><option value="edit">#{Edit}</option><option value="full">#{Full}</option></select></div></div></div></div>
 <hr>
 
-<div data-property="position"><label>Позиция</label><div><input type="number" data-position="x" placeholder="X"><input type="number" data-position="y" placeholder="Y"></div></div>
-<div data-property="view"><label>Вид</label><select><option value="expanded">Развёрнутый</option><option value="collapsed">Свёрнутый</option></select></div>
+<div data-property="position"><label>#{Position}</label><div><input type="number" data-position="x" placeholder="X"><input type="number" data-position="y" placeholder="Y"></div></div>
+<div data-property="view"><label>#{View}</label><select><option value="expanded">#{Expanded}</option><option value="collapsed">#{Collapsed}</option></select></div>
 
 </div>
 </div>
@@ -79,11 +80,11 @@
 
 <!-- Контекстное меню -->
 <div id="contextMenu">
-    <div data-action="create" data-target="empty">Создать</div>
-    <div data-action="paste" data-target="empty">Вставить</div>
-    <div data-action="copy" data-target="page">Копировать</div>
-    <div data-action="cut" data-target="page">Вырезать</div>
-    <div data-action="delete" data-target="page">Удалить</div>
+    <div data-action="create" data-target="empty">#{Create}</div>
+    <div data-action="paste" data-target="empty">#{Paste}</div>
+    <div data-action="copy" data-target="page">#{Copy}</div>
+    <div data-action="cut" data-target="page">#{Cut}</div>
+    <div data-action="delete" data-target="page">#{Delete}</div>
 </div>
 
 

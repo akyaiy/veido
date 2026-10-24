@@ -1263,7 +1263,7 @@ function createPage() {
 
     page.dataset.id = getPageId();
     page.dataset.name = 'newPage';
-    page.dataset.title = 'Новая страница';
+    page.dataset.title = '#{New page}';
     page.dataset.caption = '';
     page.dataset.description = '';
     page.dataset.types = '';
@@ -2213,7 +2213,7 @@ async function saveFile(selectedPath = null) {
 
     try {
         if (await window.vfs.exists(uri)) {
-            if (!file.dataset.url && !confirm('Файл уже существует. Перезаписать?')) return;
+            if (!file.dataset.url && !confirm('#{File already exists. Overwrite?}')) return;
             await window.vfs.write(uri, xml);
         } else {
             await window.vfs.create(
@@ -2532,7 +2532,7 @@ function handleFileListClick(event) {
  * - открывает пустую страницу
 *** */
 function newFile() {
-    openPage('Новый', '');
+    openPage('#{New}', '');
 }
 
 document.getElementById('fileList').addEventListener('click', handleFileListClick);
@@ -2661,7 +2661,7 @@ function loadPageProperties(page) {
     // Отображение выбранных типов
     const typesValue = typesProperty.querySelector('.multipleSelectValue');
 
-    typesValue.textContent = types.length ? types.join(', ') : 'Выберите типы';
+    typesValue.textContent = types.length ? types.join(', ') : '#{Select types}';
 
     // Загрузка доступа
     const access = page.dataset.access.split(',').filter(Boolean);
@@ -2712,7 +2712,7 @@ function updatePageProperty(field) {
         // Обновление названия списка
         const value = property.querySelector('.multipleSelectValue');
 
-        value.textContent = types.length ? types.join(', ') : 'Выберите типы';
+        value.textContent = types.length ? types.join(', ') : '#{Select types}';
 
         return;
     }

@@ -626,6 +626,7 @@ async function loadBlock(path, target, itemsHowText = false, mode = "") {
             await loadMdScript('/_static/vendor/markdown-it.min.js');
         }
         const { content: mdContent, css, js } = response;
+        const processedJs = js?.replace(/#\{([^}]*)\}/g, '$1');
         
         // Вставка контента
         if (mdContent) {
@@ -633,7 +634,7 @@ async function loadBlock(path, target, itemsHowText = false, mode = "") {
                 container.textContent = mdContent;
             } else {
                 const md = window.markdownit({ html: true, linkify: true, typographer: true });
-                container.innerHTML = md.render(mdContent);
+                container.innerHTML = md.render(mdContent.replace(/#\{([^}]*)\}/g, '$1'));
                 if (container.id?.match(/^loadedBlock_\d+_view$/)) {
                     const htmlDiv = doc.getElementById(container.id.replace('_view', '_html'));
                     if (htmlDiv) htmlDiv.innerHTML = mdContent;
@@ -657,7 +658,7 @@ async function loadBlock(path, target, itemsHowText = false, mode = "") {
         // Добавление JS блока через import()
         if (mode === 'importJs') {
             if (js) {
-                const blob = new Blob([js], { type: 'text/javascript' });
+                const blob = new Blob([processedJs], { type: 'text/javascript' });
                 const moduleUrl = URL.createObjectURL(blob);
                 try {
                     const mod = await import(moduleUrl);
@@ -680,7 +681,7 @@ async function loadBlock(path, target, itemsHowText = false, mode = "") {
                 script.textContent = `
                     (() => {
                         try {
-                            ${js}
+                            ${processedJs}
                             if (typeof pageInit === "function") pageInit();
                         } catch (e) {
                             console.error("Block script error:", e);

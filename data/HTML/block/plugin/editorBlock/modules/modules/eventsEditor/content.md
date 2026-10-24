@@ -1,5 +1,5 @@
 <!-- Заголовок -->
-<div>События и функции</div>
+<div>#{Events and functions}</div>
 
 <!-- Выбор селектора -->
 <div id="selectorPanel">

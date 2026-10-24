@@ -920,7 +920,7 @@ function showViewEditorEmptyState() {
         if (!document.getElementById('viewEditorEmptyState')) {
             const emptyState = document.createElement('div');
             emptyState.id = 'viewEditorEmptyState';
-            emptyState.textContent = 'Откройте или создайте редактируемый блок';
+            emptyState.textContent = '#{Open or create an editable block}';
             viewEditorContent.style.position = 'relative';
             viewEditorContent.appendChild(emptyState);
         }

@@ -98,9 +98,9 @@ async uniquePath(path, isDir = false) {
         }));
     } catch (e) {
         if (e?.status === 403) {
-            alert("Нет прав на просмотр файлов");
+            alert("#{You don't have permission to view files}");
         } else {
-            alert("Ошибка списка файлов");
+            alert("#{Error loading file list}");
         }
         throw e;
     }
@@ -542,9 +542,9 @@ async renderFiles() {
       const header = document.createElement('div');
       header.id = 'files_header';
       header.innerHTML = `
-        <div style="margin-left: 5px;">Имя</div>
-        <div>Размер</div>
-        <div>Дата</div>
+        <div style="margin-left: 5px;">#{Name}</div>
+        <div>#{Size}</div>
+        <div>#{Date}</div>
       `;
       container.appendChild(header);
     }
@@ -553,7 +553,7 @@ async renderFiles() {
         container.innerHTML = `
             <div class="file_main_empty">
                 <div class="file_icon_empty">🔍</div>
-                <div class="file_name_empty">Такой папки не существует</div>
+                <div class="file_name_empty">#{This folder does not exist}</div>
             </div>
         `;
         container.classList.add('empty');
@@ -562,7 +562,7 @@ async renderFiles() {
         container.innerHTML = `
             <div class="file_main_empty">
                 <div class="file_icon_empty">📁</div>
-                <div class="file_name_empty">Папка пуста</div>
+                <div class="file_name_empty">#{Folder is empty}</div>
             </div>
         `;
         container.classList.add('empty');
@@ -1487,7 +1487,7 @@ function searchByName() {
             div.className = "file_main_empty";
             div.innerHTML = `
                 <div class="file_icon_empty">🔍</div>
-                <div class="file_name_empty">Ничего не найдено</div>
+                <div class="file_name_empty">#{No results found}</div>
             `; 
             filesView.classList.add('empty');
             filesView.appendChild(div);
@@ -1692,23 +1692,23 @@ function validateRename(name, type) {
     if (!rule) return null;
 
     if (name.length > rule.maxLength) {
-        return "Слишком длинное имя";
+        return "#{Name is too long}";
     }
 
     if (rule.forbiddenChars.some(ch => name.includes(ch))) {
-        return "Запрещенные символы";
+        return "#{Forbidden characters}";
     }
 
     if (rule.cannotStartWith.some(ch => name.startsWith(ch))) {
-        return "Недопустимое начало имени";
+        return "#{Invalid name beginning}";
     }
 
     if (rule.cannotEndWith.some(ch => name.endsWith(ch))) {
-        return "Недопустимое окончание имени";
+        return "#{Invalid name ending}";
     }
 
     if (name === "." || name === "..") {
-        return "Недопустимое имя";
+        return "#{Invalid name}";
     }
 
     return null;
@@ -2057,7 +2057,7 @@ class ContextMenu {
         const selected = getSelectedItems();
         if (selected.length === 0) return;
 
-        const ok = confirm(`Удалить ${selected.length} файл(ов)?`);
+        const ok = confirm(`#{Delete} ${selected.length} file(s)?`);
         if (!ok) return;
 
         for (const item of selected) {
@@ -2486,11 +2486,11 @@ class FilePropertiesManager {
 
         win.table.innerHTML = `
             <tr>
-                <td>Название</td>
+                <td>#{Name}</td>
                 <td>${fileName}</td>
             </tr>
             <tr>
-                <td>Путь</td>
+                <td>#{Path}</td>
                 <td>${path}</td>
             </tr>
         `;
@@ -2501,15 +2501,15 @@ class FilePropertiesManager {
             if (key === "size") {
                 win.table.innerHTML += `
                     <tr>
-                        <td>Размер</td>
-                        <td>${value} байт</td>
+                        <td>#{Size}</td>
+                        <td>${value} #{bytes}</td>
                     </tr>
                 `;
             } else if (key === "is_dir") {
                 win.table.innerHTML += `
                     <tr>
-                        <td>Тип</td>
-                        <td>${value ? "Папка" : "Файл"}</td>
+                        <td>#{Type}</td>
+                        <td>${value ? "#{Folder}" : "#{File}"}</td>
                     </tr>
                 `;
             } else {

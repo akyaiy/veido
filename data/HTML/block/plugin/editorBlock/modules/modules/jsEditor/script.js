@@ -12,176 +12,176 @@ let lastSource = '';
 // Перменнная перевода ключевых слов, объектов, методов, событий, операторов и литералов
 const TRANSLATIONS = {
     keywords: {
-        'function': 'функция',
-        'async': 'асинхронная',
-        'return': 'вернуть',
-        'if': 'если',
-        'else': 'иначе',
-        'for': 'цикл',
-        'while': 'цикл',
-        'do': 'делать',
-        'switch': 'выбор',
-        'case': 'случай',
-        'default': 'по умолчанию',
-        'break': 'прервать',
-        'continue': 'продолжить',
-        'await': 'ждать',
-        'addEventListener': 'При',
-        'typeof': 'тип',
-        'object': 'объект',
-        'array': 'массив',
-        'const': 'константа',
-        'let': 'пусть',
-        'var': 'переменная',
-        'new': 'создать',
-        'delete': 'удалить',
-        'throw': 'выбросить',
-        'try': 'попробовать',
-        'catch': 'если ошибка',
-        'finally': 'в конце',
-        'class': 'класс',
-        'extends': 'наследует',
-        'implements': 'реализует',
-        'import': 'импортировать',
-        'export': 'экспортировать',
-        'from': 'из',
-        'default': 'по умолчанию',
-        'yield': 'дать',
-        'void': 'без значения',
-        'instanceof': 'экземпляр',
-        'in': 'в',
-        'of': 'из'
+        'function': '#{Function}',
+        'async': '#{Async}',
+        'return': '#{Return}',
+        'if': '#{If}',
+        'else': '#{Else}',
+        'for': '#{For}',
+        'while': '#{While}',
+        'do': '#{Do}',
+        'switch': '#{Switch}',
+        'case': '#{Case}',
+        'default': '#{Default}',
+        'break': '#{Break}',
+        'continue': '#{Continue}',
+        'await': '#{Await}',
+        'addEventListener': '#{On}',
+        'typeof': '#{Type}',
+        'object': '#{Object}',
+        'array': '#{Array}',
+        'const': '#{Constant}',
+        'let': '#{Let}',
+        'var': '#{Variable}',
+        'new': '#{Create}',
+        'delete': '#{Delete}',
+        'throw': '#{Throw}',
+        'try': '#{Try}',
+        'catch': '#{On error}',
+        'finally': '#{Finally}',
+        'class': '#{Class}',
+        'extends': '#{Extends}',
+        'implements': '#{Implements}',
+        'import': '#{Import}',
+        'export': '#{Export}',
+        'from': '#{From}',
+        'default': '#{Default}',
+        'yield': '#{Yield}',
+        'void': '#{No value}',
+        'instanceof': '#{Instance}',
+        'in': '#{In}',
+        'of': '#{Of}'
     },
     objects: {
-        'console': 'консоль',
-        'document': 'документ',
-        'window': 'окно',
-        'Math': 'математика',
+        'console': '#{Console}',
+        'document': '#{Document}',
+        'window': '#{Window}',
+        'Math': '#{Math}',
         'JSON': 'json',
-        'Array': 'массив',
-        'Object': 'объект',
-        'String': 'строка',
-        'Number': 'число',
-        'Boolean': 'логика',
-        'Date': 'дата',
-        'Set': 'набор',
-        'Map': 'словарь',
-        'RegExp': 'регулярка'
+        'Array': '#{Array}',
+        'Object': '#{Object}',
+        'String': '#{String}',
+        'Number': '#{Number}',
+        'Boolean': '#{Boolean}',
+        'Date': '#{Date}',
+        'Set': '#{Set}',
+        'Map': '#{Map}',
+        'RegExp': '#{RegExp}'
     },
     methods: {
-        'log': 'вывести',
-        'map': 'преобразовать',
-        'push': 'добавить',
-        'length': 'длина',
-        'replace': 'заменить',
-        'createElement': 'создатьЭлемент',
-        'add': 'добавить',
-        'append': 'добавить дочерний',
-        'remove': 'удалить',
-        'forEach': 'для каждого',
-        'filter': 'отфильтровать',
-        'sort': 'отсортировать',
-        'reduce': 'свернуть',
-        'pop': 'убрать последнюю',
-        'shift': 'убрать первую',
-        'unshift': 'добавить первую',
-        'slice': 'вырезать',
-        'concat': 'соединить',
-        'join': 'соединить',
-        'split': 'разбить',
-        'includes': 'содержит',
-        'indexOf': 'индекс',
-        'find': 'найти',
-        'findIndex': 'найти индекс',
-        'includes': 'включает',
-        'toString': 'в строку',
-        'toUpperCase': 'в верхний регистр',
-        'toLowerCase': 'в нижний регистр',
-        'trim': 'обрезать',
-        'parseInt': 'разобрать число',
-        'parseFloat': 'разобрать дробь',
-        'preventDefault': 'предотвратитьПоведение',
-        'value': 'значение',
-        'reset': 'сбросить',
-        'target': 'цель',
-        'closest': 'ближайший',
-        'classList': 'списокКлассов',
-        'textContent': 'текстСодержимое',
-        'fetch': 'получить',
-        'then': 'затем',
-        'resolve': 'решить',
-        'event': 'событие',
-        'setTimeout': 'таймер',
-        'setInterval': 'интервал',
-        'clearTimeout': 'остановить таймер',
-        'clearInterval': 'остановить интервал',
-        'alert': 'сообщить',
-        'confirm': 'подтвердить',
-        'prompt': 'спросить',
-        'querySelector': 'выбрать',
-        'querySelectorAll': 'выбрать все'
+        'log': '#{Log}',
+        'map': '#{Map}',
+        'push': '#{Push}',
+        'length': '#{Length}',
+        'replace': '#{Replace}',
+        'createElement': '#{Create element}',
+        'add': '#{Add}',
+        'append': '#{Append child}',
+        'remove': '#{Remove}',
+        'forEach': '#{For each}',
+        'filter': '#{Filter}',
+        'sort': '#{Sort}',
+        'reduce': '#{Reduce}',
+        'pop': '#{Remove last}',
+        'shift': '#{Remove first}',
+        'unshift': '#{Add first}',
+        'slice': '#{Slice}',
+        'concat': '#{Concatenate}',
+        'join': '#{Join}',
+        'split': '#{Split}',
+        'includes': '#{Includes}',
+        'indexOf': '#{Index}',
+        'find': '#{Find}',
+        'findIndex': '#{Find index}',
+        'includes': '#{Includes}',
+        'toString': '#{To string}',
+        'toUpperCase': '#{To uppercase}',
+        'toLowerCase': '#{To lowercase}',
+        'trim': '#{Trim}',
+        'parseInt': '#{Parse integer}',
+        'parseFloat': '#{Parse float}',
+        'preventDefault': '#{Prevent default}',
+        'value': '#{Value}',
+        'reset': '#{Reset}',
+        'target': '#{Target}',
+        'closest': '#{Closest}',
+        'classList': '#{Class list}',
+        'textContent': '#{Text content}',
+        'fetch': '#{Fetch}',
+        'then': '#{Then}',
+        'resolve': '#{Resolve}',
+        'event': '#{Event}',
+        'setTimeout': '#{Timer}',
+        'setInterval': '#{Interval}',
+        'clearTimeout': '#{Stop timer}',
+        'clearInterval': '#{Stop interval}',
+        'alert': '#{Alert}',
+        'confirm': '#{Confirm}',
+        'prompt': '#{Prompt}',
+        'querySelector': '#{Select}',
+        'querySelectorAll': '#{Select all}'
     },
     events: {
-        'click': 'клике',
-        'mouseover': 'наведении',
-        'input': 'вводе',
-        'submit': 'отправке',
-        'change': 'изменении',
-        'keyup': 'отпускании клавиши',
-        'keydown': 'нажатии клавиши',
-        'focus': 'фокусе',
-        'blur': 'потере фокуса',
-        'dblclick': 'двойном клике',
-        'mouseenter': 'входе курсора',
-        'mouseleave': 'выходе курсора',
-        'resize': 'изменении размера'
+        'click': '#{Click}',
+        'mouseover': '#{Mouse over}',
+        'input': '#{Input}',
+        'submit': '#{Submit}',
+        'change': '#{Change}',
+        'keyup': '#{Key up}',
+        'keydown': '#{Key down}',
+        'focus': '#{Focus}',
+        'blur': '#{Blur}',
+        'dblclick': '#{Double-click}',
+        'mouseenter': '#{Mouse enter}',
+        'mouseleave': '#{Mouse leave}',
+        'resize': '#{Resize}'
     },
     operators: {
-        '&&': 'и',
-        '||': 'или',
-        '++': 'увеличить на 1',
-        '--': 'уменьшить на 1',
+        '&&': '#{And}',
+        '||': '#{Or}',
+        '++': '#{Increment by 1}',
+        '--': '#{Decrement by 1}',
         '*': '×',
         '+': '+',
         '-': '-',
         '/': '/',
         '%': '%',
-        '**': 'возводить в степень',
-        '!': 'не',
-        '~': 'побитовое не',
+        '**': '#{Raise to power}',
+        '!': '#{Not}',
+        '~': '#{Bitwise not}',
         '=': '=',
-        '+=': 'плюс равно',
-        '-=': 'минус равно',
-        '*=': 'умножить равно',
-        '/=': 'поделить равно',
-        '%=': 'остаток равно',
-        '**=': 'в степень равно',
-        '==': 'равно',
-        '===': 'строго равно',
-        '!=': 'не равно',
-        '!==': 'строго не равно',
+        '+=': '#{Plus equals}',
+        '-=': '#{Minus equals}',
+        '*=': '#{Multiply equals}',
+        '/=': '#{Divide equals}',
+        '%=': '#{Remainder equals}',
+        '**=': '#{Power equals}',
+        '==': '#{Equals}',
+        '===': '#{Strictly equals}',
+        '!=': '#{Not equal}',
+        '!==': '#{Strictly not equal}',
         '>=': '>=',
         '<=': '<=',
         '>': '>',
         '<': '<',
-        '>>': 'сдвиг вправо',
-        '<<': 'сдвиг влево',
-        '>>>': 'беззнаковый сдвиг вправо',
-        '&': 'и побитово',
-        '|': 'или побитово',
-        '^': 'исключающее или',
-        '??': 'если нет',
-        '?.': 'опциональная часть',
-        '=>': 'стрелка'
+        '>>': '#{Shift right}',
+        '<<': '#{Shift left}',
+        '>>>': '#{Unsigned shift right}',
+        '&': '#{Bitwise and}',
+        '|': '#{Bitwise or}',
+        '^': '#{Exclusive or}',
+        '??': '#{If nullish}',
+        '?.': '#{Optional chain}',
+        '=>': '#{Arrow}'
     },
     literals: {
-        'true': 'правда',
-        'false': 'ложь',
-        'null': 'отсутствие',
-        'undefined': 'отсутствие',
-        'NaN': 'не число',
-        'Infinity': 'бесконечность',
-        '-Infinity': 'минус бесконечность'
+        'true': '#{True}',
+        'false': '#{False}',
+        'null': '#{Null}',
+        'undefined': '#{Undefined}',
+        'NaN': '#{Not a number}',
+        'Infinity': '#{Infinity}',
+        '-Infinity': '#{Negative infinity}'
     }
 };
 
@@ -1728,11 +1728,11 @@ function trOperator(op) {
 *** */
 function trLiteral(val) {
    if (val === undefined) {
-       return 'отсутствие';
+       return '#{Undefined}';
    }
 
    if (val === null) {
-       return 'отсутствие';
+       return '#{Null}';
    }
 
    const s = String(val);
@@ -1746,7 +1746,7 @@ function trLiteral(val) {
 *** */
 function displayValue(raw) {
    if (raw === undefined || raw === null) {
-       return trLiteral(raw) || 'отсутствие';
+       return trLiteral(raw) || '#{None}';
    }
 
    let s = String(raw);
@@ -1767,19 +1767,19 @@ function displayValue(raw) {
 *** */
 function getSpecialLiteralText(value) {
    if (value === true || value === 'true') {
-       return 'правда';
+       return '#{True}';
    }
 
    if (value === false || value === 'false') {
-       return 'ложь';
+       return '#{False}';
    }
 
    if (value === null || value === 'null') {
-       return 'отсутствие';
+       return '#{Null}';
    }
 
    if (value === undefined || value === 'undefined') {
-       return 'отсутствие';
+       return '#{Undefined}';
    }
 
    if (value === 'document' || value === 'window') {
@@ -2317,7 +2317,7 @@ function makeCallExpressionBlock(expr) {
                 }
             }
 
-            topLine.appendChild(createElementNode('div', 'block transparent', 'на'));
+            topLine.appendChild(createElementNode('div', 'block transparent', '#{On}'));
             topLine.appendChild(makeVariablesNode(obj));
 
             outer.appendChild(topLine);
@@ -3580,7 +3580,7 @@ function setEditMode(isWizardMode) {
 
     jsEditorContent.setAttribute('contenteditable', isWizardMode ? 'false' : 'plaintext-only');
     codeWizardToggle.classList.toggle('wizard', isWizardMode);
-    codeWizardToggle.textContent = isWizardMode ? 'Текстовый режим' : 'Визуальный режим';
+    codeWizardToggle.textContent = isWizardMode ? '#{Text mode}' : '#{Visual mode}';
 }
 
 /* ***
