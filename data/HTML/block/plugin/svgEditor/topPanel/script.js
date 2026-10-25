@@ -12,8 +12,8 @@ const svgBlockClass = "svgBlock";
 
 // Загрузка тест блоков
 document.addEventListener("svgEditorBlocksLoaded", async () => {
-    await loadSvg("plugin/svgEditor/test/test1");
-    await loadSvg("plugin/svgEditor/test/test2");
+    await loadSvg("blocks/svgEditor/test/test1");
+    await loadSvg("blocks/svgEditor/test/test2");
 });
 
 // Получение слоев из SVG
@@ -152,11 +152,6 @@ async function downloadSvgText(svgText, fileName) {
     URL.revokeObjectURL(link.href);
 }
 
-// Преобразование пути в VFS URI
-function svgFileUri(path) {
-    return path.includes(":///") ? path : window.VFS_ROOT + path.replace(/^\/+/, "");
-}
-
 // Текущее действие файлового менеджера
 let svgFileAction = null;
 
@@ -187,7 +182,7 @@ async function openSvgFileManager(action) {
     document.body.appendChild(container);
 
     // Загрузка файлового менеджера
-    await loadBlock('plugin/fManager', container.id);
+    await loadBlock('blocks/fManager', container.id);
 }
 
 /* ***
@@ -228,7 +223,7 @@ async function openSvgFromFileManager(selectedPath = null) {
 
     try {
         // Получение и чтение файла
-        const uri = svgFileUri(selectedPath);
+        const uri = await window.toVfsUri(selectedPath);
         const text = await window.vfs.read(uri);
 
         // Загрузка SVG в редактор
@@ -256,7 +251,7 @@ async function saveSvgAsFileManager(selectedPath = null) {
 
     // Формирование пути к SVG
     const path = selectedPath.replace(/\/+$/, '');
-    const uri = svgFileUri(
+    const uri = await window.toVfsUri(
         path.endsWith(".svg") ? path : path + "/" + getActiveSvgFileName()
     );
 
@@ -305,7 +300,7 @@ async function saveSvgWithStandardName() {
     }
 
     try {
-        await window.vfs.write(svgFileUri(svgBlock.dataset.url), svgText);
+        await window.vfs.write(await window.toVfsUri(svgBlock.dataset.url), svgText);
     } catch (error) {
         console.error("Ошибка сохранения SVG:", error);
     }

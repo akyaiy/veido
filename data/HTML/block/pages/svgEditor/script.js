@@ -1,1 +1,1 @@
-loadBlock("plugin/svgEditor", "content");
+loadBlock("blocks/svgEditor", "content");

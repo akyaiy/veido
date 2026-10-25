@@ -1,1 +1,1 @@
-loadBlock("plugin/siteStructureEditor", "content");
+loadBlock("blocks/siteStructureEditor", "content");

@@ -11,11 +11,11 @@ window.editorBlock = window.editorBlock || {};
 *** */
 async function loadEditorBlock() {
     // Загрузка основного каркаса редактора
-    await loadBlock('plugin/editorBlock/modules/mainBlock', 'editorBlock', false);
-    await loadBlock('plugin/editorBlock/modules/modules/viewBlock', 'viewBlock');
+    await loadBlock('blocks/editorBlock/modules/mainBlock', 'editorBlock', false);
+    await loadBlock('blocks/editorBlock/modules/modules/viewBlock', 'viewBlock');
 
     // Путь к папке с модулями
-    const modulesPath = 'plugin/editorBlock/modules/modules';
+    const modulesPath = 'blocks/editorBlock/modules/modules';
 
     // Список модулей editorBlock
     const modules = [

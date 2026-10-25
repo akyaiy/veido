@@ -2,9 +2,6 @@
  *  access-token хранится только в памяти (без localStorage)
  **********************************************************************/
 let accessToken = null;   
-if (window.location.pathname === "/") {
-    window.location.replace("/home");
-}
 let spritePath = '/_static/img/icons.svg';
 let tokenWriting = null; // флаг блокировки refresh
 
@@ -52,6 +49,66 @@ function emitAuthEvent(isLoggedIn) {
   });
   document.dispatchEvent(event);
 }
+
+/***********************************************************************
+ * Получение scope текущего сайта
+ ***********************************************************************/
+async function getSiteScope() {
+    const response = await fetch("/_static/site-context.json", { credentials: "include" });
+    if (!response.ok) throw new Error("Не удалось получить контекст сайта");
+
+    const { scope } = await response.json();
+    if (typeof scope !== "string" || !scope) throw new Error("Некорректный scope сайта");
+
+    return scope;
+}
+
+/***********************************************************************
+ * Получение контекста HTML-сайта
+ ***********************************************************************/
+async function getSiteContext() {
+    const scope = await getSiteScope();
+    return Object.freeze({ scope, uri: `html@site[${scope}]:///` });
+}
+
+// Глобальный контекст сайта и корневой URI VFS
+window.HTMLSiteContext = Object.freeze({ context: getSiteContext() });
+window.VFS_ROOT = getSiteScope().then(scope => `local@publisher[${scope}]:///`);
+
+/***********************************************************************
+ * Инициализация VFS-клиента с автоматическим обновлением токена
+ ***********************************************************************/
+window.vfs = window.VFSv2.client({
+    baseURL: "/api/v2/vfs",
+    fetch: async (url, options = {}) => {
+        if (tokenWriting) await tokenWriting;
+
+        const send = () => {
+            const headers = new Headers(options.headers);
+            if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+            return fetch(url, { ...options, headers });
+        };
+
+        let response = await send();
+        if (response.status !== 401) return response;
+
+        if (!tokenWriting) {
+            tokenWriting = refreshAccess().finally(() => {
+                tokenWriting = null;
+            });
+        }
+
+        await tokenWriting;
+
+        if (!accessToken) return response;
+        return await send();
+    }
+});
+
+// Преобразование пути в VFS URI
+window.toVfsUri = async function(path) {
+    return path.includes(":///") ? path : (await window.VFS_ROOT) + path.replace(/^\/+/, "");
+};
 
 
 /***********************************************************************
@@ -451,9 +508,11 @@ async function apiProtected(path, options = {}) {
  ****************************************************************************/
 async function refreshAccess (){
     //Отправка запроса на обновление токена
-    const rr = await fetch("/api/auth/session/refresh", {
+    const rr = await fetch("/api/v2/vfs/hooks/auth.refresh/run", {
         method: "POST",
-        credentials: "include"
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ input: {} })
     });
     // Проверка ответа
     if (!rr.ok) {
@@ -465,13 +524,14 @@ async function refreshAccess (){
     const j = await rr.json();
     emitAuthEvent(true);  // Пользователь вошёл в систему ✅
     //console.log("+++")
-    accessToken = j.data;
+    accessToken = j.output?.access_token;
+    if (!accessToken) return null;
     // Декодирование payload JWT
     const payload = JSON.parse(
             atob(accessToken.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))
     );
     // Обновление данных пользователя
-    user.id = payload.user_id;
+    user.id = payload.sub;
     //user.name = (await getUserDataByID(user.id)).name;
     //lngEdit();
 
@@ -512,19 +572,13 @@ async function refreshAccess (){
 //     }
 // }
 
-PageReady.add(async () => {
-    try {
-        await refreshAccess();
-    } catch (e) {
-        /* console.error("refreshAccess failed:", e); */
-    }
-});
+
 
 /********************************************************************************
  * loadMenu функция загрузки блока меню страницы в формате Markdown            
  ********************************************************************************/
 async function loadMenu() {
-     await loadBlock("menu/top1", "header");
+     await loadBlock("blocks/top1", "header");
 }
 
 /********************************************************************************
@@ -553,7 +607,10 @@ async function loadMenu() {
 /**********************************************************************************
  * loadBlock — универсальная функция загрузки блоков (с поддержкой iframe)
  **********************************************************************************/
-async function loadBlock(path, target, itemsHowText = false) {
+async function loadBlock(path, target, itemsHowText = false, mode = "") {
+    // Убираем ведущие слэши, если есть
+    path = String(path).replace(/^\/+/, '');
+
     // Поддержка передачи как элемента DOM, так и ID
     let container = typeof target === 'string' ? document.getElementById(target) : target;
     if (!container) return;
@@ -574,12 +631,29 @@ async function loadBlock(path, target, itemsHowText = false) {
             }
         });
 
-        const response = await apiProtected(`/api/HTML/${blockName}`, { method: "GET" });
+        const uri = await resolveBundleRoot(blockName);
+
+        const results = await Promise.all(
+            ["content.md", "style.css", "script.js"].map(file =>
+                apiProtected(`/api/v2/vfs/read?uri=${encodeURIComponent(uri + "/" + file)}`, { method: "GET" })
+            )
+        );
+
+        if (results.some(value => value === null)) {
+            throw new Error(`Не удалось загрузить блок: ${blockName}`);
+        }
+
+        const response = {
+            content: results[0],
+            css: results[1],
+            js: results[2]
+        };
 
         if (!window.markdownit) {
             await loadMdScript('/_static/vendor/markdown-it.min.js');
         }
         const { content: mdContent, css, js } = response;
+        const processedJs = js;
         
         // Вставка контента
         if (mdContent) {
@@ -587,7 +661,7 @@ async function loadBlock(path, target, itemsHowText = false) {
                 container.textContent = mdContent;
             } else {
                 const md = window.markdownit({ html: true, linkify: true, typographer: true });
-                container.innerHTML = md.render(mdContent);
+                container.innerHTML = md.render(mdContent.replace(/#\{([^}]*)\}/g, '$1'));
                 if (container.id?.match(/^loadedBlock_\d+_view$/)) {
                     const htmlDiv = doc.getElementById(container.id.replace('_view', '_html'));
                     if (htmlDiv) htmlDiv.innerHTML = mdContent;
@@ -611,7 +685,7 @@ async function loadBlock(path, target, itemsHowText = false) {
         // Добавление JS блока через import()
         if (mode === 'importJs') {
             if (js) {
-                const blob = new Blob([js], { type: 'text/javascript' });
+                const blob = new Blob([processedJs], { type: 'text/javascript' });
                 const moduleUrl = URL.createObjectURL(blob);
                 try {
                     const mod = await import(moduleUrl);
@@ -634,7 +708,7 @@ async function loadBlock(path, target, itemsHowText = false) {
                 script.textContent = `
                     (() => {
                         try {
-                            ${js}
+                            ${processedJs}
                             if (typeof pageInit === "function") pageInit();
                         } catch (e) {
                             console.error("Block script error:", e);
@@ -654,6 +728,62 @@ async function loadBlock(path, target, itemsHowText = false) {
     }
 }
 
+// Получение корневого URI ресурсов страницы или блока
+async function resolveBundleRoot(name) {
+    const context = await window.HTMLSiteContext?.context;
+    if (!context) throw new Error("Контекст сайта не загружен");
+    const siteURI = context.uri;
+
+    const readJSON = async (uri) => {
+        const value = await apiProtected(`/api/v2/vfs/read?uri=${encodeURIComponent(uri)}`, { method: "GET" });
+        if (value === null) throw new Error(`Не удалось прочитать metadata: ${uri}`);
+        return typeof value === "string" ? JSON.parse(value) : value;
+    };
+
+    const separator = name.indexOf("/");
+    const kind = separator < 0 ? "" : name.slice(0, separator);
+    const value = separator < 0 ? "" : name.slice(separator + 1);
+    if ((kind !== "pages" && kind !== "blocks") || !value) {
+        throw new Error(`Ресурс ${name} не является Page или Block HTML provider-а`);
+    }
+
+    let metadataURI;
+    if (kind === "pages") {
+        // Поиск страницы по пути в дереве сайта
+        const tree = await readJSON(`${siteURI}tree.json`);
+        const segments = value.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
+        let pages = tree.pages || [];
+        let page = null;
+
+        for (const slug of segments) {
+            page = pages.find((candidate) => candidate.slug === slug);
+            if (!page) throw new Error(`Страница ${value} не найдена в tree.json`);
+            pages = page.children || [];
+        }
+
+        metadataURI = `${siteURI}pages/${encodeURIComponent(page.page_key)}/info.json`;
+    } else {
+        // Получение метаданных основного блока
+        const [blockName, ...nestedPath] = value.split("/");
+        metadataURI = `${siteURI}blocks/${encodeURIComponent(blockName)}/meta.json`;
+
+        const metadata = await readJSON(metadataURI);
+        if (typeof metadata.bundle_root_uri !== "string" || !metadata.bundle_root_uri) {
+            throw new Error(`В metadata ${name} отсутствует bundle_root_uri`);
+        }
+
+        return metadata.bundle_root_uri.replace(/\/+$/, "") +
+            (nestedPath.length ? "/" + nestedPath.join("/") : "");
+    }
+
+    const metadata = await readJSON(metadataURI);
+    if (typeof metadata.bundle_root_uri !== "string" || !metadata.bundle_root_uri) {
+        throw new Error(`В metadata ${name} отсутствует bundle_root_uri`);
+    }
+
+    return metadata.bundle_root_uri;
+}
+
 function loadBlockAttribute(scope = document) {
     // В случае передаваемого scope ищем и в нем самом, и среди его детей
     const doc = scope.ownerDocument || scope;
@@ -666,6 +796,15 @@ function loadBlockAttribute(scope = document) {
         loadBlock(path, el);
     });
 }
+
+/**********************************************************************************
+ * translate - получение перевода текста
+ * Принимает текст и возвращает перевод для текущего языка
+ * Если перевод отсутствует, возвращает исходный текст
+ **********************************************************************************/
+window.translate = function(text) {
+    return text;
+};
 
 
 /*****************************************************************************
@@ -833,30 +972,30 @@ async function getUserDataByID(id) {
 async function userLogin(username, password) {
     try {
         // Запрос логина
-        const r = await apiProtected(`/api/auth/session/login`, {
+        const r = await apiProtected(`/api/v2/vfs/hooks/auth.login/run`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                username,
-                password
+                input: { username, password }
             })
         });
         // Проверка access token
-        if (!r?.data) {
+        if (!r?.output?.access_token) {
             throw new Error("Token not received");
         }
         const payload = JSON.parse(
-            atob(r.data.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))
+            atob(r.output.access_token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))
     );
         // Успешный результат
+        accessToken = r.output.access_token;
         emitAuthEvent(true);  // Пользователь вошёл в систему ✅
         //console.log("+++");
         user.name = username;
         user.id = payload.sub; // sub вместо user_id в JWT payload
         return {
-            accessToken: r.data
+            accessToken: r.output.access_token
         };
     // Обработка ошибок (catch)    
     } catch (err) {

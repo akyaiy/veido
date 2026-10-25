@@ -58,12 +58,6 @@ document.addEventListener('click', closeFileMenu);
 // Путь текущего файла
 let editorBlockFileUri = null;
 
-// Преобразование пути в VFS URI
-function editorBlockUri(path) {
-    return path.includes(':///')
-        ? path
-        : window.VFS_ROOT + path.replace(/^\/+/, '');
-}
 
 /* ***
  * openEditorFileManager - открытие файлового менеджера
@@ -92,7 +86,7 @@ async function openEditorFileManager(action, path = '/') {
     document.body.appendChild(container);
 
     // Загрузка файлового менеджера в контейнер
-    await loadBlock('plugin/fManager', container);
+    await loadBlock('blocks/fManager', container);
 }
 
 /* ***
@@ -152,7 +146,7 @@ async function saveEditorBlock(saveAs = false, selectedPath = null) {
             ['style.css', css],
             ['script.js', js]
         ]) {
-            const uri = editorBlockUri(path + '/' + name);
+            const uri = await window.toVfsUri(path + '/' + name);
 
             if (await window.vfs.exists(uri)) {
                 await window.vfs.write(uri, content);

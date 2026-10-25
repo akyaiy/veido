@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 SERVER_URL="${SITE_SERVER_URL:-http://localhost:8080}"
-MANIFEST="./site.bootstrap.json"
+MANIFEST="$ROOT_DIR/site.bootstrap.json"
 SESSION_FILE=".site-session"
 ACCESS_TOKEN="${SITE_ACCESS_TOKEN:-}"
 MAX_ATTEMPTS=3
@@ -34,8 +34,20 @@ require_command() { command -v "$1" >/dev/null || { printf 'missing command: %s\
 require_command curl
 require_command jq
 require_command go
+if [[ "$MANIFEST" != /* ]]; then
+  MANIFEST="$ROOT_DIR/$MANIFEST"
+fi
 [[ -f "$MANIFEST" ]] || { printf 'manifest not found: %s\n' "$MANIFEST" >&2; exit 1; }
 [[ -f .env ]] || { printf '%s\n' 'missing .env' >&2; exit 1; }
+
+TEMPLATE_SOURCE="$(jq -er '.site.template_source | select(type == "string" and length > 0)' "$MANIFEST")"
+if [[ "$TEMPLATE_SOURCE" != /* ]]; then
+  TEMPLATE_SOURCE="$ROOT_DIR/$TEMPLATE_SOURCE"
+fi
+[[ -d "$TEMPLATE_SOURCE" ]] || { printf 'template source directory not found: %s\n' "$TEMPLATE_SOURCE" >&2; exit 1; }
+for asset in index.html css/style.css js/app.js js/vfsv2.js js/markdown-it.min.js img/favicon.png img/icons.svg; do
+  [[ -f "$TEMPLATE_SOURCE/$asset" ]] || { printf 'template asset not found: %s\n' "$TEMPLATE_SOURCE/$asset" >&2; exit 1; }
+done
 
 if [[ -z "$ACCESS_TOKEN" && -f "$SESSION_FILE" ]]; then
   # The file is generated locally by login.sh and only contains shell exports.
@@ -57,7 +69,7 @@ SITE_SCOPE="${BASH_REMATCH[2]}"
 # name. Template updates must target the live canonical SITE_URI from .env.
 EFFECTIVE_MANIFEST="$(mktemp)"
 trap 'rm -f "$EFFECTIVE_MANIFEST"' EXIT
-jq --arg scope "$SITE_SCOPE" --arg connection "$SITE_CONNECTION" '.scope_name = $scope | .site.connection = $connection' "$MANIFEST" >"$EFFECTIVE_MANIFEST"
+jq --arg scope "$SITE_SCOPE" --arg connection "$SITE_CONNECTION" --arg source "$TEMPLATE_SOURCE" '.scope_name = $scope | .site.connection = $connection | .site.template_source = $source' "$MANIFEST" >"$EFFECTIVE_MANIFEST"
 
 encode_uri() { jq -rn --arg value "$1" '$value | @uri'; }
 next_version() {

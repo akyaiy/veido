@@ -2102,11 +2102,6 @@ function handleFileMenuClose(event) {
 document.getElementById('fileMenuIcon').addEventListener('click', toggleFileMenu);
 document.addEventListener('click', handleFileMenuClose);
 
-// Преобразование пути в VFS URI
-function siteFileUri(path) {
-    return path.includes(':///') ? path : window.VFS_ROOT + path.replace(/^\/+/, '');
-}
-
 // Текущее действие файлового менеджера
 let siteFileAction = null;
 
@@ -2136,7 +2131,7 @@ async function openSiteFileManager(action) {
     container.id = 'fManagerContainer';
     document.body.appendChild(container);
 
-    await loadBlock('plugin/fManager', container);
+    await loadBlock('blocks/fManager', container);
 }
 
 /* ***
@@ -2206,7 +2201,7 @@ async function saveFile(selectedPath = null) {
 
     if (selectedPath) {
         const path = selectedPath.replace(/^\/+/, '');
-        uri = siteFileUri(path.endsWith('.xml') ? path : path + '/siteStructureEditor.xml');
+        uri = await window.toVfsUri(path.endsWith('.xml') ? path : path + '/siteStructureEditor.xml');
     }
 
     const xml = getSiteXml();
@@ -2264,7 +2259,7 @@ async function openFile(selectedPath = null) {
     const path = selectedPath;
 
     try {
-        const uri = siteFileUri(path);
+        const uri = await window.toVfsUri(path);
         const xml = await window.vfs.read(uri);
 
         const parser = new DOMParser();
