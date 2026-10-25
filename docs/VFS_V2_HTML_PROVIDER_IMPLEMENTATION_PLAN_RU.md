@@ -521,13 +521,10 @@ Reconciliation повторяет только безопасные шаги и 
 > typed `site_uri` и `template_key` site adapter-а и проверяет manifest allowlist,
 > выставляет MIME, Content-Length, ETag, Cache-Control и `nosniff`; неизвестный
 > static получает 404 без fallback. Любой другой browser path, включая
-> многосегментный, передаётся `get-page`: hook читает actor-filtered
-> `tree.json`, разрешает точную цепочку slug и возвращает template entrypoint
-> только для существующего маршрута; вместе с entrypoint hook возвращает
-> actor-filtered bootstrap страницы, который adapter безопасно встраивает в
-> HTML с новым ETag. Browser runtime поэтому не повторяет `get-page` и не читает
-> отдельно `site.json`/`info.json`; неизвестный маршрут возвращается hook как
-> успешный output с `found=false`, а Adapter преобразует его в 404 HTML при
+> многосегментный, получает тот же template entrypoint через `get-static`.
+> Frontend самостоятельно читает actor-filtered `tree.json`, разрешает цепочку
+> slug, затем читает `info.json`/`meta.json` и physical bundle. Неизвестный
+> маршрут отображается SPA как 404 при HTTP-ответе shell с кодом 200.
 > `Accept: text/html` или JSON `page_not_found` для API-клиента. Adapter
 > не получает HTML Store и не читает VFS отдельно от hook. Active publication,
 > `/public` и sitemap/robots ещё не реализованы.
@@ -563,8 +560,8 @@ resolver и actor policy. Он не получает HTML Store, VFSFrontend и�
 1. `/api/*` и служебные routes;
 2. `/_static/*`;
 3. site asset/public routes;
-4. SPA route через `get-page` только для точного допустимого site route;
-5. обычный 404.
+4. SPA route через `get-static` entrypoint;
+5. frontend-resolved 404.
 
 `/_static` выбирает последнюю установленную версию template key из trusted
 typed input site adapter-а и проверяет asset allowlist. Неизвестный static asset никогда не

@@ -1,7 +1,6 @@
 package sitehttp
 
 import (
-	"MyServer/internal/vfs/v2/providers/html/hooks/getpage"
 	"MyServer/internal/vfs/v2/providers/html/hooks/getstatic"
 	"MyServer/pkg/vfs"
 	"MyServer/pkg/vfs/hooks"
@@ -11,7 +10,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -27,7 +25,6 @@ type runtimeCall struct {
 type fakeRuntime struct {
 	calls        []runtimeCall
 	staticOutput getstatic.Output
-	pageOutput   getpage.Output
 	err          error
 }
 
@@ -40,11 +37,7 @@ func (f *fakeRuntime) Run(_ context.Context, actor vfs.Actor, hook string, input
 	if f.err != nil {
 		return hooks.Result{}, f.err
 	}
-	output := any(f.staticOutput)
-	if hook == getpage.HookKey {
-		output = f.pageOutput
-	}
-	data, err := json.Marshal(output)
+	data, err := json.Marshal(f.staticOutput)
 	return hooks.Result{Hook: hook, Version: 1, Status: "completed", Output: data}, err
 }
 
@@ -92,51 +85,15 @@ func TestSiteRoutesServeOnlyEntrypointAndVersionedStatic(t *testing.T) {
 	if missing.Code != http.StatusNotFound || len(runtime.calls) != 3 {
 		t.Fatalf("empty static path: status=%d calls=%+v", missing.Code, runtime.calls)
 	}
-	pageHTML := []byte("<html><head></head><body>site</body></html>")
-	runtime.pageOutput = getpage.Output{
-		Output: getstatic.Output{Content: pageHTML, ContentType: "text/html; charset=utf-8", Size: int64(len(pageHTML)), ETag: `"sha256-a"`, CacheControl: "no-cache", Entrypoint: true},
-		Route:  "/docs/install", Found: true, PageKey: "install",
-	}
+	runtime.staticOutput = getstatic.Output{Content: []byte("<html>shell</html>"), ContentType: "text/html; charset=utf-8", Size: 18, ETag: `"sha256-shell"`, CacheControl: "no-cache", Entrypoint: true}
 	page := httptest.NewRecorder()
 	router.ServeHTTP(page, httptest.NewRequest(http.MethodGet, "/docs/install", nil))
-	if page.Code != http.StatusOK || page.Body.String() != string(pageHTML) || len(runtime.calls) != 4 || runtime.calls[3].hook != getpage.HookKey || runtime.calls[3].path != "/docs/install" {
-		t.Fatalf("page response: status=%d body=%q calls=%+v", page.Code, page.Body.String(), runtime.calls)
+	if page.Code != http.StatusOK || page.Body.String() != "<html>shell</html>" || len(runtime.calls) != 4 || runtime.calls[3].hook != getstatic.HookKey || runtime.calls[3].path != "index.html" {
+		t.Fatalf("browser route response: status=%d body=%q calls=%+v", page.Code, page.Body.String(), runtime.calls)
 	}
-	if page.Header().Get("ETag") != `"sha256-a"` {
-		t.Fatalf("adapted page validators: headers=%v", page.Header())
-	}
-
-	runtime.pageOutput = getpage.Output{Route: "/unknown/page", Found: false, Code: getpage.NotFoundCode}
 	unknown := httptest.NewRecorder()
 	router.ServeHTTP(unknown, httptest.NewRequest(http.MethodGet, "/unknown/page", nil))
-	if unknown.Code != http.StatusNotFound || !strings.Contains(unknown.Body.String(), `"code":"page_not_found"`) || runtime.calls[len(runtime.calls)-1].hook != getpage.HookKey {
-		t.Fatalf("unknown browser path status=%d body=%q calls=%+v", unknown.Code, unknown.Body.String(), runtime.calls)
-	}
-
-	browserRequest := httptest.NewRequest(http.MethodGet, "/unknown/page", nil)
-	browserRequest.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-	browser := httptest.NewRecorder()
-	router.ServeHTTP(browser, browserRequest)
-	if browser.Code != http.StatusNotFound || !strings.Contains(browser.Header().Get("Content-Type"), "text/html") || browser.Header().Get("Vary") != "Accept" || !strings.Contains(browser.Body.String(), "Страница не найдена") || strings.Contains(browser.Body.String(), `"error"`) {
-		t.Fatalf("unknown browser navigation: status=%d headers=%v body=%q", browser.Code, browser.Header(), browser.Body.String())
-	}
-}
-
-func TestAcceptsHTMLRequiresExplicitBrowserRepresentation(t *testing.T) {
-	tests := []struct {
-		accept string
-		want   bool
-	}{
-		{"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", true},
-		{"text/html;q=0.5,application/json;q=0.9", false},
-		{"application/json", false},
-		{"*/*", false},
-		{"", false},
-		{"text/html;q=0", false},
-	}
-	for _, test := range tests {
-		if got := acceptsHTML(test.accept); got != test.want {
-			t.Errorf("acceptsHTML(%q) = %v, want %v", test.accept, got, test.want)
-		}
+	if unknown.Code != http.StatusOK || unknown.Body.String() != "<html>shell</html>" || len(runtime.calls) != 5 || runtime.calls[4].hook != getstatic.HookKey || runtime.calls[4].path != "index.html" {
+		t.Fatalf("unknown browser route response: status=%d body=%q calls=%+v", unknown.Code, unknown.Body.String(), runtime.calls)
 	}
 }

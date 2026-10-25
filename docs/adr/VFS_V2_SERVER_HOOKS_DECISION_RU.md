@@ -12,13 +12,10 @@
 > установленную immutable версию package,
 > manifest и asset читаются через actor-bound VFS, фактические size/SHA-256
 > сверяются с manifest, а результат содержит asset bytes и HTTP metadata.
-> `get-page` читает actor-filtered `tree.json`, разрешает точную
-> цепочку page slug для одно- или многосегментного browser path и возвращает
-> тот же проверенный application entrypoint только для существующего маршрута.
 > Размер одного ответа ограничен размером template asset (4 MiB), JSON output
 > допускает Base64 overhead и сохраняется в Hook Store при идемпотентном запуске.
 > Provider SDK поддерживает `Module`: hook definitions регистрируются вместе с
-> типом provider. HTML module объявляет `get-static` и `get-page`; site adapter
+> типом provider. HTML module объявляет `get-static`; site adapter
 > передаёт site URI и template key в typed input и вызывает обычный `Run`.
 > Auth-композиция также регистрирует native hooks `auth.register`,
 > `auth.login`, `auth.refresh`, `auth.logout`, `auth.change-password` и

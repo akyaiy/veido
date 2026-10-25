@@ -3,16 +3,13 @@
 package sitehttp
 
 import (
-	"MyServer/internal/vfs/v2/providers/html/hooks/getpage"
 	"MyServer/internal/vfs/v2/providers/html/hooks/getstatic"
 	"MyServer/pkg/vfs"
 	"MyServer/pkg/vfs/hooks"
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
-	"html"
 	"log/slog"
-	"mime"
 	"net/http"
 	"path"
 	"strconv"
@@ -101,91 +98,7 @@ func (h *Handler) serveStatic(w http.ResponseWriter, r *http.Request, assetPath 
 }
 
 func (h *Handler) handlePage(w http.ResponseWriter, r *http.Request) {
-	actor, err := h.resolveActor(r)
-	if err != nil {
-		h.writeProblem(w, r, http.StatusUnauthorized, "unauthenticated", "authentication is required", err)
-		return
-	}
-	input, err := json.Marshal(getpage.Input{SiteURI: h.config.SiteURI, TemplateKey: h.config.TemplateKey, Path: r.URL.Path})
-	if err != nil {
-		h.writeProblem(w, r, http.StatusInternalServerError, "internal", "internal site error", err)
-		return
-	}
-	result, err := h.runtime.Run(r.Context(), actor, getpage.HookKey, input, hooks.RunOptions{})
-	if err != nil {
-		status, code, message := hookProblem(err)
-		h.writeProblem(w, r, status, code, message, err)
-		return
-	}
-	var output getpage.Output
-	expectedRoute := strings.TrimSuffix(r.URL.Path, "/")
-	if err := json.Unmarshal(result.Output, &output); err != nil || output.Route != expectedRoute {
-		h.writeProblem(w, r, http.StatusInternalServerError, "invalid_hook_output", "invalid get-page output", err)
-		return
-	}
-	if !output.Found {
-		if output.Code != getpage.NotFoundCode {
-			h.writeProblem(w, r, http.StatusInternalServerError, "invalid_hook_output", "invalid get-page output", nil)
-			return
-		}
-		h.writePageNotFound(w, r)
-		return
-	}
-	if output.PageKey == "" || output.ContentType == "" || output.ETag == "" || output.Size != int64(len(output.Content)) {
-		h.writeProblem(w, r, http.StatusInternalServerError, "invalid_hook_output", "invalid get-page output", nil)
-		return
-	}
-	h.writeContent(w, r, output.Output)
-}
-
-func (h *Handler) writePageNotFound(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Vary", "Accept")
-	if !acceptsHTML(r.Header.Get("Accept")) {
-		h.writeProblem(w, r, http.StatusNotFound, "page_not_found", "page not found", nil)
-		return
-	}
-	body := `<!doctype html>
-<html lang="ru">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>404 — Страница не найдена</title></head>
-<body><main><h1>Страница не найдена</h1><p>Путь <code>` + html.EscapeString(r.URL.Path) + `</code> не существует.</p><p><a href="/">На главную</a></p></main></body>
-</html>`
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.WriteHeader(http.StatusNotFound)
-	if _, err := w.Write([]byte(body)); err != nil {
-		h.logger.ErrorContext(r.Context(), "site not-found response failed", slog.Any("error", err))
-	}
-}
-
-func acceptsHTML(accept string) bool {
-	var htmlQuality, jsonQuality float64 = -1, -1
-	for _, item := range strings.Split(accept, ",") {
-		mediaType, params, err := mime.ParseMediaType(strings.TrimSpace(item))
-		if err != nil {
-			continue
-		}
-		quality := 1.0
-		if raw := params["q"]; raw != "" {
-			parsed, err := strconv.ParseFloat(raw, 64)
-			if err != nil || parsed < 0 || parsed > 1 {
-				continue
-			}
-			quality = parsed
-		}
-		switch strings.ToLower(mediaType) {
-		case "text/html", "application/xhtml+xml":
-			if quality > htmlQuality {
-				htmlQuality = quality
-			}
-		case "application/json", "application/problem+json":
-			if quality > jsonQuality {
-				jsonQuality = quality
-			}
-		}
-	}
-	return htmlQuality > 0 && htmlQuality >= jsonQuality
+	h.serveStatic(w, r, h.config.Entrypoint)
 }
 
 func (h *Handler) writeContent(w http.ResponseWriter, r *http.Request, output getstatic.Output) {

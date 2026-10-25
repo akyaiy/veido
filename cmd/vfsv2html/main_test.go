@@ -190,23 +190,10 @@ func TestDemoHandlerServesUIAssetsAndVFSAPI(t *testing.T) {
 	if hookResponse.Code != http.StatusOK || !strings.Contains(hookResponse.Body.String(), `"hook":"get-static"`) || !strings.Contains(hookResponse.Body.String(), `"content":"`) {
 		t.Fatalf("POST hook: status=%d body=%q", hookResponse.Code, hookResponse.Body.String())
 	}
-	pageHookRequest := httptest.NewRequest(http.MethodPost, "/api/v2/vfs/hooks/get-page/run", strings.NewReader(`{"input":{"site_uri":"`+htmlURI("/")+`","template_key":"default-spa","path":"/demo"}}`))
-	pageHookResponse := httptest.NewRecorder()
-	handler.ServeHTTP(pageHookResponse, pageHookRequest)
-	if pageHookResponse.Code != http.StatusOK || !strings.Contains(pageHookResponse.Body.String(), `"hook":"get-page"`) || !strings.Contains(pageHookResponse.Body.String(), `"found":true`) || !strings.Contains(pageHookResponse.Body.String(), `"page_key":"demo"`) {
-		t.Fatalf("POST page hook: status=%d body=%q", pageHookResponse.Code, pageHookResponse.Body.String())
-	}
-	missingPageHookRequest := httptest.NewRequest(http.MethodPost, "/api/v2/vfs/hooks/get-page/run", strings.NewReader(`{"input":{"site_uri":"`+htmlURI("/")+`","template_key":"default-spa","path":"/missing"}}`))
-	missingPageHookResponse := httptest.NewRecorder()
-	handler.ServeHTTP(missingPageHookResponse, missingPageHookRequest)
-	if missingPageHookResponse.Code != http.StatusOK || !strings.Contains(missingPageHookResponse.Body.String(), `"status":"completed"`) || !strings.Contains(missingPageHookResponse.Body.String(), `"route":"/missing"`) || !strings.Contains(missingPageHookResponse.Body.String(), `"found":false`) || !strings.Contains(missingPageHookResponse.Body.String(), `"code":"not_found"`) || strings.Contains(missingPageHookResponse.Body.String(), `"content"`) {
-		t.Fatalf("POST missing page hook: status=%d body=%q", missingPageHookResponse.Code, missingPageHookResponse.Body.String())
-	}
-
-	missing := httptest.NewRecorder()
-	handler.ServeHTTP(missing, httptest.NewRequest(http.MethodGet, "/unknown-page", nil))
-	if missing.Code != http.StatusNotFound {
-		t.Fatalf("GET unknown page: status=%d body=%q", missing.Code, missing.Body.String())
+	unknown := httptest.NewRecorder()
+	handler.ServeHTTP(unknown, httptest.NewRequest(http.MethodGet, "/unknown-page", nil))
+	if unknown.Code != http.StatusOK || !strings.Contains(unknown.Body.String(), "JWT SPA project") {
+		t.Fatalf("GET unknown page: status=%d body=%q", unknown.Code, unknown.Body.String())
 	}
 
 	controlPath := "/api/v2/vfs/control?uri=" + url.QueryEscape(htmlURI("/pages/home")) + "&command=update"

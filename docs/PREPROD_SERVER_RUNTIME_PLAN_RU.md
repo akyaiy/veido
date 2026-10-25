@@ -22,7 +22,7 @@ internal/vfs/v2/adapters/sitehttp/         site HTTP adapter
 internal/vfs/v2/adapters/webdav/           optional WebDAV adapter
 internal/vfs/v2/providers/system/scopes/   scopes module
 internal/vfs/v2/providers/local/           local module
-internal/vfs/v2/providers/html/            HTML module + get-static/get-page
+internal/vfs/v2/providers/html/            HTML module + get-static
 pkg/vfs/providersdk/                       публичный provider module contract
 pkg/vfs/hooks/                             transport-neutral hook runtime contract
 ```
@@ -41,7 +41,7 @@ bootstrap не входят в dependency graph `cmd/server`.
    demo tests без необходимости.
 3. **Core modules.** Собрать stores, provider pool и положительный allowlist
    `scopes`, `local`, `html`; зарегистрировать из HTML module только
-   `get-static/get-page`. Не переносить seed-функции из `cmd/vfsv2html`.
+   `get-static`. Не переносить seed-функции из `cmd/vfsv2html`.
 4. **HTTP surfaces.** Подключить минимальный Auth session adapter, Auth actor
    resolver, VFS HTTP и site HTTP. Legacy user/admin/register handlers и
    universal hook endpoint не монтировать. Добавить integration tests, что

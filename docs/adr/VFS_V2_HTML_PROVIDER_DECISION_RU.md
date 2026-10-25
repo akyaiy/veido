@@ -8,6 +8,9 @@
 > разрешает route через `tree.json`, затем читает `Page.info.json` или
 > `Block.meta.json`; только эти metadata остаются источником `bundle_root_uri`.
 > Любое конструирование URI публикатора во frontend запрещено.
+> Уточнено 25 октября 2026 года: `get-page` удалён. Adapter возвращает
+> `index.html` через `get-static` и для `/`, и для любого browser path; Page и
+> Block читаются frontend-ом исключительно как metadata и physical bundle.
 > Статус реализации на 21 октября 2026 года: в процессе; schema v4 зарегистрирована как `provider/html` в централизованном migration runner с совместимым импортом прежней `html_schema_migrations`. Реализованы provider-local модели, миграции `source_uri` → `bundle_root_uri`, legacy visibility и immutable application templates, `PageService`, typed VFS-проекция, `initialize`, publisher roots, безопасный `create` и обязательная node visibility для всех уже проецируемых сущностей (`site`, `publisher`, `page`). Создание metadata и initial visibility атомарно; поддержаны `all`, `guest`, exact trusted actor, optimistic revisions, фильтрация lookup/list/`tree.json` и скрытие поддерева невидимого parent. Через actor-bound `BoundVFS` при создании проверяются каталог bundle и обязательные `content.md`, `style.css`, `script.js`; `info.json` возвращает канонический `bundle_root_uri`, а physical source читается напрямую через VFS Core. Editor slice предоставляет actor-filtered read-only `editor/model.xml` и writable `editor/layout.xml`: реализованы детерминированные codecs, XML security/limits, сохранение layout невидимых страниц, атомарный Store CAS и публичный `layout_revision_conflict`. Template slice предоставляет атомарный `Control(/templates, "install", ...)`, content-addressed blobs, строгий manifest allowlist и read-only VFS-проекцию `/templates/<key>/<version>/{manifest.json,files/...}`. Application-level builder безопасно собирает reviewed allowlist `default-spa/10` из `data/HTML/frontend`, запрещает symlink/traversal и устанавливает package через публичный VFS в demo bootstrap. Общий Hook SDK/Registry/Runtime foundation из ADR-008 реализован отдельно от HTML-домена; HTML `providersdk.Module` регистрирует read-only `get-static` и `get-page` вместе с provider factory и создаёт site bindings при открытии connection. Adapter вызывает hooks через canonical site URI и key, не зная внутренних binding keys. `get-static` выбирает последнюю установленную версию bound template key, читает только manifest-listed asset через actor-bound VFS, проверяет фактические size/SHA-256 и возвращает content с HTTP metadata. Demo Site HTTP slice выдаёт точный `/` и unversioned `/_static/*` через `get-static`, а остальные browser paths передаёт `get-page`; тот разрешает одно- и многосегментную цепочку slug по actor-filtered `tree.json`, возвращает SPA entrypoint и actor-filtered bootstrap (`site_uri`, `site_name`, page metadata и `bundle_root_uri`) только для существующей Page и 404 для неизвестного маршрута. Adapter безопасно встраивает bootstrap в HTML и пересчитывает response ETag; browser runtime больше не повторяет `get-page` и не читает отдельно `site.json`/`info.json`, а сразу параллельно загружает три physical bundle-файла. Demo seed создаёт `/demo` с отдельным physical bundle; `/` сохраняет прежнее site-приложение. Bundle обычной страницы `demo` подключает рабочую панель управления site settings, страницами и physical bundles через публичные VFS-контракты. Новая страница наследует `visible_to` сайта: поэтому на публичном сайте она сразу видна guest readers. Unversioned static использует ETag с обязательной revalidation, без `immutable`. Filesystem/FileServer не используется; универсальный Hook HTTP endpoint также реализован. Active publication, поиск, publication/sitemap, production-регистрация, реальный ACL и lifecycle ещё отсутствуют. Отдельный `cmd/vfsv2html` предоставляет проверяемую demo-композицию.
 >
 > Уточнено 23 октября 2026 года: базовый контракт Block — это ленивая
@@ -18,7 +21,7 @@
 >
 > Исправление от 21 октября 2026 года: упоминания site/resource bindings в
 > предыдущем статусе устарели и заменены ADR-008. Hooks не прикрепляются к
-> connection или одному URI: `get-static` и `get-page` получают `site_uri` и
+> connection или одному URI: `get-static` получает `site_uri` и
 > `template_key` в typed input и выполняют требуемые VFS-вызовы тем же actor.
 > Дата решения: 24 сентября 2026 года.  
 > Уточнено 26 сентября 2026 года: прямой VFS-контракт отделён от общих VFS hooks; добавлены режимы удаления поддерева, позиционные anchors и стратегия конфликтов редактора.  
@@ -850,18 +853,10 @@ Provider и не дают доступ к файлам, отсутствующи
    установленной версии template, выбранной typed input site adapter-а; отсутствующий asset
    возвращает `404`, а не SPA entrypoint.
 3. Явный опубликованный asset разрешается через active publication manifest.
-4. `/` и существующий публичный маршрут страницы возвращают template entrypoint
-   в SPA-режиме либо готовый page artifact в server-rendered режиме.
-5. Неизвестный маршрут возвращает `404`; наличие точки или расширения не должно
-   само по себе открывать файл server filesystem.
-
-Отсутствие Page является ожидаемым результатом разрешения, а не отказом hook
-runtime: `get-page` завершается успешно с `found=false`. Site HTTP Adapter
-преобразует такой output в HTTP 404. При явном `Accept: text/html` ответом
-служит простая HTML-страница; API-клиент получает JSON `page_not_found`.
-Выбор representation выполняется по `Accept`, а не по `User-Agent`, и ответ
-содержит `Vary: Accept`. Ошибкой выполнения hook
-остаются только невалидный input и сбои чтения, декодирования или доступа.
+4. `/` и любой browser path возвращают template entrypoint в SPA-режиме.
+5. Route и Page существуют только во frontend: runtime разрешает `tree.json`,
+   затем metadata и physical bundle. Неизвестный route отображается как SPA 404;
+   наличие точки или расширения не открывает server filesystem.
 
 До реализации active publication ограниченный demo Site HTTP slice считает
 публично активным только status `ready`. `draft`, `hidden` и `archived`, а также

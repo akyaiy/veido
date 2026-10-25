@@ -781,13 +781,11 @@ Types, search tags, themes, публикацию и автоматическое
 > actor-bound VFS, проверяет size/SHA-256 и возвращает
 > bytes вместе с HTTP metadata. Demo Site HTTP Adapter выдаёт точный `/` и
 > `/_static/*` через этот hook с MIME/ETag/revalidation headers и 404 без
-> static fallback. Остальные browser paths передаются `get-page`, который через
-> actor-bound VFS разрешает точную цепочку slug в `tree.json`; существующий путь
-> получает SPA entrypoint вместе с actor-filtered bootstrap страницы. Adapter
-> безопасно встраивает bootstrap в HTML и пересчитывает ETag, поэтому browser
-> runtime сразу читает physical bundle без повторного `get-page` и отдельных
-> запросов `site.json`/`info.json`. Неизвестный путь является успешным результатом
-> hook с `found=false`, который HTTP Adapter преобразует в 404: простой HTML
+> static fallback. Любой другой browser path также получает тот же SPA
+> entrypoint через `get-static`; adapter не разрешает slug и не встраивает
+> bootstrap. Browser runtime читает `tree.json`, затем `info.json`/`meta.json`
+> и только после этого physical bundle. Неизвестный путь отображается frontend
+> как SPA 404; HTTP-ответ остаётся shell с кодом 200.
 > для `Accept: text/html` либо JSON `page_not_found` для API-клиента.
 > Пока active publication не реализована, demo HTTP slice публично разрешает
 > только страницы со status `ready`; `draft`, `hidden`, `archived` и их дочерние

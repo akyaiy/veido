@@ -82,7 +82,7 @@ Composition root зависит от concrete packages. Все остальны�
 - системный `scopes` provider;
 - `local` provider;
 - HTML Provider;
-- только native hooks `get-static` и `get-page`, зарегистрированные HTML module;
+- только native hook `get-static`, зарегистрированный HTML module;
 - VFS HTTP adapter;
 - VFS hooks HTTP adapter.
 

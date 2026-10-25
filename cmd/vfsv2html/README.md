@@ -44,15 +44,15 @@ HTTP VFS API доступен под `/api/v2/vfs`. Например:
 GET /api/v2/vfs/read?uri=html%40site%5Bhtml-demo%5D%3A%2F%2F%2Fpages%2Fhome%2Finfo.json
 ```
 
-На `/` сохранено прежнее клиентское приложение. Все остальные routes, включая
-`/demo`, являются обычными HTML Provider pages и загружаются одинаково через
-`get-page` и physical bundle. Bundle страницы `demo` наглядно показывает
+На `/` и любом другом browser path adapter возвращает один application shell
+`index.html`. Frontend сам разрешает path через `tree.json` и metadata, после
+чего загружает physical bundle. Bundle страницы `demo` наглядно показывает
 `blocks/tree.json`, затем лениво читает `/blocks/<key>/meta.json`; по кнопке
 показывает physical `content.md` по `bundle_root_uri`. Это демонстрирует, что
 Block не является обязательной частью Page и HTML Provider не читает байты
 bundle из собственного Store.
-Остальные browser routes отображают найденную `get-page` страницу, загружая
-её `content.md`, `style.css` и `script.js` через actor-bound VFS. HTML-ответ
+После разрешения маршрута frontend загружает `content.md`, `style.css` и
+`script.js` только нужной страницы через actor-bound VFS. HTML-ответ
 не меняется adapter-ом: browser получает scope из `GET /_static/site-context.json`,
 строит canonical HTML site URI и читает `tree.json` и `info.json`/`meta.json`.
 `bundle_root_uri` приходит только из этих metadata.

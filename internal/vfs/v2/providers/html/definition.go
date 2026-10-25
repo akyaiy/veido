@@ -2,7 +2,6 @@ package html
 
 import (
 	vfs "MyServer/internal/vfs/v2"
-	"MyServer/internal/vfs/v2/providers/html/hooks/getpage"
 	"MyServer/internal/vfs/v2/providers/html/hooks/getstatic"
 	"MyServer/pkg/vfs/hooks"
 	sdk "MyServer/pkg/vfs/providersdk"
@@ -31,6 +30,6 @@ func Definition(store *SQLiteStore) sdk.Definition[Config] {
 func Module(store *SQLiteStore) sdk.Module[Config] {
 	return sdk.Module[Config]{
 		Provider: Definition(store),
-		Hooks:    []hooks.Definition{getstatic.Definition(), getpage.Definition()},
+		Hooks:    []hooks.Definition{getstatic.Definition()},
 	}
 }
