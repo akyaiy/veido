@@ -384,7 +384,7 @@ function updateCssPanel(element) {
     }
 
     // по умолчанию выводим inline стиль
-    createCssSection(panel, element, 'element', 'Inline стиль (style="")', '', '');
+    createCssSection(panel, element, 'element', `${window.translate('Inline style')} (style="")`, '', '');
 
     const styleElement = getBlockStyleElement(element);
     const cssRules = styleElement ? parseCss(styleElement.textContent) : [];
@@ -422,7 +422,7 @@ function updateCssPanel(element) {
 
     const tagName = element.tagName.toLowerCase();
     if (!isBaseCovered(tagName, 'tag')) {
-        createCssSection(panel, element, 'tag', `Тег (${tagName})`, tagName, '');
+        createCssSection(panel, element, 'tag', `${window.translate('Tag')} (${tagName})`, tagName, '');
     }
 
     if (element.id) {
@@ -435,7 +435,7 @@ function updateCssPanel(element) {
     for (const className of Array.from(element.classList)) {
         const classSelector = `.${className}`;
         if (!isBaseCovered(classSelector, 'class')) {
-            createCssSection(panel, element, 'class', `Класс (.${className})`, classSelector, '');
+            createCssSection(panel, element, 'class', `${window.translate('Class')} (.${className})`, classSelector, '');
         }
     }
 
@@ -446,15 +446,15 @@ function updateCssPanel(element) {
         if (category === 'media') {
             title = `Media query (${rule.media}) - ${rule.selector}`;
         } else if (category === 'pseudo') {
-            title = `Псевдокласс (${rule.selector})`;
+            title = `${window.translate('Pseudo-class')} (${rule.selector})`;
         } else if (category === 'attribute') {
-            title = `Атрибут (${rule.selector})`;
+            title = `${window.translate('Attribute')} (${rule.selector})`;
         } else if (category === 'id') {
             title = `ID (${rule.selector})`;
         } else if (category === 'class') {
-            title = `Класс (${rule.selector})`;
+            title = `${window.translate('Class')} (${rule.selector})`;
         } else if (category === 'tag') {
-            title = `Тег (${rule.selector})`;
+            title = `${window.translate('Tag')} (${rule.selector})`;
         }
 
         createCssSection(panel, element, category, title, rule.selector, rule.media, rule.properties);

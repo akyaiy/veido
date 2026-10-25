@@ -12,176 +12,176 @@ let lastSource = '';
 // Перменнная перевода ключевых слов, объектов, методов, событий, операторов и литералов
 const TRANSLATIONS = {
     keywords: {
-        'function': 'функция',
-        'async': 'асинхронная',
-        'return': 'вернуть',
-        'if': 'если',
-        'else': 'иначе',
-        'for': 'цикл',
-        'while': 'цикл',
-        'do': 'делать',
-        'switch': 'выбор',
-        'case': 'случай',
-        'default': 'по умолчанию',
-        'break': 'прервать',
-        'continue': 'продолжить',
-        'await': 'ждать',
-        'addEventListener': 'При',
-        'typeof': 'тип',
-        'object': 'объект',
-        'array': 'массив',
-        'const': 'константа',
-        'let': 'пусть',
-        'var': 'переменная',
-        'new': 'создать',
-        'delete': 'удалить',
-        'throw': 'выбросить',
-        'try': 'попробовать',
-        'catch': 'если ошибка',
-        'finally': 'в конце',
-        'class': 'класс',
-        'extends': 'наследует',
-        'implements': 'реализует',
-        'import': 'импортировать',
-        'export': 'экспортировать',
-        'from': 'из',
-        'default': 'по умолчанию',
-        'yield': 'дать',
-        'void': 'без значения',
-        'instanceof': 'экземпляр',
-        'in': 'в',
-        'of': 'из'
+        'function': window.translate('Function'),
+        'async': window.translate('Async'),
+        'return': window.translate('Return'),
+        'if': window.translate('If'),
+        'else': window.translate('Else'),
+        'for': window.translate('For'),
+        'while': window.translate('While'),
+        'do': window.translate('Do'),
+        'switch': window.translate('Switch'),
+        'case': window.translate('Case'),
+        'default': window.translate('Default'),
+        'break': window.translate('Break'),
+        'continue': window.translate('Continue'),
+        'await': window.translate('Await'),
+        'addEventListener': window.translate('On'),
+        'typeof': window.translate('Type'),
+        'object': window.translate('Object'),
+        'array': window.translate('Array'),
+        'const': window.translate('Constant'),
+        'let': window.translate('Let'),
+        'var': window.translate('Variable'),
+        'new': window.translate('Create'),
+        'delete': window.translate('Delete'),
+        'throw': window.translate('Throw'),
+        'try': window.translate('Try'),
+        'catch': window.translate('On error'),
+        'finally': window.translate('Finally'),
+        'class': window.translate('Class'),
+        'extends': window.translate('Extends'),
+        'implements': window.translate('Implements'),
+        'import': window.translate('Import'),
+        'export': window.translate('Export'),
+        'from': window.translate('From'),
+        'default': window.translate('Default'),
+        'yield': window.translate('Yield'),
+        'void': window.translate('No value'),
+        'instanceof': window.translate('Instance'),
+        'in': window.translate('In'),
+        'of': window.translate('Of')
     },
     objects: {
-        'console': 'консоль',
-        'document': 'документ',
-        'window': 'окно',
-        'Math': 'математика',
+        'console': window.translate('Console'),
+        'document': window.translate('Document'),
+        'window': window.translate('Window'),
+        'Math': window.translate('Math'),
         'JSON': 'json',
-        'Array': 'массив',
-        'Object': 'объект',
-        'String': 'строка',
-        'Number': 'число',
-        'Boolean': 'логика',
-        'Date': 'дата',
-        'Set': 'набор',
-        'Map': 'словарь',
-        'RegExp': 'регулярка'
+        'Array': window.translate('Array'),
+        'Object': window.translate('Object'),
+        'String': window.translate('String'),
+        'Number': window.translate('Number'),
+        'Boolean': window.translate('Boolean'),
+        'Date': window.translate('Date'),
+        'Set': window.translate('Set'),
+        'Map': window.translate('Map'),
+        'RegExp': window.translate('RegExp')
     },
     methods: {
-        'log': 'вывести',
-        'map': 'преобразовать',
-        'push': 'добавить',
-        'length': 'длина',
-        'replace': 'заменить',
-        'createElement': 'создатьЭлемент',
-        'add': 'добавить',
-        'append': 'добавить дочерний',
-        'remove': 'удалить',
-        'forEach': 'для каждого',
-        'filter': 'отфильтровать',
-        'sort': 'отсортировать',
-        'reduce': 'свернуть',
-        'pop': 'убрать последнюю',
-        'shift': 'убрать первую',
-        'unshift': 'добавить первую',
-        'slice': 'вырезать',
-        'concat': 'соединить',
-        'join': 'соединить',
-        'split': 'разбить',
-        'includes': 'содержит',
-        'indexOf': 'индекс',
-        'find': 'найти',
-        'findIndex': 'найти индекс',
-        'includes': 'включает',
-        'toString': 'в строку',
-        'toUpperCase': 'в верхний регистр',
-        'toLowerCase': 'в нижний регистр',
-        'trim': 'обрезать',
-        'parseInt': 'разобрать число',
-        'parseFloat': 'разобрать дробь',
-        'preventDefault': 'предотвратитьПоведение',
-        'value': 'значение',
-        'reset': 'сбросить',
-        'target': 'цель',
-        'closest': 'ближайший',
-        'classList': 'списокКлассов',
-        'textContent': 'текстСодержимое',
-        'fetch': 'получить',
-        'then': 'затем',
-        'resolve': 'решить',
-        'event': 'событие',
-        'setTimeout': 'таймер',
-        'setInterval': 'интервал',
-        'clearTimeout': 'остановить таймер',
-        'clearInterval': 'остановить интервал',
-        'alert': 'сообщить',
-        'confirm': 'подтвердить',
-        'prompt': 'спросить',
-        'querySelector': 'выбрать',
-        'querySelectorAll': 'выбрать все'
+        'log': window.translate('Log'),
+        'map': window.translate('Map'),
+        'push': window.translate('Push'),
+        'length': window.translate('Length'),
+        'replace': window.translate('Replace'),
+        'createElement': window.translate('Create element'),
+        'add': window.translate('Add'),
+        'append': window.translate('Append child'),
+        'remove': window.translate('Remove'),
+        'forEach': window.translate('For each'),
+        'filter': window.translate('Filter'),
+        'sort': window.translate('Sort'),
+        'reduce': window.translate('Reduce'),
+        'pop': window.translate('Remove last'),
+        'shift': window.translate('Remove first'),
+        'unshift': window.translate('Add first'),
+        'slice': window.translate('Slice'),
+        'concat': window.translate('Concatenate'),
+        'join': window.translate('Join'),
+        'split': window.translate('Split'),
+        'includes': window.translate('Includes'),
+        'indexOf': window.translate('Index'),
+        'find': window.translate('Find'),
+        'findIndex': window.translate('Find index'),
+        'includes': window.translate('Includes'),
+        'toString': window.translate('To string'),
+        'toUpperCase': window.translate('To uppercase'),
+        'toLowerCase': window.translate('To lowercase'),
+        'trim': window.translate('Trim'),
+        'parseInt': window.translate('Parse integer'),
+        'parseFloat': window.translate('Parse float'),
+        'preventDefault': window.translate('Prevent default'),
+        'value': window.translate('Value'),
+        'reset': window.translate('Reset'),
+        'target': window.translate('Target'),
+        'closest': window.translate('Closest'),
+        'classList': window.translate('Class list'),
+        'textContent': window.translate('Text content'),
+        'fetch': window.translate('Fetch'),
+        'then': window.translate('Then'),
+        'resolve': window.translate('Resolve'),
+        'event': window.translate('Event'),
+        'setTimeout': window.translate('Timer'),
+        'setInterval': window.translate('Interval'),
+        'clearTimeout': window.translate('Stop timer'),
+        'clearInterval': window.translate('Stop interval'),
+        'alert': window.translate('Alert'),
+        'confirm': window.translate('Confirm'),
+        'prompt': window.translate('Prompt'),
+        'querySelector': window.translate('Select'),
+        'querySelectorAll': window.translate('Select all')
     },
     events: {
-        'click': 'клике',
-        'mouseover': 'наведении',
-        'input': 'вводе',
-        'submit': 'отправке',
-        'change': 'изменении',
-        'keyup': 'отпускании клавиши',
-        'keydown': 'нажатии клавиши',
-        'focus': 'фокусе',
-        'blur': 'потере фокуса',
-        'dblclick': 'двойном клике',
-        'mouseenter': 'входе курсора',
-        'mouseleave': 'выходе курсора',
-        'resize': 'изменении размера'
+        'click': window.translate('Click'),
+        'mouseover': window.translate('Mouse over'),
+        'input': window.translate('Input'),
+        'submit': window.translate('Submit'),
+        'change': window.translate('Change'),
+        'keyup': window.translate('Key up'),
+        'keydown': window.translate('Key down'),
+        'focus': window.translate('Focus'),
+        'blur': window.translate('Blur'),
+        'dblclick': window.translate('Double-click'),
+        'mouseenter': window.translate('Mouse enter'),
+        'mouseleave': window.translate('Mouse leave'),
+        'resize': window.translate('Resize')
     },
     operators: {
-        '&&': 'и',
-        '||': 'или',
-        '++': 'увеличить на 1',
-        '--': 'уменьшить на 1',
+        '&&': window.translate('And'),
+        '||': window.translate('Or'),
+        '++': window.translate('Increment by 1'),
+        '--': window.translate('Decrement by 1'),
         '*': '×',
         '+': '+',
         '-': '-',
         '/': '/',
         '%': '%',
-        '**': 'возводить в степень',
-        '!': 'не',
-        '~': 'побитовое не',
+        '**': window.translate('Raise to power'),
+        '!': window.translate('Not'),
+        '~': window.translate('Bitwise not'),
         '=': '=',
-        '+=': 'плюс равно',
-        '-=': 'минус равно',
-        '*=': 'умножить равно',
-        '/=': 'поделить равно',
-        '%=': 'остаток равно',
-        '**=': 'в степень равно',
-        '==': 'равно',
-        '===': 'строго равно',
-        '!=': 'не равно',
-        '!==': 'строго не равно',
+        '+=': window.translate('Plus equals'),
+        '-=': window.translate('Minus equals'),
+        '*=': window.translate('Multiply equals'),
+        '/=': window.translate('Divide equals'),
+        '%=': window.translate('Remainder equals'),
+        '**=': window.translate('Power equals'),
+        '==': window.translate('Equals'),
+        '===': window.translate('Strictly equals'),
+        '!=': window.translate('Not equal'),
+        '!==': window.translate('Strictly not equal'),
         '>=': '>=',
         '<=': '<=',
         '>': '>',
         '<': '<',
-        '>>': 'сдвиг вправо',
-        '<<': 'сдвиг влево',
-        '>>>': 'беззнаковый сдвиг вправо',
-        '&': 'и побитово',
-        '|': 'или побитово',
-        '^': 'исключающее или',
-        '??': 'если нет',
-        '?.': 'опциональная часть',
-        '=>': 'стрелка'
+        '>>': window.translate('Shift right'),
+        '<<': window.translate('Shift left'),
+        '>>>': window.translate('Unsigned shift right'),
+        '&': window.translate('Bitwise and'),
+        '|': window.translate('Bitwise or'),
+        '^': window.translate('Exclusive or'),
+        '??': window.translate('If nullish'),
+        '?.': window.translate('Optional chain'),
+        '=>': window.translate('Arrow')
     },
     literals: {
-        'true': 'правда',
-        'false': 'ложь',
-        'null': 'отсутствие',
-        'undefined': 'отсутствие',
-        'NaN': 'не число',
-        'Infinity': 'бесконечность',
-        '-Infinity': 'минус бесконечность'
+        'true': window.translate('True'),
+        'false': window.translate('False'),
+        'null': window.translate('Null'),
+        'undefined': window.translate('Undefined'),
+        'NaN': window.translate('Not a number'),
+        'Infinity': window.translate('Infinity'),
+        '-Infinity': window.translate('Negative infinity')
     }
 };
 
@@ -1728,11 +1728,11 @@ function trOperator(op) {
 *** */
 function trLiteral(val) {
    if (val === undefined) {
-       return 'отсутствие';
+       return window.translate('Undefined');
    }
 
    if (val === null) {
-       return 'отсутствие';
+       return window.translate('Null');
    }
 
    const s = String(val);
@@ -1746,7 +1746,7 @@ function trLiteral(val) {
 *** */
 function displayValue(raw) {
    if (raw === undefined || raw === null) {
-       return trLiteral(raw) || 'отсутствие';
+       return trLiteral(raw) || window.translate('None');
    }
 
    let s = String(raw);
@@ -1767,19 +1767,19 @@ function displayValue(raw) {
 *** */
 function getSpecialLiteralText(value) {
    if (value === true || value === 'true') {
-       return 'правда';
+       return window.translate('True');
    }
 
    if (value === false || value === 'false') {
-       return 'ложь';
+       return window.translate('False');
    }
 
    if (value === null || value === 'null') {
-       return 'отсутствие';
+       return window.translate('Null');
    }
 
    if (value === undefined || value === 'undefined') {
-       return 'отсутствие';
+       return window.translate('Undefined');
    }
 
    if (value === 'document' || value === 'window') {
@@ -2317,7 +2317,7 @@ function makeCallExpressionBlock(expr) {
                 }
             }
 
-            topLine.appendChild(createElementNode('div', 'block transparent', 'на'));
+            topLine.appendChild(createElementNode('div', 'block transparent', window.translate('On')));
             topLine.appendChild(makeVariablesNode(obj));
 
             outer.appendChild(topLine);
@@ -3580,7 +3580,7 @@ function setEditMode(isWizardMode) {
 
     jsEditorContent.setAttribute('contenteditable', isWizardMode ? 'false' : 'plaintext-only');
     codeWizardToggle.classList.toggle('wizard', isWizardMode);
-    codeWizardToggle.textContent = isWizardMode ? 'Текстовый режим' : 'Визуальный режим';
+    codeWizardToggle.textContent = isWizardMode ? window.translate('Text mode') : window.translate('Visual mode');
 }
 
 /* ***

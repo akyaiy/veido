@@ -535,7 +535,7 @@ function loadViewEditorStyles(iframeDoc) {
 
     const linkEl = iframeDoc.createElement('link');
     linkEl.rel = 'stylesheet';
-    linkEl.href = '/css/style.css';
+    linkEl.href = '/_static/css/style.css';
     iframeDoc.head.appendChild(linkEl);
 
     return parentWin;
@@ -920,7 +920,7 @@ function showViewEditorEmptyState() {
         if (!document.getElementById('viewEditorEmptyState')) {
             const emptyState = document.createElement('div');
             emptyState.id = 'viewEditorEmptyState';
-            emptyState.textContent = 'Откройте или создайте редактируемый блок';
+            emptyState.textContent = window.translate('Open or create an editable block');
             viewEditorContent.style.position = 'relative';
             viewEditorContent.appendChild(emptyState);
         }
@@ -1008,7 +1008,6 @@ window.editorBlock.newBlock = newBlock;
 
 /* ***
  * saveBlock - сохранение текущего блока
- * // Заменить потом!!!!!
 *** */
 function saveBlock() {
     const viewEditorContent = document.getElementById('viewEditorContent');
@@ -1957,7 +1956,7 @@ function blockEditorSelection(event) {
     const target = event.target;
 
     if (
-        target !== null &&
+        target instanceof Element &&
         target.closest('#viewEditorContent, #mdEditorContent, #cssEditorContent, #jsEditorContent')
     ) {
         event.preventDefault();

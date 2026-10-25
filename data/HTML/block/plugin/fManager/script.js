@@ -4,10 +4,15 @@
 class FilesApiClient {
 
 /***************************************************************************
- * constructor — инициализация базового пути.
+ * constructor — инициализация VFSv2-клиента.
  ***************************************************************************/
-constructor(baseUrl = '/api/files/acc2fs') {
-    this.baseUrl = baseUrl;
+constructor() {
+    this.vfs = window.vfs;
+}
+
+// uri — преобразование пути файлового менеджера в канонический URI VFS:
+uri(path = '') {
+    return window.VFS_ROOT + `${this.cleanPath(path)}`;
 }
 
 // cleanPath — нормализация пути:
@@ -33,16 +38,7 @@ baseName(path = '') {
 
 // dirEntries — получение списка файлов и каталогов в указанной директории:
 async dirEntries(dirPath = '') {
-    const cleanDir = this.cleanPath(dirPath);
-    const url = cleanDir
-        ? `/api/files/acc2fs/${cleanDir}?op=full-read`
-        : `/api/files/acc2fs?op=full-read`;
-
-    const res = await apiProtected(url);
-    if (!res.ok) return [];
-
-    const data = await res.json().catch(() => []);
-    return Array.isArray(data) ? data : [];
+    return await this.vfs.readdir(this.uri(dirPath));
 }
 
 // uniquePath — генерация уникального пути для нового файла или каталога:
@@ -90,27 +86,23 @@ async uniquePath(path, isDir = false) {
  * @returns {Promise<any>} Результат запроса к API со списком файлов
  *
  * Поведение:
- * - Отправляет защищённый запрос к `/api/files{path}`.
+ * - Отправляет защищённый запрос через VFSv2.
  * - При ошибке 403 выводит сообщение об отсутствии прав доступа.
- * - При любой другой ошибке выводит общее сообщение об ошибке загрузки.
+ * - Показывает сообщение об ошибке и повторно выбрасывает ошибку вызывающему коду.
  ***************************************************************************/
   async list(path) {
     try {
-        const res = await apiProtected(`/api/files/acc2fs${path}?op=full-read`);//urlPath
-
-        if (!res.ok) {
-            if (res.status === 403) {
-                alert("Нет прав на просмотр файлов");
-            } else {
-                alert("Ошибка списка файлов");
-            }
-            return;
-        }
-
-        return await res.json();
+        return (await this.vfs.readdir(this.uri(path))).map(item => ({
+            ...item,
+            modTime: item.updated_at ?? item.modTime
+        }));
     } catch (e) {
-        alert("Ошибка списка файлов");
-        return;
+        if (e?.status === 403) {
+            alert(window.translate("You don't have permission to view files"));
+        } else {
+            alert(window.translate("Error loading file list"));
+        }
+        throw e;
     }
 }
 
@@ -126,10 +118,7 @@ async uniquePath(path, isDir = false) {
  * - Возвращает содержимое файла в текстовом виде.
  ***************************************************************************/
   async getFile(path) {
-    const url = `${this.baseUrl}/${path}?op=full-read`;
-    const res = await apiProtected(url);
-    if (!res.ok) throw new Error(`Error getting file: ${res.statusText}`);
-    return await res.text(); // для бинарных файлов можно использовать res.arrayBuffer()
+    return await this.vfs.read(this.uri(path)); // для бинарных файлов используйте readBytes
   }
 
 /***************************************************************************
@@ -144,31 +133,18 @@ async uniquePath(path, isDir = false) {
  *
  * Поведение:
  * - Принимает путь к файлу относительно базового пути.
- * - Выполняет HEAD-запрос без загрузки содержимого.
+ * - Запрашивает метаданные через VFSv2 без загрузки содержимого.
  * - При неуспешном ответе сервера выбрасывает ошибку.
  * - Возвращает размер, дату изменения и тип содержимого.
  ***************************************************************************/
 async head(path) {
-    const url = `${this.baseUrl}/${path}?op=stat`;
-    const res = await apiProtected(url);
-    if (!res.ok) throw new Error(`Error getting file stat: ${res.statusText}`);
-    return await res.json();
+    return await this.vfs.stat(this.uri(path));
 }
 
 // upload — загрузка файла на сервер:
 async upload(path, file) {
     const uniquePath = await this.uniquePath(path, false);
-    const cleanPath = this.cleanPath(uniquePath);
-
-    const res = await apiProtected(`/api/files/acc2fs/${cleanPath}?type=file`, {
-        method: "POST",
-        body: file
-    });
-
-    if (!res.ok) {
-        throw new Error(`Error uploading file: ${res.statusText}`);
-    }
-
+    await this.vfs.create(this.uri(uniquePath), file);
     return true;
 }
 
@@ -186,14 +162,7 @@ async upload(path, file) {
  ***************************************************************************/
 async mkdir(path) {
     const uniquePath = await this.uniquePath(path, true);
-    const cleanPath = this.cleanPath(uniquePath);
-
-    const res = await apiProtected(`/api/files/acc2fs/${cleanPath}?type=dir`, {
-        method: 'POST'
-    });
-
-    if (!res.ok) throw new Error(`Error creating folder: ${res.statusText}`);
-
+    await this.vfs.mkdir(this.uri(uniquePath));
     return true;
 }
 
@@ -205,36 +174,15 @@ async mkdir(path) {
  * - Возвращает успешный результат операции.
  ***************************************************************************/
 async put(path, content) {
-    const url = `${this.baseUrl}/${path}?op=write`;
-
-    const res = await apiProtected(url, {
-        method: 'PATCH',
-        body: content
-    });
-
-    if (!res.ok) throw new Error(`Error updating file: ${res.statusText}`);
-
+    await this.vfs.write(this.uri(path), content);
     return true;
 }
 
 /***************************************************************************
- * patch — частичное обновление содержимого файла:
- * - Принимает путь к файлу и обновляемое содержимое.
- * - Обновляет часть файла без полной перезаписи.
- * - При неуспешном ответе сервера выбрасывает ошибку.
- * - Возвращает успешный результат операции.
+ * patch — частичная запись не поддерживается VFS API.
  ***************************************************************************/
-async patch(path, content) {
-    const url = `${this.baseUrl}/${path}?op=write`;
-
-    const res = await apiProtected(url, {
-        method: 'PATCH',
-        body: content
-    });
-
-    if (!res.ok) throw new Error(`Error patching file: ${res.statusText}`);
-
-    return true;
+async patch() {
+    throw new Error("Частичная запись через VFS не поддерживается; используйте put() для полной замены файла");
 }
 
 /***************************************************************************
@@ -245,12 +193,7 @@ async patch(path, content) {
  * - Возвращает успешный результат операции.
  ***************************************************************************/
 async delete(path) {
-    const url = `${this.baseUrl}/${path}`;
-
-    const res = await apiProtected(url, { method: 'DELETE' });
-
-    if (!res.ok) throw new Error(`Error deleting: ${res.statusText}`);
-
+    await this.vfs.remove(this.uri(path));
     return true;
 }
 
@@ -262,19 +205,11 @@ async delete(path) {
  * - Возвращает успешный результат операции.
  ***************************************************************************/
 async copy(path, target) {
-    const cleanPath = path.replace(/^\/+/, '');
-    const cleanTarget = target.replace(/^\/+/, '');
+    const cleanPath = this.cleanPath(path);
+    const cleanTarget = this.cleanPath(target);
 
     // Получаем метаданные объекта (файл или папка)
-    const statUrl = `${this.baseUrl}/${cleanPath}?op=stat`;
-    const statRes = await apiProtected(statUrl);
-
-    // Если сервер ничего не вернул — прекращаем выполнение
-    if (!statRes.ok) {
-        throw new Error(`Copy failed: cannot stat source ${cleanPath}`);
-    }
-
-    const statData = await statRes.json();
+    const statData = await this.vfs.stat(this.uri(cleanPath));
 
     // Проверяем тип объекта по флагу is_dir
     if (statData.is_dir === true) {
@@ -284,29 +219,11 @@ async copy(path, target) {
         const uniqueCleanTarget = this.cleanPath(uniqueTarget);
 
         // Получаем список содержимого папки
-        const srcUrl = `${this.baseUrl}/${cleanPath}?op=full-read`;
-        const childrenRes = await apiProtected(srcUrl);
-
         // Защита от пустой папки или null ответа
-        const children = await childrenRes.json();
-
-        // Проверяем, что пришёл массив
-        if (!Array.isArray(children)) {
-            throw new Error(
-                `Copy failed: invalid folder content for ${cleanPath}`
-            );
-        }
+        const children = await this.vfs.readdir(this.uri(cleanPath));
 
         // Создаём папку в целевом месте
-        const createDirUrl = `${this.baseUrl}/${uniqueCleanTarget}?type=dir`;
-        const createDirRes = await apiProtected(createDirUrl, {
-            method: 'POST'
-        });
-
-        // Если не удалось создать папку — прерываем копирование
-        if (!createDirRes.ok) {
-            throw new Error(`Copy failed: cannot create directory ${uniqueCleanTarget}`);
-        }
+        await this.vfs.mkdir(this.uri(uniqueCleanTarget));
 
         // Рекурсивно копируем каждый элемент внутри папки
         for (const child of children) {
@@ -322,36 +239,9 @@ async copy(path, target) {
         const uniqueTarget = await this.uniquePath(cleanTarget, false);
         const uniqueCleanTarget = this.cleanPath(uniqueTarget);
 
-        // Загружаем файл как бинарные данные (Blob)
-        const srcUrl = `/api/files/acc2fs/${cleanPath}?op=full-read`;
-
-        const response = await apiProtected(srcUrl, {
-            headers: {
-                // если есть авторизация — добавляем заголовки
-                ...this.getAuthHeaders?.()
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error(`Copy failed: cannot read file ${cleanPath}`);
-        }
-
         // Преобразуем ответ в Blob (бинарные данные файла)
-        const blob = await response.blob();
-
-        // Формируем URL для создания файла в целевой директории
-        const dstUrl = `/api/files/acc2fs/${uniqueCleanTarget}?type=file`;
-
-        // Отправляем файл на сервер
-        const dstRes = await apiProtected(dstUrl, {
-            method: 'POST',
-            body: blob
-        });
-
-        // Проверяем успешность создания файла
-        if (!dstRes.ok) {
-            throw new Error(`Copy failed: cannot create file ${uniqueCleanTarget}`);
-        }
+        const blob = await this.vfs.readBlob(this.uri(cleanPath));
+        await this.vfs.create(this.uri(uniqueCleanTarget), blob);
     }
 
     return true;
@@ -364,53 +254,59 @@ async copy(path, target) {
  * - Возвращает успешный результат операции.
  ***************************************************************************/
 async move(path, target) {
-    const url = `${this.baseUrl}/${path}?op=move&dest=${encodeURIComponent(target)}`;
-    const res = await apiProtected(url, { method: 'PATCH' });
-    if (!res.ok) throw new Error(`Error moving file: ${res.statusText}`);
+    await this.vfs.move(this.uri(path), this.uri(target));
     return true;
 }
 
 /***************************************************************************
- * getRange — загрузка части файла:
+ * getRange — получение части файла:
  * - Принимает путь к файлу и диапазон байт.
- * - Загружает указанную часть файла с использованием Range-запроса.
+ * - Читает файл целиком и возвращает клиентский срез; VFS Range-запрос не поддерживает.
  * - При неуспешном ответе сервера выбрасывает ошибку.
  * - Возвращает данные файла в бинарном виде.
  ***************************************************************************/
 async getRange(path, start = 0, end = null) {
-    const headers = {};
-
-    if (end !== null) {
-        headers['Range'] = `bytes=${start}-${end}`;
-    }
-
-    const res = await apiProtected(`/api/files/acc2fs/${path}?op=full-read`, {
-        headers
-    });
-
-    if (!res.ok) throw new Error(`Error getting range: ${res.statusText}`);
-
-    return await res.arrayBuffer();
+    // Серверный VFS read не поддерживает Range, поэтому срез выполняется после чтения всего файла.
+    const bytes = await this.vfs.readBytes(this.uri(path));
+    return bytes.slice(start, end === null ? undefined : end + 1).buffer;
 }
 
 /***************************************************************************
- * search — поиск файлов с фильтрацией:
+ * search — рекурсивный поиск файлов и папок с фильтрацией:
  * - Принимает путь каталога и параметры поиска.
- * - Выполняет поиск файлов по заданным условиям.
+ * - Обходит каталог и его подкаталоги.
  * - При неуспешном ответе сервера выбрасывает ошибку.
- * - Возвращает список найденных файлов.
+ * - Возвращает найденные элементы с относительным путём в поле path.
  ***************************************************************************/
 async search(path = '', query = {}) {
-    const params = new URLSearchParams(query);
-    const url = `${this.baseUrl}/${path}?${params.toString()}`;
+    const root = this.cleanPath(path);
+    const results = [];
+    const visited = new Set();
 
-    const data = await apiProtected(url);
+    const visit = async directory => {
+        const cleanDirectory = this.cleanPath(directory);
+        if (visited.has(cleanDirectory)) return;
+        visited.add(cleanDirectory);
 
-    if (!data.ok) {
-        throw new Error(`Error search: ${data.statusText}`);
-    }
+        const entries = await this.vfs.readdir(this.uri(cleanDirectory));
+        for (const item of entries) {
+            const childPath = cleanDirectory
+                ? `${cleanDirectory}/${item.name}`
+                : item.name;
+            const result = { ...item, path: childPath };
 
-    return await data.json();
+            if (Object.entries(query).every(([key, value]) =>
+                String(result[key] ?? "").includes(String(value))
+            )) {
+                results.push(result);
+            }
+
+            if (item.is_dir) await visit(childPath);
+        }
+    };
+
+    await visit(root);
+    return results;
 }
 
 /***************************************************************************
@@ -422,17 +318,11 @@ async search(path = '', query = {}) {
  * - Возвращает Blob (файл или ZIP-архив).
  ***************************************************************************/
 async download(path, fileName) {
-    const res = await apiProtected(`/api/files/acc2fs${path}?op=full-read`);
-
-    const contentType = res.headers.get("content-type") || "";
-
-    const isDir = contentType.includes("application/json");
+    const isDir = (await this.vfs.stat(this.uri(path))).is_dir;
 
     // файл
     if (!isDir) {
-        if (!res.ok) throw new Error(`Error downloading file: ${res.statusText}`);
-
-        const blob = await res.blob();
+        const blob = await this.vfs.readBlob(this.uri(path));
 
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
@@ -444,10 +334,6 @@ async download(path, fileName) {
     }
 
     // папка
-    if (!res.ok) throw new Error(`Error downloading folder: ${res.statusText}`);
-
-    const files = await res.json();
-
     await this.downloadZip([path], fileName);
 }
 
@@ -457,21 +343,25 @@ async download(path, fileName) {
  * - поддерживает файлы и директории (рекурсивно)
  ***************************************************************************/
 async downloadZip(paths, zipName = "archive.zip") {
-    const { zipSync } = await loadBlock("plugin/zipArchiver", "zipArchiver", null, "importJs");
+    const zipModule = await loadBlock(
+        "plugin/zipArchiver",
+        document.createElement("div"),
+        false,
+        "importJs"
+    );
+    if (!zipModule || typeof zipModule.zipSync !== "function") {
+        throw new Error("Не удалось загрузить функцию zipSync из plugin/zipArchiver");
+    }
+    const { zipSync } = zipModule;
 
     const filesMap = {};
 
     const read = async (basePath, node) => {
         const path = `${basePath}/${node.name}`;
-
-        const res = await apiProtected(`/api/files/acc2fs${path}?op=full-read`);
-        const ct = res.headers.get("content-type") || "";
-
-        const isDir = ct.includes("application/json");
+        const isDir = (await this.vfs.stat(this.uri(path))).is_dir;
 
         if (isDir) {
-            const children = await res.json();
-            if (!Array.isArray(children)) return;
+            const children = await this.vfs.readdir(this.uri(path));
 
             for (const c of children) {
                 await read(path, c);
@@ -479,28 +369,22 @@ async downloadZip(paths, zipName = "archive.zip") {
             return;
         }
 
-        const buf = new Uint8Array(await (await res.blob()).arrayBuffer());
+        const buf = await this.vfs.readBytes(this.uri(path));
         filesMap[path.replace(/^\//, "")] = buf;
     };
 
     for (const p of paths) {
         const path = typeof p === "string" ? p : p.name;
 
-        const res = await apiProtected(`/api/files/acc2fs${path}?op=full-read`);
-        const ct = res.headers.get("content-type") || "";
-
-        const isDir = ct.includes("application/json");
+        const isDir = (await this.vfs.stat(this.uri(path))).is_dir;
 
         if (isDir) {
-            const children = await res.json();
-
-            if (Array.isArray(children)) {
-                for (const c of children) {
-                    await read(path, c);
-                }
+            const children = await this.vfs.readdir(this.uri(path));
+            for (const c of children) {
+                await read(path, c);
             }
         } else {
-            const buf = new Uint8Array(await (await res.blob()).arrayBuffer());
+            const buf = await this.vfs.readBytes(this.uri(path));
             const name = path.split("/").filter(Boolean).pop();
             filesMap[name] = buf;
         }
@@ -543,10 +427,12 @@ class FileManager {
   }
 
 /***************************************************************************
- * init — загружает содержимое корневого каталога.
+ * init — загружает содержимое начального каталога.
  ***************************************************************************/
 async init() {
-  this.currentFiles = await f.list(await this.msg.getData());
+  const initialPath = this.api.cleanPath(await this.msg.getData());
+  this.cwd = initialPath ? `/${initialPath}` : '/';
+  this.currentFiles = await this.api.list(this.cwd);
   //console.log(this.currentFiles);
     this.updateCwdDisplay();
     this.sortFiles();
@@ -597,8 +483,9 @@ sortFiles() {
  * Переменные для хранения текущее состояние файлового менеджера.
  ***************************************************************************/
 async openDir(path) {
-    this.currentFiles = await f.list(path);
-    this.cwd = path;
+    const cleanPath = this.api.cleanPath(path);
+    this.currentFiles = await this.api.list(cleanPath);
+    this.cwd = cleanPath ? `/${cleanPath}` : '/';
 
     this.updateCwdDisplay();
     this.sortFiles();
@@ -655,9 +542,9 @@ async renderFiles() {
       const header = document.createElement('div');
       header.id = 'files_header';
       header.innerHTML = `
-        <div style="margin-left: 5px;">Имя</div>
-        <div>Размер</div>
-        <div>Дата</div>
+        <div style="margin-left: 5px;">${window.translate('Name')}</div>
+        <div>${window.translate('Size')}</div>
+        <div>${window.translate('Date')}</div>
       `;
       container.appendChild(header);
     }
@@ -666,7 +553,7 @@ async renderFiles() {
         container.innerHTML = `
             <div class="file_main_empty">
                 <div class="file_icon_empty">🔍</div>
-                <div class="file_name_empty">Такой папки не существует</div>
+                <div class="file_name_empty">${window.translate('This folder does not exist')}</div>
             </div>
         `;
         container.classList.add('empty');
@@ -675,7 +562,7 @@ async renderFiles() {
         container.innerHTML = `
             <div class="file_main_empty">
                 <div class="file_icon_empty">📁</div>
-                <div class="file_name_empty">Папка пуста</div>
+                <div class="file_name_empty">${window.translate('Folder is empty')}</div>
             </div>
         `;
         container.classList.add('empty');
@@ -803,14 +690,9 @@ class MsgClient {
  ***************************************************************************/
   async getData() {
     this.data = await tempStore.getByRecipient("fManager");
-    let urlPath;
-    if (this.data){
-    if (this.data?.[0]?.path) {
-      urlPath = this.data[0].path;
-    } else if (this.data[0].path === '/') {
-      urlPath = '';
-    }} else {urlPath = "/"}
-    return urlPath
+    const message = this.data?.[0];
+    const path = message?.path ?? message?.data?.path;
+    return typeof path === "string" && path.trim() ? path : "/";
   }
 
 /***************************************************************************
@@ -862,8 +744,15 @@ const filesView = document.getElementById('files_view');
  * - Удаляет связанные динамические стили и скрипты.
  ***************************************************************************/
 closeBtn.addEventListener('click', () => {
-    const f_m = document.getElementById("fManager");
-    if (f_m) f_m.remove();
+    const container = document.getElementById('fManagerContainer');
+
+    if (container) {
+        container.remove();
+    } else {
+        const f_m = document.getElementById("fManager");
+        if (f_m) f_m.remove();
+    }
+
     document.querySelectorAll('[data-dynamic="fManager"]').forEach(el => el.remove());
 });
 
@@ -1314,29 +1203,42 @@ filesView.addEventListener("click", () => {
 /***************************************************************************
  * listTfoot — управление нижней панелью действий:
  * - Отображает нижнюю панель файлового менеджера.
- * - Назначает действие кнопки в зависимости от режима.
+ * - Назначает подтверждение выбранного пути.
  ***************************************************************************/
 function listTfoot(act) {
     const toolbarBottom = document.getElementById('toolbarBottom');
     toolbarBottom.style.display = '';
-    
-    if (act === 'loadBlock') {
+
+    if (act === 'loadBlock' || act === 'saveBlock') {
         const bottomBtn = document.getElementById('bottomBtn');
         bottomBtn.onclick = () => submitPath();
     }
 }
 
 /***************************************************************************
- * submitBlockPath — подтверждение выбора:
- * - Формирование пути по текущему каталогу и вводу пользователя.
- * - Передача пути через tempStore.
- * - Вызов callback-функции.
- * - Закрытие файлового менеджера.
+ * submitPath — подтверждение выбора:
+ * - Формирует путь по текущему каталогу и введённому имени.
+ * - Если имя не введено, возвращает текущую папку.
+ * - Передаёт путь через tempStore и вызывает callback.
+ * - Закрывает файловый менеджер.
  ***************************************************************************/
 async function submitPath() {
     const input = document.getElementById('bottomInput');
-    let path = fm.cwd + '/' + input.value;
+    const selected = getSelectedItems();
+
+    // Получение пути выделенного элемента
+    let path = selected.length === 1
+        ? selected[0].dataset.path
+        : fm.cwd;
+
+    // Если введено имя, используем его относительно текущей папки
+    if (input.value.trim()) {
+        path = fm.cwd.replace(/\/+$/, '') + '/' + input.value.trim();
+    }
+
+    // Нормализация пути
     path = path.replace(/^\/data\/HTML\/block\//, '');
+
     await M.setData(path);
     await M.callBack();
     closeBtn.click();
@@ -1585,7 +1487,7 @@ function searchByName() {
             div.className = "file_main_empty";
             div.innerHTML = `
                 <div class="file_icon_empty">🔍</div>
-                <div class="file_name_empty">Ничего не найдено</div>
+                <div class="file_name_empty">${window.translate('No results found')}</div>
             `; 
             filesView.classList.add('empty');
             filesView.appendChild(div);
@@ -1790,23 +1692,23 @@ function validateRename(name, type) {
     if (!rule) return null;
 
     if (name.length > rule.maxLength) {
-        return "Слишком длинное имя";
+        return window.translate("Name is too long");
     }
 
     if (rule.forbiddenChars.some(ch => name.includes(ch))) {
-        return "Запрещенные символы";
+        return window.translate("Forbidden characters");
     }
 
     if (rule.cannotStartWith.some(ch => name.startsWith(ch))) {
-        return "Недопустимое начало имени";
+        return window.translate("Invalid name beginning");
     }
 
     if (rule.cannotEndWith.some(ch => name.endsWith(ch))) {
-        return "Недопустимое окончание имени";
+        return window.translate("Invalid name ending");
     }
 
     if (name === "." || name === "..") {
-        return "Недопустимое имя";
+        return window.translate("Invalid name");
     }
 
     return null;
@@ -2155,7 +2057,7 @@ class ContextMenu {
         const selected = getSelectedItems();
         if (selected.length === 0) return;
 
-        const ok = confirm(`Удалить ${selected.length} файл(ов)?`);
+        const ok = confirm(`${window.translate('Delete')} ${selected.length} file(s)?`);
         if (!ok) return;
 
         for (const item of selected) {
@@ -2584,11 +2486,11 @@ class FilePropertiesManager {
 
         win.table.innerHTML = `
             <tr>
-                <td>Название</td>
+                <td>${window.translate('Name')}</td>
                 <td>${fileName}</td>
             </tr>
             <tr>
-                <td>Путь</td>
+                <td>${window.translate('Path')}</td>
                 <td>${path}</td>
             </tr>
         `;
@@ -2599,15 +2501,15 @@ class FilePropertiesManager {
             if (key === "size") {
                 win.table.innerHTML += `
                     <tr>
-                        <td>Размер</td>
-                        <td>${value} байт</td>
+                        <td>${window.translate('Size')}</td>
+                        <td>${value} ${window.translate('bytes')}</td>
                     </tr>
                 `;
             } else if (key === "is_dir") {
                 win.table.innerHTML += `
                     <tr>
-                        <td>Тип</td>
-                        <td>${value ? "Папка" : "Файл"}</td>
+                        <td>${window.translate('Type')}</td>
+                        <td>${value ? window.translate("Folder") : window.translate("File")}</td>
                     </tr>
                 `;
             } else {

@@ -1545,8 +1545,8 @@ function updateGridPositionOptions(element) {
     const columnValue = element.style.gridColumnStart || 'auto';
     const rowValue = element.style.gridRowStart || 'auto';
 
-    gridItemColumn.innerHTML = '<option value="auto">Автоматически</option>';
-    gridItemRow.innerHTML = '<option value="auto">Автоматически</option>';
+    gridItemColumn.innerHTML = `<option value="auto">${window.translate('Automatically')}</option>`;
+    gridItemRow.innerHTML = `<option value="auto">${window.translate('Automatically')}</option>`;
 
     for (let index = 1; index <= columns; index++) {
         const option = document.createElement('option');
@@ -1810,7 +1810,7 @@ function handleVariantAdd(event) {
     const variants = getElementVariants(element);
 
     variants.push({
-        name: `Шаблон ${variants.length + 1}`,
+        name: `${window.translate('Template')} ${variants.length + 1}`,
         style: element.getAttribute('style') || ''
     });
 
@@ -2283,7 +2283,7 @@ function createBreakpointStore(element) {
         ranges: [
             {
                 id: 'all',
-                name: 'Все размеры',
+                name: window.translate('All sizes'),
                 min: null,
                 max: null,
                 isBase: true,
@@ -2343,7 +2343,7 @@ function isBaseBreakpoint() {
 *** */
 function formatBreakpointLabel(range) {
     if (range.isBase) {
-        return 'Все размеры';
+        return window.translate('All sizes');
     }
 
     if (range.name) {
@@ -2364,7 +2364,7 @@ function formatBreakpointLabel(range) {
 *** */
 function formatBreakpointRange(range) {
     if (!range || range.isBase) {
-        return 'все размеры';
+        return window.translate('all sizes');
     }
 
     if (range.max === null) {
@@ -2429,15 +2429,15 @@ function renderBreakpointTabs() {
     const presets = [
         {
             value: 'preset-mobile',
-            label: 'Телефон 0-640'
+            label: window.translate('Mobile 0-640')
         },
         {
             value: 'preset-tablet',
-            label: 'Планшет 641-1024'
+            label: window.translate('Tablet 641-1024')
         },
         {
             value: 'preset-desktop',
-            label: 'Компьютер 1025+'
+            label: window.translate('Desktop 1025+')
         }
     ];
 
@@ -2465,7 +2465,7 @@ function updateBreakpointHint() {
         return;
     }
 
-    breakpointHint.textContent = range.isBase ? 'Базовые настройки применяются ко всем размерам экрана.' : `Изменения применяются только при ширине ${formatBreakpointRange(range)}px.`;
+    breakpointHint.textContent = range.isBase ? window.translate('Base settings apply to all screen sizes.') : `${window.translate('Changes apply only at a width of')} ${formatBreakpointRange(range)}px.`;
 }
 
 /* ***
@@ -2483,7 +2483,7 @@ function updateBreakpointStatus() {
 
     if (range.isBase) {
         if (breakpointStatus) {
-            breakpointStatus.textContent = 'Базовые свойства';
+            breakpointStatus.textContent = window.translate('Base properties');
         }
 
         if (resetBreakpoint) {
@@ -2496,7 +2496,7 @@ function updateBreakpointStatus() {
     const changeCount = countBreakpointOverrides(range);
 
     if (breakpointStatus) {
-        breakpointStatus.textContent = changeCount ? `Изменено свойств: ${changeCount}` : 'Используются базовые свойства';
+        breakpointStatus.textContent = changeCount ? `${window.translate('Changed properties')}: ${changeCount}` : window.translate('Using base properties');
     }
 
     if (resetBreakpoint) {
@@ -2689,17 +2689,17 @@ function createPresetBreakpoint(presetId) {
 
     const presets = {
         'preset-mobile': {
-            name: 'Телефон',
+            name: window.translate('Mobile'),
             min: 0,
             max: 640
         },
         'preset-tablet': {
-            name: 'Планшет',
+            name: window.translate('Tablet'),
             min: 641,
             max: 1024
         },
         'preset-desktop': {
-            name: 'Компьютер',
+            name: window.translate('Desktop'),
             min: 1025,
             max: null
         }
@@ -2826,7 +2826,7 @@ function duplicateActiveBreakpoint() {
     const copy = cloneBreakpointValue(range);
 
     copy.id = `bp-${store.counter}`;
-    copy.name = range.name ? `${range.name} копия` : '';
+    copy.name = range.name ? `${range.name} ${window.translate('copy')}` : '';
 
     store.ranges.push(copy);
     store.activeId = copy.id;

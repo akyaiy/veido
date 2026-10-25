@@ -34,6 +34,10 @@ function openFileMenu(event) {
  * - если да, скрывает меню файлов
 *** */
 function closeFileMenu(event) {
+    if (!fileMenuButton || !fileMenuList || !fileMenuButton.isConnected || !fileMenuList.isConnected) {
+        return;
+    }
+
     if (!fileMenuButton.contains(event.target)) {
         fileMenuList.style.display = 'none';
     }
@@ -51,50 +55,150 @@ document.addEventListener('click', closeFileMenu);
  * Действия файлового меню
 === */
 
-async function executeFileMenuAction(action) {
-    let blockContent = null;
+// Путь текущего файла
+let editorBlockFileUri = null;
 
+// Преобразование пути в VFS URI
+function editorBlockUri(path) {
+    return path.includes(':///')
+        ? path
+        : window.VFS_ROOT + path.replace(/^\/+/, '');
+}
+
+/* ***
+ * openEditorFileManager - открытие файлового менеджера
+ * - передаёт начальный путь и действие файловому менеджеру
+ * - указывает функцию для возврата выбранного пути
+*** */
+let editorBlockFileAction = null;
+
+async function openEditorFileManager(action, path = '/') {
+    editorBlockFileAction = action;
+
+    await window.tempStore.store({
+        path: path,
+        sender: 'editorBlock',
+        callbackFun: 'editorBlockFileSelected',
+        listTfootAct: 'loadBlock'
+    }, {
+        recipient: 'fManager',
+        ttlMs: 60000,
+        destroyOnRead: true
+    });
+
+    // Создание отдельного контейнера для файлового менеджера
+    const container = document.createElement('div');
+    container.id = 'fManagerContainer';
+    document.body.appendChild(container);
+
+    // Загрузка файлового менеджера в контейнер
+    await loadBlock('plugin/fManager', container);
+}
+
+/* ***
+ * editorBlockFileSelected - получение выбранного пути
+ * - получает путь от файлового менеджера
+ * - открывает блок или сохраняет его в выбранную папку
+*** */
+window.editorBlockFileSelected = async function editorBlockFileSelected() {
+    const messages = await window.tempStore.getByRecipient('editorBlock');
+    const path = messages?.[0]?.data?.path;
+
+    if (!path) return;
+
+    if (editorBlockFileAction === 'open') {
+        await window.editorBlock.openBlock(path.replace(/^\/+/, ''));
+    } else {
+        await saveEditorBlock(false, path);
+    }
+};
+
+/* ***
+ * saveEditorBlock - сохранение блока
+ * - получает путь текущего блока
+ * - при необходимости открывает файловый менеджер
+ * - сохраняет HTML, CSS и JS через VFSv2
+*** */
+async function saveEditorBlock(saveAs = false, selectedPath = null) {
+    const blockId = window.editorBlock.currentBlockId;
+    if (!blockId) return;
+
+    const block = document.getElementById(blockId);
+    if (!block) return;
+
+    // Получение пути папки
+    let path = block.dataset.path;
+
+    // Выбор папки для нового блока или "Сохранить как"
+    if (!selectedPath && (!path || saveAs)) {
+        await openEditorFileManager('save', path || '/');
+        return;
+    }
+
+    path = selectedPath || path;
+    path = path.trim().replace(/^\/+|\/+$/g, '');
+
+    // Сохранение изменений редактора
+    window.editorBlock.savePreviousBlock(blockId);
+
+    const html = document.getElementById(blockId + 'Html')?.textContent ?? '';
+    const css = document.getElementById(blockId + 'Css')?.textContent ?? '';
+    const js = document.getElementById(blockId + 'Js')?.textContent ?? '';
+
+    try {
+        // Сохранение трёх файлов
+        for (const [name, content] of [
+            ['content.md', html],
+            ['style.css', css],
+            ['script.js', js]
+        ]) {
+            const uri = editorBlockUri(path + '/' + name);
+
+            if (await window.vfs.exists(uri)) {
+                await window.vfs.write(uri, content);
+            } else {
+                await window.vfs.create(
+                    uri,
+                    new Blob([content], { type: 'text/plain' })
+                );
+            }
+        }
+
+        // Запоминаем путь папки для следующего сохранения
+        block.dataset.path = path;
+    } catch (error) {
+        console.error('Ошибка сохранения блока:', error);
+    }
+}
+
+/* ***
+ * executeFileMenuAction - выполнение действия файлового меню
+ * - принимает действие (save, saveAs, open, new, pageProperties)
+ * - выполняет соответствующее действие
+*** */
+async function executeFileMenuAction(action) {
     switch (action) {
         case 'save':
-            blockContent = window.editorBlock.saveBlock();
-
-            // Заменить потом!!!!!
-            const blob = new Blob([blockContent], { type: 'application/zip' });
-            const downloadUrl = URL.createObjectURL(blob);
-            const downloadLink = document.createElement('a');
-            downloadLink.href = downloadUrl;
-            downloadLink.download = 'block.json';
-            downloadLink.click();
-            URL.revokeObjectURL(downloadUrl);
-
+            await saveEditorBlock();
             break;
 
         case 'saveAs':
-            blockContent = window.editorBlock.saveBlock();
-
-            // Заменить потом!!!!!
-            const blob2 = new Blob([blockContent], { type: 'application/zip' });
-            const downloadUrl2 = URL.createObjectURL(blob2);
-            const downloadLink2 = document.createElement('a');
-            downloadLink2.href = downloadUrl2;
-            downloadLink2.download = 'block.json';
-            downloadLink2.click();
-            URL.revokeObjectURL(downloadUrl2);
-
+            await saveEditorBlock(true);
             break;
 
         case 'open':
-            const path = await window.editorBlock.prompt('Введите путь к файлу для открытия:');
-            if (path === null || path.trim() === '') return;
-            await window.editorBlock.openBlock(path);
+            // Открытие файлового менеджера для выбора блока
+            await openEditorFileManager('open');
             break;
 
         case 'new':
             window.editorBlock.newBlock();
+            editorBlockFileUri = null;
             break;
 
         case 'pageProperties':
-            if (window.editorBlock && typeof window.editorBlock.openPageProperties === 'function') {
+            if (window.editorBlock &&
+                typeof window.editorBlock.openPageProperties === 'function') {
                 window.editorBlock.openPageProperties();
             }
             break;

@@ -1,5 +1,5 @@
 <!-- Таблица атрибутов -->
-<div>Атрибуты элемента</div>
+<div>#{Element attributes}</div>
 <table id="attributesPanel">
     <tr>
         <td><input placeholder="attribute"></td>

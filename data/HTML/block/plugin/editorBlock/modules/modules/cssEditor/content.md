@@ -1,10 +1,10 @@
 <!-- Таблица CSS -->
-<div>Свойства элемента (CSS)</div>
+<div>#{Element properties (CSS)}</div>
 <table id="cssPanel">
 
 <tbody data-type="element">
     <tr>
-        <td colspan="2">Inline стиль (style="")</td>
+        <td colspan="2">#{Inline style (style="")}</td>
     </tr>
     <tr>
         <td><input placeholder="property"></td>
@@ -23,7 +23,7 @@
 
 <tbody data-type="class">
     <tr>
-        <td colspan="2">Класс (.class)</td>
+        <td colspan="2">#{Class (.class)}</td>
     </tr>
     <tr>
         <td><input placeholder="property"></td>
@@ -32,7 +32,7 @@
 </tbody>
 <tbody data-type="tag">
     <tr>
-        <td colspan="2">Тег (tag)</td>
+        <td colspan="2">#{Tag (tag)}</td>
     </tr>
     <tr>
         <td><input placeholder="property"></td>
@@ -42,7 +42,7 @@
 
 <tbody data-type="attribute">
     <tr>
-        <td colspan="2">Атрибут (attribute selector)</td>
+        <td colspan="2">#{Attribute (attribute selector)}</td>
     </tr>
     <tr>
         <td><input placeholder="property"></td>
@@ -51,7 +51,7 @@
 </tbody>
 <tbody data-type="pseudo">
     <tr>
-        <td colspan="2">Псевдокласс (:hover, :focus)</td>
+        <td colspan="2">#{Pseudo-class (:hover, :focus)}</td>
     </tr>
     <tr>
         <td><input placeholder="property"></td>

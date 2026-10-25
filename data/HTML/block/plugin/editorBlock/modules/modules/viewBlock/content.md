@@ -4,8 +4,8 @@
 <div id="jsEditor" style="display: none;"></div>
 
 <div id="editorsTabs">
-    <div class="editorsTab" id="viewEditorButton">Внешний вид</div>
-    <div class="editorsTab" id="mdEditorButton">MD + HTML код</div>
-    <div class="editorsTab" id="cssEditorButton">CSS код</div>
-    <div class="editorsTab" id="jsEditorButton">JS код</div>
+    <div class="editorsTab" id="viewEditorButton">#{Preview}</div>
+    <div class="editorsTab" id="mdEditorButton">#{MD + HTML code}</div>
+    <div class="editorsTab" id="cssEditorButton">#{CSS code}</div>
+    <div class="editorsTab" id="jsEditorButton">#{JS code}</div>
 </div>

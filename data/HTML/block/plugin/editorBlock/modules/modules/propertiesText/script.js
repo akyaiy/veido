@@ -1185,11 +1185,16 @@ function getListPropertyValue() {
  * - отдает null
 *** */
 function updateActiveStates() {
+    const editorRoot = document.getElementById('editorBlock');
+    if (!editorRoot) {
+        return null;
+    }
+
     const range = getSelectedRange();
     const hasSelection = Boolean(range && !range.collapsed);
 
-    const buttons = document.getElementById('editorBlock').querySelectorAll('[data-simpleformats-button]');
-    const selectWrappers = document.getElementById('editorBlock').querySelectorAll('.propertiesList');
+    const buttons = editorRoot.querySelectorAll('[data-simpleformats-button]');
+    const selectWrappers = editorRoot.querySelectorAll('.propertiesList');
 
     buttons.forEach(button => {
         button.style.display = hasSelection ? '' : 'none';
@@ -1263,7 +1268,7 @@ function updateActiveStates() {
         }
     }
 
-    const selects = document.getElementById('editorBlock').querySelectorAll('[data-property-item]');
+    const selects = editorRoot.querySelectorAll('[data-property-item]');
 
     for (const select of selects) {
         const propertyName = select.getAttribute('data-property-item');
@@ -1348,7 +1353,7 @@ async function handleFormatClick(event) {
                 anchor: buttonElement
             });
         } else {
-            const colorValue = await window.editorBlock.prompt('Введите цвет (например, #516ed7 или red):', initialColor);
+            const colorValue = await window.editorBlock.prompt(window.translate('Enter a color (for example, #516ed7 or red):'), initialColor);
             if (colorValue !== null) {
                 applyInlineStyle(formatConfig.property, colorValue);
             }
@@ -1417,6 +1422,10 @@ function handleSelectChange(event) {
  * - отдает null
 *** */
 function handleSelectionChange(event) {
+    if (!document.getElementById('editorBlock')) {
+        return null;
+    }
+
     updateActiveStates();
     return null;
 }
@@ -1482,7 +1491,8 @@ attachTextFormatShortcutHandlers(document);
 window.editorBlock.attachTextFormatShortcutHandlers = attachTextFormatShortcutHandlers;
 
 // Поиск кнопок на панели форматирования
-const actionButtons = document.getElementById('editorBlock').querySelectorAll('[data-simpleformats-button]');
+const editorRoot = document.getElementById('editorBlock');
+const actionButtons = editorRoot?.querySelectorAll('[data-simpleformats-button]') ?? [];
 
 // Навешивание обработчиков событий для кнопок
 for (const actionButton of actionButtons) {
@@ -1490,7 +1500,7 @@ for (const actionButton of actionButtons) {
 }
 
 // Поиск выпадающих списков на панели форматирования
-const actionSelects = document.getElementById('editorBlock').querySelectorAll('[data-property-item]');
+const actionSelects = editorRoot?.querySelectorAll('[data-property-item]') ?? [];
 
 // Навешивание обработчиков событий для выпадающих списков
 for (const actionSelect of actionSelects) {

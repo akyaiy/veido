@@ -1,19 +1,19 @@
 <div id="propertiesSelectorPanel">
     <select id="propertiesSelectorType">
-        <option value="element">Выбранный элемент</option>
+        <option value="element">#{Selected element}</option>
         <option value="id">ID</option>
-        <option value="class">Группа</option>
+        <option value="class">#{Group}</option>
     </select>
-    <input id="propertiesSelectorName" type="text" placeholder="Имя" style="display: none;">
+    <input id="propertiesSelectorName" type="text" placeholder="#{Name}" style="display: none;">
     <select id="propertiesSelectorExisting" style="display: none;"></select>
 </div>
 
 <div class="propertiesElementTabsMain">
-    <div class="propertiesElementTabMain active" data-properties-tab="main">Основные</div>
-    <div class="propertiesElementTabMain" data-properties-tab="grid">Сетка</div>
-    <div class="propertiesElementTabMain" data-properties-tab="text">Текст</div>
-    <div class="propertiesElementTabMain" data-properties-tab="advanced">Дополнительные</div>
-    <div class="propertiesElementTabMain" data-properties-tab="special">Особенные</div>
+    <div class="propertiesElementTabMain active" data-properties-tab="main">#{Main}</div>
+    <div class="propertiesElementTabMain" data-properties-tab="grid">#{Grid}</div>
+    <div class="propertiesElementTabMain" data-properties-tab="text">#{Text}</div>
+    <div class="propertiesElementTabMain" data-properties-tab="advanced">#{Advanced}</div>
+    <div class="propertiesElementTabMain" data-properties-tab="special">#{Special}</div>
 </div>
 
 
@@ -26,20 +26,20 @@
 
 <div data-target="all">ID: <input type="text" data-prop="id"></div>
 
-<div data-target="all">Ширина: <input data-prop="widthValue"></div>
-<div data-target="all">Высота: <input data-prop="heightValue"></div>
+<div data-target="all">#{Width}: <input data-prop="widthValue"></div>
+<div data-target="all">#{Height}: <input data-prop="heightValue"></div>
 
-<div data-target="block">Режим отображения: <select data-prop="display">
-    <option value="">По умолчанию</option>
-    <option value="block">Блок</option>
-    <option value="inline">В строке</option>
-    <option value="inline-block">Блок в строке</option>
-    <option value="flex">Гибкое расположение</option>
-    <option value="grid">Сетка</option>
-    <option value="none">Скрыть</option>
+<div data-target="block">#{Display mode}: <select data-prop="display">
+    <option value="">#{Default}</option>
+    <option value="block">#{Block}</option>
+    <option value="inline">#{Inline}</option>
+    <option value="inline-block">#{Inline block}</option>
+    <option value="flex">#{Flex layout}</option>
+    <option value="grid">#{Grid}</option>
+    <option value="none">#{Hide}</option>
 </select></div>
 
-<div data-target="div main section article">Подключение блока: <input type="text" data-prop="data-block-src"></div>
+<div data-target="div main section article">#{Block source}: <input type="text" data-prop="data-block-src"></div>
 
 </div>
 
@@ -99,104 +99,104 @@
 <!-- Диапазон экрана -->
 <div class="breakpointSettings" data-target="grid flex">
 
-<div>Диапазон экрана:
+<div>#{Screen range}:
     <select data-prop="breakpointSelect">
-        <option value="all" selected>Все диапазоны</option>
-        <option value="preset-mobile">Телефон 0-640</option>
-        <option value="preset-tablet">Планшет 641-1024</option>
-        <option value="preset-desktop">Компьютер 1025+</option>
+        <option value="all" selected>#{All ranges}</option>
+        <option value="preset-mobile">#{Mobile 0-640}</option>
+        <option value="preset-tablet">#{Tablet 641-1024}</option>
+        <option value="preset-desktop">#{Desktop 1025+}</option>
     </select>
     <button type="button" data-action="addBreakpoint">+</button>
 </div>
 
-<div data-breakpoint-edit>Начало диапазона: <input data-prop="breakpointStart" type="number" min="0"></div>
-<div data-breakpoint-edit>Конец диапазона: <input data-prop="breakpointEnd" type="number" min="0"></div>
-<div data-breakpoint-edit>Название диапазона: <input data-prop="breakpointName" type="text"></div>
+<div data-breakpoint-edit>#{Range start}: <input data-prop="breakpointStart" type="number" min="0"></div>
+<div data-breakpoint-edit>#{Range end}: <input data-prop="breakpointEnd" type="number" min="0"></div>
+<div data-breakpoint-edit>#{Range name}: <input data-prop="breakpointName" type="text"></div>
 
 <div data-breakpoint-edit>
-    <button type="button" data-action="duplicateBreakpoint">Дублировать</button>
-    <button type="button" data-action="removeBreakpoint">Удалить</button>
+    <button type="button" data-action="duplicateBreakpoint">#{Duplicate}</button>
+    <button type="button" data-action="removeBreakpoint">#{Delete}</button>
 </div>
 
 <div>
-    <span data-prop="breakpointStatus">Общие настройки</span>
-    <button type="button" data-action="resetBreakpoint">Сбросить изменения</button>
+    <span data-prop="breakpointStatus">#{Shared settings}</span>
+    <button type="button" data-action="resetBreakpoint">#{Reset changes}</button>
 </div>
 
 </div>
 
 <!-- Вкладки -->
 <div class="propertiesElementTabs">
-    <div class="propertiesElementTab active" data-tab="main">Базовые</div>
-    <div class="propertiesElementTab" data-tab="advanced">Расширенные</div>
-    <div class="propertiesElementTab" data-tab="selectedItem">Выбранный элемент</div>
+    <div class="propertiesElementTab active" data-tab="main">#{Basic}</div>
+    <div class="propertiesElementTab" data-tab="advanced">#{Advanced}</div>
+    <div class="propertiesElementTab" data-tab="selectedItem">#{Selected element}</div>
 </div>
 
 <!-- Главная -->
 <div class="tabContent active" data-tab-content="main">
 
-<div data-target="grid flex">Тип макета:
+<div data-target="grid flex">#{Layout type}:
     <select data-prop="layoutType">
-        <option value="grid">Grid - сетка</option>
-        <option value="flex">Flex - ряд или столбец</option>
+        <option value="grid">#{Grid layout}</option>
+        <option value="flex">#{Flex row or column}</option>
     </select>
 </div>
 
-<div data-target="grid">Готовая раскладка:
+<div data-target="grid">#{Preset layout}:
     <select data-prop="gridPreset">
-        <option value="cards">Карточки с автоколонками</option>
-        <option value="twoColumns">Две равные колонки</option>
-        <option value="mainSidebar">Основное + панель справа</option>
-        <option value="sidebarMain">Панель слева + основное</option>
-        <option value="page">Верх + содержимое + низ</option>
-        <option value="dashboard">Панель</option>
+        <option value="cards">#{Cards with auto columns}</option>
+        <option value="twoColumns">#{Two equal columns}</option>
+        <option value="mainSidebar">#{Main content + right sidebar}</option>
+        <option value="sidebarMain">#{Left sidebar + main content}</option>
+        <option value="page">#{Header + content + footer}</option>
+        <option value="dashboard">#{Dashboard}</option>
     </select>
 </div>
 
-<div data-target="grid">Количество колонок: <input data-prop="gridColumns" type="number" min="1" max="12"></div>
-<div data-target="grid">Количество строк: <input data-prop="gridRows" type="number" min="1" max="12"></div>
-<div data-target="grid">Отступ между элементами: <input data-prop="gridGap" type="number" min="0"></div>
+<div data-target="grid">#{Number of columns}: <input data-prop="gridColumns" type="number" min="1" max="12"></div>
+<div data-target="grid">#{Number of rows}: <input data-prop="gridRows" type="number" min="1" max="12"></div>
+<div data-target="grid">#{Gap between items}: <input data-prop="gridGap" type="number" min="0"></div>
 
-<div data-target="flex">Готовая раскладка:
+<div data-target="flex">#{Preset layout}:
     <select data-prop="flexPreset">
-        <option value="row">В ряд</option>
-        <option value="column">В столбец</option>
-        <option value="between">По краям</option>
-        <option value="center">По центру</option>
-        <option value="evenly">Равные промежутки</option>
-        <option value="wrap">С переносом</option>
+        <option value="row">#{Row}</option>
+        <option value="column">#{Column}</option>
+        <option value="between">#{Space between}</option>
+        <option value="center">#{Center}</option>
+        <option value="evenly">#{Even spacing}</option>
+        <option value="wrap">#{Wrap}</option>
     </select>
 </div>
 
-<div data-target="flex">Направление:
+<div data-target="flex">#{Direction}:
     <select data-prop="flexDirection">
-        <option value="row">Слева направо</option>
-        <option value="column">Сверху вниз</option>
-        <option value="row-reverse">Справа налево</option>
-        <option value="column-reverse">Снизу вверх</option>
+        <option value="row">#{Left to right}</option>
+        <option value="column">#{Top to bottom}</option>
+        <option value="row-reverse">#{Right to left}</option>
+        <option value="column-reverse">#{Bottom to top}</option>
     </select>
 </div>
 
-<div data-target="flex">Отступ между элементами: <input data-prop="flexGap" type="number" min="0"></div>
-<div data-target="flex">Переносить элементы: <input data-prop="flexWrap" type="checkbox"></div>
+<div data-target="flex">#{Gap between items}: <input data-prop="flexGap" type="number" min="0"></div>
+<div data-target="flex">#{Wrap items}: <input data-prop="flexWrap" type="checkbox"></div>
 
-<div data-target="flex">Расположение по направлению:
+<div data-target="flex">#{Justify content}:
     <select data-prop="flexJustify">
-        <option value="flex-start">В начале</option>
-        <option value="center">По центру</option>
-        <option value="flex-end">В конце</option>
-        <option value="space-between">По краям</option>
-        <option value="space-around">Равномерно</option>
-        <option value="space-evenly">Одинаковые промежутки</option>
+        <option value="flex-start">#{Start}</option>
+        <option value="center">#{Center}</option>
+        <option value="flex-end">#{End}</option>
+        <option value="space-between">#{Space between}</option>
+        <option value="space-around">#{Space around}</option>
+        <option value="space-evenly">#{Even spacing}</option>
     </select>
 </div>
 
-<div data-target="flex">Выравнивание элементов:
+<div data-target="flex">#{Align items}:
     <select data-prop="flexAlign">
-        <option value="stretch">Растянуть</option>
-        <option value="flex-start">В начале</option>
-        <option value="center">По центру</option>
-        <option value="flex-end">В конце</option>
+        <option value="stretch">#{Stretch}</option>
+        <option value="flex-start">#{Start}</option>
+        <option value="center">#{Center}</option>
+        <option value="flex-end">#{End}</option>
     </select>
 </div>
 
@@ -205,214 +205,214 @@
 <!-- Дополнительные -->
 <div class="tabContent" data-tab-content="advanced">
 
-<div data-target="grid">Подстраивать колонки под ширину: <input data-prop="gridAutoFit" type="checkbox"></div>
-<div data-target="grid">Минимальная ширина колонки: <input data-prop="gridMinWidth" type="number" min="1"></div>
-<div data-target="grid" style="display: none;">Обычная ширина колонки: <input data-prop="gridNormalWidth" type="number" min="1"></div>
-<div data-target="grid">Максимальная ширина колонки: <input data-prop="gridMaxWidth" type="number" min="1"></div>
+<div data-target="grid">#{Fit columns to width}: <input data-prop="gridAutoFit" type="checkbox"></div>
+<div data-target="grid">#{Minimum column width}: <input data-prop="gridMinWidth" type="number" min="1"></div>
+<div data-target="grid" style="display: none;">#{Default column width}: <input data-prop="gridNormalWidth" type="number" min="1"></div>
+<div data-target="grid">#{Maximum column width}: <input data-prop="gridMaxWidth" type="number" min="1"></div>
 
-<div data-target="grid">Заполнение свободного места:
+<div data-target="grid">#{Fill available space}:
     <select data-prop="autoFitMode">
-        <option value="auto-fit">Растягивать колонки</option>
-        <option value="auto-fill">Сохранять места колонок</option>
+        <option value="auto-fit">#{Stretch columns}</option>
+        <option value="auto-fill">#{Preserve column spaces}</option>
     </select>
 </div>
 
-<div data-target="grid">Размеры колонок:
+<div data-target="grid">#{Column sizes}:
     <div data-prop="columnTracks"></div>
-    <button type="button" data-action="addColumn">+ Добавить колонку</button>
+    <button type="button" data-action="addColumn">+ #{Add column}</button>
 </div>
 
-<div data-target="grid">Размеры строк:
+<div data-target="grid">#{Row sizes}:
     <div data-prop="rowTracks"></div>
-    <button type="button" data-action="addRow">+ Добавить строку</button>
+    <button type="button" data-action="addRow">+ #{Add row}</button>
 </div>
 
-<div data-target="grid">Отступ между колонками: <input data-prop="columnGap" type="number" min="0"></div>
-<div data-target="grid">Отступ между строками: <input data-prop="rowGap" type="number" min="0"></div>
-<div data-target="grid">Отступ от краёв: <input data-prop="gridPadding" type="number" min="0"></div>
+<div data-target="grid">#{Column gap}: <input data-prop="columnGap" type="number" min="0"></div>
+<div data-target="grid">#{Row gap}: <input data-prop="rowGap" type="number" min="0"></div>
+<div data-target="grid">#{Padding}: <input data-prop="gridPadding" type="number" min="0"></div>
 
-<div data-target="grid">Как добавлять элементы:
+<div data-target="grid">#{Auto-placement direction}:
     <select data-prop="autoFlow">
-        <option value="row">Слева направо</option>
-        <option value="column">Сверху вниз</option>
-        <option value="row dense">Слева направо без пустот</option>
-        <option value="column dense">Сверху вниз без пустот</option>
+        <option value="row">#{Left to right}</option>
+        <option value="column">#{Top to bottom}</option>
+        <option value="row dense">#{Left to right, filling gaps}</option>
+        <option value="column dense">#{Top to bottom, filling gaps}</option>
     </select>
 </div>
 
-<div data-target="flex">Расположение элементов:
+<div data-target="flex">#{Item direction}:
     <select data-prop="flexAdvancedDirection">
-        <option value="row">Слева направо</option>
-        <option value="column">Сверху вниз</option>
-        <option value="row-reverse">Справа налево</option>
-        <option value="column-reverse">Снизу вверх</option>
+        <option value="row">#{Left to right}</option>
+        <option value="column">#{Top to bottom}</option>
+        <option value="row-reverse">#{Right to left}</option>
+        <option value="column-reverse">#{Bottom to top}</option>
     </select>
 </div>
 
-<div data-target="flex">Перенос элементов по строкам:
+<div data-target="flex">#{Wrap items across rows}:
     <select data-prop="flexAdvancedWrap">
-        <option value="nowrap">Не переносить</option>
-        <option value="wrap">Переносить</option>
-        <option value="wrap-reverse">Переносить в обратную сторону</option>
+        <option value="nowrap">#{No wrap}</option>
+        <option value="wrap">#{Wrap}</option>
+        <option value="wrap-reverse">#{Wrap in reverse order}</option>
     </select>
 </div>
 
-<div data-target="flex">Отступ между элементами: <input data-prop="flexAdvancedGap" type="number" min="0"></div>
+<div data-target="flex">#{Gap between items}: <input data-prop="flexAdvancedGap" type="number" min="0"></div>
 
-<div data-target="flex">Расположение строк:
+<div data-target="flex">#{Align content}:
     <select data-prop="flexAlignContent">
-        <option value="stretch">Растянуть</option>
-        <option value="flex-start">В начале</option>
-        <option value="center">По центру</option>
-        <option value="flex-end">В конце</option>
-        <option value="space-between">По краям</option>
-        <option value="space-around">Равномерно</option>
-        <option value="space-evenly">Одинаковые промежутки</option>
+        <option value="stretch">#{Stretch}</option>
+        <option value="flex-start">#{Start}</option>
+        <option value="center">#{Center}</option>
+        <option value="flex-end">#{End}</option>
+        <option value="space-between">#{Space between}</option>
+        <option value="space-around">#{Space around}</option>
+        <option value="space-evenly">#{Even spacing}</option>
     </select>
 </div>
 
-<div data-target="flex">Расположение элементов:
+<div data-target="flex">#{Justify content}:
     <select data-prop="flexAdvancedJustify">
-        <option value="flex-start">В начале</option>
-        <option value="center">По центру</option>
-        <option value="flex-end">В конце</option>
-        <option value="space-between">По краям</option>
-        <option value="space-around">Равномерно</option>
-        <option value="space-evenly">Одинаковые промежутки</option>
+        <option value="flex-start">#{Start}</option>
+        <option value="center">#{Center}</option>
+        <option value="flex-end">#{End}</option>
+        <option value="space-between">#{Space between}</option>
+        <option value="space-around">#{Space around}</option>
+        <option value="space-evenly">#{Even spacing}</option>
     </select>
 </div>
 
-<div data-target="flex">Выравнивание элементов:
+<div data-target="flex">#{Align items}:
     <select data-prop="flexAdvancedAlign">
-        <option value="stretch">Растянуть</option>
-        <option value="flex-start">В начале</option>
-        <option value="center">По центру</option>
-        <option value="flex-end">В конце</option>
-        <option value="baseline">По строке текста</option>
+        <option value="stretch">#{Stretch}</option>
+        <option value="flex-start">#{Start}</option>
+        <option value="center">#{Center}</option>
+        <option value="flex-end">#{End}</option>
+        <option value="baseline">#{Text baseline}</option>
     </select>
 </div>
 
-<div data-target="grid flex">Автоматически менять отступ: <input data-prop="fluidGapEnabled" type="checkbox"></div>
-<div data-target="grid flex">Минимальный отступ: <input data-prop="fluidGapMin" type="number" min="0"></div>
-<div data-target="grid flex">Максимальный отступ: <input data-prop="fluidGapMax" type="number" min="0"></div>
+<div data-target="grid flex">#{Adjust gap automatically}: <input data-prop="fluidGapEnabled" type="checkbox"></div>
+<div data-target="grid flex">#{Minimum gap}: <input data-prop="fluidGapMin" type="number" min="0"></div>
+<div data-target="grid flex">#{Maximum gap}: <input data-prop="fluidGapMax" type="number" min="0"></div>
 
 </div>
 
 <!-- Выбранный элемент -->
 <div class="tabContent" data-tab-content="selectedItem">
 
-<div data-target="grid-item flex-item">Минимальная ширина: <input data-prop="itemMinWidth" type="number" min="0"></div>
-<div data-target="grid-item flex-item">Максимальная ширина: <input data-prop="itemMaxWidth" type="number" min="0"></div>
-<div data-target="grid-item flex-item">Минимальная высота: <input data-prop="itemMinHeight" type="number" min="0"></div>
-<div data-target="grid-item flex-item">Максимальная высота: <input data-prop="itemMaxHeight" type="number" min="0"></div>
-<div data-target="grid-item flex-item">Скрыть элемент: <input data-prop="itemHidden" type="checkbox"></div>
+<div data-target="grid-item flex-item">#{Minimum width}: <input data-prop="itemMinWidth" type="number" min="0"></div>
+<div data-target="grid-item flex-item">#{Maximum width}: <input data-prop="itemMaxWidth" type="number" min="0"></div>
+<div data-target="grid-item flex-item">#{Minimum height}: <input data-prop="itemMinHeight" type="number" min="0"></div>
+<div data-target="grid-item flex-item">#{Maximum height}: <input data-prop="itemMaxHeight" type="number" min="0"></div>
+<div data-target="grid-item flex-item">#{Hide element}: <input data-prop="itemHidden" type="checkbox"></div>
 
-<div data-target="grid-item">Занять колонок: <input data-prop="gridColumnSpan" type="number" min="1"></div>
-<div data-target="grid-item">Занять строк: <input data-prop="gridRowSpan" type="number" min="1"></div>
+<div data-target="grid-item">#{Columns to span}: <input data-prop="gridColumnSpan" type="number" min="1"></div>
+<div data-target="grid-item">#{Rows to span}: <input data-prop="gridRowSpan" type="number" min="1"></div>
 
-<div data-target="grid-item">Начать с колонки:
+<div data-target="grid-item">#{Start at column}:
     <select data-prop="gridItemColumn">
-        <option value="auto">Автоматически</option>
+        <option value="auto">#{Auto}</option>
     </select>
 </div>
 
-<div data-target="grid-item">Начать со строки:
+<div data-target="grid-item">#{Start at row}:
     <select data-prop="gridItemRow">
-        <option value="auto">Автоматически</option>
+        <option value="auto">#{Auto}</option>
     </select>
 </div>
 
-<div data-target="grid-item">Колонки: <input data-prop="gridItemColumns" type="number" min="1"></div>
-<div data-target="grid-item">Строки: <input data-prop="gridItemRows" type="number" min="1"></div>
+<div data-target="grid-item">#{Columns}: <input data-prop="gridItemColumns" type="number" min="1"></div>
+<div data-target="grid-item">#{Rows}: <input data-prop="gridItemRows" type="number" min="1"></div>
 
-<div data-target="flex-item">Размер:
+<div data-target="flex-item">#{Size}:
     <select data-prop="flexItemSize">
-        <option value="auto">По содержимому</option>
-        <option value="fill">Занять свободное место</option>
-        <option value="fixed">Заданный размер</option>
-        <option value="equal">Равная доля</option>
+        <option value="auto">#{Fit content}</option>
+        <option value="fill">#{Fill available space}</option>
+        <option value="fixed">#{Fixed size}</option>
+        <option value="equal">#{Equal share}</option>
     </select>
 </div>
 
-<div data-target="flex-item">Базовый размер: <input data-prop="flexBasis" type="number" min="0"></div>
-<div data-target="flex-item">Насколько увеличивать: <input data-prop="flexGrow" type="number" min="0"></div>
-<div data-target="flex-item">Насколько уменьшать: <input data-prop="flexShrink" type="number" min="0"></div>
+<div data-target="flex-item">#{Base size}: <input data-prop="flexBasis" type="number" min="0"></div>
+<div data-target="flex-item">#{Grow factor}: <input data-prop="flexGrow" type="number" min="0"></div>
+<div data-target="flex-item">#{Shrink factor}: <input data-prop="flexShrink" type="number" min="0"></div>
 
-<div data-target="flex-item">Выравнивание элемента:
+<div data-target="flex-item">#{Align self}:
     <select data-prop="flexSelf">
-        <option value="auto">Автоматически</option>
-        <option value="stretch">Растянуть</option>
-        <option value="flex-start">В начале</option>
-        <option value="center">По центру</option>
-        <option value="flex-end">В конце</option>
+        <option value="auto">#{Auto}</option>
+        <option value="stretch">#{Stretch}</option>
+        <option value="flex-start">#{Start}</option>
+        <option value="center">#{Center}</option>
+        <option value="flex-end">#{End}</option>
     </select>
 </div>
 
-<div data-target="flex-item">Позиция элемента: <input data-prop="flexOrder" type="number"></div>
+<div data-target="flex-item">#{Item order}: <input data-prop="flexOrder" type="number"></div>
 
-<div data-target="grid-item flex-item">Соотношение сторон:
+<div data-target="grid-item flex-item">#{Aspect ratio}:
     <select data-prop="itemAspectRatio">
-        <option value="">Авто</option>
+        <option value="">#{Auto}</option>
         <option value="1 / 1">1:1</option>
         <option value="4 / 3">4:3</option>
         <option value="16 / 9">16:9</option>
     </select>
 </div>
 
-<div data-target="grid-item flex-item">Если содержимое не помещается:
+<div data-target="grid-item flex-item">#{If content overflows}:
     <select data-prop="itemOverflow">
-        <option value="">По умолчанию</option>
-        <option value="visible">Показывать</option>
-        <option value="hidden">Скрыть</option>
-        <option value="auto">Прокрутка</option>
+        <option value="">#{Default}</option>
+        <option value="visible">#{Show}</option>
+        <option value="hidden">#{Hide}</option>
+        <option value="auto">#{Scroll}</option>
     </select>
 </div>
 
-<div data-target="grid-item flex-item">Перенос текста:
+<div data-target="grid-item flex-item">#{Text wrapping}:
     <select data-prop="textWrapMode">
-        <option value="">По умолчанию</option>
-        <option value="anywhere">Разрывать слова</option>
-        <option value="nowrap">Не переносить</option>
+        <option value="">#{Default}</option>
+        <option value="anywhere">#{Break words}</option>
+        <option value="nowrap">#{No wrap}</option>
     </select>
 </div>
 
-<div data-target="grid-item flex-item">Если текст не помещается:
+<div data-target="grid-item flex-item">#{If text overflows}:
     <select data-prop="textOverflowMode">
-        <option value="">По умолчанию</option>
-        <option value="ellipsis">Многоточие</option>
-        <option value="hidden">Скрыть</option>
-        <option value="auto">Прокрутка</option>
+        <option value="">#{Default}</option>
+        <option value="ellipsis">#{Ellipsis}</option>
+        <option value="hidden">#{Hide}</option>
+        <option value="auto">#{Scroll}</option>
     </select>
 </div>
 
-<div data-target="grid-item flex-item">Максимальное количество строк: <input data-prop="textLineClamp" type="number" min="0"></div>
+<div data-target="grid-item flex-item">#{Maximum number of lines}: <input data-prop="textLineClamp" type="number" min="0"></div>
 
-<div data-target="grid-item flex-item">Путь к файлу: <input data-prop="mediaSrc" type="text"></div>
+<div data-target="grid-item flex-item">#{File path}: <input data-prop="mediaSrc" type="text"></div>
 
-<div data-target="grid-item flex-item">Отображение файла:
+<div data-target="grid-item flex-item">#{File display}:
     <select data-prop="mediaFit">
-        <option value="">Авто</option>
-        <option value="cover">Заполнить с обрезкой</option>
-        <option value="contain">Показать целиком</option>
-        <option value="fill">Растянуть</option>
-        <option value="none">Исходный размер</option>
+        <option value="">#{Auto}</option>
+        <option value="cover">#{Cover and crop}</option>
+        <option value="contain">#{Contain}</option>
+        <option value="fill">#{Stretch}</option>
+        <option value="none">#{Original size}</option>
     </select>
 </div>
 
-<div data-target="grid-item flex-item">Менять при уменьшении родителя: <input data-prop="containerRuleEnabled" type="checkbox"></div>
-<div data-target="grid-item flex-item">Ширина родителя меньше: <input data-prop="containerRuleWidth" type="number" min="1"></div>
-<div data-target="grid-item flex-item">Изменение:
+<div data-target="grid-item flex-item">#{Adjust when parent shrinks}: <input data-prop="containerRuleEnabled" type="checkbox"></div>
+<div data-target="grid-item flex-item">#{Parent width below}: <input data-prop="containerRuleWidth" type="number" min="1"></div>
+<div data-target="grid-item flex-item">#{Action}:
     <select data-prop="containerRuleAction">
-        <option value="column">Расположить вертикально</option>
-        <option value="wrap">Переносить элементы</option>
-        <option value="hide">Скрыть элемент</option>
+        <option value="column">#{Stack vertically}</option>
+        <option value="wrap">#{Wrap items}</option>
+        <option value="hide">#{Hide element}</option>
     </select>
 </div>
 
 <div data-target="grid-item flex-item">
-    Шаблоны:
+    #{Presets}:
     <div data-prop="variantList"></div>
-    <button type="button" data-action="addVariant">+ Сохранить шаблон</button>
+    <button type="button" data-action="addVariant">+ #{Save preset}</button>
 </div>
 
 </div>
@@ -427,32 +427,32 @@
 
 <!-- !!!Дополнительные -->
 
-<div data-target="all">Внешние отступы: <div class="marginGrid">
-    <div class="col left"><input data-prop="marginLeft" placeholder="Слева"></div>
-    <div class="col center"><input data-prop="marginTop" placeholder="Сверху"><input data-prop="marginBottom" placeholder="Снизу"></div>
-    <div class="col right"><input data-prop="marginRight" placeholder="Справа"></div>
+<div data-target="all">#{Margin}: <div class="marginGrid">
+    <div class="col left"><input data-prop="marginLeft" placeholder="#{Left}"></div>
+    <div class="col center"><input data-prop="marginTop" placeholder="#{Top}"><input data-prop="marginBottom" placeholder="#{Bottom}"></div>
+    <div class="col right"><input data-prop="marginRight" placeholder="#{Right}"></div>
 </div></div>
-<div data-target="all">Внутренние отступы: <div class="paddingGrid">
-    <div class="col left"><input data-prop="paddingLeft" placeholder="Слева"></div>
-    <div class="col center"><input data-prop="paddingTop" placeholder="Сверху"><input data-prop="paddingBottom" placeholder="Снизу"></div>
-    <div class="col right"><input data-prop="paddingRight" placeholder="Справа"></div>
+<div data-target="all">#{Padding}: <div class="paddingGrid">
+    <div class="col left"><input data-prop="paddingLeft" placeholder="#{Left}"></div>
+    <div class="col center"><input data-prop="paddingTop" placeholder="#{Top}"><input data-prop="paddingBottom" placeholder="#{Bottom}"></div>
+    <div class="col right"><input data-prop="paddingRight" placeholder="#{Right}"></div>
 </div></div>
 
-<div data-target="all">Фон: <input type="color" data-prop="backgroundColor"></div>
-<div data-target="all">Рамка: 
+<div data-target="all">#{Background}: <input type="color" data-prop="backgroundColor"></div>
+<div data-target="all">#{Border}:
     <div class="borderSettings">
-        <div>Цвет: <input type="color" data-prop="borderColor"></div>
-        <div>Ширина: <input data-prop="borderWidth"></div>
-        <div>Стиль: <select data-prop="borderStyle">
-            <option value="">По умолчанию</option>
-            <option value="solid">Сплошная</option>
-            <option value="dashed">Пунктирная</option>
-            <option value="dotted">Точечная</option>
-            <option value="double">Двойная</option>
+        <div>#{Color}: <input type="color" data-prop="borderColor"></div>
+        <div>#{Width}: <input data-prop="borderWidth"></div>
+        <div>#{Style}: <select data-prop="borderStyle">
+            <option value="">#{Default}</option>
+            <option value="solid">#{Solid}</option>
+            <option value="dashed">#{Dashed}</option>
+            <option value="dotted">#{Dotted}</option>
+            <option value="double">#{Double}</option>
         </select></div>
     </div>
 </div>
-<div data-target="all">Скругление углов: <input data-prop="borderRadius"></div>
+<div data-target="all">#{Border radius}: <input data-prop="borderRadius"></div>
 
 <!-- <div data-target="text link input textarea select button code">Размер шрифта: <input data-prop="fontSize"></div>
 <div data-target="text link input textarea select button code">Цвет текста: <input type="color" data-prop="color"></div>
@@ -463,15 +463,15 @@
     <option value="right">Справа</option>
 </select></div> -->
 
-<div data-target="img a figure video audio iframe">Ссылка: <input type="text" data-prop="link"></div>
-<div data-target="all">Прозрачность: <input data-prop="opacity"></div>
-<div data-target="all">Вид курсора: <select data-prop="cursor">
-    <option value="">По умолчанию</option>
-    <option value="pointer">Указатель</option>
-    <option value="text">Текст</option>
-    <option value="wait">Ожидание</option>
-    <option value="not-allowed">Запрещено</option>
-    <option value="help">Помощь</option>
+<div data-target="img a figure video audio iframe">#{Link}: <input type="text" data-prop="link"></div>
+<div data-target="all">#{Opacity}: <input data-prop="opacity"></div>
+<div data-target="all">#{Cursor}: <select data-prop="cursor">
+    <option value="">#{Default}</option>
+    <option value="pointer">#{Pointer}</option>
+    <option value="text">#{Text}</option>
+    <option value="wait">#{Wait}</option>
+    <option value="not-allowed">#{Not allowed}</option>
+    <option value="help">#{Help}</option>
 </select>
 
 </div>
@@ -484,46 +484,46 @@
 
 <!-- !!!Особенные -->
 
-<div data-target="input">Текст подсказки: <input type="text" data-prop="inputPlaceholder"></div>
-<div data-target="input">Тип поля: <select data-prop="inputType">
-    <option value="text">Текст</option>
-    <option value="email">Почта</option>
-    <option value="password">Пароль</option>
-    <option value="number">Число</option>
+<div data-target="input">#{Placeholder}: <input type="text" data-prop="inputPlaceholder"></div>
+<div data-target="input">#{Input type}: <select data-prop="inputType">
+    <option value="text">#{Text}</option>
+    <option value="email">#{Email}</option>
+    <option value="password">#{Password}</option>
+    <option value="number">#{Number}</option>
 </select></div>
-<div data-target="button">Тип кнопки: <select data-prop="buttonType">
-    <option value="">По умолчанию</option>
-    <option value="button">Обычная кнопка</option>
-    <option value="submit">Отправить форму</option>
-    <option value="reset">Сбросить форму</option>
+<div data-target="button">#{Button type}: <select data-prop="buttonType">
+    <option value="">#{Default}</option>
+    <option value="button">#{Button}</option>
+    <option value="submit">#{Submit form}</option>
+    <option value="reset">#{Reset form}</option>
 </select></div>
-<div data-target="textarea">Изменение размера: <select data-prop="resize">
-    <option value="">По умолчанию</option>
-    <option value="none">Запретить</option>
-    <option value="both">Обе стороны</option>
-    <option value="horizontal">По горизонтали</option>
-    <option value="vertical">По вертикали</option>
+<div data-target="textarea">#{Resize}: <select data-prop="resize">
+    <option value="">#{Default}</option>
+    <option value="none">#{Disable}</option>
+    <option value="both">#{Both}</option>
+    <option value="horizontal">#{Horizontal}</option>
+    <option value="vertical">#{Vertical}</option>
 </select></div>
 
-<div data-target="form">Метод отправки формы: <select data-prop="formMethod">
-    <option value="">По умолчанию</option>
+<div data-target="form">#{Form method}: <select data-prop="formMethod">
+    <option value="">#{Default}</option>
     <option value="get">GET</option>
     <option value="post">POST</option>
 </select></div>
-<div data-target="form">Адрес отправки формы: <input type="text" data-prop="formAction"></div>
+<div data-target="form">#{Form action}: <input type="text" data-prop="formAction"></div>
 
-<div data-target="table">Количество строк: <input type="number" min="1" step="1" data-prop="tableRows" value="1"></div>
-<div data-target="table">Количество столбцов: <input type="number" min="1" step="1" data-prop="tableCols" value="1"></div>
+<div data-target="table">#{Number of rows}: <input type="number" min="1" step="1" data-prop="tableRows" value="1"></div>
+<div data-target="table">#{Number of columns}: <input type="number" min="1" step="1" data-prop="tableCols" value="1"></div>
 
-<div data-target="video">Заставка: <input type="text" data-prop="videoPoster"></div>
-<div data-target="details">Открывать автоматически: <input type="checkbox" data-prop="detailsOpen"></div>
+<div data-target="video">#{Poster}: <input type="text" data-prop="videoPoster"></div>
+<div data-target="details">#{Open by default}: <input type="checkbox" data-prop="detailsOpen"></div>
 
-<div data-target="input:file">Допустимые типы файлов: <input type="text" data-prop="fileAccept"></div>
-<div data-target="input:file">Разрешить несколько файлов: <input type="checkbox" data-prop="fileMultiple"></div>
-<div data-target="input:range">Минимальное значение: <input type="number" step="any" data-prop="rangeMin"></div>
-<div data-target="input:range">Максимальное значение: <input type="number" step="any" data-prop="rangeMax"></div>
-<div data-target="input:range">Текущее значение: <input type="number" step="any" data-prop="rangeValue"></div>
-<div data-target="progress">Текущее значение: <input type="number" step="any" data-prop="progressValue"></div>
+<div data-target="input:file">#{Accepted file types}: <input type="text" data-prop="fileAccept"></div>
+<div data-target="input:file">#{Allow multiple files}: <input type="checkbox" data-prop="fileMultiple"></div>
+<div data-target="input:range">#{Minimum value}: <input type="number" step="any" data-prop="rangeMin"></div>
+<div data-target="input:range">#{Maximum value}: <input type="number" step="any" data-prop="rangeMax"></div>
+<div data-target="input:range">#{Current value}: <input type="number" step="any" data-prop="rangeValue"></div>
+<div data-target="progress">#{Current value}: <input type="number" step="any" data-prop="progressValue"></div>
 
 </div>
 

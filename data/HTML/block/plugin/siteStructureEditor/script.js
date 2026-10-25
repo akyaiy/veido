@@ -1263,7 +1263,7 @@ function createPage() {
 
     page.dataset.id = getPageId();
     page.dataset.name = 'newPage';
-    page.dataset.title = 'Новая страница';
+    page.dataset.title = window.translate('New page');
     page.dataset.caption = '';
     page.dataset.description = '';
     page.dataset.types = '';
@@ -1405,6 +1405,7 @@ function handleMenuClose(event) {
     // Получение контекстного меню
     const contextMenu = document.getElementById('contextMenu');
 
+    if (!contextMenu || !document.getElementById('siteMap')) return;
     if (contextMenu.contains(event.target)) return;
 
     closeContextMenu();
@@ -1819,6 +1820,8 @@ function updatePageArrows(page = null) {
 function loadPage() {
     // Получение карты и страниц
     const siteMap = document.getElementById('siteMap');
+    if (!siteMap) return;
+
     const pages = siteMap.querySelectorAll('pageBlock');
 
     // Загрузка страниц
@@ -2060,6 +2063,8 @@ document.addEventListener('mouseup', handleConnectionPointUp);
 function updateEditorState() {
     // Получение карты и выбранной вкладки
     const siteMap = document.getElementById('siteMap');
+    if (!siteMap) return;
+
     const file = document.querySelector('#fileList .fileItem.selected');
 
     // Блокировка карты
@@ -2097,16 +2102,64 @@ function handleFileMenuClose(event) {
 document.getElementById('fileMenuIcon').addEventListener('click', toggleFileMenu);
 document.addEventListener('click', handleFileMenuClose);
 
-/* ***
- * saveFile - сохранение структуры сайта
- * - получает страницы и связи
- * - сохраняет структуру в XML
-*** */
-function saveFile() {
-    // Получение карты сайта
-    const siteMap = document.getElementById('siteMap');
+// Преобразование пути в VFS URI
+function siteFileUri(path) {
+    return path.includes(':///') ? path : window.VFS_ROOT + path.replace(/^\/+/, '');
+}
 
-    // Создание XML
+// Текущее действие файлового менеджера
+let siteFileAction = null;
+
+/* ***
+ * openSiteFileManager - открытие файлового менеджера
+ * - передаёт начальный путь и действие
+ * - загружает менеджер в отдельный контейнер
+*** */
+async function openSiteFileManager(action) {
+    siteFileAction = action;
+
+    await window.tempStore.store({
+        path: '/',
+        sender: 'siteStructureEditor',
+        callbackFun: 'siteFileSelected',
+        listTfootAct: 'loadBlock'
+    }, {
+        recipient: 'fManager',
+        ttlMs: 60000,
+        destroyOnRead: true
+    });
+
+    // Создание контейнера
+    document.getElementById('fManagerContainer')?.remove();
+
+    const container = document.createElement('div');
+    container.id = 'fManagerContainer';
+    document.body.appendChild(container);
+
+    await loadBlock('plugin/fManager', container);
+}
+
+/* ***
+ * siteFileSelected - обработка выбранного пути
+ * - получает путь от файлового менеджера
+ * - открывает или сохраняет XML
+*** */
+window.siteFileSelected = async function siteFileSelected() {
+    const messages = await window.tempStore.getByRecipient('siteStructureEditor');
+    const path = messages?.[0]?.data?.path;
+
+    if (!path) return;
+
+    if (siteFileAction === 'open') {
+        await openFile(path);
+    } else {
+        await saveFile(path);
+    }
+};
+
+// Получение XML текущей карты
+function getSiteXml() {
+    const siteMap = document.getElementById('siteMap');
     const xmlDocument = document.implementation.createDocument('', 'siteMap');
     const xmlSiteMap = xmlDocument.documentElement;
 
@@ -2126,18 +2179,56 @@ function saveFile() {
         xmlSiteMap.appendChild(xmlConnection);
     });
 
-    // Создание файла
-    const serializer = new XMLSerializer();
-    const xml = serializer.serializeToString(xmlDocument);
-    const blob = new Blob([xml], { type: 'application/xml' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    return new XMLSerializer().serializeToString(xmlDocument);
+}
 
-    link.href = url;
-    link.download = 'siteStructureEditor.xml';
-    link.click();
+/* ***
+ * saveFile - сохранение структуры сайта в VFS
+ * - игнорирует объект события от кнопки
+ * - использует выбранный путь из файлового менеджера
+ * - сохраняет XML по указанному пути
+*** */
+async function saveFile(selectedPath = null) {
+    // Проверка выбранного пути
+    if (typeof selectedPath !== 'string') {
+        selectedPath = null;
+    }
 
-    URL.revokeObjectURL(url);
+    const file = document.querySelector('#fileList .fileItem.selected');
+
+    let uri = file.dataset.url;
+
+    // Выбор пути для нового файла
+    if (!uri && !selectedPath) {
+        await openSiteFileManager('save');
+        return;
+    }
+
+    if (selectedPath) {
+        const path = selectedPath.replace(/^\/+/, '');
+        uri = siteFileUri(path.endsWith('.xml') ? path : path + '/siteStructureEditor.xml');
+    }
+
+    const xml = getSiteXml();
+
+    try {
+        if (await window.vfs.exists(uri)) {
+            if (!file.dataset.url && !confirm(window.translate('File already exists. Overwrite?'))) return;
+            await window.vfs.write(uri, xml);
+        } else {
+            await window.vfs.create(
+                uri,
+                new Blob([xml], { type: 'application/xml' })
+            );
+        }
+
+        // Сохранение пути и имени вкладки
+        file.dataset.url = uri;
+        file.querySelector('.fileName').textContent = uri.split('/').pop();
+
+    } catch (error) {
+        console.error('Ошибка сохранения XML:', error);
+    }
 }
 
 /* ***
@@ -2158,37 +2249,44 @@ function createPageXml(xmlDocument, page) {
 }
 
 /* ***
- * openFile - открытие структуры сайта
- * - открывает XML через выбор файла
- * - удаляет текущую структуру
- * - создает страницы и связи заново
+ * openFile - открытие структуры сайта из VFS
+ * - открывает файловый менеджер для выбора XML
+ * - получает путь выбранного файла
+ * - игнорирует объект события от кнопки
 *** */
-function openFile() {
-    // Создание выбора файла
-    const input = document.createElement('input');
+async function openFile(selectedPath = null) {
+    // Проверка выбранного пути
+    if (typeof selectedPath !== 'string' || !selectedPath.trim()) {
+        await openSiteFileManager('open');
+        return;
+    }
 
-    input.type = 'file';
-    input.accept = '.xml';
+    const path = selectedPath;
 
-    input.addEventListener('change', handleFileOpen);
-    input.click();
-}
+    try {
+        const uri = siteFileUri(path);
+        const xml = await window.vfs.read(uri);
 
-/* ***
- * handleFileOpen - обработка открытия файла
- * - читает выбранный XML
- * - создает страницы
-*** */
-function handleFileOpen(event) {
-    const file = event.target.files[0];
+        const parser = new DOMParser();
+        const xmlDocument = parser.parseFromString(xml, 'application/xml');
 
-    if (!file) return;
+        if (
+            xmlDocument.querySelector('parsererror') ||
+            xmlDocument.documentElement.tagName !== 'siteMap'
+        ) {
+            throw new Error('Некорректный XML');
+        }
 
-    // Чтение файла
-    const reader = new FileReader();
+        // Загрузка существующей функцией
+        handleFileLoad({ target: { result: xml } }, uri.split('/').pop());
 
-    reader.addEventListener('load', event => handleFileLoad(event, file.name));
-    reader.readAsText(file);
+        // Сохранение пути открытого файла
+        const file = document.querySelector('#fileList .fileItem.selected');
+        if (file) file.dataset.url = uri;
+
+    } catch (error) {
+        console.error('Ошибка открытия XML:', error);
+    }
 }
 
 /* ***
@@ -2313,6 +2411,7 @@ function openPage(name, content = '') {
 
     file.className = 'fileItem selected';
     file.dataset.fileId = fileId;
+    file.dataset.url = '';
     fileName.className = 'fileName';
     fileName.textContent = name;
     fileClose.className = 'fileClose';
@@ -2433,7 +2532,7 @@ function handleFileListClick(event) {
  * - открывает пустую страницу
 *** */
 function newFile() {
-    openPage('Новый', '');
+    openPage(window.translate('New'), '');
 }
 
 document.getElementById('fileList').addEventListener('click', handleFileListClick);
@@ -2478,6 +2577,8 @@ function handleSelectClick(event) {
  * - закрывает открытые списки при нажатии снаружи
 *** */
 function handleSelectClose(event) {
+    if (!document.getElementById('pageProperties')) return;
+
     if (event.target.closest('.multipleSelect')) {
         return;
     }
@@ -2560,7 +2661,7 @@ function loadPageProperties(page) {
     // Отображение выбранных типов
     const typesValue = typesProperty.querySelector('.multipleSelectValue');
 
-    typesValue.textContent = types.length ? types.join(', ') : 'Выберите типы';
+    typesValue.textContent = types.length ? types.join(', ') : window.translate('Select types');
 
     // Загрузка доступа
     const access = page.dataset.access.split(',').filter(Boolean);
@@ -2611,7 +2712,7 @@ function updatePageProperty(field) {
         // Обновление названия списка
         const value = property.querySelector('.multipleSelectValue');
 
-        value.textContent = types.length ? types.join(', ') : 'Выберите типы';
+        value.textContent = types.length ? types.join(', ') : window.translate('Select types');
 
         return;
     }

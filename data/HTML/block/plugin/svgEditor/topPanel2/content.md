@@ -1,6 +1,6 @@
 <div id="svgGroupPathType" style="display: none;">
     <div>
-        Искревление:
+        #{Curve type}:
         <button type="button" class="svgPathTypeBtn" data-path-type="M">M</button>
         <button type="button" class="svgPathTypeBtn" data-path-type="L">L</button>
         <button type="button" class="svgPathTypeBtn" data-path-type="Q">Q</button>

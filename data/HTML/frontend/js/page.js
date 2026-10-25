@@ -50,6 +50,36 @@ function emitAuthEvent(isLoggedIn) {
   document.dispatchEvent(event);
 }
 
+// Общие настройки VFS
+window.VFS_ROOT = "local@publisher[abc3a4-site]:///";
+
+window.vfs = window.VFSv2.client({
+    baseURL: "/api/v2/vfs",
+    fetch: async (url, options = {}) => {
+        if (tokenWriting) await tokenWriting;
+
+        const send = () => {
+            const headers = new Headers(options.headers);
+            if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+            return fetch(url, { ...options, headers });
+        };
+
+        let response = await send();
+        if (response.status !== 401) return response;
+
+        if (!tokenWriting) {
+            tokenWriting = refreshAccess().finally(() => {
+                tokenWriting = null;
+            });
+        }
+
+        await tokenWriting;
+
+        if (!accessToken) return response;
+        return await send();
+    }
+});
+
 
 /***********************************************************************
  * TempStore — это временное хранилище данных в браузере на базе IndexedDB, с возможностями:
@@ -548,6 +578,9 @@ async function loadMenu() {
  * loadBlock — универсальная функция загрузки блоков (с поддержкой iframe)
  **********************************************************************************/
 async function loadBlock(path, target, itemsHowText = false, mode = "") {
+    // Убираем ведущие слэши, если есть
+    path = String(path).replace(/^\/+/, '');
+
     // Поддержка передачи как элемента DOM, так и ID
     let container = typeof target === 'string' ? document.getElementById(target) : target;
     if (!container) return;
@@ -571,7 +604,7 @@ async function loadBlock(path, target, itemsHowText = false, mode = "") {
         const bootstrap = JSON.parse(document.getElementById("html-page-bootstrap")?.textContent || "{}");
         const uri = blockName === `pages/${bootstrap.page_key}`
             ? bootstrap.bundle_root_uri
-            : `local@publisher[abc3a4-site]:///${blockName}`;
+            : window.VFS_ROOT + `${blockName}`;
 
         const results = await Promise.all(
             ["content.md", "style.css", "script.js"].map(file =>
@@ -593,6 +626,7 @@ async function loadBlock(path, target, itemsHowText = false, mode = "") {
             await loadMdScript('/_static/vendor/markdown-it.min.js');
         }
         const { content: mdContent, css, js } = response;
+        const processedJs = js;
         
         // Вставка контента
         if (mdContent) {
@@ -600,7 +634,7 @@ async function loadBlock(path, target, itemsHowText = false, mode = "") {
                 container.textContent = mdContent;
             } else {
                 const md = window.markdownit({ html: true, linkify: true, typographer: true });
-                container.innerHTML = md.render(mdContent);
+                container.innerHTML = md.render(mdContent.replace(/#\{([^}]*)\}/g, '$1'));
                 if (container.id?.match(/^loadedBlock_\d+_view$/)) {
                     const htmlDiv = doc.getElementById(container.id.replace('_view', '_html'));
                     if (htmlDiv) htmlDiv.innerHTML = mdContent;
@@ -624,7 +658,7 @@ async function loadBlock(path, target, itemsHowText = false, mode = "") {
         // Добавление JS блока через import()
         if (mode === 'importJs') {
             if (js) {
-                const blob = new Blob([js], { type: 'text/javascript' });
+                const blob = new Blob([processedJs], { type: 'text/javascript' });
                 const moduleUrl = URL.createObjectURL(blob);
                 try {
                     const mod = await import(moduleUrl);
@@ -647,7 +681,7 @@ async function loadBlock(path, target, itemsHowText = false, mode = "") {
                 script.textContent = `
                     (() => {
                         try {
-                            ${js}
+                            ${processedJs}
                             if (typeof pageInit === "function") pageInit();
                         } catch (e) {
                             console.error("Block script error:", e);
@@ -679,6 +713,15 @@ function loadBlockAttribute(scope = document) {
         loadBlock(path, el);
     });
 }
+
+/**********************************************************************************
+ * translate - получение перевода текста
+ * Принимает текст и возвращает перевод для текущего языка
+ * Если перевод отсутствует, возвращает исходный текст
+ **********************************************************************************/
+window.translate = function(text) {
+    return text;
+};
 
 
 /*****************************************************************************
