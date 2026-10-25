@@ -273,7 +273,7 @@ async function saveSvgAsFileManager(selectedPath = null) {
 
         if (exists) {
             // Подтверждение перезаписи
-            if (!confirm("#{File already exists. Overwrite?}")) return;
+            if (!confirm(window.translate("File already exists. Overwrite?"))) return;
 
             await window.vfs.write(uri, svgText);
         } else {

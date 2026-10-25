@@ -12,176 +12,176 @@ let lastSource = '';
 // Перменнная перевода ключевых слов, объектов, методов, событий, операторов и литералов
 const TRANSLATIONS = {
     keywords: {
-        'function': '#{Function}',
-        'async': '#{Async}',
-        'return': '#{Return}',
-        'if': '#{If}',
-        'else': '#{Else}',
-        'for': '#{For}',
-        'while': '#{While}',
-        'do': '#{Do}',
-        'switch': '#{Switch}',
-        'case': '#{Case}',
-        'default': '#{Default}',
-        'break': '#{Break}',
-        'continue': '#{Continue}',
-        'await': '#{Await}',
-        'addEventListener': '#{On}',
-        'typeof': '#{Type}',
-        'object': '#{Object}',
-        'array': '#{Array}',
-        'const': '#{Constant}',
-        'let': '#{Let}',
-        'var': '#{Variable}',
-        'new': '#{Create}',
-        'delete': '#{Delete}',
-        'throw': '#{Throw}',
-        'try': '#{Try}',
-        'catch': '#{On error}',
-        'finally': '#{Finally}',
-        'class': '#{Class}',
-        'extends': '#{Extends}',
-        'implements': '#{Implements}',
-        'import': '#{Import}',
-        'export': '#{Export}',
-        'from': '#{From}',
-        'default': '#{Default}',
-        'yield': '#{Yield}',
-        'void': '#{No value}',
-        'instanceof': '#{Instance}',
-        'in': '#{In}',
-        'of': '#{Of}'
+        'function': window.translate('Function'),
+        'async': window.translate('Async'),
+        'return': window.translate('Return'),
+        'if': window.translate('If'),
+        'else': window.translate('Else'),
+        'for': window.translate('For'),
+        'while': window.translate('While'),
+        'do': window.translate('Do'),
+        'switch': window.translate('Switch'),
+        'case': window.translate('Case'),
+        'default': window.translate('Default'),
+        'break': window.translate('Break'),
+        'continue': window.translate('Continue'),
+        'await': window.translate('Await'),
+        'addEventListener': window.translate('On'),
+        'typeof': window.translate('Type'),
+        'object': window.translate('Object'),
+        'array': window.translate('Array'),
+        'const': window.translate('Constant'),
+        'let': window.translate('Let'),
+        'var': window.translate('Variable'),
+        'new': window.translate('Create'),
+        'delete': window.translate('Delete'),
+        'throw': window.translate('Throw'),
+        'try': window.translate('Try'),
+        'catch': window.translate('On error'),
+        'finally': window.translate('Finally'),
+        'class': window.translate('Class'),
+        'extends': window.translate('Extends'),
+        'implements': window.translate('Implements'),
+        'import': window.translate('Import'),
+        'export': window.translate('Export'),
+        'from': window.translate('From'),
+        'default': window.translate('Default'),
+        'yield': window.translate('Yield'),
+        'void': window.translate('No value'),
+        'instanceof': window.translate('Instance'),
+        'in': window.translate('In'),
+        'of': window.translate('Of')
     },
     objects: {
-        'console': '#{Console}',
-        'document': '#{Document}',
-        'window': '#{Window}',
-        'Math': '#{Math}',
+        'console': window.translate('Console'),
+        'document': window.translate('Document'),
+        'window': window.translate('Window'),
+        'Math': window.translate('Math'),
         'JSON': 'json',
-        'Array': '#{Array}',
-        'Object': '#{Object}',
-        'String': '#{String}',
-        'Number': '#{Number}',
-        'Boolean': '#{Boolean}',
-        'Date': '#{Date}',
-        'Set': '#{Set}',
-        'Map': '#{Map}',
-        'RegExp': '#{RegExp}'
+        'Array': window.translate('Array'),
+        'Object': window.translate('Object'),
+        'String': window.translate('String'),
+        'Number': window.translate('Number'),
+        'Boolean': window.translate('Boolean'),
+        'Date': window.translate('Date'),
+        'Set': window.translate('Set'),
+        'Map': window.translate('Map'),
+        'RegExp': window.translate('RegExp')
     },
     methods: {
-        'log': '#{Log}',
-        'map': '#{Map}',
-        'push': '#{Push}',
-        'length': '#{Length}',
-        'replace': '#{Replace}',
-        'createElement': '#{Create element}',
-        'add': '#{Add}',
-        'append': '#{Append child}',
-        'remove': '#{Remove}',
-        'forEach': '#{For each}',
-        'filter': '#{Filter}',
-        'sort': '#{Sort}',
-        'reduce': '#{Reduce}',
-        'pop': '#{Remove last}',
-        'shift': '#{Remove first}',
-        'unshift': '#{Add first}',
-        'slice': '#{Slice}',
-        'concat': '#{Concatenate}',
-        'join': '#{Join}',
-        'split': '#{Split}',
-        'includes': '#{Includes}',
-        'indexOf': '#{Index}',
-        'find': '#{Find}',
-        'findIndex': '#{Find index}',
-        'includes': '#{Includes}',
-        'toString': '#{To string}',
-        'toUpperCase': '#{To uppercase}',
-        'toLowerCase': '#{To lowercase}',
-        'trim': '#{Trim}',
-        'parseInt': '#{Parse integer}',
-        'parseFloat': '#{Parse float}',
-        'preventDefault': '#{Prevent default}',
-        'value': '#{Value}',
-        'reset': '#{Reset}',
-        'target': '#{Target}',
-        'closest': '#{Closest}',
-        'classList': '#{Class list}',
-        'textContent': '#{Text content}',
-        'fetch': '#{Fetch}',
-        'then': '#{Then}',
-        'resolve': '#{Resolve}',
-        'event': '#{Event}',
-        'setTimeout': '#{Timer}',
-        'setInterval': '#{Interval}',
-        'clearTimeout': '#{Stop timer}',
-        'clearInterval': '#{Stop interval}',
-        'alert': '#{Alert}',
-        'confirm': '#{Confirm}',
-        'prompt': '#{Prompt}',
-        'querySelector': '#{Select}',
-        'querySelectorAll': '#{Select all}'
+        'log': window.translate('Log'),
+        'map': window.translate('Map'),
+        'push': window.translate('Push'),
+        'length': window.translate('Length'),
+        'replace': window.translate('Replace'),
+        'createElement': window.translate('Create element'),
+        'add': window.translate('Add'),
+        'append': window.translate('Append child'),
+        'remove': window.translate('Remove'),
+        'forEach': window.translate('For each'),
+        'filter': window.translate('Filter'),
+        'sort': window.translate('Sort'),
+        'reduce': window.translate('Reduce'),
+        'pop': window.translate('Remove last'),
+        'shift': window.translate('Remove first'),
+        'unshift': window.translate('Add first'),
+        'slice': window.translate('Slice'),
+        'concat': window.translate('Concatenate'),
+        'join': window.translate('Join'),
+        'split': window.translate('Split'),
+        'includes': window.translate('Includes'),
+        'indexOf': window.translate('Index'),
+        'find': window.translate('Find'),
+        'findIndex': window.translate('Find index'),
+        'includes': window.translate('Includes'),
+        'toString': window.translate('To string'),
+        'toUpperCase': window.translate('To uppercase'),
+        'toLowerCase': window.translate('To lowercase'),
+        'trim': window.translate('Trim'),
+        'parseInt': window.translate('Parse integer'),
+        'parseFloat': window.translate('Parse float'),
+        'preventDefault': window.translate('Prevent default'),
+        'value': window.translate('Value'),
+        'reset': window.translate('Reset'),
+        'target': window.translate('Target'),
+        'closest': window.translate('Closest'),
+        'classList': window.translate('Class list'),
+        'textContent': window.translate('Text content'),
+        'fetch': window.translate('Fetch'),
+        'then': window.translate('Then'),
+        'resolve': window.translate('Resolve'),
+        'event': window.translate('Event'),
+        'setTimeout': window.translate('Timer'),
+        'setInterval': window.translate('Interval'),
+        'clearTimeout': window.translate('Stop timer'),
+        'clearInterval': window.translate('Stop interval'),
+        'alert': window.translate('Alert'),
+        'confirm': window.translate('Confirm'),
+        'prompt': window.translate('Prompt'),
+        'querySelector': window.translate('Select'),
+        'querySelectorAll': window.translate('Select all')
     },
     events: {
-        'click': '#{Click}',
-        'mouseover': '#{Mouse over}',
-        'input': '#{Input}',
-        'submit': '#{Submit}',
-        'change': '#{Change}',
-        'keyup': '#{Key up}',
-        'keydown': '#{Key down}',
-        'focus': '#{Focus}',
-        'blur': '#{Blur}',
-        'dblclick': '#{Double-click}',
-        'mouseenter': '#{Mouse enter}',
-        'mouseleave': '#{Mouse leave}',
-        'resize': '#{Resize}'
+        'click': window.translate('Click'),
+        'mouseover': window.translate('Mouse over'),
+        'input': window.translate('Input'),
+        'submit': window.translate('Submit'),
+        'change': window.translate('Change'),
+        'keyup': window.translate('Key up'),
+        'keydown': window.translate('Key down'),
+        'focus': window.translate('Focus'),
+        'blur': window.translate('Blur'),
+        'dblclick': window.translate('Double-click'),
+        'mouseenter': window.translate('Mouse enter'),
+        'mouseleave': window.translate('Mouse leave'),
+        'resize': window.translate('Resize')
     },
     operators: {
-        '&&': '#{And}',
-        '||': '#{Or}',
-        '++': '#{Increment by 1}',
-        '--': '#{Decrement by 1}',
+        '&&': window.translate('And'),
+        '||': window.translate('Or'),
+        '++': window.translate('Increment by 1'),
+        '--': window.translate('Decrement by 1'),
         '*': '×',
         '+': '+',
         '-': '-',
         '/': '/',
         '%': '%',
-        '**': '#{Raise to power}',
-        '!': '#{Not}',
-        '~': '#{Bitwise not}',
+        '**': window.translate('Raise to power'),
+        '!': window.translate('Not'),
+        '~': window.translate('Bitwise not'),
         '=': '=',
-        '+=': '#{Plus equals}',
-        '-=': '#{Minus equals}',
-        '*=': '#{Multiply equals}',
-        '/=': '#{Divide equals}',
-        '%=': '#{Remainder equals}',
-        '**=': '#{Power equals}',
-        '==': '#{Equals}',
-        '===': '#{Strictly equals}',
-        '!=': '#{Not equal}',
-        '!==': '#{Strictly not equal}',
+        '+=': window.translate('Plus equals'),
+        '-=': window.translate('Minus equals'),
+        '*=': window.translate('Multiply equals'),
+        '/=': window.translate('Divide equals'),
+        '%=': window.translate('Remainder equals'),
+        '**=': window.translate('Power equals'),
+        '==': window.translate('Equals'),
+        '===': window.translate('Strictly equals'),
+        '!=': window.translate('Not equal'),
+        '!==': window.translate('Strictly not equal'),
         '>=': '>=',
         '<=': '<=',
         '>': '>',
         '<': '<',
-        '>>': '#{Shift right}',
-        '<<': '#{Shift left}',
-        '>>>': '#{Unsigned shift right}',
-        '&': '#{Bitwise and}',
-        '|': '#{Bitwise or}',
-        '^': '#{Exclusive or}',
-        '??': '#{If nullish}',
-        '?.': '#{Optional chain}',
-        '=>': '#{Arrow}'
+        '>>': window.translate('Shift right'),
+        '<<': window.translate('Shift left'),
+        '>>>': window.translate('Unsigned shift right'),
+        '&': window.translate('Bitwise and'),
+        '|': window.translate('Bitwise or'),
+        '^': window.translate('Exclusive or'),
+        '??': window.translate('If nullish'),
+        '?.': window.translate('Optional chain'),
+        '=>': window.translate('Arrow')
     },
     literals: {
-        'true': '#{True}',
-        'false': '#{False}',
-        'null': '#{Null}',
-        'undefined': '#{Undefined}',
-        'NaN': '#{Not a number}',
-        'Infinity': '#{Infinity}',
-        '-Infinity': '#{Negative infinity}'
+        'true': window.translate('True'),
+        'false': window.translate('False'),
+        'null': window.translate('Null'),
+        'undefined': window.translate('Undefined'),
+        'NaN': window.translate('Not a number'),
+        'Infinity': window.translate('Infinity'),
+        '-Infinity': window.translate('Negative infinity')
     }
 };
 
@@ -1728,11 +1728,11 @@ function trOperator(op) {
 *** */
 function trLiteral(val) {
    if (val === undefined) {
-       return '#{Undefined}';
+       return window.translate('Undefined');
    }
 
    if (val === null) {
-       return '#{Null}';
+       return window.translate('Null');
    }
 
    const s = String(val);
@@ -1746,7 +1746,7 @@ function trLiteral(val) {
 *** */
 function displayValue(raw) {
    if (raw === undefined || raw === null) {
-       return trLiteral(raw) || '#{None}';
+       return trLiteral(raw) || window.translate('None');
    }
 
    let s = String(raw);
@@ -1767,19 +1767,19 @@ function displayValue(raw) {
 *** */
 function getSpecialLiteralText(value) {
    if (value === true || value === 'true') {
-       return '#{True}';
+       return window.translate('True');
    }
 
    if (value === false || value === 'false') {
-       return '#{False}';
+       return window.translate('False');
    }
 
    if (value === null || value === 'null') {
-       return '#{Null}';
+       return window.translate('Null');
    }
 
    if (value === undefined || value === 'undefined') {
-       return '#{Undefined}';
+       return window.translate('Undefined');
    }
 
    if (value === 'document' || value === 'window') {
@@ -2317,7 +2317,7 @@ function makeCallExpressionBlock(expr) {
                 }
             }
 
-            topLine.appendChild(createElementNode('div', 'block transparent', '#{On}'));
+            topLine.appendChild(createElementNode('div', 'block transparent', window.translate('On')));
             topLine.appendChild(makeVariablesNode(obj));
 
             outer.appendChild(topLine);
@@ -3580,7 +3580,7 @@ function setEditMode(isWizardMode) {
 
     jsEditorContent.setAttribute('contenteditable', isWizardMode ? 'false' : 'plaintext-only');
     codeWizardToggle.classList.toggle('wizard', isWizardMode);
-    codeWizardToggle.textContent = isWizardMode ? '#{Text mode}' : '#{Visual mode}';
+    codeWizardToggle.textContent = isWizardMode ? window.translate('Text mode') : window.translate('Visual mode');
 }
 
 /* ***

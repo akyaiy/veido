@@ -98,9 +98,9 @@ async uniquePath(path, isDir = false) {
         }));
     } catch (e) {
         if (e?.status === 403) {
-            alert("#{You don't have permission to view files}");
+            alert(window.translate("You don't have permission to view files"));
         } else {
-            alert("#{Error loading file list}");
+            alert(window.translate("Error loading file list"));
         }
         throw e;
     }
@@ -542,9 +542,9 @@ async renderFiles() {
       const header = document.createElement('div');
       header.id = 'files_header';
       header.innerHTML = `
-        <div style="margin-left: 5px;">#{Name}</div>
-        <div>#{Size}</div>
-        <div>#{Date}</div>
+        <div style="margin-left: 5px;">${window.translate('Name')}</div>
+        <div>${window.translate('Size')}</div>
+        <div>${window.translate('Date')}</div>
       `;
       container.appendChild(header);
     }
@@ -553,7 +553,7 @@ async renderFiles() {
         container.innerHTML = `
             <div class="file_main_empty">
                 <div class="file_icon_empty">🔍</div>
-                <div class="file_name_empty">#{This folder does not exist}</div>
+                <div class="file_name_empty">${window.translate('This folder does not exist')}</div>
             </div>
         `;
         container.classList.add('empty');
@@ -562,7 +562,7 @@ async renderFiles() {
         container.innerHTML = `
             <div class="file_main_empty">
                 <div class="file_icon_empty">📁</div>
-                <div class="file_name_empty">#{Folder is empty}</div>
+                <div class="file_name_empty">${window.translate('Folder is empty')}</div>
             </div>
         `;
         container.classList.add('empty');
@@ -1487,7 +1487,7 @@ function searchByName() {
             div.className = "file_main_empty";
             div.innerHTML = `
                 <div class="file_icon_empty">🔍</div>
-                <div class="file_name_empty">#{No results found}</div>
+                <div class="file_name_empty">${window.translate('No results found')}</div>
             `; 
             filesView.classList.add('empty');
             filesView.appendChild(div);
@@ -1692,23 +1692,23 @@ function validateRename(name, type) {
     if (!rule) return null;
 
     if (name.length > rule.maxLength) {
-        return "#{Name is too long}";
+        return window.translate("Name is too long");
     }
 
     if (rule.forbiddenChars.some(ch => name.includes(ch))) {
-        return "#{Forbidden characters}";
+        return window.translate("Forbidden characters");
     }
 
     if (rule.cannotStartWith.some(ch => name.startsWith(ch))) {
-        return "#{Invalid name beginning}";
+        return window.translate("Invalid name beginning");
     }
 
     if (rule.cannotEndWith.some(ch => name.endsWith(ch))) {
-        return "#{Invalid name ending}";
+        return window.translate("Invalid name ending");
     }
 
     if (name === "." || name === "..") {
-        return "#{Invalid name}";
+        return window.translate("Invalid name");
     }
 
     return null;
@@ -2057,7 +2057,7 @@ class ContextMenu {
         const selected = getSelectedItems();
         if (selected.length === 0) return;
 
-        const ok = confirm(`#{Delete} ${selected.length} file(s)?`);
+        const ok = confirm(`${window.translate('Delete')} ${selected.length} file(s)?`);
         if (!ok) return;
 
         for (const item of selected) {
@@ -2486,11 +2486,11 @@ class FilePropertiesManager {
 
         win.table.innerHTML = `
             <tr>
-                <td>#{Name}</td>
+                <td>${window.translate('Name')}</td>
                 <td>${fileName}</td>
             </tr>
             <tr>
-                <td>#{Path}</td>
+                <td>${window.translate('Path')}</td>
                 <td>${path}</td>
             </tr>
         `;
@@ -2501,15 +2501,15 @@ class FilePropertiesManager {
             if (key === "size") {
                 win.table.innerHTML += `
                     <tr>
-                        <td>#{Size}</td>
-                        <td>${value} #{bytes}</td>
+                        <td>${window.translate('Size')}</td>
+                        <td>${value} ${window.translate('bytes')}</td>
                     </tr>
                 `;
             } else if (key === "is_dir") {
                 win.table.innerHTML += `
                     <tr>
-                        <td>#{Type}</td>
-                        <td>${value ? "#{Folder}" : "#{File}"}</td>
+                        <td>${window.translate('Type')}</td>
+                        <td>${value ? window.translate("Folder") : window.translate("File")}</td>
                     </tr>
                 `;
             } else {

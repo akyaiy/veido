@@ -12,14 +12,14 @@ const elementsTemplates = [
     { element: 'form', html: "<form style='border:1px solid #ccc;'>[ST]</form>" },
     { element: 'input', html: "<input placeholder='[ST]'>" },
     { element: 'textarea', html: "<textarea style='border:1px solid #ccc;'>[ST]</textarea>" },
-    { element: 'select', html: "<select><option>[ST]</option><option>#{Option 2}</option></select>" },
+    { element: 'select', html: "<select><option>[ST]</option><option>${window.translate('Option 2')}</option></select>" },
     { element: 'code', html: "<code style='border:1px solid #ccc;'>[ST]</code>" },
     { element: 'figure', html: "<figure><img src='[LINK]'><figcaption>[ST]</figcaption></figure>" },
     { element: 'video', html: "<video src='[LINK]' controls style='max-width:100%;'></video>" },
     { element: 'audio', html: "<audio src='[LINK]' controls></audio>" },
     { element: 'iframe', html: "<iframe src='[LINK]' style='width:100%;height:160px;'></iframe>" },
     { element: 'button', html: "<button style='border:1px solid #ccc;'>[ST]</button>" },
-    { element: 'details', html: "<details style='border:1px solid #ccc;width:160px;'><summary>#{Heading}</summary><div>[ST]</div></details>" },
+    { element: 'details', html: "<details style='border:1px solid #ccc;width:160px;'><summary>${window.translate('Heading')}</summary><div>[ST]</div></details>" },
     { element: 'range', html: "<input type='range' min='0' max='100' value='50' style='width:160px;'>" },
     { element: 'progress', html: "<progress value='50' max='100' style='width:160px;'></progress>" },
     { element: 'file', html: "<input type='file'>" }
@@ -197,7 +197,7 @@ async function insertClickHandler(event, customTemplate=null) {
     }
 
     let dataEl = '';
-    let textContent = '#{Text}';
+    let textContent = window.translate('Text');
 
     // Если передан готовый шаблон, используем его
     if (customTemplate) {
@@ -217,7 +217,7 @@ async function insertClickHandler(event, customTemplate=null) {
 
         // Получаем HTML-шаблон элемента
         dataEl = elementTemplate.html;
-        textContent = button.textContent || '#{Text}';
+        textContent = button.textContent || window.translate('Text');
 
         // Для обычного div, если курсор находится внутри Grid-ячейки, применяем шаблон к существующему элементу
         if (button.dataset.element === 'div') {
@@ -363,12 +363,12 @@ async function askForMarkerValue(marker) {
     const lower = marker.toLowerCase();
 
     if (lower === 'link' || lower === 'url' || lower === 'image' || lower === 'src') {
-        return await window.editorBlock.prompt('#{Enter a link (URL)}');
+        return await window.editorBlock.prompt(window.translate('Enter a link (URL)'));
     } else if (lower === 'count' || lower === 'number') {
-        return await window.editorBlock.prompt('#{Enter a number}');
+        return await window.editorBlock.prompt(window.translate('Enter a number'));
     }
 
-    return await window.editorBlock.prompt(`#{Enter a value for} ${marker}`);
+    return await window.editorBlock.prompt(`${window.translate('Enter a value for')} ${marker}`);
 }
 
 /* ***
@@ -460,7 +460,7 @@ function wrapIfMultiLine(range, node) {
  * - принимает HTML-шаблон элемента и текст-заполнитель
  * - вставляет элемент в текущую позицию курсора
 *** */
-async function handleLoadedBlockView(dataEl, placeholderText = '#{Text}') {
+async function handleLoadedBlockView(dataEl, placeholderText = window.translate('Text')) {
     const editorDoc = window.editorBlock && typeof window.editorBlock.getEditorDocument === 'function'
         ? window.editorBlock.getEditorDocument()
         : document;
@@ -568,7 +568,7 @@ async function handleLoadedBlockView(dataEl, placeholderText = '#{Text}') {
  * - принимает HTML-шаблон элемента и текст-заполнитель
  * - вставляет HTML-код в текущую позицию курсора
 *** */
-async function insertInHtmlEditor(dataEl, placeholderText = '#{Text}') {
+async function insertInHtmlEditor(dataEl, placeholderText = window.translate('Text')) {
     // Получение текущего выделения
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) {
@@ -893,7 +893,7 @@ const imageInsertFile = document.getElementById('imageInsertFile');
 async function imageInsertUrlHandler(event) {
     event.stopPropagation();
 
-    const url = await window.editorBlock.prompt('#{Enter an image URL}');
+    const url = await window.editorBlock.prompt(window.translate('Enter an image URL'));
     if (!url) {
         return;
     }

@@ -17,7 +17,7 @@ const eventsTable = document.getElementById('eventsPanel')
 // Список событий
 const eventTypes = [
     {
-        label: '#{Mouse and pointer}',
+        label: window.translate('Mouse and pointer'),
         events: [
             'click',
             'dblclick',
@@ -41,7 +41,7 @@ const eventTypes = [
         ]
     },
     {
-        label: '#{Keyboard and input}',
+        label: window.translate('Keyboard and input'),
         events: [
             'keydown',
             'keyup',
@@ -52,7 +52,7 @@ const eventTypes = [
         ]
     },
     {
-        label: '#{Form and interaction}',
+        label: window.translate('Form and interaction'),
         events: [
             'submit',
             'reset',
@@ -67,7 +67,7 @@ const eventTypes = [
         ]
     },
     {
-        label: '#{Drag and touch}',
+        label: window.translate('Drag and touch'),
         events: [
             'dragstart',
             'drag',
@@ -83,7 +83,7 @@ const eventTypes = [
         ]
     },
     {
-        label: '#{Document, window, and media}',
+        label: window.translate('Document, window, and media'),
         events: [
             'load',
             'DOMContentLoaded',

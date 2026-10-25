@@ -626,7 +626,7 @@ async function loadBlock(path, target, itemsHowText = false, mode = "") {
             await loadMdScript('/_static/vendor/markdown-it.min.js');
         }
         const { content: mdContent, css, js } = response;
-        const processedJs = js?.replace(/#\{([^}]*)\}/g, '$1');
+        const processedJs = js;
         
         // Вставка контента
         if (mdContent) {
@@ -713,6 +713,15 @@ function loadBlockAttribute(scope = document) {
         loadBlock(path, el);
     });
 }
+
+/**********************************************************************************
+ * translate - получение перевода текста
+ * Принимает текст и возвращает перевод для текущего языка
+ * Если перевод отсутствует, возвращает исходный текст
+ **********************************************************************************/
+window.translate = function(text) {
+    return text;
+};
 
 
 /*****************************************************************************

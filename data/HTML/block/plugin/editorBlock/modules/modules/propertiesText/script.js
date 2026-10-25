@@ -1353,7 +1353,7 @@ async function handleFormatClick(event) {
                 anchor: buttonElement
             });
         } else {
-            const colorValue = await window.editorBlock.prompt('#{Enter a color (for example, #516ed7 or red):}', initialColor);
+            const colorValue = await window.editorBlock.prompt(window.translate('Enter a color (for example, #516ed7 or red):'), initialColor);
             if (colorValue !== null) {
                 applyInlineStyle(formatConfig.property, colorValue);
             }
