@@ -1,7 +1,10 @@
 # ADR-012: Users Provider и Auth hooks через VFS
 
 > Статус решения: принято.  
-> Статус реализации: реализовано.  
+> Статус реализации: частично устарело; доменная реализация Users Provider,
+> Auth hooks и refresh bridge остаётся реализованной, но публичный transport
+> `POST /api/v2/vfs/hooks/{hook-key}/run` заменяется typed Auth façades по
+> [ADR-013](GUEST_TYPED_VFS_SURFACE_DECISION_RU.md).
 > Дата решения: 21 октября 2026 года.  
 > Связанные документы: [ADR-008](VFS_V2_SERVER_HOOKS_DECISION_RU.md),
 > [ADR-009](PREPROD_SERVER_RUNTIME_DECISION_RU.md),
