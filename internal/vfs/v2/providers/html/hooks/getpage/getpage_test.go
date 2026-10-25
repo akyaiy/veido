@@ -67,8 +67,6 @@ func TestGetPageResolvesNestedSlugPathAndReturnsEntrypoint(t *testing.T) {
 	manifest := []byte(`{"schema_version":1,"template_key":"default-spa","version":"1","entrypoint":"index.html","package_digest":"` + strings.Repeat("a", 64) + `","assets":[{"path":"index.html","content_type":"text/html; charset=utf-8","digest":"` + digestText + `","size":` + stringInt(len(index)) + `}]}`)
 	f := &frontend{files: map[string][]byte{
 		"html@site[site-acme]:///tree.json":                                tree,
-		"html@site[site-acme]:///site.json":                                []byte(`{"name":"Acme"}`),
-		"html@site[site-acme]:///pages/install/info.json":                  []byte(`{"page_key":"install","bundle_root_uri":"demo@files[site-acme]:///content/install"}`),
 		"html@site[site-acme]:///templates/default-spa/1/manifest.json":    manifest,
 		"html@site[site-acme]:///templates/default-spa/1/files/index.html": index,
 	}}
@@ -82,10 +80,10 @@ func TestGetPageResolvesNestedSlugPathAndReturnsEntrypoint(t *testing.T) {
 	if err := json.Unmarshal(result.Output, &output); err != nil {
 		t.Fatal(err)
 	}
-	if !output.Found || output.Route != "/docs/install" || output.PageKey != "install" || output.Bootstrap.SiteURI != string(siteURI) || output.Bootstrap.SiteName != "Acme" || output.Bootstrap.PageTitle != "Install" || output.Bootstrap.BundleRootURI != "demo@files[site-acme]:///content/install" || !bytes.Equal(output.Content, index) || !output.Entrypoint {
+	if !output.Found || output.Route != "/docs/install" || output.PageKey != "install" || !bytes.Equal(output.Content, index) || !output.Entrypoint {
 		t.Fatalf("output = %+v", output)
 	}
-	if len(f.calls) != 6 {
+	if len(f.calls) != 4 {
 		t.Fatalf("VFS calls = %+v", f.calls)
 	}
 	for _, got := range f.calls {

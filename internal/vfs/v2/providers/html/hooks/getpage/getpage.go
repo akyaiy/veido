@@ -24,7 +24,6 @@ const (
 	NotFoundCode     = "not_found"
 	maxInputBytes    = 4 << 10
 	maxTreeBytes     = 4 << 20
-	maxMetadataBytes = 256 << 10
 	maxOutputBytes   = 6 << 20
 	publicPageStatus = "ready"
 )
@@ -37,11 +36,10 @@ type Input struct {
 
 type Output struct {
 	getstatic.Output
-	Route     string    `json:"route"`
-	Found     bool      `json:"found"`
-	Code      string    `json:"code,omitempty"`
-	PageKey   string    `json:"page_key"`
-	Bootstrap Bootstrap `json:"bootstrap"`
+	Route   string `json:"route"`
+	Found   bool   `json:"found"`
+	Code    string `json:"code,omitempty"`
+	PageKey string `json:"page_key"`
 }
 
 func (o Output) MarshalJSON() ([]byte, error) {
@@ -54,19 +52,6 @@ func (o Output) MarshalJSON() ([]byte, error) {
 	}
 	type outputAlias Output
 	return json.Marshal(outputAlias(o))
-}
-
-// Bootstrap contains everything the browser runtime needs before it reads the
-// three physical page-bundle files. The Site HTTP adapter embeds this value in
-// the returned entrypoint, so the browser does not invoke get-page a second
-// time or fetch site/page metadata separately.
-type Bootstrap struct {
-	SiteURI       string `json:"site_uri"`
-	Route         string `json:"route"`
-	SiteName      string `json:"site_name"`
-	PageKey       string `json:"page_key"`
-	PageTitle     string `json:"page_title"`
-	BundleRootURI string `json:"bundle_root_uri"`
 }
 
 type treeDocument struct {
@@ -87,22 +72,13 @@ type treePage struct {
 	Children []treePage `json:"children"`
 }
 
-type siteDocument struct {
-	Name string `json:"name"`
-}
-
-type pageDocument struct {
-	PageKey       string `json:"page_key"`
-	BundleRootURI string `json:"bundle_root_uri"`
-}
-
 func Definition() hooks.Definition {
 	return hooksdk.Native(HookKey, HookVersion, hooksdk.NativeOptions{
 		Enabled: true,
 		Active:  true,
 		Limits: hooks.Limits{
 			Timeout:        3 * time.Second,
-			MaxSteps:       6,
+			MaxSteps:       4,
 			MaxInputBytes:  maxInputBytes,
 			MaxOutputBytes: maxOutputBytes,
 		},
@@ -133,36 +109,11 @@ func run(ctx context.Context, execution hooks.Execution, input Input) (Output, e
 	if !found {
 		return Output{Route: route, Found: false, Code: NotFoundCode}, nil
 	}
-	siteURI, err := siteResourceURI(input.SiteURI, "/site.json")
-	if err != nil {
-		return Output{}, vfs.NewError(vfs.KindFailedPrecondition, vfs.OpRead, "invalid site metadata URI", err)
-	}
-	pageURI, err := siteResourceURI(input.SiteURI, "/pages/"+page.PageKey+"/info.json")
-	if err != nil {
-		return Output{}, vfs.NewError(vfs.KindFailedPrecondition, vfs.OpRead, "invalid page metadata URI", err)
-	}
-	siteBytes, err := readBounded(ctx, execution.VFS, siteURI, maxMetadataBytes)
-	if err != nil {
-		return Output{}, hooks.FailStep("read-site-metadata", err)
-	}
-	pageBytes, err := readBounded(ctx, execution.VFS, pageURI, maxMetadataBytes)
-	if err != nil {
-		return Output{}, hooks.FailStep("read-page-metadata", err)
-	}
-	var site siteDocument
-	if err := json.Unmarshal(siteBytes, &site); err != nil || strings.TrimSpace(site.Name) == "" {
-		return Output{}, hooks.FailStep("decode-site-metadata", vfs.NewError(vfs.KindFailedPrecondition, vfs.OpRead, "invalid site metadata", err))
-	}
-	var pageInfo pageDocument
-	if err := json.Unmarshal(pageBytes, &pageInfo); err != nil || pageInfo.PageKey != page.PageKey || strings.TrimSpace(pageInfo.BundleRootURI) == "" {
-		return Output{}, hooks.FailStep("decode-page-metadata", vfs.NewError(vfs.KindFailedPrecondition, vfs.OpRead, "invalid page metadata", err))
-	}
 	asset, err := getstatic.Resolve(ctx, execution, getstatic.Input{SiteURI: input.SiteURI, TemplateKey: input.TemplateKey, Path: "index.html"})
 	if err != nil {
 		return Output{}, err
 	}
-	bootstrap := Bootstrap{SiteURI: string(input.SiteURI), Route: route, SiteName: site.Name, PageKey: page.PageKey, PageTitle: page.Title, BundleRootURI: pageInfo.BundleRootURI}
-	return Output{Output: asset, Route: route, Found: true, PageKey: page.PageKey, Bootstrap: bootstrap}, nil
+	return Output{Output: asset, Route: route, Found: true, PageKey: page.PageKey}, nil
 }
 
 func normalizeRoute(raw string) (string, []string, error) {

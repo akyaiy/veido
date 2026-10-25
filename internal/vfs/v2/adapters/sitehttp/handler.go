@@ -7,10 +7,7 @@ import (
 	"MyServer/internal/vfs/v2/providers/html/hooks/getstatic"
 	"MyServer/pkg/vfs"
 	"MyServer/pkg/vfs/hooks"
-	"bytes"
-	"crypto/sha256"
 	"crypto/subtle"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"html"
@@ -134,42 +131,11 @@ func (h *Handler) handlePage(w http.ResponseWriter, r *http.Request) {
 		h.writePageNotFound(w, r)
 		return
 	}
-	if output.Bootstrap.SiteURI != string(h.config.SiteURI) || output.Bootstrap.Route != expectedRoute || output.Bootstrap.PageKey != output.PageKey || output.Bootstrap.SiteName == "" || output.Bootstrap.BundleRootURI == "" || output.ContentType == "" || output.ETag == "" || output.Size != int64(len(output.Content)) {
+	if output.PageKey == "" || output.ContentType == "" || output.ETag == "" || output.Size != int64(len(output.Content)) {
 		h.writeProblem(w, r, http.StatusInternalServerError, "invalid_hook_output", "invalid get-page output", nil)
 		return
 	}
-	content, err := embedBootstrap(output.Output, output.Bootstrap)
-	if err != nil {
-		h.writeProblem(w, r, http.StatusInternalServerError, "invalid_hook_output", "get-page entrypoint cannot carry bootstrap data", err)
-		return
-	}
-	h.writeContent(w, r, content)
-}
-
-func embedBootstrap(output getstatic.Output, bootstrap getpage.Bootstrap) (getstatic.Output, error) {
-	marker := []byte("</head>")
-	index := bytes.Index(output.Content, marker)
-	if index < 0 {
-		return getstatic.Output{}, errors.New("entrypoint has no closing head element")
-	}
-	data, err := json.Marshal(bootstrap)
-	if err != nil {
-		return getstatic.Output{}, err
-	}
-	tag := make([]byte, 0, len(data)+80)
-	tag = append(tag, []byte(`<script id="html-page-bootstrap" type="application/json">`)...)
-	tag = append(tag, data...)
-	tag = append(tag, []byte("</script>\n")...)
-	content := make([]byte, 0, len(output.Content)+len(tag))
-	content = append(content, output.Content[:index]...)
-	content = append(content, tag...)
-	content = append(content, output.Content[index:]...)
-	digest := sha256.Sum256(content)
-	output.Content = content
-	output.Size = int64(len(content))
-	output.Digest = hex.EncodeToString(digest[:])
-	output.ETag = `"sha256-` + output.Digest + `"`
-	return output, nil
+	h.writeContent(w, r, output.Output)
 }
 
 func (h *Handler) writePageNotFound(w http.ResponseWriter, r *http.Request) {

@@ -75,7 +75,6 @@ func TestDemoSeedsHTMLPageAndApplicationTemplateIdempotently(t *testing.T) {
 	if !strings.Contains(admin, `window.VFSv2.control`) || !strings.Contains(admin, `"set-visibility"`) {
 		t.Fatal("seeded application template does not contain the site administration client")
 	}
-
 	page := readDemoPage(t, frontend)
 	if page.PageKey != "home" || page.Title != "Главная" || page.BundleRootURI != fixtureURI("/content/home") {
 		t.Fatalf("seeded page = %+v", page)
@@ -163,7 +162,9 @@ func TestDemoHandlerServesUIAssetsAndVFSAPI(t *testing.T) {
 		{"/_static/css/admin.css", "text/css", ".admin-shell"},
 		{"/_static/js/router.js", "javascript", `const root = route === "/"`},
 		{"/_static/js/admin.js", "javascript", `window.VFSv2.control`},
-		{"/_static/js/page.js", "javascript", `html-page-bootstrap`},
+		{"/_static/site-context.json", "application/json", `"scope":"html-demo"`},
+		{"/_static/js/site-context.js", "javascript", `/_static/site-context.json`},
+		{"/_static/js/page.js", "javascript", `resolveBundleRoot`},
 		{"/api/v2/vfs/read?uri=" + url.QueryEscape(htmlURI("/pages/home/info.json")), "application/octet-stream", `"page_key": "home"`},
 		{"/api/v2/vfs/read?uri=" + url.QueryEscape(fixtureURI("/content/home/content.md")), "application/octet-stream", `<section class="welcome">`},
 		{"/api/v2/vfs/read?uri=" + url.QueryEscape(fixtureURI("/content/home/style.css")), "application/octet-stream", "border-left"},

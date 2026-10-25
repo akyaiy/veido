@@ -52,9 +52,10 @@ GET /api/v2/vfs/read?uri=html%40site%5Bhtml-demo%5D%3A%2F%2F%2Fpages%2Fhome%2Fin
 Block не является обязательной частью Page и HTML Provider не читает байты
 bundle из собственного Store.
 Остальные browser routes отображают найденную `get-page` страницу, загружая
-её `content.md`, `style.css` и `script.js` через actor-bound VFS. Page bootstrap
-встраивается в первоначальный HTML-ответ: браузер не повторяет `get-page` и не
-читает отдельно `site.json`/`info.json`.
+её `content.md`, `style.css` и `script.js` через actor-bound VFS. HTML-ответ
+не меняется adapter-ом: browser получает scope из `GET /_static/site-context.json`,
+строит canonical HTML site URI и читает `tree.json` и `info.json`/`meta.json`.
+`bundle_root_uri` приходит только из этих metadata.
 
 Пока active publication отсутствует, demo Site HTTP Adapter считает публично
 активными только страницы со status `ready`. Поэтому seed-страница `/demo`

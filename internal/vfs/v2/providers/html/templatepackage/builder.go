@@ -5,6 +5,7 @@ package templatepackage
 
 import (
 	html "MyServer/internal/vfs/v2/providers/html"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -28,6 +29,7 @@ type File struct {
 	TargetPath  string
 	ContentType string
 	Replace     []Replacement
+	Data        []byte
 }
 
 type Spec struct {
@@ -40,7 +42,7 @@ type Spec struct {
 // DefaultSPA returns the reviewed allowlist for data/HTML/frontend. Files not
 // named here—including generators, archives, swap files and SVG copies—cannot
 // enter the installed package.
-func DefaultSPA(version string) Spec {
+func DefaultSPA(version, siteScope string) Spec {
 	const key = "default-spa"
 	return Spec{
 		TemplateKey: key,
@@ -48,6 +50,7 @@ func DefaultSPA(version string) Spec {
 		Entrypoint:  "index.html",
 		Files: []File{
 			{SourcePath: "index.html", TargetPath: "index.html"},
+			{TargetPath: "site-context.json", ContentType: "application/json; charset=utf-8", Data: siteContextJSON(siteScope)},
 			{SourcePath: "css/style.css", TargetPath: "css/style.css"},
 			{SourcePath: "css/admin.css", TargetPath: "css/admin.css"},
 			{SourcePath: "css/page.css", TargetPath: "css/page.css"},
@@ -55,12 +58,20 @@ func DefaultSPA(version string) Spec {
 			{SourcePath: "js/admin.js", TargetPath: "js/admin.js"},
 			{SourcePath: "js/page.js", TargetPath: "js/page.js"},
 			{SourcePath: "js/router.js", TargetPath: "js/router.js"},
+			{SourcePath: "js/site-context.js", TargetPath: "js/site-context.js"},
 			{SourcePath: "js/vfsv2.js", TargetPath: "js/vfsv2.js"},
 			{SourcePath: "js/markdown-it.min.js", TargetPath: "vendor/markdown-it.min.js"},
 			{SourcePath: "img/favicon.png", TargetPath: "img/favicon.png"},
 			{SourcePath: "img/icons.svg", TargetPath: "img/icons.svg"},
 		},
 	}
+}
+
+func siteContextJSON(scope string) []byte {
+	data, _ := json.Marshal(struct {
+		Scope string `json:"scope"`
+	}{Scope: scope})
+	return data
 }
 
 // BuildDirectory reads only the spec allowlist from sourceDir. os.Root keeps
@@ -82,36 +93,53 @@ func BuildDirectory(sourceDir string, spec Spec) (html.InstallTemplateInput, err
 	seenTargets := make(map[string]struct{}, len(spec.Files))
 	var total int64
 	for _, file := range spec.Files {
-		source, err := cleanRelative(file.SourcePath)
-		if err != nil {
-			return html.InstallTemplateInput{}, fmt.Errorf("invalid source path %q: %w", file.SourcePath, err)
+		source := ""
+		if file.SourcePath != "" {
+			var err error
+			source, err = cleanRelative(file.SourcePath)
+			if err != nil {
+				return html.InstallTemplateInput{}, fmt.Errorf("invalid source path %q: %w", file.SourcePath, err)
+			}
 		}
 		target, err := cleanRelative(file.TargetPath)
 		if err != nil {
 			return html.InstallTemplateInput{}, fmt.Errorf("invalid target path %q: %w", file.TargetPath, err)
 		}
-		if _, exists := seenSources[source]; exists {
-			return html.InstallTemplateInput{}, fmt.Errorf("duplicate source path %q", source)
+		if file.SourcePath != "" {
+			if _, exists := seenSources[source]; exists {
+				return html.InstallTemplateInput{}, fmt.Errorf("duplicate source path %q", source)
+			}
+			seenSources[source] = struct{}{}
 		}
 		if _, exists := seenTargets[target]; exists {
 			return html.InstallTemplateInput{}, fmt.Errorf("duplicate target path %q", target)
 		}
-		seenSources[source] = struct{}{}
 		seenTargets[target] = struct{}{}
-		if err := requireRegularPath(root, source); err != nil {
-			return html.InstallTemplateInput{}, fmt.Errorf("unsafe template source %q: %w", source, err)
-		}
-		handle, err := root.Open(source)
-		if err != nil {
-			return html.InstallTemplateInput{}, fmt.Errorf("open template source %q: %w", source, err)
-		}
-		data, readErr := io.ReadAll(io.LimitReader(handle, maxSourceFile+1))
-		closeErr := handle.Close()
-		if readErr != nil {
-			return html.InstallTemplateInput{}, fmt.Errorf("read template source %q: %w", source, readErr)
-		}
-		if closeErr != nil {
-			return html.InstallTemplateInput{}, fmt.Errorf("close template source %q: %w", source, closeErr)
+		var data []byte
+		if file.SourcePath == "" {
+			if len(file.Data) == 0 || len(file.Replace) != 0 {
+				return html.InstallTemplateInput{}, fmt.Errorf("invalid generated template asset %q", target)
+			}
+			data = append([]byte(nil), file.Data...)
+		} else {
+			if len(file.Data) != 0 {
+				return html.InstallTemplateInput{}, fmt.Errorf("template asset %q has both source and generated data", target)
+			}
+			if err := requireRegularPath(root, source); err != nil {
+				return html.InstallTemplateInput{}, fmt.Errorf("unsafe template source %q: %w", source, err)
+			}
+			handle, err := root.Open(source)
+			if err != nil {
+				return html.InstallTemplateInput{}, fmt.Errorf("open template source %q: %w", source, err)
+			}
+			data, err = io.ReadAll(io.LimitReader(handle, maxSourceFile+1))
+			closeErr := handle.Close()
+			if err != nil {
+				return html.InstallTemplateInput{}, fmt.Errorf("read template source %q: %w", source, err)
+			}
+			if closeErr != nil {
+				return html.InstallTemplateInput{}, fmt.Errorf("close template source %q: %w", source, closeErr)
+			}
 		}
 		if len(data) > maxSourceFile {
 			return html.InstallTemplateInput{}, fmt.Errorf("template source %q exceeds file limit", source)

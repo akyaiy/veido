@@ -395,7 +395,7 @@ func seedApplicationTemplate(ctx context.Context, frontend vfs.VFSFrontend, sour
 	} else if !errors.Is(err, vfs.ErrNotFound) && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	input, err := templatepackage.BuildDirectory(sourceDir, templatepackage.DefaultSPA(version))
+	input, err := templatepackage.BuildDirectory(sourceDir, templatepackage.DefaultSPA(version, demoScope))
 	if err != nil {
 		return err
 	}

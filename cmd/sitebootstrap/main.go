@@ -77,7 +77,7 @@ func main() {
 		if err != nil || uri.Provider() != html.ProviderKey || uri.Path() != "/" || !uri.HasScope() {
 			fail(fmt.Errorf("-site-uri must be a canonical HTML site root"))
 		}
-		input, err := templatepackage.BuildDirectory(m.Site.TemplateSource, templatepackage.DefaultSPA(m.Site.TemplateVersion))
+		input, err := templatepackage.BuildDirectory(m.Site.TemplateSource, templatepackage.DefaultSPA(m.Site.TemplateVersion, uri.ScopeKey()))
 		if err != nil {
 			fail(err)
 		}
@@ -107,7 +107,7 @@ func main() {
 	}
 	htmlURI := fmt.Sprintf("html@%s[%s]:///", m.Site.Connection, scope.Name)
 	if *templateOnly {
-		input, err := templatepackage.BuildDirectory(m.Site.TemplateSource, templatepackage.DefaultSPA(m.Site.TemplateVersion))
+		input, err := templatepackage.BuildDirectory(m.Site.TemplateSource, templatepackage.DefaultSPA(m.Site.TemplateVersion, scope.Name))
 		if err != nil {
 			fail(err)
 		}
@@ -131,7 +131,7 @@ func main() {
 	if err := c.control(htmlURI, "initialize", map[string]any{"name": m.Site.Name, "base_url": m.Site.BaseURL, "visible_to": m.Site.Visibility}); err != nil {
 		fail(fmt.Errorf("initialize site %s: %w", htmlURI, err))
 	}
-	input, err := templatepackage.BuildDirectory(m.Site.TemplateSource, templatepackage.DefaultSPA(m.Site.TemplateVersion))
+	input, err := templatepackage.BuildDirectory(m.Site.TemplateSource, templatepackage.DefaultSPA(m.Site.TemplateVersion, scope.Name))
 	if err != nil {
 		fail(err)
 	}

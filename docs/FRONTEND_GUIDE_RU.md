@@ -517,26 +517,28 @@ await VFSv2.control(siteURI + "pages/about", "update", {
 повторить операцию, предварительно проверив, что такой `page_key` ещё не
 создан.
 
-## 11. Публичная страница и bootstrap от сервера
+## 11. Публичная страница и site context
 
-Посетитель не обязан знать VFS URI. При `GET /demo` server сам находит page,
-читает её bundle и отдаёт application template. В `index.html` уже помещается
-JSON в элемент:
+Посетитель не обязан заранее знать VFS URI. При `GET /demo` server проверяет
+маршрут и отдаёт application template. Runtime получает site scope из static
+asset этого template:
 
 ```html
-<script id="html-page-bootstrap" type="application/json">…</script>
+GET /_static/site-context.json
+{"scope":"site-acme"}
 ```
 
 Frontend читает его так:
 
 ```js
-const bootstrap = JSON.parse(document.getElementById("html-page-bootstrap").textContent);
-// bootstrap.site_uri, bootstrap.route, bootstrap.site_name,
-// bootstrap.page_key, bootstrap.page_title, bootstrap.bundle_root_uri
+const { scope } = await fetch("/_static/site-context.json").then((response) => response.json());
+const siteURI = `html@site[${scope}]:///`;
 ```
 
-`site_uri` из bootstrap — правильный способ узнать текущий сайт в браузере.
-Не хардкодь `html@site[...]:///`: scope у каждого развёртывания другой.
+Браузер получает только scope сайта и строит его канонический HTML URI. Page и
+Block metadata читаются отдельно; `bundle_root_uri` никогда не передаётся через
+HTML entrypoint или server-side DOM injection.
+Не хардкодь scope или URI публикатора: scope у каждого развёртывания другой.
 
 Существующая demo-админка — рабочий пример вызовов в
 `data/HTML/frontend/js/admin.js`, но это демо, не готовая модель прав.
@@ -569,7 +571,8 @@ const bootstrap = JSON.parse(document.getElementById("html-page-bootstrap").text
    копировать HTTP-код в каждой форме.
 3. Сделать auth state: login → access JWT в памяти → refresh при reload →
    logout.
-4. Взять `site_uri` из page bootstrap и загрузить `site.json`, `tree.json`.
+4. Получить site scope через `/_static/site-context.json`, построить site URI и загрузить
+   `site.json`, `tree.json`.
 5. Реализовать sidebar дерева и карточку страницы через `info.json`.
 6. Реализовать create/update/move/delete с revision-aware конфликтами.
 7. Реализовать загрузку трёх файлов bundle перед `pages/create`.

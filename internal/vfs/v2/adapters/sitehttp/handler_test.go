@@ -5,16 +5,12 @@ import (
 	"MyServer/internal/vfs/v2/providers/html/hooks/getstatic"
 	"MyServer/pkg/vfs"
 	"MyServer/pkg/vfs/hooks"
-	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -84,25 +80,29 @@ func TestSiteRoutesServeOnlyEntrypointAndVersionedStatic(t *testing.T) {
 	if asset.Code != http.StatusOK || asset.Body.String() != "console.log(1)" || asset.Header().Get("Cache-Control") != "no-cache" || runtime.calls[1].path != "js/app.js" {
 		t.Fatalf("asset response: status=%d headers=%v body=%q calls=%+v", asset.Code, asset.Header(), asset.Body.String(), runtime.calls)
 	}
+	runtime.staticOutput = getstatic.Output{Content: []byte(`{"scope":"acme"}`), ContentType: "application/json; charset=utf-8", Size: 16, ETag: `"sha256-context"`, CacheControl: "no-cache"}
+	contextAsset := httptest.NewRecorder()
+	router.ServeHTTP(contextAsset, httptest.NewRequest(http.MethodGet, "/_static/site-context.json", nil))
+	if contextAsset.Code != http.StatusOK || contextAsset.Body.String() != `{"scope":"acme"}` || runtime.calls[2].path != "site-context.json" {
+		t.Fatalf("static site context: status=%d body=%q calls=%+v", contextAsset.Code, contextAsset.Body.String(), runtime.calls)
+	}
 
 	missing := httptest.NewRecorder()
 	router.ServeHTTP(missing, httptest.NewRequest(http.MethodGet, "/_static", nil))
-	if missing.Code != http.StatusNotFound || len(runtime.calls) != 2 {
+	if missing.Code != http.StatusNotFound || len(runtime.calls) != 3 {
 		t.Fatalf("empty static path: status=%d calls=%+v", missing.Code, runtime.calls)
 	}
 	pageHTML := []byte("<html><head></head><body>site</body></html>")
 	runtime.pageOutput = getpage.Output{
 		Output: getstatic.Output{Content: pageHTML, ContentType: "text/html; charset=utf-8", Size: int64(len(pageHTML)), ETag: `"sha256-a"`, CacheControl: "no-cache", Entrypoint: true},
 		Route:  "/docs/install", Found: true, PageKey: "install",
-		Bootstrap: getpage.Bootstrap{SiteURI: string(siteURI), Route: "/docs/install", SiteName: "Acme", PageKey: "install", PageTitle: "Install", BundleRootURI: "demo@files[acme]:///content/install"},
 	}
 	page := httptest.NewRecorder()
 	router.ServeHTTP(page, httptest.NewRequest(http.MethodGet, "/docs/install", nil))
-	if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), `id="html-page-bootstrap"`) || !strings.Contains(page.Body.String(), `"bundle_root_uri":"demo@files[acme]:///content/install"`) || len(runtime.calls) != 3 || runtime.calls[2].hook != getpage.HookKey || runtime.calls[2].path != "/docs/install" {
+	if page.Code != http.StatusOK || page.Body.String() != string(pageHTML) || len(runtime.calls) != 4 || runtime.calls[3].hook != getpage.HookKey || runtime.calls[3].path != "/docs/install" {
 		t.Fatalf("page response: status=%d body=%q calls=%+v", page.Code, page.Body.String(), runtime.calls)
 	}
-	digest := sha256.Sum256(page.Body.Bytes())
-	if page.Header().Get("ETag") != `"sha256-`+hex.EncodeToString(digest[:])+`"` || page.Header().Get("Content-Length") != strconv.Itoa(page.Body.Len()) {
+	if page.Header().Get("ETag") != `"sha256-a"` {
 		t.Fatalf("adapted page validators: headers=%v", page.Header())
 	}
 
@@ -138,19 +138,5 @@ func TestAcceptsHTMLRequiresExplicitBrowserRepresentation(t *testing.T) {
 		if got := acceptsHTML(test.accept); got != test.want {
 			t.Errorf("acceptsHTML(%q) = %v, want %v", test.accept, got, test.want)
 		}
-	}
-}
-
-func TestEmbedBootstrapEscapesHTMLAndRebuildsValidator(t *testing.T) {
-	input := getstatic.Output{Content: []byte("<html><head></head></html>"), Size: 26, ETag: `"old"`}
-	output, err := embedBootstrap(input, getpage.Bootstrap{SiteURI: "html@site[acme]:///", Route: "/docs", SiteName: "</script><script>alert(1)</script>", PageKey: "docs", PageTitle: "Docs", BundleRootURI: "demo@files[acme]:///content/docs"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if bytes.Contains(output.Content, []byte("</script><script>alert(1)</script>")) || !bytes.Contains(output.Content, []byte(`\u003c/script\u003e`)) {
-		t.Fatalf("unsafe embedded bootstrap: %s", output.Content)
-	}
-	if output.Size != int64(len(output.Content)) || output.ETag == input.ETag || output.Digest == "" {
-		t.Fatalf("adapted output = %+v", output)
 	}
 }

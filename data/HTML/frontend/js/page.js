@@ -601,10 +601,7 @@ async function loadBlock(path, target, itemsHowText = false, mode = "") {
             }
         });
 
-        const bootstrap = JSON.parse(document.getElementById("html-page-bootstrap")?.textContent || "{}");
-        const uri = blockName === `pages/${bootstrap.page_key}`
-            ? bootstrap.bundle_root_uri
-            : window.VFS_ROOT + `${blockName}`;
+        const uri = await resolveBundleRoot(blockName);
 
         const results = await Promise.all(
             ["content.md", "style.css", "script.js"].map(file =>
@@ -699,6 +696,43 @@ async function loadBlock(path, target, itemsHowText = false, mode = "") {
         console.error(err);
         container.innerHTML = "<h2>блок не найден</h2>";
     }
+}
+
+async function resolveBundleRoot(name) {
+    const context = await window.HTMLSiteContext?.context;
+    if (!context) throw new Error("Контекст сайта не загружен");
+    const siteURI = context.uri;
+    const readJSON = async (uri) => {
+        const value = await apiProtected(`/api/v2/vfs/read?uri=${encodeURIComponent(uri)}`, { method: "GET" });
+        if (value === null) throw new Error(`Не удалось прочитать metadata: ${uri}`);
+        return typeof value === "string" ? JSON.parse(value) : value;
+    };
+    const separator = name.indexOf("/");
+    const kind = separator < 0 ? "" : name.slice(0, separator);
+    const value = separator < 0 ? "" : name.slice(separator + 1);
+    if ((kind !== "pages" && kind !== "blocks") || !value) {
+        throw new Error(`Ресурс ${name} не является Page или Block HTML provider-а`);
+    }
+    let metadataURI;
+    if (kind === "pages") {
+        const tree = await readJSON(`${siteURI}tree.json`);
+        const segments = value.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
+        let pages = tree.pages || [];
+        let page = null;
+        for (const slug of segments) {
+            page = pages.find((candidate) => candidate.slug === slug);
+            if (!page) throw new Error(`Страница ${value} не найдена в tree.json`);
+            pages = page.children || [];
+        }
+        metadataURI = `${siteURI}pages/${encodeURIComponent(page.page_key)}/info.json`;
+    } else {
+        metadataURI = `${siteURI}blocks/${encodeURIComponent(value)}/meta.json`;
+    }
+    const metadata = await readJSON(metadataURI);
+    if (typeof metadata.bundle_root_uri !== "string" || !metadata.bundle_root_uri) {
+        throw new Error(`В metadata ${name} отсутствует bundle_root_uri`);
+    }
+    return metadata.bundle_root_uri;
 }
 
 function loadBlockAttribute(scope = document) {
@@ -1204,7 +1238,6 @@ window.onload = async function ()  {
         window.history.replaceState(null, "", url);
     }
     //console.assert("читаем меню")
-    await loadMenu();
     await loadPage("pages"+window.location.pathname);
 };
 // проверка токена при загрузке
