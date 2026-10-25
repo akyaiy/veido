@@ -1,4 +1,4 @@
-//loadBlock("plugin/fManager", "content");
+//loadBlock("blocks/fManager", "content");
 
 showPopupBtn.addEventListener('click', () => {
     popup(messageInput.value || 'Пустое сообщение');});
@@ -13,7 +13,7 @@ showfManagerBtn.addEventListener('click', () => {
 //     testW.id = 'test_W'
 //     testW.className = 'testWW';
 
-    loadBlock("plugin/fManager", "fManager");
+    loadBlock("blocks/fManager", "fManager");
 
  });
 

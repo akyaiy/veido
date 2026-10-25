@@ -11,8 +11,8 @@ constructor() {
 }
 
 // uri — преобразование пути файлового менеджера в канонический URI VFS:
-uri(path = '') {
-    return window.VFS_ROOT + `${this.cleanPath(path)}`;
+async uri(path = '') {
+    return (await window.VFS_ROOT) + `${this.cleanPath(path)}`;
 }
 
 // cleanPath — нормализация пути:
@@ -38,7 +38,7 @@ baseName(path = '') {
 
 // dirEntries — получение списка файлов и каталогов в указанной директории:
 async dirEntries(dirPath = '') {
-    return await this.vfs.readdir(this.uri(dirPath));
+    return await this.vfs.readdir(await this.uri(dirPath));
 }
 
 // uniquePath — генерация уникального пути для нового файла или каталога:
@@ -92,7 +92,7 @@ async uniquePath(path, isDir = false) {
  ***************************************************************************/
   async list(path) {
     try {
-        return (await this.vfs.readdir(this.uri(path))).map(item => ({
+        return (await this.vfs.readdir(await this.uri(path))).map(item => ({
             ...item,
             modTime: item.updated_at ?? item.modTime
         }));
@@ -118,7 +118,7 @@ async uniquePath(path, isDir = false) {
  * - Возвращает содержимое файла в текстовом виде.
  ***************************************************************************/
   async getFile(path) {
-    return await this.vfs.read(this.uri(path)); // для бинарных файлов используйте readBytes
+    return await this.vfs.read(await this.uri(path)); // для бинарных файлов используйте readBytes
   }
 
 /***************************************************************************
@@ -138,13 +138,13 @@ async uniquePath(path, isDir = false) {
  * - Возвращает размер, дату изменения и тип содержимого.
  ***************************************************************************/
 async head(path) {
-    return await this.vfs.stat(this.uri(path));
+    return await this.vfs.stat(await this.uri(path));
 }
 
 // upload — загрузка файла на сервер:
 async upload(path, file) {
     const uniquePath = await this.uniquePath(path, false);
-    await this.vfs.create(this.uri(uniquePath), file);
+    await this.vfs.create(await this.uri(uniquePath), file);
     return true;
 }
 
@@ -162,7 +162,7 @@ async upload(path, file) {
  ***************************************************************************/
 async mkdir(path) {
     const uniquePath = await this.uniquePath(path, true);
-    await this.vfs.mkdir(this.uri(uniquePath));
+    await this.vfs.mkdir(await this.uri(uniquePath));
     return true;
 }
 
@@ -174,7 +174,7 @@ async mkdir(path) {
  * - Возвращает успешный результат операции.
  ***************************************************************************/
 async put(path, content) {
-    await this.vfs.write(this.uri(path), content);
+    await this.vfs.write(await this.uri(path), content);
     return true;
 }
 
@@ -193,7 +193,7 @@ async patch() {
  * - Возвращает успешный результат операции.
  ***************************************************************************/
 async delete(path) {
-    await this.vfs.remove(this.uri(path));
+    await this.vfs.remove(await this.uri(path));
     return true;
 }
 
@@ -209,7 +209,7 @@ async copy(path, target) {
     const cleanTarget = this.cleanPath(target);
 
     // Получаем метаданные объекта (файл или папка)
-    const statData = await this.vfs.stat(this.uri(cleanPath));
+    const statData = await this.vfs.stat(await this.uri(cleanPath));
 
     // Проверяем тип объекта по флагу is_dir
     if (statData.is_dir === true) {
@@ -220,10 +220,10 @@ async copy(path, target) {
 
         // Получаем список содержимого папки
         // Защита от пустой папки или null ответа
-        const children = await this.vfs.readdir(this.uri(cleanPath));
+        const children = await this.vfs.readdir(await this.uri(cleanPath));
 
         // Создаём папку в целевом месте
-        await this.vfs.mkdir(this.uri(uniqueCleanTarget));
+        await this.vfs.mkdir(await this.uri(uniqueCleanTarget));
 
         // Рекурсивно копируем каждый элемент внутри папки
         for (const child of children) {
@@ -240,8 +240,8 @@ async copy(path, target) {
         const uniqueCleanTarget = this.cleanPath(uniqueTarget);
 
         // Преобразуем ответ в Blob (бинарные данные файла)
-        const blob = await this.vfs.readBlob(this.uri(cleanPath));
-        await this.vfs.create(this.uri(uniqueCleanTarget), blob);
+        const blob = await this.vfs.readBlob(await this.uri(cleanPath));
+        await this.vfs.create(await this.uri(uniqueCleanTarget), blob);
     }
 
     return true;
@@ -254,7 +254,7 @@ async copy(path, target) {
  * - Возвращает успешный результат операции.
  ***************************************************************************/
 async move(path, target) {
-    await this.vfs.move(this.uri(path), this.uri(target));
+    await this.vfs.move(await this.uri(path), await this.uri(target));
     return true;
 }
 
@@ -267,7 +267,7 @@ async move(path, target) {
  ***************************************************************************/
 async getRange(path, start = 0, end = null) {
     // Серверный VFS read не поддерживает Range, поэтому срез выполняется после чтения всего файла.
-    const bytes = await this.vfs.readBytes(this.uri(path));
+    const bytes = await this.vfs.readBytes(await this.uri(path));
     return bytes.slice(start, end === null ? undefined : end + 1).buffer;
 }
 
@@ -288,7 +288,7 @@ async search(path = '', query = {}) {
         if (visited.has(cleanDirectory)) return;
         visited.add(cleanDirectory);
 
-        const entries = await this.vfs.readdir(this.uri(cleanDirectory));
+        const entries = await this.vfs.readdir(await this.uri(cleanDirectory));
         for (const item of entries) {
             const childPath = cleanDirectory
                 ? `${cleanDirectory}/${item.name}`
@@ -318,11 +318,11 @@ async search(path = '', query = {}) {
  * - Возвращает Blob (файл или ZIP-архив).
  ***************************************************************************/
 async download(path, fileName) {
-    const isDir = (await this.vfs.stat(this.uri(path))).is_dir;
+    const isDir = (await this.vfs.stat(await this.uri(path))).is_dir;
 
     // файл
     if (!isDir) {
-        const blob = await this.vfs.readBlob(this.uri(path));
+        const blob = await this.vfs.readBlob(await this.uri(path));
 
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
@@ -344,13 +344,13 @@ async download(path, fileName) {
  ***************************************************************************/
 async downloadZip(paths, zipName = "archive.zip") {
     const zipModule = await loadBlock(
-        "plugin/zipArchiver",
+        "blocks/zipArchiver",
         document.createElement("div"),
         false,
         "importJs"
     );
     if (!zipModule || typeof zipModule.zipSync !== "function") {
-        throw new Error("Не удалось загрузить функцию zipSync из plugin/zipArchiver");
+        throw new Error("Не удалось загрузить функцию zipSync из blocks/zipArchiver");
     }
     const { zipSync } = zipModule;
 
@@ -358,10 +358,10 @@ async downloadZip(paths, zipName = "archive.zip") {
 
     const read = async (basePath, node) => {
         const path = `${basePath}/${node.name}`;
-        const isDir = (await this.vfs.stat(this.uri(path))).is_dir;
+        const isDir = (await this.vfs.stat(await this.uri(path))).is_dir;
 
         if (isDir) {
-            const children = await this.vfs.readdir(this.uri(path));
+            const children = await this.vfs.readdir(await this.uri(path));
 
             for (const c of children) {
                 await read(path, c);
@@ -369,22 +369,22 @@ async downloadZip(paths, zipName = "archive.zip") {
             return;
         }
 
-        const buf = await this.vfs.readBytes(this.uri(path));
+        const buf = await this.vfs.readBytes(await this.uri(path));
         filesMap[path.replace(/^\//, "")] = buf;
     };
 
     for (const p of paths) {
         const path = typeof p === "string" ? p : p.name;
 
-        const isDir = (await this.vfs.stat(this.uri(path))).is_dir;
+        const isDir = (await this.vfs.stat(await this.uri(path))).is_dir;
 
         if (isDir) {
-            const children = await this.vfs.readdir(this.uri(path));
+            const children = await this.vfs.readdir(await this.uri(path));
             for (const c of children) {
                 await read(path, c);
             }
         } else {
-            const buf = await this.vfs.readBytes(this.uri(path));
+            const buf = await this.vfs.readBytes(await this.uri(path));
             const name = path.split("/").filter(Boolean).pop();
             filesMap[name] = buf;
         }

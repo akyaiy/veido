@@ -50,9 +50,34 @@ function emitAuthEvent(isLoggedIn) {
   document.dispatchEvent(event);
 }
 
-// Общие настройки VFS
-window.VFS_ROOT = "local@publisher[abc3a4-site]:///";
+/***********************************************************************
+ * Получение scope текущего сайта
+ ***********************************************************************/
+async function getSiteScope() {
+    const response = await fetch("/_static/site-context.json", { credentials: "include" });
+    if (!response.ok) throw new Error("Не удалось получить контекст сайта");
 
+    const { scope } = await response.json();
+    if (typeof scope !== "string" || !scope) throw new Error("Некорректный scope сайта");
+
+    return scope;
+}
+
+/***********************************************************************
+ * Получение контекста HTML-сайта
+ ***********************************************************************/
+async function getSiteContext() {
+    const scope = await getSiteScope();
+    return Object.freeze({ scope, uri: `html@site[${scope}]:///` });
+}
+
+// Глобальный контекст сайта и корневой URI VFS
+window.HTMLSiteContext = Object.freeze({ context: getSiteContext() });
+window.VFS_ROOT = getSiteScope().then(scope => `local@publisher[${scope}]:///`);
+
+/***********************************************************************
+ * Инициализация VFS-клиента с автоматическим обновлением токена
+ ***********************************************************************/
 window.vfs = window.VFSv2.client({
     baseURL: "/api/v2/vfs",
     fetch: async (url, options = {}) => {
@@ -79,6 +104,11 @@ window.vfs = window.VFSv2.client({
         return await send();
     }
 });
+
+// Преобразование пути в VFS URI
+window.toVfsUri = async function(path) {
+    return path.includes(":///") ? path : (await window.VFS_ROOT) + path.replace(/^\/+/, "");
+};
 
 
 /***********************************************************************
@@ -698,19 +728,6 @@ async function loadBlock(path, target, itemsHowText = false, mode = "") {
     }
 }
 
-// Получение контекста текущего сайта
-async function getSiteContext() {
-    const response = await fetch("/_static/site-context.json", { credentials: "include" });
-    if (!response.ok) throw new Error("Не удалось получить контекст сайта");
-
-    const { scope } = await response.json();
-    if (typeof scope !== "string" || !scope) throw new Error("Некорректный scope сайта");
-
-    return Object.freeze({ scope, uri: `html@site[${scope}]:///` });
-}
-
-window.HTMLSiteContext = Object.freeze({ context: getSiteContext() });
-
 // Получение корневого URI ресурсов страницы или блока
 async function resolveBundleRoot(name) {
     const context = await window.HTMLSiteContext?.context;
@@ -726,10 +743,6 @@ async function resolveBundleRoot(name) {
     const separator = name.indexOf("/");
     const kind = separator < 0 ? "" : name.slice(0, separator);
     const value = separator < 0 ? "" : name.slice(separator + 1);
-    if (kind === "plugin" && value) {
-        return `local@publisher[${context.scope}]:///plugin/${value.replace(/\/+$/, "")}`;
-    }
-
     if ((kind !== "pages" && kind !== "blocks") || !value) {
         throw new Error(`Ресурс ${name} не является Page или Block HTML provider-а`);
     }
@@ -750,8 +763,17 @@ async function resolveBundleRoot(name) {
 
         metadataURI = `${siteURI}pages/${encodeURIComponent(page.page_key)}/info.json`;
     } else {
-        // Получение метаданных блока
-        metadataURI = `${siteURI}blocks/${encodeURIComponent(value)}/meta.json`;
+        // Получение метаданных основного блока
+        const [blockName, ...nestedPath] = value.split("/");
+        metadataURI = `${siteURI}blocks/${encodeURIComponent(blockName)}/meta.json`;
+
+        const metadata = await readJSON(metadataURI);
+        if (typeof metadata.bundle_root_uri !== "string" || !metadata.bundle_root_uri) {
+            throw new Error(`В metadata ${name} отсутствует bundle_root_uri`);
+        }
+
+        return metadata.bundle_root_uri.replace(/\/+$/, "") +
+            (nestedPath.length ? "/" + nestedPath.join("/") : "");
     }
 
     const metadata = await readJSON(metadataURI);

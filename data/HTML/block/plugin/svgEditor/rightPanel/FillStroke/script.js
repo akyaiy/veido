@@ -2,8 +2,8 @@
 
 // Функция инициализации 
 async function init() {
-    await loadBlock("plugin/colorPicker", "svgPropFillColorPicker");
-    await loadBlock("plugin/colorPicker", "svgPropStrokeColorPicker");
+    await loadBlock("blocks/colorPicker", "svgPropFillColorPicker");
+    await loadBlock("blocks/colorPicker", "svgPropStrokeColorPicker");
     attachColorPickerSync();
     updateColorInputs();
 }
