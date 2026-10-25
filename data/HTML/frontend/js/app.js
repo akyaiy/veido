@@ -4,6 +4,7 @@
 let accessToken = null;   
 let spritePath = '/_static/img/icons.svg';
 let tokenWriting = null; // флаг блокировки refresh
+let refreshInFlight = null;
 
 const auth = {
     ready: false,   // знаем ли мы статус?
@@ -51,29 +52,20 @@ function emitAuthEvent(isLoggedIn) {
 }
 
 /***********************************************************************
- * Получение scope текущего сайта
+ * Получение корневого URI VFS для файлового менеджера
  ***********************************************************************/
-async function getSiteScope() {
-    const response = await fetch("/_static/site-context.json", { credentials: "include" });
-    if (!response.ok) throw new Error("Не удалось получить контекст сайта");
+async function fetchVfsRoot() {
+    const response = await fetch("/_static/site-context.json", {
+        credentials: "include"
+    });
+
+    if (!response.ok) throw new Error("Не удалось получить корень VFS");
 
     const { scope } = await response.json();
-    if (typeof scope !== "string" || !scope) throw new Error("Некорректный scope сайта");
+    if (!scope) throw new Error("Scope не найден");
 
-    return scope;
+    return `local@publisher[${scope}]:///`;
 }
-
-/***********************************************************************
- * Получение контекста HTML-сайта
- ***********************************************************************/
-async function getSiteContext() {
-    const scope = await getSiteScope();
-    return Object.freeze({ scope, uri: `html@site[${scope}]:///` });
-}
-
-// Глобальный контекст сайта и корневой URI VFS
-window.HTMLSiteContext = Object.freeze({ context: getSiteContext() });
-window.VFS_ROOT = getSiteScope().then(scope => `local@publisher[${scope}]:///`);
 
 /***********************************************************************
  * Инициализация VFS-клиента с автоматическим обновлением токена
@@ -93,21 +85,31 @@ window.vfs = window.VFSv2.client({
         if (response.status !== 401) return response;
 
         if (!tokenWriting) {
-            tokenWriting = refreshAccess().finally(() => {
-                tokenWriting = null;
-            });
+            tokenWriting = refreshAccess().finally(() => { tokenWriting = null; });
         }
 
         await tokenWriting;
-
-        if (!accessToken) return response;
-        return await send();
+        return accessToken ? send() : response;
     }
 });
 
-// Преобразование пути в VFS URI
+/***********************************************************************
+ * Получение и преобразование URI VFS
+ ***********************************************************************/
+window.VFS_ROOT = null;
+
+window.getVfsRoot = async function() {
+    if (!window.VFS_ROOT) {
+        window.VFS_ROOT = fetchVfsRoot().catch(error => {
+            window.VFS_ROOT = null;
+            throw error;
+        });
+    }
+    return window.VFS_ROOT;
+};
+
 window.toVfsUri = async function(path) {
-    return path.includes(":///") ? path : (await window.VFS_ROOT) + path.replace(/^\/+/, "");
+    return path.includes(":///") ? path : (await window.getVfsRoot()) + path.replace(/^\/+/, "");
 };
 
 
@@ -506,36 +508,47 @@ async function apiProtected(path, options = {}) {
  * - Декодирует токен, чтобы получить user_id.
  * - Обновляет глобальные данные о пользователе (id и name).
  ****************************************************************************/
-async function refreshAccess (){
-    //Отправка запроса на обновление токена
-    const rr = await fetch("/api/v2/vfs/hooks/auth.refresh/run", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ input: {} })
-    });
-    // Проверка ответа
-    if (!rr.ok) {
-        emitAuthEvent(false); // Пользователь вышел из системы ❌
-        //console.log("---")
-        return null; /* throw "refresh failed"; */
-    }
-    // Получение нового токена
-    const j = await rr.json();
-    emitAuthEvent(true);  // Пользователь вошёл в систему ✅
-    //console.log("+++")
-    accessToken = j.output?.access_token;
-    if (!accessToken) return null;
-    // Декодирование payload JWT
-    const payload = JSON.parse(
-            atob(accessToken.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))
-    );
-    // Обновление данных пользователя
-    user.id = payload.sub;
-    //user.name = (await getUserDataByID(user.id)).name;
-    //lngEdit();
+function refreshAccess() {
+    if (!refreshInFlight) {
+        refreshInFlight = (async () => {
+            //Отправка запроса на обновление токена
+            const rr = await fetch("/api/v2/auth/refresh", {
+                method: "POST",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({})
+            });
+            // Проверка ответа
+            if (!rr.ok) {
+                emitAuthEvent(false); // Пользователь вышел из системы ❌
+                //console.log("---")
+                return null; /* throw "refresh failed"; */
+            }
+            // Получение нового токена
+            const j = await rr.json();
+            accessToken = j.access_token;
+            if (!accessToken) {
+                emitAuthEvent(false);
+                return null;
+            }
+            // Декодирование payload JWT
+            const payload = JSON.parse(
+                    atob(accessToken.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))
+            );
+            // Обновление данных пользователя
+            user.id = payload.sub;
+            user.name = j.username;
+            //user.name = (await getUserDataByID(user.id)).name;
+            //lngEdit();
+            emitAuthEvent(true);  // Пользователь вошёл в систему ✅
+            //console.log("+++")
 
-    return accessToken;
+            return accessToken;
+        })().finally(() => {
+            refreshInFlight = null;
+        });
+    }
+    return refreshInFlight;
 }
 
 // async function refreshAccess() {
@@ -582,7 +595,7 @@ async function loadMenu() {
 }
 
 /********************************************************************************
- * loadPage функция загрузки блока страницы в формате Markdown                 
+ * loadPage — загрузка страницы через Site API
  ********************************************************************************/
  async function loadPage(path) {
      await loadBlock(path, "content");
@@ -631,22 +644,30 @@ async function loadBlock(path, target, itemsHowText = false, mode = "") {
             }
         });
 
-        const uri = await resolveBundleRoot(blockName);
+        const separator = blockName.indexOf("/");
+        const kind = blockName.slice(0, separator);
+        const key = blockName.slice(separator + 1);
 
-        const results = await Promise.all(
-            ["content.md", "style.css", "script.js"].map(file =>
-                apiProtected(`/api/v2/vfs/read?uri=${encodeURIComponent(uri + "/" + file)}`, { method: "GET" })
-            )
-        );
-
-        if (results.some(value => value === null)) {
-            throw new Error(`Не удалось загрузить блок: ${blockName}`);
+        if (!["pages", "blocks"].includes(kind) || !key) {
+            throw new Error(`Неизвестный ресурс: ${blockName}`);
         }
 
+        const result = await fetch(
+            `/api/v2/site/${kind}/${encodeURIComponent(key)}`,
+            { credentials: "include" }
+        );
+        // console.log("loadBlock fetch:", result);
+
+        if (!result.ok) {
+            throw new Error(`Не удалось загрузить ${blockName}: HTTP ${result.status}`);
+        }
+
+        const data = await result.json();
+
         const response = {
-            content: results[0],
-            css: results[1],
-            js: results[2]
+            content: data.files["content.md"] || "",
+            css: data.files["style.css"] || "",
+            js: data.files["script.js"] || ""
         };
 
         if (!window.markdownit) {
@@ -726,62 +747,6 @@ async function loadBlock(path, target, itemsHowText = false, mode = "") {
         console.error(err);
         container.innerHTML = "<h2>блок не найден</h2>";
     }
-}
-
-// Получение корневого URI ресурсов страницы или блока
-async function resolveBundleRoot(name) {
-    const context = await window.HTMLSiteContext?.context;
-    if (!context) throw new Error("Контекст сайта не загружен");
-    const siteURI = context.uri;
-
-    const readJSON = async (uri) => {
-        const value = await apiProtected(`/api/v2/vfs/read?uri=${encodeURIComponent(uri)}`, { method: "GET" });
-        if (value === null) throw new Error(`Не удалось прочитать metadata: ${uri}`);
-        return typeof value === "string" ? JSON.parse(value) : value;
-    };
-
-    const separator = name.indexOf("/");
-    const kind = separator < 0 ? "" : name.slice(0, separator);
-    const value = separator < 0 ? "" : name.slice(separator + 1);
-    if ((kind !== "pages" && kind !== "blocks") || !value) {
-        throw new Error(`Ресурс ${name} не является Page или Block HTML provider-а`);
-    }
-
-    let metadataURI;
-    if (kind === "pages") {
-        // Поиск страницы по пути в дереве сайта
-        const tree = await readJSON(`${siteURI}tree.json`);
-        const segments = value.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
-        let pages = tree.pages || [];
-        let page = null;
-
-        for (const slug of segments) {
-            page = pages.find((candidate) => candidate.slug === slug);
-            if (!page) throw new Error(`Страница ${value} не найдена в tree.json`);
-            pages = page.children || [];
-        }
-
-        metadataURI = `${siteURI}pages/${encodeURIComponent(page.page_key)}/info.json`;
-    } else {
-        // Получение метаданных основного блока
-        const [blockName, ...nestedPath] = value.split("/");
-        metadataURI = `${siteURI}blocks/${encodeURIComponent(blockName)}/meta.json`;
-
-        const metadata = await readJSON(metadataURI);
-        if (typeof metadata.bundle_root_uri !== "string" || !metadata.bundle_root_uri) {
-            throw new Error(`В metadata ${name} отсутствует bundle_root_uri`);
-        }
-
-        return metadata.bundle_root_uri.replace(/\/+$/, "") +
-            (nestedPath.length ? "/" + nestedPath.join("/") : "");
-    }
-
-    const metadata = await readJSON(metadataURI);
-    if (typeof metadata.bundle_root_uri !== "string" || !metadata.bundle_root_uri) {
-        throw new Error(`В metadata ${name} отсутствует bundle_root_uri`);
-    }
-
-    return metadata.bundle_root_uri;
 }
 
 function loadBlockAttribute(scope = document) {
@@ -972,30 +937,28 @@ async function getUserDataByID(id) {
 async function userLogin(username, password) {
     try {
         // Запрос логина
-        const r = await apiProtected(`/api/v2/vfs/hooks/auth.login/run`, {
+        const r = await apiProtected("/api/v2/auth/login", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
             },
-            body: JSON.stringify({
-                input: { username, password }
-            })
+            body: JSON.stringify({ username, password })
         });
         // Проверка access token
-        if (!r?.output?.access_token) {
+        if (!r?.access_token) {
             throw new Error("Token not received");
         }
         const payload = JSON.parse(
-            atob(r.output.access_token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))
+            atob(r.access_token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))
     );
         // Успешный результат
-        accessToken = r.output.access_token;
+        accessToken = r.access_token;
         emitAuthEvent(true);  // Пользователь вошёл в систему ✅
         //console.log("+++");
-        user.name = username;
-        user.id = payload.sub; // sub вместо user_id в JWT payload
+        user.name = r.username || username;
+        user.id = r.user_id;
         return {
-            accessToken: r.output.access_token
+            accessToken: r.access_token
         };
     // Обработка ошибок (catch)    
     } catch (err) {
@@ -1029,15 +992,20 @@ async function userLogin(username, password) {
 // }
 
 async function userLogout() {
-    emitAuthEvent(false); // Пользователь вышел из системы ❌
-
-    const data = await fetch("/api/auth/session/refresh", { method: "POST", credentials: "include" });
-    const response = await data.json();
-    const accessToken = response.data;
-    await fetch("/api/auth/session/logout", { method: "POST", body: JSON.stringify({ accessToken })});
-
-    location.reload();
-};
+    try {
+        await apiProtected("/api/v2/auth/logout", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({})
+        });
+    } finally {
+        emitAuthEvent(false);
+        accessToken = "";
+        location.reload();
+    }
+}
 
 /******************************************************************************
  * userRegister функция которая:

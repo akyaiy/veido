@@ -374,7 +374,7 @@ const editorBlocks = [
 async function loadEditorBlocks() {
     // Загрузка блоков редактора
     for (const blockName of editorBlocks) {
-        await loadBlock(`blocks/svgEditor/${blockName}`, blockName);
+        await loadBlock(`blocks/svgEditor-${blockName}`, blockName);
     }
 
     // Событие, сигнализирующее о том, что блоки редактора загружены

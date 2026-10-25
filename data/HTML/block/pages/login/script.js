@@ -1,24 +1,15 @@
 async function initUser() {
     try {
-        // Если нет токена, делаем refresh
         if (!accessToken) {
             await refreshAccess();
         }
-        // Проверяем, получили ли токен
+
         if (!accessToken) throw new Error("no token");
-        // Если имя не установлено, загружаем данные текущего пользователя
-        if (!user.name) {
-            const userData = await apiProtected("/api/auth/me", { method: "GET" });
-            user.name = userData?.data?.username;
-            user.id = userData?.data?.id;
-        }
-        // выводим имя пользователя
+
         user_info.innerHTML = `Вы зашли как: ${user.name}. </br> Ваш ID:${user.id}`;
-        // Показываем блок пользователя
-        showUser()
+        showUser();
     } catch (e) {
-        // Показываем блок логина
-        showLogin()
+        showLogin();
         console.error(e);
     }
 }

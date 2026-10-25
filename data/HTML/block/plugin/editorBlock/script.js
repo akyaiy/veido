@@ -11,11 +11,11 @@ window.editorBlock = window.editorBlock || {};
 *** */
 async function loadEditorBlock() {
     // Загрузка основного каркаса редактора
-    await loadBlock('blocks/editorBlock/modules/mainBlock', 'editorBlock', false);
-    await loadBlock('blocks/editorBlock/modules/modules/viewBlock', 'viewBlock');
+    await loadBlock('blocks/editorBlock-mainBlock', 'editorBlock', false);
+    await loadBlock('blocks/editorBlock-viewBlock', 'viewBlock');
 
     // Путь к папке с модулями
-    const modulesPath = 'blocks/editorBlock/modules/modules';
+    const modulesPath = 'blocks/editorBlock-';
 
     // Список модулей editorBlock
     const modules = [
@@ -47,10 +47,10 @@ async function loadEditorBlock() {
 
     // Загрузка модулей параллельно и ожидание завершения всех
     const loadPromises = modules.map(moduleName => {
-        let modulePath = `${modulesPath}/${moduleName}`;
+        let modulePath = `${modulesPath}${moduleName}`;
 
         if (moduleName !== 'mainBlock') {
-            modulePath = `${modulesPath}/${moduleName}`;
+            modulePath = `${modulesPath}${moduleName}`;
         }
 
         return loadBlock(modulePath, moduleName);

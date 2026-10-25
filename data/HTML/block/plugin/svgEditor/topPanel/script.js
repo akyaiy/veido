@@ -10,12 +10,6 @@ const storage = document.getElementById("svgStorage");
 const tabs = document.getElementById("tabs");
 const svgBlockClass = "svgBlock";
 
-// Загрузка тест блоков
-document.addEventListener("svgEditorBlocksLoaded", async () => {
-    await loadSvg("blocks/svgEditor/test/test1");
-    await loadSvg("blocks/svgEditor/test/test2");
-});
-
 // Получение слоев из SVG
 function getContentLayer(svg) { return svg?.children[1]; }
 function getOverlayLayer(svg) { return svg?.children[2]; }

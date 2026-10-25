@@ -12,7 +12,7 @@ constructor() {
 
 // uri — преобразование пути файлового менеджера в канонический URI VFS:
 async uri(path = '') {
-    return (await window.VFS_ROOT) + `${this.cleanPath(path)}`;
+    return (await window.getVfsRoot()) + this.cleanPath(path);
 }
 
 // cleanPath — нормализация пути:
