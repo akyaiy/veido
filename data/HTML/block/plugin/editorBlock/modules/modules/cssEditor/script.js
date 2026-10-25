@@ -384,7 +384,7 @@ function updateCssPanel(element) {
     }
 
     // по умолчанию выводим inline стиль
-    createCssSection(panel, element, 'element', '${window.translate('Inline style')} (style="")', '', '');
+    createCssSection(panel, element, 'element', `${window.translate('Inline style')} (style="")`, '', '');
 
     const styleElement = getBlockStyleElement(element);
     const cssRules = styleElement ? parseCss(styleElement.textContent) : [];

@@ -1545,8 +1545,8 @@ function updateGridPositionOptions(element) {
     const columnValue = element.style.gridColumnStart || 'auto';
     const rowValue = element.style.gridRowStart || 'auto';
 
-    gridItemColumn.innerHTML = '<option value="auto">${window.translate('Automatically')}</option>';
-    gridItemRow.innerHTML = '<option value="auto">${window.translate('Automatically')}</option>';
+    gridItemColumn.innerHTML = `<option value="auto">${window.translate('Automatically')}</option>`;
+    gridItemRow.innerHTML = `<option value="auto">${window.translate('Automatically')}</option>`;
 
     for (let index = 1; index <= columns; index++) {
         const option = document.createElement('option');
