@@ -6,6 +6,7 @@ import (
 	"MyServer/internal/database/schema"
 	"MyServer/internal/sqliteDB"
 	vfs "MyServer/internal/vfs/v2"
+	authapi "MyServer/internal/vfs/v2/adapters/authapi"
 	hookapi "MyServer/internal/vfs/v2/adapters/hookapi"
 	httpapi "MyServer/internal/vfs/v2/adapters/httpapi"
 	sitehttp "MyServer/internal/vfs/v2/adapters/sitehttp"
@@ -120,11 +121,19 @@ func Build(ctx context.Context, cfg Config) (_ *Runtime, err error) {
 	if err != nil {
 		return nil, err
 	}
-	siteHandler, err := sitehttp.NewHandler(hookRuntime, resolveActor, sitehttp.Config{SiteURI: siteURI, Entrypoint: cfg.Site.Entrypoint, TemplateKey: cfg.Site.TemplateKey}, slog.Default())
+	authHandler, err := authapi.NewHandler(hookRuntime, resolveActor, authhooks.HTTPBridge{RefreshTTL: cfg.Refresh.TTL, Secure: cfg.Refresh.Secure, CookieName: cfg.Refresh.Name, SameSite: cookieSameSite(cfg.Refresh.SameSite), CookiePath: "/api/v2/auth"})
 	if err != nil {
 		return nil, err
 	}
-	router := newRouter(cfg, authService, vfsHandler, hookHandler, siteHandler)
+	siteHandler, err := sitehttp.NewHandler(hookRuntime, resolveActor, sitehttp.Config{SiteURI: siteURI, Entrypoint: cfg.Site.Entrypoint, TemplateKey: cfg.Site.TemplateKey, Frontend: frontend}, slog.Default())
+	if err != nil {
+		return nil, err
+	}
+	publicSite, err := sitehttp.NewPublicHandler(frontend, resolveActor, siteURI)
+	if err != nil {
+		return nil, err
+	}
+	router := newRouter(cfg, authService, vfsHandler, hookHandler, authHandler, siteHandler, publicSite)
 	var poolCloser interface{ Close() error }
 	if closer, ok := pool.(interface{ Close() error }); ok {
 		poolCloser = closer

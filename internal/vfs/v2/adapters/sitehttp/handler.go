@@ -9,8 +9,10 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
+	"io"
 	"log/slog"
 	"net/http"
+	"os"
 	"path"
 	"strconv"
 	"strings"
@@ -26,6 +28,7 @@ type Config struct {
 	SiteURI     vfs.URI
 	Entrypoint  string
 	TemplateKey string
+	Frontend    vfs.Frontend
 }
 
 type Handler struct {
@@ -56,6 +59,9 @@ func RegisterRoutes(router chi.Router, handler *Handler) {
 }
 
 func (h *Handler) handleRoot(w http.ResponseWriter, r *http.Request) {
+	if !h.resolveRoute(w, r) {
+		return
+	}
 	h.serveStatic(w, r, h.config.Entrypoint)
 }
 
@@ -98,7 +104,86 @@ func (h *Handler) serveStatic(w http.ResponseWriter, r *http.Request, assetPath 
 }
 
 func (h *Handler) handlePage(w http.ResponseWriter, r *http.Request) {
+	if !h.resolveRoute(w, r) {
+		return
+	}
 	h.serveStatic(w, r, h.config.Entrypoint)
+}
+
+// resolveRoute uses the same actor-filtered tree that backs the public Site
+// API. A nil Frontend preserves the standalone static adapter used by tools.
+func (h *Handler) resolveRoute(w http.ResponseWriter, r *http.Request) bool {
+	if h.config.Frontend == nil {
+		return true
+	}
+	actor, err := h.resolveActor(r)
+	if err != nil {
+		h.writeProblem(w, r, http.StatusNotFound, "not_found", "page not found", err)
+		return false
+	}
+	treeURI, err := siteURI(h.config.SiteURI, "/tree.json")
+	if err != nil {
+		h.writeProblem(w, r, http.StatusInternalServerError, "internal", "internal site error", err)
+		return false
+	}
+	file, err := h.config.Frontend.OpenFile(r.Context(), actor, treeURI, os.O_RDONLY)
+	if err != nil {
+		h.routeError(w, r, err)
+		return false
+	}
+	data, readErr := io.ReadAll(file)
+	closeErr := file.Close()
+	if readErr != nil {
+		h.routeError(w, r, readErr)
+		return false
+	}
+	if closeErr != nil {
+		h.routeError(w, r, closeErr)
+		return false
+	}
+	var tree struct {
+		Pages []routePage `json:"pages"`
+	}
+	if err := json.Unmarshal(data, &tree); err != nil {
+		h.writeProblem(w, r, http.StatusInternalServerError, "internal", "invalid site tree", err)
+		return false
+	}
+	requestPath := strings.Trim(strings.TrimPrefix(r.URL.Path, "/"), "/")
+	if routeMatches(tree.Pages, strings.Split(requestPath, "/")) {
+		return true
+	}
+	h.writeProblem(w, r, http.StatusNotFound, "not_found", "page not found", nil)
+	return false
+}
+
+type routePage struct {
+	Slug     string      `json:"slug"`
+	Children []routePage `json:"children"`
+}
+
+func routeMatches(pages []routePage, segments []string) bool {
+	if len(segments) == 1 && segments[0] == "" {
+		return len(pages) > 0
+	}
+	if len(segments) == 0 {
+		return len(pages) > 0
+	}
+	for _, page := range pages {
+		if page.Slug == segments[0] {
+			return len(segments) == 1 || routeMatches(page.Children, segments[1:])
+		}
+	}
+	return false
+}
+func (h *Handler) routeError(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, os.ErrNotExist) || errors.Is(err, vfs.ErrNotFound) || errors.Is(err, vfs.ErrPermissionDenied) {
+		h.writeProblem(w, r, http.StatusNotFound, "not_found", "page not found", err)
+		return
+	}
+	h.writeProblem(w, r, http.StatusInternalServerError, "internal", "internal site error", err)
+}
+func siteURI(base vfs.URI, resourcePath string) (vfs.URI, error) {
+	return (vfs.ResourceAddress{ProviderKey: base.Provider(), ConnectionKey: base.ConnectionKey(), ScopeKey: base.ScopeKey(), Path: resourcePath}).URI()
 }
 
 func (h *Handler) writeContent(w http.ResponseWriter, r *http.Request, output getstatic.Output) {

@@ -1,7 +1,7 @@
 # ADR-013: Guest surface через typed VFS façades
 
 > Статус решения: принято.
-> Статус реализации: не реализовано.
+> Статус реализации: в процессе.
 > Дата решения: 25 октября 2026 года.
 > Связанные документы: [ADR-003](ACL_LIFECYCLE_ARCHITECTURE_RU.md),
 > [ADR-008](VFS_V2_SERVER_HOOKS_DECISION_RU.md),
@@ -110,6 +110,139 @@ actor-filtered проверку.
 файлы только через actor-bound VFS. Он не передаёт browser-у право повторить эти
 чтения с произвольным URI.
 
+### 2.2. HTTP contract public façades
+
+Все request и response body имеют `Content-Type: application/json`; неизвестные
+поля request body отклоняются как `400 invalid_argument`. Внешний contract не
+использует generic VFS envelope, VFS URI, scope key, provider key, local numeric
+ID, `bundle_root_uri` или VFS command.
+
+#### Auth
+
+```http
+POST /api/v2/auth/register
+Content-Type: application/json
+
+{"username":"alice","password":"…"}
+```
+
+```http
+POST /api/v2/auth/login
+Content-Type: application/json
+
+{"username":"alice","password":"…"}
+```
+
+Оба успешных ответа имеют `200 OK`, устанавливают HttpOnly refresh cookie и
+возвращают:
+
+```json
+{
+  "user": {"id": "42", "username": "alice", "status": "active"},
+  "access_token": "<JWT>"
+}
+```
+
+Пароль, refresh token, session ID, scope key и provider-local user fields никогда
+не возвращаются.
+
+```http
+POST /api/v2/auth/refresh
+```
+
+У refresh нет JSON body. Он читает refresh credential только из HttpOnly cookie,
+при успехе ротирует cookie и возвращает `200 OK`:
+
+```json
+{"access_token":"<JWT>"}
+```
+
+Отсутствующий, истёкший или отозванный refresh credential возвращает `401` и
+очищает cookie, если это необходимо для lifecycle. Наличие refresh endpoint не
+даёт guest actor права читать или изменять другие Auth resources.
+
+#### Site navigation and views
+
+```http
+GET /api/v2/site/tree
+Accept: application/json
+```
+
+Успешный ответ — только actor-filtered публичное дерево:
+
+```json
+{
+  "tree_revision": 18,
+  "visibility_revision": 6,
+  "pages": [
+    {
+      "page_key": "home",
+      "slug": "home",
+      "title": "Home",
+      "children": []
+    }
+  ]
+}
+```
+
+Frontend рекурсивно строит из `slug` route path и сохраняет соответствие с
+`page_key`. Скрытые page и их descendants отсутствуют; нет отдельного флага
+`visible` и нет placeholder entries. `ETag` должен быть производным как минимум
+от tree и visibility revision; `If-None-Match` может вернуть `304`.
+
+```http
+GET /api/v2/site/pages/home
+Accept: application/json
+```
+
+Успешный ответ — self-contained публичное представление одной страницы:
+
+```json
+{
+  "page": {
+    "page_key": "home",
+    "slug": "home",
+    "title": "Home",
+    "description": "…",
+    "revision": 7
+  },
+  "bundle": {
+    "content_markdown": "# Home\n",
+    "stylesheet": ".hero {}\n",
+    "script": "export function mount() {}\n"
+  }
+}
+```
+
+Façade сам читает допустимые `content.md`, `style.css` и `script.js` через
+actor-bound VFS и никогда не возвращает их location. Если public page model
+получит явную композицию blocks, `PageView` может содержать только массив
+разрешённых `block_key`; пока такой provider-owned связи нет, список blocks не
+встраивается и не предполагается.
+
+```http
+GET /api/v2/site/blocks/hero
+Accept: application/json
+```
+
+Успешный ответ имеет аналогичную форму:
+
+```json
+{
+  "block": {"block_key":"hero", "name":"Hero", "type":"ui-component", "revision":3},
+  "bundle": {
+    "content_markdown":"…",
+    "stylesheet":"…",
+    "script":"…"
+  }
+}
+```
+
+Неизвестный, скрытый или ACL-denied `page_key`/`block_key` возвращает одинаковый
+`404 not_found`. Path parameter принимается только как provider-owned key после
+строгой валидации; он не интерпретируется как URI или filesystem path. Page и
+block responses также используют `ETag` и поддерживают `If-None-Match`.
+
 ## 3. Function как VFS resource
 
 ACL принимает решение по действию и каноническому URI. Поэтому независимо
@@ -192,3 +325,11 @@ page/block metadata и physical bundle через generic `/api/v2/vfs/read`. Н
 реализовать route resolution через actor-filtered tree в browser route, Public
 Site API для TreeView/PageView/BlockView и перевести browser runtime на эти
 typed DTO до закрытия guest generic VFS transport.
+
+### Статус реализации
+
+Реализованы typed `/api/v2/auth/*`, Public Site API, actor-filtered browser
+route resolution и `404` для guest на generic `/api/v2/vfs/*`. До появления
+ACL evaluator Auth façade временно вызывает существующий Hook Runtime, а
+переходный scope authorizer остаётся в composition root. Поэтому ACL-grants по
+operation resource и окончательная Auth Provider реализация ещё отсутствуют.

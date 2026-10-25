@@ -50,7 +50,6 @@ func DefaultSPA(version, siteScope string) Spec {
 		Entrypoint:  "index.html",
 		Files: []File{
 			{SourcePath: "index.html", TargetPath: "index.html"},
-			{TargetPath: "site-context.json", ContentType: "application/json; charset=utf-8", Data: siteContextJSON(siteScope)},
 			{SourcePath: "css/style.css", TargetPath: "css/style.css"},
 			// {SourcePath: "css/admin.css", TargetPath: "css/admin.css"},
 			// {SourcePath: "css/page.css", TargetPath: "css/page.css"},

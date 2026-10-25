@@ -22,6 +22,7 @@ type HTTPBridge struct {
 	RefreshTTL time.Duration
 	Secure     bool
 	CookieName string
+	CookiePath string
 	SameSite   http.SameSite
 }
 
@@ -51,9 +52,15 @@ func (b HTTPBridge) Complete(w http.ResponseWriter, ctx context.Context) {
 		value = ""
 	}
 	http.SetCookie(w, &http.Cookie{
-		Name: b.cookieName(), Value: value, Path: "/api/v2/vfs/hooks/",
+		Name: b.cookieName(), Value: value, Path: b.cookiePath(),
 		HttpOnly: true, Secure: b.Secure, SameSite: b.sameSite(), MaxAge: maxAge,
 	})
+}
+func (b HTTPBridge) cookiePath() string {
+	if b.CookiePath != "" {
+		return b.CookiePath
+	}
+	return "/api/v2/vfs/hooks/"
 }
 
 func (b HTTPBridge) cookieName() string {
