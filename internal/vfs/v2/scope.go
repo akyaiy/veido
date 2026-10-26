@@ -97,7 +97,7 @@ func (sr *ScopeResolver) ResolveDefaultScope(ctx context.Context, actor Actor) (
 				"kind", actor.Kind,
 				"id", actor.ID,
 			)
-			return nil, fmt.Errorf("%w: %v", ErrScopeResolutionFailed, err)
+			return nil, fmt.Errorf("%w: %w", ErrScopeResolutionFailed, err)
 		}
 
 		slog.Error(
@@ -106,7 +106,7 @@ func (sr *ScopeResolver) ResolveDefaultScope(ctx context.Context, actor Actor) (
 			"kind", actor.Kind,
 			"id", actor.ID,
 		)
-		return nil, fmt.Errorf("%w: %v", ErrScopeResolutionFailed, err)
+		return nil, fmt.Errorf("%w: %w", ErrScopeResolutionFailed, err)
 	}
 
 	return &scope, nil
@@ -141,7 +141,7 @@ func (sr *ScopeResolver) ResolveExplicitScope(ctx context.Context, scopeKey stri
 				"scope not found",
 				"key", scopeKey,
 			)
-			return nil, fmt.Errorf("%w: %v", ErrScopeResolutionFailed, err)
+			return nil, fmt.Errorf("%w: %w", ErrScopeResolutionFailed, err)
 		}
 
 		slog.Error(
@@ -149,7 +149,7 @@ func (sr *ScopeResolver) ResolveExplicitScope(ctx context.Context, scopeKey stri
 			"error", err,
 			"key", scopeKey,
 		)
-		return nil, fmt.Errorf("%w: %v", ErrScopeResolutionFailed, err)
+		return nil, fmt.Errorf("%w: %w", ErrScopeResolutionFailed, err)
 	}
 
 	return &scope, nil

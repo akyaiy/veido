@@ -20,7 +20,7 @@ func migratePreprod(ctx context.Context, db *sql.DB) error {
 
 func TestSystemGroupsDoNotRegisterProviders(t *testing.T) {
 	groups := SystemGroups()
-	want := []string{"core/database", "auth", "vfs/core"}
+	want := []string{"core/database", "auth", "vfs/core", "acl/v2"}
 	if len(groups) != len(want) {
 		t.Fatalf("system groups = %d, want %d", len(groups), len(want))
 	}
@@ -51,8 +51,8 @@ func TestMigrateCleanDatabaseAndRepeat(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(applied) != 16 {
-		t.Fatalf("applied migrations = %d, want 16", len(applied))
+	if len(applied) != 17 {
+		t.Fatalf("applied migrations = %d, want 17", len(applied))
 	}
 	if err := migratePreprod(ctx, db); err != nil {
 		t.Fatalf("second migration: %v", err)

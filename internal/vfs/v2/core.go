@@ -194,15 +194,11 @@ func (c *VFSCore) Stat(ctx context.Context, actor Actor, uri common.CanonURI) (*
 		return nil, err
 	}
 
-	// access checking section
-	// pattern:
-	//    - can 'r' on resource
-	ok, err := c.canActorAccessResource(ctx, actor, common.ActionRead, resolved)
-	if err != nil {
+	if err := c.requireTraverseAccess(ctx, actor, resolved.Ref); err != nil {
 		return nil, err
 	}
-	if !ok {
-		return nil, WrapError(ErrPermissionDenied, fmt.Errorf("cannot access %s", resolved.Ref.Path))
+	if err := c.requireResourceAccess(ctx, actor, common.ActionRead, resolved.Ref); err != nil {
+		return nil, err
 	}
 
 	provider, err := c.getProvider(ctx, resolved.Connection)
@@ -226,15 +222,11 @@ func (c *VFSCore) ReadDir(ctx context.Context, actor Actor, uri common.CanonURI)
 		return nil, err
 	}
 
-	// access checking section
-	// pattern:
-	//    - can 'r' on resource
-	ok, err := c.canActorAccessResource(ctx, actor, common.ActionRead, resolved)
-	if err != nil {
+	if err := c.requireTraverseAccess(ctx, actor, resolved.Ref); err != nil {
 		return nil, err
 	}
-	if !ok {
-		return nil, WrapError(ErrPermissionDenied, fmt.Errorf("cannot access %s", resolved.Ref.Path))
+	if err := c.requireResourceAccess(ctx, actor, common.ActionRead, resolved.Ref); err != nil {
+		return nil, err
 	}
 
 	provider, err := c.getProvider(ctx, resolved.Connection)
@@ -261,11 +253,9 @@ func (c *VFSCore) OpenFile(ctx context.Context, actor Actor, uri common.CanonURI
 	isRead := flag&os.O_WRONLY == 0 || flag&os.O_RDWR != 0
 	isWrite := flag&(os.O_WRONLY|os.O_RDWR|os.O_APPEND|os.O_TRUNC) != 0
 
-	// access checking section
-	// pattern:
-	//    - can 'r' on resource when opening for read
-	//    - can 'w' on resource when opening for write/truncate/append
-	//    - can 'w' on parent when opening with O_CREATE
+	if err := c.requireTraverseAccess(ctx, actor, resolved.Ref); err != nil {
+		return nil, err
+	}
 	if isRead {
 		if err := c.requireResourceAccess(ctx, actor, common.ActionRead, resolved.Ref); err != nil {
 			return nil, err
@@ -277,7 +267,7 @@ func (c *VFSCore) OpenFile(ctx context.Context, actor Actor, uri common.CanonURI
 		}
 	}
 	if flag&os.O_CREATE != 0 {
-		if err := c.requireResourceAccess(ctx, actor, common.ActionWrite, parentResourceRef(resolved.Ref)); err != nil {
+		if err := c.requireResourceAccess(ctx, actor, common.ActionExec, resolved.Ref); err != nil {
 			return nil, err
 		}
 	}
@@ -326,13 +316,13 @@ func (c *VFSCore) Mkdir(ctx context.Context, actor Actor, uri common.CanonURI) (
 		return nil, err
 	}
 
-	// access checking section
-	// pattern:
-	//    - can 'w' on parent
-	// lifecycle section:
-	//    - provider.Mkdir creates resource first
-	//    - lifecycle.OnResourceCreated registers resource
-	if err := c.requireResourceAccess(ctx, actor, common.ActionWrite, parentResourceRef(resolved.Ref)); err != nil {
+	if err := c.requireTraverseAccess(ctx, actor, resolved.Ref); err != nil {
+		return nil, err
+	}
+	if err := c.requireResourceAccess(ctx, actor, common.ActionWrite, resolved.Ref); err != nil {
+		return nil, err
+	}
+	if err := c.requireResourceAccess(ctx, actor, common.ActionExec, resolved.Ref); err != nil {
 		return nil, err
 	}
 
@@ -378,24 +368,23 @@ func (c *VFSCore) Move(ctx context.Context, actor Actor, source common.CanonURI,
 		return fmt.Errorf("%w: cross-provider move is not supported", ErrNotImplemented)
 	}
 
-	// access checking section
-	// pattern:
-	//    - can 'w' on source
-	//    - can 'w' on source parent
-	//    - can 'w' on target parent
-	// operation section:
-	//    - source and target must resolve to the same provider connection
-	//    - cross-provider move returns unsupported error
-	// lifecycle section:
-	//    - provider.Move moves resource first
-	//    - lifecycle.OnResourceMoved registers path change
+	if err := c.requireTraverseAccess(ctx, actor, resolvedSource.Ref); err != nil {
+		return err
+	}
 	if err := c.requireResourceAccess(ctx, actor, common.ActionWrite, resolvedSource.Ref); err != nil {
 		return err
 	}
-	if err := c.requireResourceAccess(ctx, actor, common.ActionWrite, parentResourceRef(resolvedSource.Ref)); err != nil {
+	if err := c.requireResourceAccess(ctx, actor, common.ActionExec, resolvedSource.Ref); err != nil {
 		return err
 	}
-	if err := c.requireResourceAccess(ctx, actor, common.ActionWrite, parentResourceRef(resolvedTarget.Ref)); err != nil {
+	targetParent := parentResourceRef(resolvedTarget.Ref)
+	if err := c.requireTraverseAccess(ctx, actor, targetParent); err != nil {
+		return err
+	}
+	if err := c.requireResourceAccess(ctx, actor, common.ActionWrite, targetParent); err != nil {
+		return err
+	}
+	if err := c.requireResourceAccess(ctx, actor, common.ActionExec, targetParent); err != nil {
 		return err
 	}
 
@@ -425,17 +414,14 @@ func (c *VFSCore) Delete(ctx context.Context, actor Actor, uri common.CanonURI) 
 		return err
 	}
 
-	// access checking section
-	// pattern:
-	//    - can 'w' on resource
-	// lifecycle section:
-	//    - lifecycle.OnResourceDeleted
-	ok, err := c.canActorAccessResource(ctx, actor, common.ActionWrite, resolved)
-	if err != nil {
+	if err := c.requireTraverseAccess(ctx, actor, resolved.Ref); err != nil {
 		return err
 	}
-	if !ok {
-		return WrapError(ErrPermissionDenied, fmt.Errorf("cannot access %s", resolved.Ref.Path))
+	if err := c.requireResourceAccess(ctx, actor, common.ActionWrite, resolved.Ref); err != nil {
+		return err
+	}
+	if err := c.requireResourceAccess(ctx, actor, common.ActionExec, resolved.Ref); err != nil {
+		return err
 	}
 
 	provider, err := c.getProvider(ctx, resolved.Connection)
@@ -463,15 +449,8 @@ func (c *VFSCore) Control(ctx context.Context, actor Actor, uri common.CanonURI,
 		return nil, err
 	}
 
-	// access checking section
-	// pattern:
-	//    - can 'x' on resource
-	ok, err := c.canActorAccessResource(ctx, actor, common.ActionExec, resolved)
-	if err != nil {
+	if err := c.requireResourceAccess(ctx, actor, common.ActionExec, resolved.Ref); err != nil {
 		return nil, err
-	}
-	if !ok {
-		return nil, WrapError(ErrPermissionDenied, fmt.Errorf("cannot access %s", resolved.Ref.Path))
 	}
 
 	provider, err := c.getProvider(ctx, resolved.Connection)

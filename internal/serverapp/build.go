@@ -1,6 +1,7 @@
 package serverapp
 
 import (
+	aclv2 "MyServer/internal/acl/v2"
 	"MyServer/internal/auth"
 	authhooks "MyServer/internal/auth/vfshooks"
 	"MyServer/internal/database/schema"
@@ -94,7 +95,11 @@ func Build(ctx context.Context, cfg Config) (_ *Runtime, err error) {
 	if err != nil {
 		return nil, err
 	}
-	authorizer, err := vfs.NewSystemOwnerAndPublicScopeAuthorizer(scopeResolver, []string{siteURI.ScopeKey()})
+	aclStore, err := aclv2.NewStore(db)
+	if err != nil {
+		return nil, err
+	}
+	authorizer, err := aclv2.NewAuthorizer(aclStore, authService)
 	if err != nil {
 		return nil, err
 	}

@@ -27,3 +27,15 @@ func (c *VFSCore) requireResourceAccess(ctx context.Context, actor Actor, action
 	}
 	return nil
 }
+
+// requireTraverseAccess enforces x on every non-root ancestor of ref. Entering
+// the scope root is checked separately by resolveResource through its synthetic
+// scope resource, so ACL does not need to model a path-node for "/".
+func (c *VFSCore) requireTraverseAccess(ctx context.Context, actor Actor, ref common.ResourceRef) error {
+	for ancestor := parentResourceRef(ref); ancestor.Path != "/"; ancestor = parentResourceRef(ancestor) {
+		if err := c.requireResourceAccess(ctx, actor, common.ActionExec, ancestor); err != nil {
+			return err
+		}
+	}
+	return nil
+}

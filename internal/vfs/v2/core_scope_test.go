@@ -165,8 +165,14 @@ func TestStatScopeExecDoesNotGrantTargetRead(t *testing.T) {
 	targetRef := common.ResourceRef{
 		ProviderKey: "local", ConnectionKey: "default", ScopeKey: "alice", Path: "/projects/demo",
 	}
+	parentRef := common.ResourceRef{
+		ProviderKey: "local", ConnectionKey: "default", ScopeKey: "alice", Path: "/projects",
+	}
 	authorizer := &scopeGateTestAuthorizer{can: func(action common.Action, ref common.ResourceRef) (bool, error) {
 		if action == common.ActionExec && ref == scopeGateRef("alice") {
+			return true, nil
+		}
+		if action == common.ActionExec && ref == parentRef {
 			return true, nil
 		}
 		if action == common.ActionRead && ref == targetRef {
@@ -181,8 +187,8 @@ func TestStatScopeExecDoesNotGrantTargetRead(t *testing.T) {
 	if !errors.Is(err, ErrPermissionDenied) {
 		t.Fatalf("Stat() error = %v, want permission denied", err)
 	}
-	if len(authorizer.calls) != 2 {
-		t.Fatalf("authorizer calls = %v, want scope and target checks", authorizer.calls)
+	if len(authorizer.calls) != 3 {
+		t.Fatalf("authorizer calls = %v, want scope, traverse and target checks", authorizer.calls)
 	}
 	if connections.calls != 1 {
 		t.Fatalf("connection resolver calls = %d, want 1", connections.calls)

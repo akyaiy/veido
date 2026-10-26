@@ -3,6 +3,8 @@ package v2
 import (
 	"MyServer/internal/common"
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -83,6 +85,13 @@ func (a *SystemAndOwnerScopeAuthorizer) canAccessScope(ctx context.Context, acto
 	}
 	scope, err := a.scopes.ResolveExplicitScope(ctx, scopeKey)
 	if err != nil {
+		// A scope-resource is also the create target in the system scopes
+		// provider. This transitional authorizer predates ACLv2 rules and must
+		// preserve that provider's existing creation flow; ACLv2 itself does
+		// not use this fallback.
+		if errors.Is(err, sql.ErrNoRows) {
+			return true, nil
+		}
 		return false, err
 	}
 	return scope.OwnerSubjectKey == common.SubjectKey(actor.String()), nil

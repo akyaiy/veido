@@ -2,6 +2,7 @@
 package schema
 
 import (
+	aclv2 "MyServer/internal/acl/v2"
 	"context"
 	"database/sql"
 
@@ -19,6 +20,7 @@ func SystemGroups() []migrate.Group {
 		sqliteDB.MigrationGroup(),
 		auth.MigrationGroup(),
 		storage.MigrationGroup(),
+		aclv2.MigrationGroup(),
 	}
 }
 
