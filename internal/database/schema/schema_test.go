@@ -51,8 +51,8 @@ func TestMigrateCleanDatabaseAndRepeat(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(applied) != 17 {
-		t.Fatalf("applied migrations = %d, want 17", len(applied))
+	if len(applied) != 18 {
+		t.Fatalf("applied migrations = %d, want 18", len(applied))
 	}
 	if err := migratePreprod(ctx, db); err != nil {
 		t.Fatalf("second migration: %v", err)

@@ -1,7 +1,7 @@
 # ADR-006: Разреженное дерево ACL namespace
 
 > Статус решения: принято.
-> Статус реализации: в процессе — реализованы SQLite schema, sparse-tree store, deny-by-default evaluator и VFS Core composition; ACL Provider и lifecycle отсутствуют.
+> Статус реализации: в процессе — реализованы SQLite schema, sparse-tree store, evaluator, VFS Core composition, ACL Provider и bootstrap; lifecycle отсутствует.
 > Дата предложения: 20 сентября 2026 года.  
 > Дата принятия: 26 октября 2026 года.
 > Связанные документы: [ADR-003: ACL lifecycle](ACL_LIFECYCLE_ARCHITECTURE_RU.md), [концепция ACLv2](../ACL_V2_CONCEPT_RU.md), [текущая реализация VFSv2](../VFS_V2_IMPLEMENTATION_RU.md).
@@ -1134,6 +1134,11 @@ Legacy permissions вроде `html.view.*` и `auth.login` могут врем�
    получает права менять control-plane grants.
 7. Control-plane namespace имеет доверенный bootstrap/maintenance root и не
    управляется обычной командой изменения ACL rule.
+8. `acl_rules.protected` является внутренним признаком protected grants.
+   Bootstrap и lifecycle могут создавать, переносить или отзывать такие
+   правила; обычные команды ACL Provider не могут их изменить, удалить,
+   заблокировать или передать другому manager. Признак не участвует в
+   вычислении allow/deny и не является частью публичной идентичности rule.
 
 Следующие параметры остаются предметом реализации, но не отменяют это решение:
 

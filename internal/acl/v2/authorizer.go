@@ -90,4 +90,13 @@ func (a *ACLAuthorizer) subjects(ctx context.Context, actor vfs.Actor) (map[stri
 	return subjects, nil
 }
 
+// SubjectKeys exposes the trusted subject expansion needed by ACL's own rule
+// manager checks. It is not exported to other providers.
+func (a *ACLAuthorizer) SubjectKeys(ctx context.Context, actor vfs.Actor) (map[string]struct{}, error) {
+	if a == nil || a.groups == nil {
+		return nil, fmt.Errorf("aclv2: authorizer is unavailable")
+	}
+	return a.subjects(ctx, actor)
+}
+
 var _ vfs.Authorizer = (*ACLAuthorizer)(nil)

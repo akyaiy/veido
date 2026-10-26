@@ -12,6 +12,7 @@ import (
 	"MyServer/internal/database/schema"
 	"MyServer/internal/serverapp"
 	"MyServer/internal/sqliteDB"
+	aclprovider "MyServer/internal/vfs/v2/providers/acl"
 	htmlprovider "MyServer/internal/vfs/v2/providers/html"
 	localprovider "MyServer/internal/vfs/v2/providers/local"
 	usersprovider "MyServer/internal/vfs/v2/providers/users"
@@ -46,7 +47,7 @@ func run(ctx context.Context, args []string) error {
 		return err
 	}
 	defer db.Close()
-	if err := schema.Migrate(ctx, db, localprovider.MigrationGroup(), htmlprovider.MigrationGroup(), usersprovider.MigrationGroup()); err != nil {
+	if err := schema.Migrate(ctx, db, localprovider.MigrationGroup(), htmlprovider.MigrationGroup(), usersprovider.MigrationGroup(), aclprovider.MigrationGroup()); err != nil {
 		return err
 	}
 	applied, err := migrate.AppliedMigrations(ctx, db)

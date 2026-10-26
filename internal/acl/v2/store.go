@@ -21,15 +21,15 @@ const (
 // RuleInput is storage input for the first ACLv2 slice. Public rule-management
 // authorization is deliberately left to the ACL Provider in step 3.
 type RuleInput struct {
-	SubjectKey        string
-	Action            common.Action
-	Effect            Effect
-	Priority          int
-	Recursive         bool
-	CreatedByActor    string
-	ManagerSubjectKey string
-	ManagerMode       string
-	State             string
+	SubjectKey        string        `json:"subject_key"`
+	Action            common.Action `json:"action"`
+	Effect            Effect        `json:"effect"`
+	Priority          int           `json:"priority"`
+	Recursive         bool          `json:"recursive"`
+	CreatedByActor    string        `json:"created_by_actor"`
+	ManagerSubjectKey string        `json:"manager_subject_key"`
+	ManagerMode       string        `json:"manager_mode"`
+	State             string        `json:"state"`
 }
 
 type Rule struct {

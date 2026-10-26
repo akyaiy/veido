@@ -11,7 +11,13 @@ import (
 func MigrationGroup() migrate.Group {
 	return migrate.Group{Name: "acl/v2", Migrations: []migrate.Migration{
 		{Version: 1, Name: "sparse_namespace", Up: migrateSparseNamespace},
+		{Version: 2, Name: "protected_rules", Up: migrateProtectedRules},
 	}}
+}
+
+func migrateProtectedRules(ctx context.Context, tx *sql.Tx) error {
+	_, err := tx.ExecContext(ctx, `ALTER TABLE acl_rules ADD COLUMN protected INTEGER NOT NULL DEFAULT 0 CHECK (protected IN (0, 1))`)
+	return err
 }
 
 func migrateSparseNamespace(ctx context.Context, tx *sql.Tx) error {

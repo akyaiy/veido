@@ -11,6 +11,7 @@ import (
 	hookapi "MyServer/internal/vfs/v2/adapters/hookapi"
 	httpapi "MyServer/internal/vfs/v2/adapters/httpapi"
 	sitehttp "MyServer/internal/vfs/v2/adapters/sitehttp"
+	aclprovider "MyServer/internal/vfs/v2/providers/acl"
 	htmlprovider "MyServer/internal/vfs/v2/providers/html"
 	localprovider "MyServer/internal/vfs/v2/providers/local"
 	systemscopes "MyServer/internal/vfs/v2/providers/system/scopes"
@@ -42,7 +43,7 @@ func Build(ctx context.Context, cfg Config) (_ *Runtime, err error) {
 			_ = db.Close()
 		}
 	}()
-	if err = schema.Migrate(ctx, db, localprovider.MigrationGroup(), htmlprovider.MigrationGroup(), usersprovider.MigrationGroup()); err != nil {
+	if err = schema.Migrate(ctx, db, localprovider.MigrationGroup(), htmlprovider.MigrationGroup(), usersprovider.MigrationGroup(), aclprovider.MigrationGroup()); err != nil {
 		return nil, fmt.Errorf("migrate database: %w", err)
 	}
 	authService, err := auth.NewAuth(db, auth.Config{Secret: []byte(cfg.JWT.Secret), Issuer: cfg.JWT.Issuer, Audience: cfg.JWT.Audience, AccessTTL: cfg.JWT.AccessTTL, RefreshTTL: cfg.JWT.RefreshTTL})
@@ -101,6 +102,9 @@ func Build(ctx context.Context, cfg Config) (_ *Runtime, err error) {
 	}
 	authorizer, err := aclv2.NewAuthorizer(aclStore, authService)
 	if err != nil {
+		return nil, err
+	}
+	if err = sdk.RegisterDefinition(catalog, aclprovider.Definition(aclStore, authorizer)); err != nil {
 		return nil, err
 	}
 	frontend, err := vfs.NewVFS(scopeResolver, vfs.NewConnectionResolver(db), pool, authorizer, vfs.NewNoopResourceLifecycle())
