@@ -14,8 +14,29 @@ func MigrationGroup() migrate.Group {
 			{Version: 1, Name: "users", Up: migrateUsers},
 			{Version: 2, Name: "session_stores_compatibility", Up: migrateSessionStores},
 			{Version: 3, Name: "whitelist_foreign_key", Up: migrateWhitelistForeignKey},
+			{Version: 4, Name: "group_memberships", Up: migrateGroupMemberships},
 		},
 	}
+}
+
+// migrateGroupMemberships creates Auth-owned group membership data. ACL reads
+// it through Auth's read-only contract; it does not own or mutate it.
+func migrateGroupMemberships(ctx context.Context, tx *sql.Tx) error {
+	_, err := tx.ExecContext(ctx, `
+		CREATE TABLE auth_groups (
+			group_id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL UNIQUE
+		);
+		CREATE TABLE auth_group_memberships (
+			user_id INTEGER NOT NULL,
+			group_id INTEGER NOT NULL,
+			PRIMARY KEY (user_id, group_id),
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+			FOREIGN KEY (group_id) REFERENCES auth_groups(group_id) ON DELETE CASCADE
+		);
+		CREATE INDEX idx_auth_group_memberships_user ON auth_group_memberships(user_id);
+	`)
+	return err
 }
 
 func migrateWhitelistForeignKey(ctx context.Context, tx *sql.Tx) error {

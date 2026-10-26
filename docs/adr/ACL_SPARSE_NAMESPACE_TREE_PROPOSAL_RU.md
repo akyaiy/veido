@@ -1,12 +1,12 @@
 # ADR-006: Разреженное дерево ACL namespace
 
-> Статус решения: предложено, не принято.  
-> Статус реализации: не реализовано.  
+> Статус решения: принято.
+> Статус реализации: в процессе — реализованы SQLite schema, sparse-tree store и deny-by-default evaluator; ACL Provider, VFS Core composition и lifecycle отсутствуют.
 > Дата предложения: 20 сентября 2026 года.  
+> Дата принятия: 26 октября 2026 года.
 > Связанные документы: [ADR-003: ACL lifecycle](ACL_LIFECYCLE_ARCHITECTURE_RU.md), [концепция ACLv2](../ACL_V2_CONCEPT_RU.md), [текущая реализация VFSv2](../VFS_V2_IMPLEMENTATION_RU.md).
 
-До принятия этого ADR действующим решением остаётся ADR-003. Этот документ
-предлагает заменить описанное в ADR-003 плоское хранение ACL по полным URI и
+Этот документ заменяет части ADR-003, описывающие плоское хранение ACL по полным URI и
 массовую материализацию после move на внутреннее разреженное дерево адресов.
 Durable journal, fail-closed поведение, идемпотентность и восстановление после
 частичных сбоев при этом сохраняются.
@@ -70,6 +70,8 @@ namespace root
 7. Независимость универсальной ACL-модели от provider-local ID и backend API.
 8. Восстановление после частичного сбоя между provider и ACL.
 9. Понятную модель хранения и проверки, которую можно реализовывать поэтапно.
+10. Динамическое управление отдельным правилом без рекурсивной попытки
+    авторизовать изменение правила тем же самым правилом.
 
 ## 3. Что не является целью
 
@@ -305,6 +307,11 @@ CREATE TABLE acl_rules (
         CHECK (recursive IN (0, 1)),
 
     created_by_actor TEXT NOT NULL,
+    manager_subject_key TEXT NOT NULL,
+    manager_mode TEXT NOT NULL DEFAULT 'full'
+        CHECK (manager_mode IN ('full', 'narrow_only')),
+    state TEXT NOT NULL DEFAULT 'active'
+        CHECK (state IN ('active', 'locked')),
     rule_revision INTEGER NOT NULL DEFAULT 1,
 
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -340,6 +347,22 @@ guest
 
 Приоритет принадлежит правилу, а не пользователю, группе или ACL-узлу. Одно и
 то же правило сохраняет свой приоритет при рекурсивном применении к потомкам.
+
+`created_by_actor` — аудитный факт, кто создал запись. `manager_subject_key`
+задаёт субъекта, который может управлять именно этой записью, и при создании
+по умолчанию равен subject key actor. Эти поля не являются grant на целевой
+ресурс и не участвуют в обычной проверке `r/w/x` этого ресурса.
+
+`manager_mode` ограничивает изменения, доступные manager:
+
+- `full` разрешает менять `effect`, `priority` и `recursive`;
+- `narrow_only` разрешает только изменения, которые не расширяют доступ;
+- `locked` определяется полем `state`: manager не может менять или удалять
+  правило независимо от `manager_mode`.
+
+Manager никогда не может изменить `target`, `subject_key`, `action`,
+`created_by_actor`, `manager_subject_key`, `manager_mode` или `state`.
+Изменение этих полей и передача управления принадлежат policy-admin.
 
 ### 7.4. Lifecycle operations
 
@@ -471,6 +494,92 @@ Revoke удаляет правило либо создаёт упорядоче�
 `Control` с исходным actor.
 
 Прямой ACL management service не внедряется в VFS-провайдеры.
+
+### 9.4. ACL Provider и сервис правил
+
+ACL Provider является единственным VFS-провайдером, который вызывает доменный
+сервис правил. Он представляет политику ресурса и отдельные правила как
+виртуальные ACL-ресурсы. Точная форма encoding канонического target URI —
+деталь контракта provider, но она должна быть обратимой и однозначной. Например:
+
+```text
+acl@acl[system]:///policies/<base64url(canonical-target-uri)>
+acl@acl[system]:///rules/<rule-id>
+```
+
+Первый ресурс адресует политику target и используется для создания правила и
+просмотра списка. Второй адресует конкретное существующее правило и
+используется для его чтения, изменения и удаления.
+
+Доменный сервис ACL Provider имеет минимальный контракт:
+
+```go
+type RuleService interface {
+    Create(ctx context.Context, actor vfs.Actor, target common.CanonURI, input CreateRuleInput) (Rule, error)
+    Get(ctx context.Context, actor vfs.Actor, ruleID int64) (Rule, error)
+    List(ctx context.Context, actor vfs.Actor, target common.CanonURI) ([]Rule, error)
+    Update(ctx context.Context, actor vfs.Actor, ruleID int64, input UpdateRuleInput) (Rule, error)
+    Delete(ctx context.Context, actor vfs.Actor, ruleID int64) error
+    SetManager(ctx context.Context, actor vfs.Actor, ruleID int64, manager common.SubjectKey, mode ManagerMode, state RuleState) (Rule, error)
+}
+```
+
+`CreateRuleInput` содержит `subject_key`, `action`, `effect`, `priority` и
+`recursive`. `UpdateRuleInput` содержит только `effect`, `priority` и
+`recursive`. Поэтому target, subject и action не меняют идентичность правила
+скрытым update: для такой смены нужно удалить старое правило и создать новое.
+
+Provider передаёт в сервис actor из request context, а не из тела команды.
+Сервис валидирует каноничность target, допустимые subject keys, `r/w/x`,
+`allow/deny` и диапазон priority. Создание дубликата
+`(node_id, subject_key, action)` возвращает conflict; изменение или удаление
+отсутствующего rule ID возвращает not found. Все изменения увеличивают
+`rule_revision` и фиксируют actor и время изменения.
+
+### 9.5. Динамическое управление конкретным правилом
+
+Возможность управлять созданным правилом не выражается ещё одним изменяемым
+ACL-правилом на файл этого правила: такая модель рекурсивна и позволяет
+самостоятельно выдать себе право администрирования. Вместо этого ACL evaluator
+распознаёт ACL rule-resource и использует неизменяемые для manager поля строки
+правила.
+
+Для команд ACL Provider действуют следующие проверки:
+
+| Операция | Разрешение |
+| --- | --- |
+| `Create` для target | `x` на policy-resource target для resource manager или policy-admin |
+| `List` policy | `r` на policy-resource target для resource manager или policy-admin |
+| `Get` rule | Active manager с сохраняющимся `x` на policy-resource target либо policy-admin |
+| `Update`/`Delete` rule | Active manager с сохраняющимся `x` на policy-resource target либо policy-admin |
+| `SetManager`/lock/unlock | Только policy-admin target |
+
+При успешном `Create` сервис устанавливает `created_by_actor` и
+`manager_subject_key` из actor. Поэтому пользователь, создавший правило,
+может управлять именно им, пока сохраняет право управлять policy target. Он не
+получает этим право создавать правила для другого target. Если policy-admin
+блокирует правило или передаёт `manager_subject_key`, прежний создатель сразу
+теряет эту возможность.
+
+`full` manager может менять только три mutable-поля своего правила:
+`effect`, `priority`, `recursive`. `narrow_only` manager может лишь сузить
+доступ: понизить priority у allow, выключить recursive, заменить allow на deny
+или удалить allow. Операция, расширяющая доступ, в этом режиме возвращает
+permission denied. Policy-admin может выполнить любое допустимое изменение.
+
+После успешного VFS create lifecycle создаёт protected `r/x` policy grant для
+actor-создателя на policy-resource нового target. Это право относится только к
+этому URI (либо к его потомкам, если lifecycle явно создаёт recursive grant для
+каталога) и не даёт actor права управлять чужим target. При смене владельца,
+удалении или смене lifecycle generation такой grant отзывается или переносится
+только lifecycle-операцией.
+
+Policy-admin получает override `r/x` на policy-resource отдельным protected
+control-plane grant. Обычные команды ACL Provider не могут изменить grants,
+которые выдают `x` на ACL policy namespace: их создаёт и изменяет только
+доверенная bootstrap/maintenance-операция ACL либо lifecycle для владельца
+конкретного ресурса. Это разрывает самоссылочный цикл; Auth и другие providers
+не получают при этом права принимать решения о доступе к обычным VFS-ресурсам.
 
 ## 10. Алгоритм проверки доступа
 
@@ -1006,21 +1115,35 @@ Legacy permissions вроде `html.view.*` и `auth.login` могут врем�
 - Реконструкция полного URI требует обхода предков.
 - Автоматические per-resource grants уничтожают преимущество разреженности.
 
-## 30. Критерии принятия решения
+## 30. Закреплённые решения и остающиеся параметры
 
-До перевода ADR в статус «Принято» необходимо согласовать:
+Этим ADR закреплено, что:
 
-1. Считается ли `node_id` допустимым приватным ключом ACL namespace, не
-   являющимся системной идентичностью ресурса.
-2. Заменяет ли этот ADR части ADR-003 про generation, prefix overlay,
-   materializer и compaction.
-3. Точную политику owner fallback и bootstrap grants.
-4. Retention tombstone и audit history.
-5. Контракт staged lifecycle между VFS Core и ACL.
-6. Поведение при отсутствии надёжного provider change feed.
-7. Семантику удаления поддерева и фонового pruning.
-8. Форму ACL Provider API для grant/revoke/list/explain.
-9. Стратегию сосуществования с legacy permission ACL.
+1. `node_id` допустим только как приватный ключ ACL namespace, а не как
+   системная идентичность ресурса.
+2. Разреженное дерево заменяет в ADR-003 плоские URI, prefix overlay,
+   materializer и compaction для штатного move внутри одного ACL root.
+3. Числовой `priority` от 1 до 100 сильнее глубины URI; deny побеждает allow
+   только при одинаковом максимальном priority.
+4. ACL Provider является единственной пользовательской поверхностью для
+   создания, изменения, удаления и просмотра правил.
+5. Lifecycle после create выдаёт создателю protected policy capability только
+   для нового target; она не является правом на чужие URI.
+6. Создатель получает управление конкретным созданным правилом через
+   `manager_subject_key`, пока сохраняет policy capability target, но не
+   получает права менять control-plane grants.
+7. Control-plane namespace имеет доверенный bootstrap/maintenance root и не
+   управляется обычной командой изменения ACL rule.
+
+Следующие параметры остаются предметом реализации, но не отменяют это решение:
+
+1. Точная политика owner fallback и bootstrap grants.
+2. Retention tombstone и audit history.
+3. Контракт staged lifecycle между VFS Core и ACL.
+4. Поведение при отсутствии надёжного provider change feed.
+5. Семантика удаления поддерева и фонового pruning.
+6. Точный transport DTO для ACL Provider и стратегия сосуществования с legacy
+   string permissions.
 
 ## 31. Критерии готовности реализации
 
@@ -1048,15 +1171,23 @@ Legacy permissions вроде `html.view.*` и `auth.login` могут врем�
 20. Кеш можно полностью удалить и восстановить без изменения решений.
 21. Property-based последовательности create/rename/move/delete не создают
     циклов, дубликатов активного адреса или наследования через deleted-узел.
+22. Actor может изменить созданное им active rule только при сохраняющемся `x`
+    на policy-resource target и не может изменить target, subject, action,
+    manager, mode или state.
+23. `narrow_only` manager не может расширить доступ, а policy-admin может
+    заблокировать правило или передать управление другому subject.
+24. Обычная команда ACL Provider не изменяет control-plane namespace и не
+    может выдать actor самому себе policy-admin.
+25. Создатель файла может создать rule только для этого файла; после отзыва
+    lifecycle policy capability он не может изменить даже созданное ранее rule.
 
 ## 32. Статус относительно ADR-003
 
-Пока этот ADR имеет статус «Предложено»:
-
-- ADR-003 остаётся принятым целевым решением;
-- реализация не должна молча заменять overlay на sparse tree;
-- этот документ может использоваться для обсуждения и прототипирования, но не
-  как основание считать архитектуру изменённой.
+ADR-003 сохраняет принятые требования durable lifecycle, fail-closed recovery,
+идемпотентности и reconciliation. Этот ADR заменяет только его решение о
+плоском хранении правил по URI, prefix overlay, фоновой materialization и
+compaction для move внутри одного ACL root. Реализация должна применять
+разреженное дерево, а не возвращаться к prefix overlay без нового ADR.
 
 Если предложение будет принято, потребуется отдельно зафиксировать один из
 вариантов:
