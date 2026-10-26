@@ -104,7 +104,6 @@ initAuth();
 
 lng_btn.onclick = async () => {
   if (lng_btn.dataset.loget === "true") {
-    console.log(window.location.pathname);
     await userLogout();   // вызываем существующую функцию
     await loadBlock("pages"+window.location.pathname, "content");
     //window.location.href = window.location.pathname; // перезагрузка текущей страницы

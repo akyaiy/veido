@@ -4,7 +4,10 @@ async function initUser() {
             await refreshAccess();
         }
 
-        if (!accessToken) throw new Error("no token");
+        if (!accessToken) {
+            showLogin();
+            return;
+        }
 
         user_info.innerHTML = `Вы зашли как: ${user.name}. </br> Ваш ID:${user.id}`;
         showUser();

@@ -6,42 +6,6 @@ let spritePath = '/_static/img/icons.svg';
 let tokenWriting = null; // флаг блокировки refresh
 let refreshInFlight = null;
 
-const auth = {
-    ready: false,   // знаем ли мы статус?
-    loggedIn: false // авторизован?
-};
-
-class PageReady {
-    static callbacks = [];
-    static initialized = false;
-
-    /**
-     * Регистрация функции
-     * @param {Function} fn
-     */
-    static add(fn) {
-        if (typeof fn !== 'function') return;
-
-        if (document.readyState === 'complete') {
-            fn();
-            return;
-        }
-
-        this.callbacks.push(fn);
-        this.init();
-    }
-
-    static init() {
-        if (this.initialized) return;
-        this.initialized = true;
-
-        window.addEventListener('load', () => {
-            this.callbacks.forEach(fn => fn());
-            this.callbacks = [];
-        });
-    }
-}
-
 // функция для эмита события состояния
 function emitAuthEvent(isLoggedIn) {
     //console.log("event1:"+isLoggedIn)
@@ -188,13 +152,16 @@ class TempStore {
         const tx = db.transaction(this.storeName, mode);
         const store = tx.objectStore(this.storeName);
 
-        const result = await fn(store);
-
-        await new Promise((res, rej) => {
+        const transactionPromise = new Promise((res, rej) => {
         tx.oncomplete = res;
         tx.onerror = () => rej(tx.error);
         tx.onabort = () => rej(tx.error);
         });
+
+        const [result] = await Promise.all([
+            Promise.resolve().then(() => fn(store)),
+            transactionPromise
+        ]);
 
         return result;
     }
@@ -400,7 +367,7 @@ class TempStore {
         });
     }
 }
-tempStore = new TempStore();
+const tempStore = new TempStore();
 tempStore.startCleanup();
 
 /***********************************************************************
@@ -460,6 +427,8 @@ async function apiProtected(path, options = {}) {
             if (accessToken) {
                 finalOptions.headers.Authorization = `Bearer ${accessToken}`;
             //console.log("AUTH:", finalOptions.headers.Authorization);
+            } else {
+                delete finalOptions.headers.Authorization;
             }
             // Отправляем fetch запрос.
             const res = await fetch(path, finalOptions);
@@ -511,6 +480,8 @@ async function apiProtected(path, options = {}) {
 function refreshAccess() {
     if (!refreshInFlight) {
         refreshInFlight = (async () => {
+            try {
+
             //Отправка запроса на обновление токена
             const rr = await fetch("/api/v2/auth/refresh", {
                 method: "POST",
@@ -520,6 +491,9 @@ function refreshAccess() {
             });
             // Проверка ответа
             if (!rr.ok) {
+                accessToken = null;
+                user.id = 0;
+                user.name = "";
                 emitAuthEvent(false); // Пользователь вышел из системы ❌
                 //console.log("---")
                 return null; /* throw "refresh failed"; */
@@ -528,6 +502,9 @@ function refreshAccess() {
             const j = await rr.json();
             accessToken = j.access_token;
             if (!accessToken) {
+                accessToken = null;
+                user.id = 0;
+                user.name = "";
                 emitAuthEvent(false);
                 return null;
             }
@@ -544,6 +521,15 @@ function refreshAccess() {
             //console.log("+++")
 
             return accessToken;
+
+            } catch (error) {
+                accessToken = null;
+                user.id = 0;
+                user.name = "";
+                emitAuthEvent(false);
+                console.error("Refresh error:", error);
+                return null;
+            }
         })().finally(() => {
             refreshInFlight = null;
         });
@@ -682,7 +668,7 @@ async function loadBlock(path, target, itemsHowText = false, mode = "") {
                 container.textContent = mdContent;
             } else {
                 const md = window.markdownit({ html: true, linkify: true, typographer: true });
-                container.innerHTML = md.render(mdContent.replace(/#\{([^}]*)\}/g, '$1'));
+                container.innerHTML = md.render(window.translate(mdContent));
                 if (container.id?.match(/^loadedBlock_\d+_view$/)) {
                     const htmlDiv = doc.getElementById(container.id.replace('_view', '_html'));
                     if (htmlDiv) htmlDiv.innerHTML = mdContent;
@@ -726,7 +712,9 @@ async function loadBlock(path, target, itemsHowText = false, mode = "") {
             } else {
                 const script = doc.createElement('script');
                 script.dataset.dynamic = block_Name;
-                script.textContent = `
+                try {
+                    new Function(processedJs);
+                    script.textContent = `
                     (() => {
                         try {
                             ${processedJs}
@@ -736,7 +724,10 @@ async function loadBlock(path, target, itemsHowText = false, mode = "") {
                         }
                     })();
                 `;
-                (doc.body || doc.head).appendChild(script);
+                    (doc.body || doc.head).appendChild(script);
+                } catch (e) {
+                    console.error("Block script syntax error:", e);
+                }
             }
         }
 
@@ -752,7 +743,14 @@ async function loadBlock(path, target, itemsHowText = false, mode = "") {
 function loadBlockAttribute(scope = document) {
     // В случае передаваемого scope ищем и в нем самом, и среди его детей
     const doc = scope.ownerDocument || scope;
-    const elements = scope.querySelectorAll ? scope.querySelectorAll('[data-block-src]') : [];
+    const elements = scope.querySelectorAll ? Array.from(scope.querySelectorAll('[data-block-src]')).filter(el => {
+        let parent = el.parentElement;
+        while (parent && parent !== scope) {
+            if (parent.hasAttribute('data-block-src')) return false;
+            parent = parent.parentElement;
+        }
+        return true;
+    }) : [];
 
     elements.forEach((el, index) => {
         const path = el.getAttribute('data-block-src');
@@ -795,21 +793,24 @@ function navigateTo(url, target) {
  * Поддержка кнопки "назад/вперед"
  *****************************************************************************/
 window.addEventListener("popstate", (event) => {
-    loadBlock("pages" + window.location.pathname, event.state.target);
+    loadBlock("pages" + window.location.pathname, event.state?.target || "content");
 });
 
 /*****************************************************************************
  * Перехватчик ссылок
  *****************************************************************************/
 window.addEventListener("click", (event) => {
-    const a = event.target.closest("a");
+    const a = event.target instanceof Element ? event.target.closest("a") : null;
     if (!a) return;
     const href = a.getAttribute("href");
-    // игнорируем внешние ссылки и mailto:
-    if (!href || href.startsWith("http") || href.startsWith("mailto:")) return;
+    if (!href || a.hasAttribute("download") || (a.target && a.target !== "_self") ||
+        event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const url = new URL(href, window.location.href);
+    if (url.origin !== window.location.origin || !["http:", "https:"].includes(url.protocol)) return;
+    if (url.pathname === window.location.pathname && url.search === window.location.search && url.hash) return;
     const target = a.dataset.target || "content"; // default = content
     event.preventDefault();
-    navigateTo(href, target);
+    navigateTo(url.pathname + url.search + url.hash, target);
 });
 
 
@@ -953,10 +954,10 @@ async function userLogin(username, password) {
     );
         // Успешный результат
         accessToken = r.access_token;
-        emitAuthEvent(true);  // Пользователь вошёл в систему ✅
         //console.log("+++");
         user.name = r.username || username;
         user.id = r.user_id;
+        emitAuthEvent(true);  // Пользователь вошёл в систему ✅
         return {
             accessToken: r.access_token
         };
@@ -992,19 +993,17 @@ async function userLogin(username, password) {
 // }
 
 async function userLogout() {
-    try {
-        await apiProtected("/api/v2/auth/logout", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({})
-        });
-    } finally {
-        emitAuthEvent(false);
-        accessToken = "";
-        location.reload();
-    }
+    const response = await apiProtected("/api/v2/auth/logout", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({})
+    });
+    if (response === null) throw new Error("Logout failed");
+    emitAuthEvent(false);
+    accessToken = "";
+    location.reload();
 }
 
 /******************************************************************************
@@ -1017,7 +1016,7 @@ async function userLogout() {
 async function userRegister(username, password) {
     try {
         // Запрос регистрации
-        const data = await apiProtected("/api/auth/register", {
+        const data = await apiProtected("/api/v2/auth/register", {
             method: "POST",
             body: {
                 username,
@@ -1227,10 +1226,11 @@ function setCookie(name, value, days = 365) {
 }
 
 function getCookie(name) {
-    return document.cookie
+    const value = document.cookie
         .split('; ')
         .find(row => row.startsWith(name + '='))
         ?.split('=')[1];
+    return value === undefined ? undefined : decodeURIComponent(value);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -1238,15 +1238,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
 });
 
-// Подписка UI на изменения статуса авторизации
-document.addEventListener("auth:changed", () => {
-    // Эта функция будет вызываться при каждом изменении статуса (login/logout/refresh)
-    lngEdit();
-});/*****************************************************************************
+/*****************************************************************************
  * Инициализация после загрузки DOM
  *****************************************************************************/
-window.onload = async function ()  {
-    PasswordToggle.init();
+window.addEventListener("load", async function ()  {
     let url = window.location.href;
    // Убираем слеш в конце, если он есть
     if (url.endsWith("/")) {
@@ -1257,16 +1252,13 @@ window.onload = async function ()  {
     //console.assert("читаем меню")
     await loadMenu();
     await loadPage("pages"+window.location.pathname);
-};
+});
 // проверка токена при загрузке
 async function initAuth() {
     try {
         const token = await refreshAccess();
         if (!token) return null; /* throw "refresh failed"; */
 
-        const j = { access_token: token };
-        accessToken = j.access_token;
-        emitAuthEvent(true); // событие выбрасывается
         //console.log("--- refresh ок ---");
     } catch (err) {
         emitAuthEvent(false); // событие выбрасывается

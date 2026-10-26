@@ -6,7 +6,6 @@
 <nav id="nav">
     <ul>
         <li><a href="/about" data-link="true" data-target="content">about</a></li>
-        <li><a href="/demo" data-link="true" data-target="content">demo</a></li>
         <li><a href="/editorBlock" data-link="true" data-target="content">editorBlock</a></li>
         <li><a href="/svgEditor" data-link="true" data-target="content">svgEditor</a></li>
         <li><a href="/siteStructure" data-link="true" data-target="content">siteStructure</a></li>    
