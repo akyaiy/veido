@@ -47,18 +47,30 @@ func (b *stagedBackend) OpenWrite(ctx context.Context, path string, flags int) (
 }
 
 type events struct {
-	created int
-	err     error
+	prepared, created, aborted, recovered int
+	err                                   error
 }
 
-func (e *events) OnResourceCreated(context.Context, vfs.Actor, vfs.ResourceRef) error {
-	e.created++
-	return e.err
+func (e *events) Prepare(_ context.Context, mutation vfs.LifecycleMutation) (vfs.LifecycleOperation, error) {
+	if mutation.OperationID == "" || mutation.Kind != vfs.LifecycleCreate {
+		return nil, errors.New("invalid lifecycle mutation")
+	}
+	e.prepared++
+	return eventOperation{events: e}, nil
 }
-func (*events) OnResourceMoved(context.Context, vfs.Actor, vfs.ResourceRef, vfs.ResourceRef) error {
+func (*events) Recover(context.Context) error { return nil }
+
+type eventOperation struct{ events *events }
+
+func (o eventOperation) Commit(context.Context) error {
+	o.events.created++
+	return o.events.err
+}
+func (o eventOperation) Abort(context.Context, error) error { o.events.aborted++; return nil }
+func (o eventOperation) Recover(context.Context, error) error {
+	o.events.recovered++
 	return nil
 }
-func (*events) OnResourceDeleted(context.Context, vfs.Actor, vfs.ResourceRef) error { return nil }
 
 func TestCreatedEventFollowsSuccessfulCommit(t *testing.T) {
 	for _, scenario := range []string{"success", "abort", "commit failure", "event failure"} {
@@ -79,8 +91,8 @@ func TestCreatedEventFollowsSuccessfulCommit(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if sink.created != 0 {
-				t.Fatal("created event before content was committed")
+			if sink.prepared != 1 || sink.created != 0 {
+				t.Fatal("lifecycle was not prepared before content was committed")
 			}
 			_, err = file.Write([]byte("content"))
 			if err != nil {
@@ -102,6 +114,12 @@ func TestCreatedEventFollowsSuccessfulCommit(t *testing.T) {
 			}
 			if sink.created != want || backend.exists != (want == 1) {
 				t.Fatalf("events=%d exists=%v", sink.created, backend.exists)
+			}
+			if scenario == "abort" && sink.aborted != 1 {
+				t.Fatalf("aborted=%d, want 1", sink.aborted)
+			}
+			if (scenario == "commit failure" || scenario == "event failure") && sink.recovered != 1 {
+				t.Fatalf("recovered=%d, want 1", sink.recovered)
 			}
 			if scenario == "commit failure" || scenario == "event failure" {
 				if !errors.Is(err, vfs.ErrUnavailable) {

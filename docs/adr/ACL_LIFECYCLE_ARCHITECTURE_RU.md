@@ -1,6 +1,6 @@
 # ADR-003: ACL lifecycle, журнал изменений и overlay
 
-> Статус: принятое целевое архитектурное решение, не описание готовой реализации.  
+> Статус: принятое целевое архитектурное решение; staged Core, SQLite journal, URI-fence, базовые ACL mutations и startup reconciliation через безопасный provider metadata lookup реализованы для VFS-операций; overlay, change feed и фоновая reconciliation ещё нет.
 > Дата решения: 19 сентября 2026 года.  
 > Связанные документы: [концепция ACLv2](../ACL_V2_CONCEPT_RU.md), [текущая реализация VFSv2](../VFS_V2_IMPLEMENTATION_RU.md).
 

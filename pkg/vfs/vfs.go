@@ -24,6 +24,9 @@ type BoundVFS = core.BoundVFS
 type Frontend = core.VFSFrontend
 type Authorizer = core.Authorizer
 type ResourceLifecycleSink = core.ResourceLifecycleSink
+type LifecycleMutation = core.LifecycleMutation
+type LifecycleOperation = core.LifecycleOperation
+type LifecycleKind = core.LifecycleKind
 type URI = common.CanonURI
 type ResourceRef = common.ResourceRef
 type ResourceAddress = common.ResourceAddress
@@ -41,6 +44,9 @@ const (
 	ActionRead             = common.ActionRead
 	ActionWrite            = common.ActionWrite
 	ActionExec             = common.ActionExec
+	LifecycleCreate        = core.LifecycleCreate
+	LifecycleMove          = core.LifecycleMove
+	LifecycleDelete        = core.LifecycleDelete
 	KindInvalidArgument    = core.KindInvalidArgument
 	KindNotFound           = core.KindNotFound
 	KindAlreadyExists      = core.KindAlreadyExists
@@ -87,4 +93,9 @@ var (
 	ErrUnavailable            = core.ErrUnavailable
 	ErrInternal               = core.ErrInternal
 	ErrRequestContextNotFound = core.ErrRequestContextNotFound
+)
+
+var (
+	ContextWithLifecycleMutation = core.ContextWithLifecycleMutation
+	LifecycleMutationFromContext = core.LifecycleMutationFromContext
 )

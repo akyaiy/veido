@@ -12,11 +12,27 @@ func MigrationGroup() migrate.Group {
 	return migrate.Group{Name: "acl/v2", Migrations: []migrate.Migration{
 		{Version: 1, Name: "sparse_namespace", Up: migrateSparseNamespace},
 		{Version: 2, Name: "protected_rules", Up: migrateProtectedRules},
+		{Version: 3, Name: "lifecycle_fences", Up: migrateLifecycleFences},
 	}}
 }
 
 func migrateProtectedRules(ctx context.Context, tx *sql.Tx) error {
 	_, err := tx.ExecContext(ctx, `ALTER TABLE acl_rules ADD COLUMN protected INTEGER NOT NULL DEFAULT 0 CHECK (protected IN (0, 1))`)
+	return err
+}
+
+func migrateLifecycleFences(ctx context.Context, tx *sql.Tx) error {
+	_, err := tx.ExecContext(ctx, `
+		ALTER TABLE acl_lifecycle_operations ADD COLUMN source_uri TEXT;
+		ALTER TABLE acl_lifecycle_operations ADD COLUMN target_uri TEXT;
+		CREATE TABLE acl_lifecycle_fences (
+			operation_id TEXT NOT NULL,
+			resource_uri TEXT NOT NULL,
+			PRIMARY KEY (operation_id, resource_uri),
+			FOREIGN KEY (operation_id) REFERENCES acl_lifecycle_operations(operation_id) ON DELETE CASCADE
+		);
+		CREATE INDEX idx_acl_lifecycle_fences_uri ON acl_lifecycle_fences(resource_uri);
+	`)
 	return err
 }
 

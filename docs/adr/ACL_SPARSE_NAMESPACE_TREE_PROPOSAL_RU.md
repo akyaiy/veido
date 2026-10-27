@@ -1,7 +1,7 @@
 # ADR-006: Разреженное дерево ACL namespace
 
 > Статус решения: принято.
-> Статус реализации: в процессе — реализованы SQLite schema, sparse-tree store, evaluator, VFS Core composition, ACL Provider и bootstrap; lifecycle отсутствует.
+> Статус реализации: в процессе — реализованы SQLite schema, sparse-tree store, evaluator, VFS Core composition, ACL Provider, bootstrap, staged lifecycle contract Core, journal, URI-fence, базовые create/delete/move ACL mutations и startup reconciliation через безопасный provider metadata lookup; change feed и фоновая reconciliation отсутствуют.
 > Дата предложения: 20 сентября 2026 года.  
 > Дата принятия: 26 октября 2026 года.
 > Связанные документы: [ADR-003: ACL lifecycle](ACL_LIFECYCLE_ARCHITECTURE_RU.md), [концепция ACLv2](../ACL_V2_CONCEPT_RU.md), [текущая реализация VFSv2](../VFS_V2_IMPLEMENTATION_RU.md).

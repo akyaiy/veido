@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 // VFSFrontend is the main interface for the VFS core.
@@ -188,6 +190,30 @@ func newRequestContext(actor Actor, uri common.CanonURI, resolved *resolvedResou
 	return rctx
 }
 
+func (c *VFSCore) prepareLifecycle(ctx context.Context, kind LifecycleKind, actor Actor, source, target common.ResourceRef) (LifecycleOperation, LifecycleMutation, error) {
+	mutation := LifecycleMutation{
+		OperationID: uuid.NewString(),
+		Kind:        kind,
+		Actor:       actor,
+		Source:      source,
+		Target:      target,
+	}
+	operation, err := c.lifecycle.Prepare(ctx, mutation)
+	return operation, mutation, err
+}
+
+func (c *VFSCore) abortLifecycle(ctx context.Context, operation LifecycleOperation, cause error) error {
+	if err := operation.Abort(ctx, cause); err == nil {
+		return cause
+	} else {
+		return c.recoverLifecycle(ctx, operation, errors.Join(cause, err))
+	}
+}
+
+func (c *VFSCore) recoverLifecycle(ctx context.Context, operation LifecycleOperation, cause error) error {
+	return errors.Join(cause, operation.Recover(ctx, cause))
+}
+
 func (c *VFSCore) Stat(ctx context.Context, actor Actor, uri common.CanonURI) (*Node, error) {
 	resolved, err := c.resolveResource(ctx, actor, uri)
 	if err != nil {
@@ -292,20 +318,36 @@ func (c *VFSCore) OpenFile(ctx context.Context, actor Actor, uri common.CanonURI
 		}
 		created = statErr != nil
 	}
+	var lifecycleOperation LifecycleOperation
+	if created {
+		var mutation LifecycleMutation
+		lifecycleOperation, mutation, err = c.prepareLifecycle(ctx, LifecycleCreate, actor, common.ResourceRef{}, resolved.Ref)
+		if err != nil {
+			return nil, err
+		}
+		providerCtx = ContextWithLifecycleMutation(providerCtx, mutation)
+	}
 	file, err := provider.OpenFile(providerCtx, resolved.Ref.Path, flag)
 	if err != nil {
+		if lifecycleOperation != nil {
+			return nil, c.abortLifecycle(ctx, lifecycleOperation, err)
+		}
 		return nil, err
 	}
 	if !created {
 		return file, nil
 	}
-	onCreated := func() error { return c.lifecycle.OnResourceCreated(ctx, actor, resolved.Ref) }
 	if staged, ok := file.(WriteFile); ok {
-		return &createdFile{WriteFile: staged, onCreated: onCreated}, nil
+		return &createdFile{
+			WriteFile: staged,
+			onCommit:  func() error { return lifecycleOperation.Commit(ctx) },
+			onAbort:   func(cause error) error { return c.abortLifecycle(ctx, lifecycleOperation, cause) },
+			onRecover: func(cause error) error { return c.recoverLifecycle(ctx, lifecycleOperation, cause) },
+		}, nil
 	}
 	// Direct-write files create their namespace entry during OpenFile.
-	if err := onCreated(); err != nil {
-		return nil, errors.Join(err, file.Close())
+	if err := lifecycleOperation.Commit(ctx); err != nil {
+		return nil, errors.Join(c.recoverLifecycle(ctx, lifecycleOperation, err), file.Close())
 	}
 	return file, nil
 }
@@ -339,12 +381,18 @@ func (c *VFSCore) Mkdir(ctx context.Context, actor Actor, uri common.CanonURI) (
 	rctx := newRequestContext(actor, uri, resolved)
 	providerCtx := contextWithCoreRequest(ctx, &bound, rctx)
 	parentPath, name := splitResourcePath(resolved.Ref.Path)
-	node, err := provider.Mkdir(providerCtx, parentPath, name)
+	lifecycleOperation, mutation, err := c.prepareLifecycle(ctx, LifecycleCreate, actor, common.ResourceRef{}, resolved.Ref)
 	if err != nil {
 		return nil, err
 	}
+	providerCtx = ContextWithLifecycleMutation(providerCtx, mutation)
+	node, err := provider.Mkdir(providerCtx, parentPath, name)
+	if err != nil {
+		return nil, c.abortLifecycle(ctx, lifecycleOperation, err)
+	}
 
-	if err := c.lifecycle.OnResourceCreated(ctx, actor, resolved.Ref); err != nil {
+	if err := lifecycleOperation.Commit(ctx); err != nil {
+		err = c.recoverLifecycle(ctx, lifecycleOperation, err)
 		return node, err
 	}
 
@@ -401,11 +449,18 @@ func (c *VFSCore) Move(ctx context.Context, actor Actor, source common.CanonURI,
 	rctx := newRequestContext(actor, source, resolvedSource)
 	providerCtx := contextWithCoreRequest(ctx, &bound, rctx)
 	targetParentPath, newName := splitResourcePath(resolvedTarget.Ref.Path)
-	if err := provider.Move(providerCtx, resolvedSource.Ref.Path, targetParentPath, newName); err != nil {
+	lifecycleOperation, mutation, err := c.prepareLifecycle(ctx, LifecycleMove, actor, resolvedSource.Ref, resolvedTarget.Ref)
+	if err != nil {
 		return err
 	}
-
-	return c.lifecycle.OnResourceMoved(ctx, actor, resolvedSource.Ref, resolvedTarget.Ref)
+	providerCtx = ContextWithLifecycleMutation(providerCtx, mutation)
+	if err := provider.Move(providerCtx, resolvedSource.Ref.Path, targetParentPath, newName); err != nil {
+		return c.abortLifecycle(ctx, lifecycleOperation, err)
+	}
+	if err := lifecycleOperation.Commit(ctx); err != nil {
+		return c.recoverLifecycle(ctx, lifecycleOperation, err)
+	}
+	return nil
 }
 
 func (c *VFSCore) Delete(ctx context.Context, actor Actor, uri common.CanonURI) error {
@@ -436,11 +491,18 @@ func (c *VFSCore) Delete(ctx context.Context, actor Actor, uri common.CanonURI) 
 	}
 	rctx := newRequestContext(actor, uri, resolved)
 	providerCtx := contextWithCoreRequest(ctx, &bound, rctx)
-	if err := provider.Delete(providerCtx, resolved.Ref.Path); err != nil {
+	lifecycleOperation, mutation, err := c.prepareLifecycle(ctx, LifecycleDelete, actor, resolved.Ref, common.ResourceRef{})
+	if err != nil {
 		return err
 	}
-
-	return c.lifecycle.OnResourceDeleted(ctx, actor, resolved.Ref)
+	providerCtx = ContextWithLifecycleMutation(providerCtx, mutation)
+	if err := provider.Delete(providerCtx, resolved.Ref.Path); err != nil {
+		return c.abortLifecycle(ctx, lifecycleOperation, err)
+	}
+	if err := lifecycleOperation.Commit(ctx); err != nil {
+		return c.recoverLifecycle(ctx, lifecycleOperation, err)
+	}
+	return nil
 }
 
 func (c *VFSCore) Control(ctx context.Context, actor Actor, uri common.CanonURI, command string, input []byte) ([]byte, error) {

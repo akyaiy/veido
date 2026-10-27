@@ -31,6 +31,13 @@ func (a *ACLAuthorizer) Can(ctx context.Context, actor vfs.Actor, action common.
 	if _, err := validateRef(ref); err != nil || !validAction(action) {
 		return false, fmt.Errorf("aclv2: invalid authorization request")
 	}
+	fenced, err := a.store.LifecycleFenced(ctx, ref)
+	if err != nil {
+		return false, err
+	}
+	if fenced {
+		return false, ErrLifecyclePending
+	}
 	subjects, err := a.subjects(ctx, actor)
 	if err != nil {
 		return false, err

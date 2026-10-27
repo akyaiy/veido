@@ -104,12 +104,20 @@ func Build(ctx context.Context, cfg Config) (_ *Runtime, err error) {
 	if err != nil {
 		return nil, err
 	}
+	lifecycle, err := aclv2.NewLifecycle(aclStore)
+	if err != nil {
+		return nil, err
+	}
 	if err = sdk.RegisterDefinition(catalog, aclprovider.Definition(aclStore, authorizer)); err != nil {
 		return nil, err
 	}
-	frontend, err := vfs.NewVFS(scopeResolver, vfs.NewConnectionResolver(db), pool, authorizer, vfs.NewNoopResourceLifecycle())
+	frontend, err := vfs.NewVFS(scopeResolver, vfs.NewConnectionResolver(db), pool, authorizer, lifecycle)
 	if err != nil {
 		return nil, err
+	}
+	metadataProbe := vfs.NewLifecycleMetadataProbe(scopeResolver, vfs.NewConnectionResolver(db), pool)
+	if err = lifecycle.Reconcile(ctx, metadataProbe.Exists); err != nil {
+		return nil, fmt.Errorf("reconcile ACL lifecycle: %w", err)
 	}
 	if err = authhooks.Register(registry, authService, frontend); err != nil {
 		return nil, err

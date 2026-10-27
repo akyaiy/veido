@@ -188,9 +188,43 @@ VFS-ресурсы.
 
 ## 7. Lifecycle первого среза
 
-`lifecycle.go` реализует существующий `ResourceLifecycleSink` и записывает
+### 7.1. Сначала: staged lifecycle contract VFS Core
+
+Текущий `ResourceLifecycleSink` вызывается после provider mutation и не даёт
+гарантии согласованности: ошибка callback может быть возвращена клиенту уже
+после создания, удаления или перемещения ресурса. Поэтому ACL lifecycle нельзя
+реализовывать поверх текущих callbacks.
+
+Перед ACL lifecycle VFS Core получает typed staged contract с `operation_id`,
+actor, видом операции, revision и каноническими source/target URI:
+
+```text
+authorize
+  -> lifecycle.Prepare
+  -> provider mutation
+  -> lifecycle.Commit
+```
+
+- при явном отказе provider Core вызывает `lifecycle.Abort`;
+- если результат provider mutation или lifecycle commit неоднозначен, Core
+  переводит операцию в `Recovery` и не использует старое ACL-состояние;
+- `Prepare` устанавливает durable fail-closed fence для затронутых URI, который
+  снимается только после `Commit`, `Abort` или успешной reconciliation;
+- `Recover` выполняется при старте и по явному обслуживающему запуску;
+- это не allow-fallback: пока операция в `Recovery`, доступ к затронутому
+  диапазону контролируемо отклоняется;
+- `OpenFile(O_CREATE)` публикует lifecycle commit только после успешного
+  `FinishWrite`. Direct-write provider обязан поддерживать идентифицируемую
+  recovery-проверку либо не может использоваться для защищённого create.
+
+Нужны fault-injection тесты для каждого разрыва между `Prepare`, provider
+mutation, `Commit` и `Abort/Recovery`.
+
+### 7.2. ACL lifecycle
+
+После staged contract `lifecycle.go` реализует ACL обработчики и записывает
 durable lifecycle operation. Для первого среза поддерживаются только операции,
-которые VFS Core уже выполнил над SQLite/local namespace:
+которые VFS Core выполнил над SQLite/local namespace:
 
 - create создаёт protected policy capability для actor-создателя; data-rule
   nodes создаются только при первом обычном grant;
@@ -239,11 +273,19 @@ deny-by-default без ACL Provider management UI.
 bootstrap command. Результат шага: правила управляются через VFS с исходным
 actor, без прямого доступа других providers к ACL store.
 
-### Шаг 4 — lifecycle
+### Шаг 4a — staged lifecycle contract VFS Core
 
-Подключить sparse nodes к create/delete/rename/move, durable operation и
-fail-closed recovery. Результат шага: move не переписывает правила потомков и
-не переносит старые права при delete + recreate.
+Заменить post-mutation callbacks на `Prepare / Commit / Abort / Recover`,
+operation ID и durable fail-closed fence. Переподключить create/delete/move и
+`OpenFile(O_CREATE)`; добавить fault-injection тесты. Результат шага: Core не
+сообщает об откате, когда provider уже изменил ресурс, и не оставляет доступ по
+устаревшему ACL после частичного сбоя.
+
+### Шаг 4b — ACL lifecycle
+
+Подключить sparse nodes к staged create/delete/rename/move, protected policy
+capability владельца, durable operation и recovery. Результат шага: move не
+переписывает правила потомков и не переносит старые права при delete + recreate.
 
 ## 10. Минимальные тесты готовности
 
