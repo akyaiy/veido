@@ -251,14 +251,13 @@ async function saveSvgAsFileManager(selectedPath = null) {
 
     try {
         // Проверяем, существует ли файл
-        let exists = false;
+        const directory = path.endsWith('.svg')
+            ? path.substring(0, path.lastIndexOf('/')) || '/'
+            : path;
 
-        try {
-            await window.vfs.stat(uri);
-            exists = true;
-        } catch (error) {
-            if (error.status !== 404) throw error;
-        }
+        const files = await window.vfs.readdir(await window.toVfsUri(directory));
+        const fileName = uri.split('/').pop();
+        const exists = files.some(file => file.name === fileName);
 
         if (exists) {
             // Подтверждение перезаписи

@@ -367,8 +367,8 @@ class TempStore {
         });
     }
 }
-const tempStore = new TempStore();
-tempStore.startCleanup();
+window.tempStore = new TempStore();
+window.tempStore.startCleanup();
 
 /***********************************************************************
  *  user объект в котором хранятся данные пользователя

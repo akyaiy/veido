@@ -140,6 +140,22 @@ async function saveEditorBlock(saveAs = false, selectedPath = null) {
     const js = document.getElementById(blockId + 'Js')?.textContent ?? '';
 
     try {
+        // Создание папки, если она отсутствует
+        const parts = path.split('/');
+        const directoryName = parts.pop();
+        const parentPath = parts.join('/');
+        const parentUri = await window.toVfsUri(parentPath);
+        const entries = await window.vfs.readdir(parentUri);
+
+        if (!entries.some(entry => entry.name === directoryName && entry.is_dir)) {
+            const directoryUri = await window.toVfsUri(path);
+            await window.vfs.mkdir(directoryUri);
+        }
+
+        // Получение списка существующих файлов
+        const directoryUri = await window.toVfsUri(path);
+        const files = await window.vfs.readdir(directoryUri);
+
         // Сохранение трёх файлов
         for (const [name, content] of [
             ['content.md', html],
@@ -148,7 +164,7 @@ async function saveEditorBlock(saveAs = false, selectedPath = null) {
         ]) {
             const uri = await window.toVfsUri(path + '/' + name);
 
-            if (await window.vfs.exists(uri)) {
+            if (files.some(file => file.name === name && !file.is_dir)) {
                 await window.vfs.write(uri, content);
             } else {
                 await window.vfs.create(
