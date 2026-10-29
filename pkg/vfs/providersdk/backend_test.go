@@ -1,9 +1,9 @@
 package providersdk_test
 
 import (
-	"MyServer/pkg/vfs"
-	sdk "MyServer/pkg/vfs/providersdk"
-	"MyServer/pkg/vfs/providertest"
+	"github.com/akyaiy/veido/pkg/vfs"
+	sdk "github.com/akyaiy/veido/pkg/vfs/providersdk"
+	"github.com/akyaiy/veido/pkg/vfs/providertest"
 	"context"
 	"errors"
 	"io"

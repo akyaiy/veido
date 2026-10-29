@@ -6,8 +6,8 @@
 package virtfs
 
 import (
-	"MyServer/internal/pathmap"
-	vfs "MyServer/internal/vfs/v2"
+	"github.com/akyaiy/veido/internal/pathmap"
+	vfs "github.com/akyaiy/veido/internal/vfs/v2"
 	"context"
 	"errors"
 	"os"

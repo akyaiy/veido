@@ -1,7 +1,7 @@
 package files_api
 
 import (
-	"MyServer/internal/vfs"
+	"github.com/akyaiy/veido/internal/vfs"
 	"encoding/json"
 	"io"
 	"log"

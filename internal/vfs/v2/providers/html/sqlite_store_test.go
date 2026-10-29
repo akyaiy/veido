@@ -1,7 +1,7 @@
 package html
 
 import (
-	"MyServer/internal/common"
+	"github.com/akyaiy/veido/internal/common"
 	"context"
 	"database/sql"
 	"errors"
@@ -517,12 +517,12 @@ func TestHTMLProviderPackageDoesNotImportOtherDomains(t *testing.T) {
 		t.Fatalf("Glob: %v", err)
 	}
 	banned := []string{
-		"MyServer/internal/auth",
-		"MyServer/internal/acl",
-		"MyServer/internal/vfs/v2/storage",
-		"MyServer/internal/vfs/v2/providers/local",
-		"MyServer/internal/vfs/v2/providers/shared",
-		"MyServer/internal/vfs/v2/providers/system",
+		"github.com/akyaiy/veido/internal/auth",
+		"github.com/akyaiy/veido/internal/acl",
+		"github.com/akyaiy/veido/internal/vfs/v2/storage",
+		"github.com/akyaiy/veido/internal/vfs/v2/providers/local",
+		"github.com/akyaiy/veido/internal/vfs/v2/providers/shared",
+		"github.com/akyaiy/veido/internal/vfs/v2/providers/system",
 	}
 	for _, file := range files {
 		parsed, err := parser.ParseFile(token.NewFileSet(), file, nil, parser.ImportsOnly)

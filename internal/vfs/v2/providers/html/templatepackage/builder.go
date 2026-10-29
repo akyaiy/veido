@@ -4,7 +4,7 @@
 package templatepackage
 
 import (
-	html "MyServer/internal/vfs/v2/providers/html"
+	html "github.com/akyaiy/veido/internal/vfs/v2/providers/html"
 	"encoding/json"
 	"fmt"
 	"io"

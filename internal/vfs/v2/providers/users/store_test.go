@@ -1,8 +1,8 @@
 package users
 
 import (
-	"MyServer/internal/database/migrate"
-	"MyServer/internal/vfs/v2/storage"
+	"github.com/akyaiy/veido/internal/database/migrate"
+	"github.com/akyaiy/veido/internal/vfs/v2/storage"
 	"context"
 	"database/sql"
 	"testing"

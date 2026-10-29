@@ -1,4 +1,4 @@
-module MyServer
+module github.com/akyaiy/veido
 
 go 1.24.3
 

@@ -1,7 +1,7 @@
 package local
 
 import (
-	vfs "MyServer/internal/vfs/v2"
+	vfs "github.com/akyaiy/veido/internal/vfs/v2"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -14,7 +14,7 @@ import (
 	"os"
 	"time"
 
-	"MyServer/internal/database/migrate"
+	"github.com/akyaiy/veido/internal/database/migrate"
 )
 
 const SchemaSQL = `

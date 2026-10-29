@@ -1,10 +1,10 @@
 package providersdk_test
 
 import (
-	"MyServer/pkg/vfs"
-	"MyServer/pkg/vfs/hooks"
-	"MyServer/pkg/vfs/hooksdk"
-	sdk "MyServer/pkg/vfs/providersdk"
+	"github.com/akyaiy/veido/pkg/vfs"
+	"github.com/akyaiy/veido/pkg/vfs/hooks"
+	"github.com/akyaiy/veido/pkg/vfs/hooksdk"
+	sdk "github.com/akyaiy/veido/pkg/vfs/providersdk"
 	"context"
 	"encoding/json"
 	"testing"

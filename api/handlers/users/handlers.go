@@ -1,8 +1,8 @@
 package users
 
 import (
-	"MyServer/internal/auth"
-	"MyServer/internal/server"
+	"github.com/akyaiy/veido/internal/auth"
+	"github.com/akyaiy/veido/internal/server"
 	"encoding/json"
 	"errors"
 	"net/http"

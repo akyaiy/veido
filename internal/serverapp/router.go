@@ -1,12 +1,12 @@
 package serverapp
 
 import (
-	"MyServer/internal/auth"
-	vfs "MyServer/internal/vfs/v2"
-	authapi "MyServer/internal/vfs/v2/adapters/authapi"
-	hookapi "MyServer/internal/vfs/v2/adapters/hookapi"
-	httpapi "MyServer/internal/vfs/v2/adapters/httpapi"
-	sitehttp "MyServer/internal/vfs/v2/adapters/sitehttp"
+	"github.com/akyaiy/veido/internal/auth"
+	vfs "github.com/akyaiy/veido/internal/vfs/v2"
+	authapi "github.com/akyaiy/veido/internal/vfs/v2/adapters/authapi"
+	hookapi "github.com/akyaiy/veido/internal/vfs/v2/adapters/hookapi"
+	httpapi "github.com/akyaiy/veido/internal/vfs/v2/adapters/httpapi"
+	sitehttp "github.com/akyaiy/veido/internal/vfs/v2/adapters/sitehttp"
 	"errors"
 	"net/http"
 	"strconv"

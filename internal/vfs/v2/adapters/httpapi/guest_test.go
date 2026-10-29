@@ -1,7 +1,7 @@
 package httpapi
 
 import (
-	"MyServer/internal/vfs/v2"
+	"github.com/akyaiy/veido/internal/vfs/v2"
 	"net/http"
 	"net/http/httptest"
 	"testing"

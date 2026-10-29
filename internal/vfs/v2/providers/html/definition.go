@@ -1,10 +1,10 @@
 package html
 
 import (
-	vfs "MyServer/internal/vfs/v2"
-	"MyServer/internal/vfs/v2/providers/html/hooks/getstatic"
-	"MyServer/pkg/vfs/hooks"
-	sdk "MyServer/pkg/vfs/providersdk"
+	vfs "github.com/akyaiy/veido/internal/vfs/v2"
+	"github.com/akyaiy/veido/internal/vfs/v2/providers/html/hooks/getstatic"
+	"github.com/akyaiy/veido/pkg/vfs/hooks"
+	sdk "github.com/akyaiy/veido/pkg/vfs/providersdk"
 	"context"
 )
 

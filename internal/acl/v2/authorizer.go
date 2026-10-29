@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"strings"
 
-	"MyServer/internal/auth"
-	"MyServer/internal/common"
-	vfs "MyServer/internal/vfs/v2"
+	"github.com/akyaiy/veido/internal/auth"
+	"github.com/akyaiy/veido/internal/common"
+	vfs "github.com/akyaiy/veido/internal/vfs/v2"
 )
 
 // ACLAuthorizer is the VFS Authorizer adapter for ACLv2.

@@ -1,13 +1,13 @@
 package shared
 
 import (
-	"MyServer/internal/common"
+	"github.com/akyaiy/veido/internal/common"
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 
-	"MyServer/internal/database/migrate"
+	"github.com/akyaiy/veido/internal/database/migrate"
 )
 
 var ErrLinkNotFound = errors.New("shared link not found")

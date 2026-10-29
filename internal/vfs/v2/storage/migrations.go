@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"MyServer/internal/database/migrate"
+	"github.com/akyaiy/veido/internal/database/migrate"
 )
 
 func MigrationGroup() migrate.Group {

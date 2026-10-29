@@ -1,10 +1,10 @@
 package app
 
 import (
-	authmiddleware "MyServer/api/middleware"
-	"MyServer/internal/auth"
-	"MyServer/internal/database/schema"
-	usersprovider "MyServer/internal/vfs/v2/providers/users"
+	authmiddleware "github.com/akyaiy/veido/api/middleware"
+	"github.com/akyaiy/veido/internal/auth"
+	"github.com/akyaiy/veido/internal/database/schema"
+	usersprovider "github.com/akyaiy/veido/internal/vfs/v2/providers/users"
 	"bytes"
 	"context"
 	"database/sql"

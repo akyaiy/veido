@@ -1,11 +1,11 @@
 package vfshooks
 
 import (
-	"MyServer/internal/auth"
-	"MyServer/internal/database/migrate"
-	"MyServer/internal/vfs/v2/adapters/hookapi"
-	"MyServer/pkg/vfs"
-	"MyServer/pkg/vfs/hooks"
+	"github.com/akyaiy/veido/internal/auth"
+	"github.com/akyaiy/veido/internal/database/migrate"
+	"github.com/akyaiy/veido/internal/vfs/v2/adapters/hookapi"
+	"github.com/akyaiy/veido/pkg/vfs"
+	"github.com/akyaiy/veido/pkg/vfs/hooks"
 	"context"
 	"database/sql"
 	"net/http"

@@ -9,7 +9,7 @@ import (
 	"reflect"
 	"time"
 
-	"MyServer/internal/timeconverter"
+	"github.com/akyaiy/veido/internal/timeconverter"
 
 	"gopkg.in/yaml.v3"
 )

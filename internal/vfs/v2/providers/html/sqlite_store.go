@@ -1,7 +1,7 @@
 package html
 
 import (
-	"MyServer/internal/common"
+	"github.com/akyaiy/veido/internal/common"
 	"context"
 	"database/sql"
 	"errors"
@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"MyServer/internal/database/migrate"
+	"github.com/akyaiy/veido/internal/database/migrate"
 
 	"github.com/mattn/go-sqlite3"
 )

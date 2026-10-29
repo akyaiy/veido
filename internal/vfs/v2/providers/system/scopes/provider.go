@@ -1,10 +1,10 @@
 package scopes
 
 import (
-	"MyServer/internal/common"
-	vfs "MyServer/internal/vfs/v2"
-	"MyServer/internal/vfs/v2/storage"
-	sdk "MyServer/pkg/vfs/providersdk"
+	"github.com/akyaiy/veido/internal/common"
+	vfs "github.com/akyaiy/veido/internal/vfs/v2"
+	"github.com/akyaiy/veido/internal/vfs/v2/storage"
+	sdk "github.com/akyaiy/veido/pkg/vfs/providersdk"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"

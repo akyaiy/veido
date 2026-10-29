@@ -1,8 +1,8 @@
 package local
 
 import (
-	vfs "MyServer/internal/vfs/v2"
-	"MyServer/internal/vfs/v2/virtfs"
+	vfs "github.com/akyaiy/veido/internal/vfs/v2"
+	"github.com/akyaiy/veido/internal/vfs/v2/virtfs"
 	"context"
 	"os"
 )

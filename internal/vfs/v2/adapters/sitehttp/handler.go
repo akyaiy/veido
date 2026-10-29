@@ -3,9 +3,9 @@
 package sitehttp
 
 import (
-	"MyServer/internal/vfs/v2/providers/html/hooks/getstatic"
-	"MyServer/pkg/vfs"
-	"MyServer/pkg/vfs/hooks"
+	"github.com/akyaiy/veido/internal/vfs/v2/providers/html/hooks/getstatic"
+	"github.com/akyaiy/veido/pkg/vfs"
+	"github.com/akyaiy/veido/pkg/vfs/hooks"
 	"crypto/subtle"
 	"encoding/json"
 	"errors"

@@ -2,8 +2,8 @@
 package hookapi
 
 import (
-	"MyServer/pkg/vfs"
-	"MyServer/pkg/vfs/hooks"
+	"github.com/akyaiy/veido/pkg/vfs"
+	"github.com/akyaiy/veido/pkg/vfs/hooks"
 	"bytes"
 	"context"
 	"encoding/json"

@@ -1,9 +1,9 @@
 package v2test
 
 import (
-	"MyServer/internal/common"
-	v2 "MyServer/internal/vfs/v2"
-	"MyServer/internal/vfs/v2/providers"
+	"github.com/akyaiy/veido/internal/common"
+	v2 "github.com/akyaiy/veido/internal/vfs/v2"
+	"github.com/akyaiy/veido/internal/vfs/v2/providers"
 	"bytes"
 	"context"
 	"database/sql"

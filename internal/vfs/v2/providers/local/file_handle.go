@@ -1,7 +1,7 @@
 package local
 
 import (
-	vfs "MyServer/internal/vfs/v2"
+	vfs "github.com/akyaiy/veido/internal/vfs/v2"
 	"context"
 	"io"
 	"os"

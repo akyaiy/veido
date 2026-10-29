@@ -1,10 +1,10 @@
 package files_api
 
 import (
-	"MyServer/internal/auth"
-	"MyServer/internal/shared"
-	"MyServer/internal/vfs"
-	"MyServer/internal/vfs/providers"
+	"github.com/akyaiy/veido/internal/auth"
+	"github.com/akyaiy/veido/internal/shared"
+	"github.com/akyaiy/veido/internal/vfs"
+	"github.com/akyaiy/veido/internal/vfs/providers"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"

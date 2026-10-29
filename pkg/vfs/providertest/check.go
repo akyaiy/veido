@@ -1,7 +1,7 @@
 package providertest
 
 import (
-	"MyServer/pkg/vfs"
+	"github.com/akyaiy/veido/pkg/vfs"
 	"context"
 	"io"
 	"os"

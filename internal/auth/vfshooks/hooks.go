@@ -1,10 +1,10 @@
 package vfshooks
 
 import (
-	"MyServer/internal/auth"
-	"MyServer/pkg/vfs"
-	"MyServer/pkg/vfs/hooks"
-	"MyServer/pkg/vfs/providersdk"
+	"github.com/akyaiy/veido/internal/auth"
+	"github.com/akyaiy/veido/pkg/vfs"
+	"github.com/akyaiy/veido/pkg/vfs/hooks"
+	"github.com/akyaiy/veido/pkg/vfs/providersdk"
 	"bytes"
 	"context"
 	"encoding/json"

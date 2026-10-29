@@ -1,7 +1,7 @@
 package shared
 
 import (
-	"MyServer/internal/common"
+	"github.com/akyaiy/veido/internal/common"
 	"time"
 )
 

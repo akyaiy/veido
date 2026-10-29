@@ -1,7 +1,7 @@
 package vfs
 
 import (
-	"MyServer/internal/auth"
+	"github.com/akyaiy/veido/internal/auth"
 	"context"
 
 	"os"

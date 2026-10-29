@@ -8,14 +8,14 @@ import (
 	"os"
 	"time"
 
-	"MyServer/internal/database/migrate"
-	"MyServer/internal/database/schema"
-	"MyServer/internal/serverapp"
-	"MyServer/internal/sqliteDB"
-	aclprovider "MyServer/internal/vfs/v2/providers/acl"
-	htmlprovider "MyServer/internal/vfs/v2/providers/html"
-	localprovider "MyServer/internal/vfs/v2/providers/local"
-	usersprovider "MyServer/internal/vfs/v2/providers/users"
+	"github.com/akyaiy/veido/internal/database/migrate"
+	"github.com/akyaiy/veido/internal/database/schema"
+	"github.com/akyaiy/veido/internal/serverapp"
+	"github.com/akyaiy/veido/internal/sqliteDB"
+	aclprovider "github.com/akyaiy/veido/internal/vfs/v2/providers/acl"
+	htmlprovider "github.com/akyaiy/veido/internal/vfs/v2/providers/html"
+	localprovider "github.com/akyaiy/veido/internal/vfs/v2/providers/local"
+	usersprovider "github.com/akyaiy/veido/internal/vfs/v2/providers/users"
 )
 
 func main() {

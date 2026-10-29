@@ -1,9 +1,9 @@
 package v2test
 
 import (
-	v2 "MyServer/internal/vfs/v2"
-	systemscopes "MyServer/internal/vfs/v2/providers/system/scopes"
-	"MyServer/internal/vfs/v2/storage"
+	v2 "github.com/akyaiy/veido/internal/vfs/v2"
+	systemscopes "github.com/akyaiy/veido/internal/vfs/v2/providers/system/scopes"
+	"github.com/akyaiy/veido/internal/vfs/v2/storage"
 	"context"
 	"database/sql"
 	"encoding/json"

@@ -6,8 +6,8 @@ import (
 	"log"
 	"net/http"
 
-	"MyServer/internal/auth"
-	"MyServer/internal/config"
+	"github.com/akyaiy/veido/internal/auth"
+	"github.com/akyaiy/veido/internal/config"
 )
 
 func RequirePermission(db *sql.DB, permOrFunc interface{}, next http.Handler) http.HandlerFunc {

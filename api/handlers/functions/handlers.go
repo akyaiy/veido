@@ -24,8 +24,8 @@ import (
 	"path/filepath"
 	"strings"
 	// //"time"
-	// "MyServer/internal/auth"
-	// "MyServer/internal/config"
+	// "github.com/akyaiy/veido/internal/auth"
+	// "github.com/akyaiy/veido/internal/config"
 )
 
 /*********************************************************************************

@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"MyServer/internal/database/migrate"
-	"MyServer/internal/sqliteDB"
-	htmlprovider "MyServer/internal/vfs/v2/providers/html"
-	localprovider "MyServer/internal/vfs/v2/providers/local"
+	"github.com/akyaiy/veido/internal/database/migrate"
+	"github.com/akyaiy/veido/internal/sqliteDB"
+	htmlprovider "github.com/akyaiy/veido/internal/vfs/v2/providers/html"
+	localprovider "github.com/akyaiy/veido/internal/vfs/v2/providers/local"
 )
 
 func migratePreprod(ctx context.Context, db *sql.DB) error {

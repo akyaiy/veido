@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"MyServer/internal/common"
+	"github.com/akyaiy/veido/internal/common"
 )
 
 var (

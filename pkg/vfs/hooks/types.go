@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"time"
 
-	"MyServer/pkg/vfs"
+	"github.com/akyaiy/veido/pkg/vfs"
 )
 
 var (

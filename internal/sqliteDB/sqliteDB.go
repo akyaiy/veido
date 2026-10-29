@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"time"
 
-	"MyServer/internal/database/migrate"
+	"github.com/akyaiy/veido/internal/database/migrate"
 
 	_ "github.com/mattn/go-sqlite3"
 )

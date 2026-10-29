@@ -2,14 +2,14 @@
 package main
 
 import (
-	aclv2 "MyServer/internal/acl/v2"
-	"MyServer/internal/common"
-	"MyServer/internal/database/schema"
-	"MyServer/internal/sqliteDB"
-	aclprovider "MyServer/internal/vfs/v2/providers/acl"
-	htmlprovider "MyServer/internal/vfs/v2/providers/html"
-	localprovider "MyServer/internal/vfs/v2/providers/local"
-	usersprovider "MyServer/internal/vfs/v2/providers/users"
+	aclv2 "github.com/akyaiy/veido/internal/acl/v2"
+	"github.com/akyaiy/veido/internal/common"
+	"github.com/akyaiy/veido/internal/database/schema"
+	"github.com/akyaiy/veido/internal/sqliteDB"
+	aclprovider "github.com/akyaiy/veido/internal/vfs/v2/providers/acl"
+	htmlprovider "github.com/akyaiy/veido/internal/vfs/v2/providers/html"
+	localprovider "github.com/akyaiy/veido/internal/vfs/v2/providers/local"
+	usersprovider "github.com/akyaiy/veido/internal/vfs/v2/providers/users"
 	"context"
 	"errors"
 	"flag"

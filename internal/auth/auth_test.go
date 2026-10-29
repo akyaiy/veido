@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"MyServer/internal/database/migrate"
-	"MyServer/internal/sqliteDB"
+	"github.com/akyaiy/veido/internal/database/migrate"
+	"github.com/akyaiy/veido/internal/sqliteDB"
 )
 
 const testPassword = "correct-horse-battery-staple"

@@ -1,7 +1,7 @@
 package providers
 
 import (
-	"MyServer/internal/vfs"
+	"github.com/akyaiy/veido/internal/vfs"
 	"context"
 	"fmt"
 	"os"

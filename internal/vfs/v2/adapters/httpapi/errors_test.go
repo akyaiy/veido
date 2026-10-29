@@ -1,8 +1,8 @@
 package httpapi
 
 import (
-	"MyServer/internal/common"
-	"MyServer/internal/vfs/v2"
+	"github.com/akyaiy/veido/internal/common"
+	"github.com/akyaiy/veido/internal/vfs/v2"
 	"context"
 	"errors"
 	"fmt"

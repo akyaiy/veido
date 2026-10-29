@@ -1,10 +1,10 @@
 package acl
 
 import (
-	aclv2 "MyServer/internal/acl/v2"
-	"MyServer/internal/common"
-	vfs "MyServer/internal/vfs/v2"
-	sdk "MyServer/pkg/vfs/providersdk"
+	aclv2 "github.com/akyaiy/veido/internal/acl/v2"
+	"github.com/akyaiy/veido/internal/common"
+	vfs "github.com/akyaiy/veido/internal/vfs/v2"
+	sdk "github.com/akyaiy/veido/pkg/vfs/providersdk"
 	"bytes"
 	"context"
 	"encoding/base64"

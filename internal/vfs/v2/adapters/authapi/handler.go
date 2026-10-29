@@ -2,10 +2,10 @@
 package authapi
 
 import (
-	"MyServer/internal/auth/vfshooks"
-	"MyServer/internal/vfs/v2"
-	"MyServer/internal/vfs/v2/adapters/hookapi"
-	"MyServer/pkg/vfs/hooks"
+	"github.com/akyaiy/veido/internal/auth/vfshooks"
+	"github.com/akyaiy/veido/internal/vfs/v2"
+	"github.com/akyaiy/veido/internal/vfs/v2/adapters/hookapi"
+	"github.com/akyaiy/veido/pkg/vfs/hooks"
 	"encoding/json"
 	"errors"
 	"io"

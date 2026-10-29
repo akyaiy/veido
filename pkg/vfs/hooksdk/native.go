@@ -2,8 +2,8 @@
 package hooksdk
 
 import (
-	"MyServer/pkg/vfs/hooks"
-	sdk "MyServer/pkg/vfs/providersdk"
+	"github.com/akyaiy/veido/pkg/vfs/hooks"
+	sdk "github.com/akyaiy/veido/pkg/vfs/providersdk"
 	"bytes"
 	"context"
 	"encoding/json"

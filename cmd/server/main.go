@@ -1,7 +1,7 @@
 package main
 
 import (
-	"MyServer/internal/serverapp"
+	"github.com/akyaiy/veido/internal/serverapp"
 	"context"
 	"log"
 	"os"

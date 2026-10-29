@@ -1,7 +1,7 @@
 package vfs
 
 import (
-	"MyServer/internal/acl"
+	"github.com/akyaiy/veido/internal/acl"
 	"context"
 	"database/sql"
 	"fmt"

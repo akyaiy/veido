@@ -1,7 +1,7 @@
 package users
 
 import (
-	"MyServer/internal/database/migrate"
+	"github.com/akyaiy/veido/internal/database/migrate"
 	"context"
 	"database/sql"
 )

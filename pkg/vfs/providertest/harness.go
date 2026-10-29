@@ -3,8 +3,8 @@
 package providertest
 
 import (
-	core "MyServer/internal/vfs/v2"
-	"MyServer/pkg/vfs"
+	core "github.com/akyaiy/veido/internal/vfs/v2"
+	"github.com/akyaiy/veido/pkg/vfs"
 	"context"
 	"fmt"
 )

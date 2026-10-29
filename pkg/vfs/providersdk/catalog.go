@@ -1,7 +1,7 @@
 package providersdk
 
 import (
-	"MyServer/pkg/vfs"
+	"github.com/akyaiy/veido/pkg/vfs"
 	"context"
 	"encoding/json"
 	"fmt"

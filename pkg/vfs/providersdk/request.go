@@ -1,8 +1,8 @@
 package providersdk
 
 import (
-	"MyServer/internal/pathmap"
-	"MyServer/pkg/vfs"
+	"github.com/akyaiy/veido/internal/pathmap"
+	"github.com/akyaiy/veido/pkg/vfs"
 	"context"
 	"encoding/json"
 	"errors"

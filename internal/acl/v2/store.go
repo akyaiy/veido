@@ -8,7 +8,7 @@ import (
 	"path"
 	"strings"
 
-	"MyServer/internal/common"
+	"github.com/akyaiy/veido/internal/common"
 )
 
 type Effect string

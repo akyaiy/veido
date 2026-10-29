@@ -1,7 +1,7 @@
 package shared
 
 import (
-	"MyServer/internal/vfs"
+	"github.com/akyaiy/veido/internal/vfs"
 	"context"
 	"database/sql"
 	"fmt"

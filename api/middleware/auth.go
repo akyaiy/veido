@@ -1,8 +1,8 @@
 package middleware
 
 import (
-	"MyServer/internal/auth"
-	vfs "MyServer/internal/vfs/v2"
+	"github.com/akyaiy/veido/internal/auth"
+	vfs "github.com/akyaiy/veido/internal/vfs/v2"
 	"context"
 	"net/http"
 	"strconv"

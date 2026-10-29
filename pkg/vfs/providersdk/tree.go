@@ -4,9 +4,9 @@
 package providersdk
 
 import (
-	"MyServer/internal/pathmap"
-	"MyServer/internal/vfs/v2/virtfs"
-	"MyServer/pkg/vfs"
+	"github.com/akyaiy/veido/internal/pathmap"
+	"github.com/akyaiy/veido/internal/vfs/v2/virtfs"
+	"github.com/akyaiy/veido/pkg/vfs"
 	"context"
 	"errors"
 	"fmt"

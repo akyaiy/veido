@@ -2,8 +2,8 @@
 package webdav
 
 import (
-	adapter "MyServer/internal/vfs/v2/adapters/webdav"
-	"MyServer/pkg/vfs"
+	adapter "github.com/akyaiy/veido/internal/vfs/v2/adapters/webdav"
+	"github.com/akyaiy/veido/pkg/vfs"
 	"net/http"
 
 	gowebdav "golang.org/x/net/webdav"

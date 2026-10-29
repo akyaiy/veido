@@ -3,9 +3,9 @@
 package getstatic
 
 import (
-	"MyServer/pkg/vfs"
-	"MyServer/pkg/vfs/hooks"
-	"MyServer/pkg/vfs/hooksdk"
+	"github.com/akyaiy/veido/pkg/vfs"
+	"github.com/akyaiy/veido/pkg/vfs/hooks"
+	"github.com/akyaiy/veido/pkg/vfs/hooksdk"
 	"bytes"
 	"context"
 	"crypto/sha256"

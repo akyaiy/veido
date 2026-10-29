@@ -1,8 +1,8 @@
 package html
 
 import (
-	vfs "MyServer/internal/vfs/v2"
-	sdk "MyServer/pkg/vfs/providersdk"
+	vfs "github.com/akyaiy/veido/internal/vfs/v2"
+	sdk "github.com/akyaiy/veido/pkg/vfs/providersdk"
 	"bytes"
 	"context"
 	"encoding/json"

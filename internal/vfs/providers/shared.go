@@ -1,8 +1,8 @@
 package providers
 
 import (
-	"MyServer/internal/acl"
-	"MyServer/internal/vfs"
+	"github.com/akyaiy/veido/internal/acl"
+	"github.com/akyaiy/veido/internal/vfs"
 	"context"
 	"database/sql"
 	"os"

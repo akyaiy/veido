@@ -1,7 +1,7 @@
 package vfshooks
 
 import (
-	"MyServer/internal/vfs/v2/adapters/hookapi"
+	"github.com/akyaiy/veido/internal/vfs/v2/adapters/hookapi"
 	"context"
 	"errors"
 	"net/http"

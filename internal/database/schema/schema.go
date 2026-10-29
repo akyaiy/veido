@@ -2,14 +2,14 @@
 package schema
 
 import (
-	aclv2 "MyServer/internal/acl/v2"
+	aclv2 "github.com/akyaiy/veido/internal/acl/v2"
 	"context"
 	"database/sql"
 
-	"MyServer/internal/auth"
-	"MyServer/internal/database/migrate"
-	"MyServer/internal/sqliteDB"
-	"MyServer/internal/vfs/v2/storage"
+	"github.com/akyaiy/veido/internal/auth"
+	"github.com/akyaiy/veido/internal/database/migrate"
+	"github.com/akyaiy/veido/internal/sqliteDB"
+	"github.com/akyaiy/veido/internal/vfs/v2/storage"
 )
 
 // SystemGroups returns only schema owned by the non-replaceable system core.

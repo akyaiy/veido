@@ -4,8 +4,8 @@
 package vfs
 
 import (
-	"MyServer/internal/common"
-	core "MyServer/internal/vfs/v2"
+	"github.com/akyaiy/veido/internal/common"
+	core "github.com/akyaiy/veido/internal/vfs/v2"
 )
 
 type FSProvider = core.FSProvider

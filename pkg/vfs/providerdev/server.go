@@ -3,11 +3,11 @@
 package providerdev
 
 import (
-	"MyServer/internal/vfs/v2/adapters/httpapi"
-	dav "MyServer/internal/vfs/v2/adapters/webdav"
-	"MyServer/pkg/vfs"
-	"MyServer/pkg/vfs/providersdk"
-	"MyServer/pkg/vfs/providertest"
+	"github.com/akyaiy/veido/internal/vfs/v2/adapters/httpapi"
+	dav "github.com/akyaiy/veido/internal/vfs/v2/adapters/webdav"
+	"github.com/akyaiy/veido/pkg/vfs"
+	"github.com/akyaiy/veido/pkg/vfs/providersdk"
+	"github.com/akyaiy/veido/pkg/vfs/providertest"
 	"context"
 	"encoding/json"
 	"html/template"

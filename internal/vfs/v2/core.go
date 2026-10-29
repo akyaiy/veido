@@ -1,7 +1,7 @@
 package v2
 
 import (
-	"MyServer/internal/common"
+	"github.com/akyaiy/veido/internal/common"
 	"context"
 	"errors"
 	"fmt"

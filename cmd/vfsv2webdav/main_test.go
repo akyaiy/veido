@@ -1,14 +1,14 @@
 package main
 
 import (
-	"MyServer/internal/common"
-	"MyServer/internal/database/schema"
-	"MyServer/internal/sqliteDB"
-	vfs "MyServer/internal/vfs/v2"
-	httpapi "MyServer/internal/vfs/v2/adapters/httpapi"
-	webdavadapter "MyServer/internal/vfs/v2/adapters/webdav"
-	"MyServer/internal/vfs/v2/providers/local"
-	sharedprovider "MyServer/internal/vfs/v2/providers/shared"
+	"github.com/akyaiy/veido/internal/common"
+	"github.com/akyaiy/veido/internal/database/schema"
+	"github.com/akyaiy/veido/internal/sqliteDB"
+	vfs "github.com/akyaiy/veido/internal/vfs/v2"
+	httpapi "github.com/akyaiy/veido/internal/vfs/v2/adapters/httpapi"
+	webdavadapter "github.com/akyaiy/veido/internal/vfs/v2/adapters/webdav"
+	"github.com/akyaiy/veido/internal/vfs/v2/providers/local"
+	sharedprovider "github.com/akyaiy/veido/internal/vfs/v2/providers/shared"
 	"context"
 	"errors"
 	"net/http"

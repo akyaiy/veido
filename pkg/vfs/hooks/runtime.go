@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"MyServer/pkg/vfs"
+	"github.com/akyaiy/veido/pkg/vfs"
 	"github.com/google/uuid"
 )
 

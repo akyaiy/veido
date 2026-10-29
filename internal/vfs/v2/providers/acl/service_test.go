@@ -1,10 +1,10 @@
 package acl
 
 import (
-	aclv2 "MyServer/internal/acl/v2"
-	"MyServer/internal/common"
-	"MyServer/internal/database/migrate"
-	vfs "MyServer/internal/vfs/v2"
+	aclv2 "github.com/akyaiy/veido/internal/acl/v2"
+	"github.com/akyaiy/veido/internal/common"
+	"github.com/akyaiy/veido/internal/database/migrate"
+	vfs "github.com/akyaiy/veido/internal/vfs/v2"
 	"context"
 	"database/sql"
 	"encoding/json"

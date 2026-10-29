@@ -2,9 +2,9 @@
 package main
 
 import (
-	"MyServer/internal/common"
-	"MyServer/internal/vfs/v2/providers/html"
-	"MyServer/internal/vfs/v2/providers/html/templatepackage"
+	"github.com/akyaiy/veido/internal/common"
+	"github.com/akyaiy/veido/internal/vfs/v2/providers/html"
+	"github.com/akyaiy/veido/internal/vfs/v2/providers/html/templatepackage"
 	"bytes"
 	"encoding/json"
 	"flag"

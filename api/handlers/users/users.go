@@ -1,9 +1,9 @@
 package users
 
 import (
-	"MyServer/internal/acl"
-	"MyServer/internal/auth"
-	"MyServer/internal/server"
+	"github.com/akyaiy/veido/internal/acl"
+	"github.com/akyaiy/veido/internal/auth"
+	"github.com/akyaiy/veido/internal/server"
 	"database/sql"
 	"net/http"
 

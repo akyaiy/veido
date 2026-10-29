@@ -1,13 +1,13 @@
 package main
 
 import (
-	"MyServer/internal/database/schema"
-	"MyServer/internal/sqliteDB"
-	vfs "MyServer/internal/vfs/v2"
-	htmlprovider "MyServer/internal/vfs/v2/providers/html"
-	"MyServer/internal/vfs/v2/providers/html/hooks/getstatic"
-	localprovider "MyServer/internal/vfs/v2/providers/local"
-	"MyServer/pkg/vfs/hooks"
+	"github.com/akyaiy/veido/internal/database/schema"
+	"github.com/akyaiy/veido/internal/sqliteDB"
+	vfs "github.com/akyaiy/veido/internal/vfs/v2"
+	htmlprovider "github.com/akyaiy/veido/internal/vfs/v2/providers/html"
+	"github.com/akyaiy/veido/internal/vfs/v2/providers/html/hooks/getstatic"
+	localprovider "github.com/akyaiy/veido/internal/vfs/v2/providers/local"
+	"github.com/akyaiy/veido/pkg/vfs/hooks"
 	"context"
 	"database/sql"
 	"encoding/json"

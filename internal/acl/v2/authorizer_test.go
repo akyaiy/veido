@@ -6,9 +6,9 @@ import (
 	"errors"
 	"testing"
 
-	"MyServer/internal/common"
-	"MyServer/internal/database/migrate"
-	vfs "MyServer/internal/vfs/v2"
+	"github.com/akyaiy/veido/internal/common"
+	"github.com/akyaiy/veido/internal/database/migrate"
+	vfs "github.com/akyaiy/veido/internal/vfs/v2"
 
 	_ "github.com/mattn/go-sqlite3"
 )

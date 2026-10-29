@@ -1,8 +1,8 @@
 package functions
 
 import (
-	"MyServer/internal/acl"
-	"MyServer/internal/auth"
+	"github.com/akyaiy/veido/internal/acl"
+	"github.com/akyaiy/veido/internal/auth"
 	"database/sql"
 	"net/http"
 

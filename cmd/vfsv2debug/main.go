@@ -1,12 +1,12 @@
 package main
 
 import (
-	"MyServer/internal/common"
-	"MyServer/internal/config"
-	"MyServer/internal/database/schema"
-	"MyServer/internal/sqliteDB"
-	vfs "MyServer/internal/vfs/v2"
-	"MyServer/internal/vfs/v2/providers"
+	"github.com/akyaiy/veido/internal/common"
+	"github.com/akyaiy/veido/internal/config"
+	"github.com/akyaiy/veido/internal/database/schema"
+	"github.com/akyaiy/veido/internal/sqliteDB"
+	vfs "github.com/akyaiy/veido/internal/vfs/v2"
+	"github.com/akyaiy/veido/internal/vfs/v2/providers"
 	"context"
 	"database/sql"
 	"flag"
